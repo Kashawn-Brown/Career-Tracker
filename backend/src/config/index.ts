@@ -13,7 +13,7 @@ const config = {
     credentials: true,
   },
   database: {
-    // Will be configured in the next subtask with Prisma
+    // Database configuration with Prisma ORM
     url: process.env.DATABASE_URL || '',
   },
   // For file uploads (will be implemented in a later task)

@@ -40,6 +40,7 @@
   "homepage": "https://github.com/Kashawn-Brown/Career-Tracker#readme",
   "devDependencies": {
     "concurrently": "^8.2.2",
+    "tsx": "^4.19.4",
     "typescript": "^5.3.3"
   }
 }

@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import sensible from '@fastify/sensible';
 import config from './config/index.js';
+import prisma from './lib/prisma.js';
 
 const server = Fastify({
   logger: {
@@ -22,6 +23,27 @@ server.register(sensible);
 // Health check route
 server.get('/health', async () => {
   return { status: 'ok', timestamp: new Date().toISOString() };
+});
+
+// Database test route
+server.get('/db-test', async () => {
+  try {
+    // Simple database query to test connection
+    const userCount = await prisma.user.count();
+    return { 
+      status: 'ok', 
+      message: 'Database connection successful',
+      userCount,
+      timestamp: new Date().toISOString() 
+    };
+  } catch (error) {
+    return { 
+      status: 'error', 
+      message: 'Database connection failed',
+      error: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date().toISOString() 
+    };
+  }
 });
 
 // API routes
