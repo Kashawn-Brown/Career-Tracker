@@ -1,0 +1,93 @@
+{
+  "meta": {
+    "generatedAt": "2025-06-05T05:12:37.075Z",
+    "tasksAnalyzed": 10,
+    "totalTasks": 10,
+    "analysisCount": 10,
+    "thresholdScore": 5,
+    "projectName": "Taskmaster",
+    "usedResearch": false
+  },
+  "complexityAnalysis": [
+    {
+      "taskId": 2,
+      "taskTitle": "Implement Backend API Routes for CRUD Operations",
+      "complexityScore": 7,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "Break down the implementation of backend API routes for CRUD operations into subtasks, including server setup, route handlers for job applications, tags, people, documents, user profiles, and error handling/validation.",
+      "reasoning": "This task involves creating multiple API endpoints across different resource types with validation, error handling, and proper database integration. The complexity comes from ensuring consistent API design, proper error handling, and validation across all endpoints."
+    },
+    {
+      "taskId": 3,
+      "taskTitle": "Implement File Upload System",
+      "complexityScore": 6,
+      "recommendedSubtasks": 4,
+      "expansionPrompt": "Break down the file upload system implementation into subtasks covering storage setup, API endpoints, validation, error handling, and future cloud integration preparation.",
+      "reasoning": "File handling adds complexity with storage management, security concerns, and proper error handling. The task requires middleware configuration, validation of file types, and integration with the database model."
+    },
+    {
+      "taskId": 4,
+      "taskTitle": "Create Frontend Table UI with Core Fields",
+      "complexityScore": 7,
+      "recommendedSubtasks": 4,
+      "expansionPrompt": "Break down the frontend table UI implementation into subtasks covering project setup, component creation, data fetching, sorting/pagination, and responsive design.",
+      "reasoning": "Building a complex data table with sorting, pagination, and responsive design requires careful component architecture. Integration with the backend API and handling loading/error states adds to the complexity."
+    },
+    {
+      "taskId": 5,
+      "taskTitle": "Implement Inline Editing and Form Controls",
+      "complexityScore": 8,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "Break down the inline editing implementation into subtasks covering different field types, validation, keyboard navigation, optimistic updates, and API integration.",
+      "reasoning": "Inline editing is complex due to the variety of field types, validation requirements, keyboard navigation, and state management. Optimistic updates with error rollback add significant complexity to the implementation."
+    },
+    {
+      "taskId": 6,
+      "taskTitle": "Create Expandable Detail Views",
+      "complexityScore": 7,
+      "recommendedSubtasks": 4,
+      "expansionPrompt": "Break down the expandable detail views implementation into subtasks covering modal/slideover components, tabbed interface, form controls for each section, and document preview functionality.",
+      "reasoning": "This task involves creating complex UI components with multiple tabs and different functionality in each tab. State management between the table and detail views adds complexity, as does document preview functionality."
+    },
+    {
+      "taskId": 7,
+      "taskTitle": "Implement Tagging and Favoriting System",
+      "complexityScore": 6,
+      "recommendedSubtasks": 3,
+      "expansionPrompt": "Break down the tagging and favoriting system implementation into subtasks covering tag input components, filtering capabilities, and backend integration.",
+      "reasoning": "The tagging system requires autocomplete functionality, color customization, and filtering capabilities. While moderately complex, it's more focused than some of the other tasks."
+    },
+    {
+      "taskId": 8,
+      "taskTitle": "Implement Global User Reference Panel",
+      "complexityScore": 4,
+      "recommendedSubtasks": 2,
+      "expansionPrompt": "Break down the global user reference panel implementation into subtasks covering UI design, form functionality, and persistence.",
+      "reasoning": "This is a relatively straightforward UI component with form controls and persistence. The complexity is lower compared to other tasks in the project."
+    },
+    {
+      "taskId": 9,
+      "taskTitle": "Implement Basic Stats Display",
+      "complexityScore": 6,
+      "recommendedSubtasks": 3,
+      "expansionPrompt": "Break down the statistics display implementation into subtasks covering backend endpoints, frontend visualization components, and filtering/caching functionality.",
+      "reasoning": "Creating statistics requires data aggregation on the backend and chart visualization on the frontend. The expandable detailed views and filtering add moderate complexity."
+    },
+    {
+      "taskId": 10,
+      "taskTitle": "Implement CSV Import/Export Functionality",
+      "complexityScore": 7,
+      "recommendedSubtasks": 4,
+      "expansionPrompt": "Break down the CSV import/export functionality into subtasks covering backend endpoints, CSV parsing/generation, frontend UI components, and validation/error handling.",
+      "reasoning": "CSV handling involves parsing, validation, and error handling for imports, plus proper data formatting for exports. The conflict resolution and custom format mapping add significant complexity."
+    },
+    {
+      "taskId": 1,
+      "taskTitle": "Setup Project Structure and Database Schema",
+      "complexityScore": 5,
+      "recommendedSubtasks": 3,
+      "expansionPrompt": "Break down this task with a focus on setup project structure and database schema.",
+      "reasoning": "Automatically added due to missing analysis in AI response."
+    }
+  ]
+}

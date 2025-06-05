@@ -1,0 +1,45 @@
+{
+  "name": "career-tracker",
+  "version": "1.0.0",
+  "description": "A job application tracking system with spreadsheet-like interface",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "build:frontend": "npm run build --workspace=frontend",
+    "build:backend": "npm run build --workspace=backend",
+    "build": "npm run build:frontend && npm run build:backend",
+    "start:frontend": "npm run start --workspace=frontend",
+    "start:backend": "npm run start --workspace=backend",
+    "start": "concurrently \"npm run start:frontend\" \"npm run start:backend\"",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kashawn-Brown/Career-Tracker.git"
+  },
+  "keywords": [
+    "job-tracker",
+    "career",
+    "applications",
+    "next.js",
+    "fastify",
+    "prisma"
+  ],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Kashawn-Brown/Career-Tracker/issues"
+  },
+  "homepage": "https://github.com/Kashawn-Brown/Career-Tracker#readme",
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.3.3"
+  }
+}
