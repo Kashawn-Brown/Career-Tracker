@@ -1,13 +1,7 @@
-// This is a Prisma schema that defines the database structure for a job application tracking system.
-// Job Application Tracking System Database Schema
-// Defines the data structure for a personal job search management application
-// that allows users to track applications, contacts, documents, and organize with tags
-
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// This Prisma schema defines the database structure for a job application tracking system.
+// It includes models for users, job applications, contacts, documents, and their relationships.
+// The schema supports features like job application management, contact tracking, document storage,
+// and tagging system to help users organize their job search process.
 
 generator client {
   provider = "prisma-client-js"
@@ -18,105 +12,114 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// User model - stores user profile information
 model User {
-  id           Int    @id @default(autoincrement())
-  email        String @unique
-  name         String
-  resumeLink   String?
-  githubLink   String?
-  linkedinLink String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  
-  // Relations
+  id              Int              @id @default(autoincrement())
+  email           String           @unique
+  name            String
+  resumeLink      String?
+  githubLink      String?
+  linkedinLink    String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  contacts        Contact[]
   jobApplications JobApplication[]
-  
+
   @@map("users")
 }
 
-// JobApplication model - main entity for tracking job applications
 model JobApplication {
-  id                 Int       @id @default(autoincrement())
+  id                 Int             @id @default(autoincrement())
   userId             Int
   company            String
   position           String
-  dateApplied        DateTime  @default(now())
-  status             String    @default("applied") // applied, interview, offer, rejected, withdrawn
-  type               String?   // full-time, part-time, contract, internship
+  dateApplied        DateTime        @default(now())
+  status             String          @default("applied")
+  type               String?
   salary             Int?
   jobLink            String?
-  compatibilityScore Int?      @default(0)
+  compatibilityScore Int?            @default(0)
   notes              String?
-  isStarred          Boolean   @default(false)
+  isStarred          Boolean         @default(false)
   followUpDate       DateTime?
   deadline           DateTime?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-  
-  // Relations
-  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tags       Tag[]
-  people     Person[]
-  documents  Document[]
-  
-  @@map("job_applications")
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  documents          Document[]
+  user               User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobConnections     JobConnection[]
+  tags               Tag[]
+
   @@index([userId])
   @@index([status])
   @@index([dateApplied])
+  @@map("job_applications")
 }
 
-// Tag model - for categorizing job applications
 model Tag {
-  id               Int    @id @default(autoincrement())
+  id               Int            @id @default(autoincrement())
   label            String
   jobApplicationId Int
-  createdAt        DateTime @default(now())
-  
-  // Relations
-  jobApplication JobApplication @relation(fields: [jobApplicationId], references: [id], onDelete: Cascade)
-  
-  @@map("tags")
+  createdAt        DateTime       @default(now())
+  jobApplication   JobApplication @relation(fields: [jobApplicationId], references: [id], onDelete: Cascade)
+
   @@index([jobApplicationId])
+  @@map("tags")
 }
 
-// Person model - for tracking contacts related to job applications
-model Person {
-  id               Int    @id @default(autoincrement())
+model Contact {
+  id             Int             @id @default(autoincrement())
+  userId         Int
+  name           String
+  email          String?
+  phone          String?
+  company        String?
+  role           String?
+  linkedinUrl    String?
+  connectionType String?
+  notes          String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobConnections JobConnection[]
+
+  @@index([userId])
+  @@map("contacts")
+}
+
+model JobConnection {
+  id               Int            @id @default(autoincrement())
+  jobApplicationId Int
+  contactId        Int?
   name             String
-  role             String
   email            String?
   phone            String?
-  jobApplicationId Int
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  
-  // Relations
-  jobApplication JobApplication @relation(fields: [jobApplicationId], references: [id], onDelete: Cascade)
-  
-  @@map("people")
+  company          String?
+  role             String?
+  connectionType   String
+  status           String         @default("not_contacted")
+  notes            String?
+  contactedAt      DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  contact          Contact?       @relation(fields: [contactId], references: [id])
+  jobApplication   JobApplication @relation(fields: [jobApplicationId], references: [id], onDelete: Cascade)
+
   @@index([jobApplicationId])
+  @@index([contactId])
+  @@map("job_connections")
 }
 
-// Document model - for storing uploaded files related to job applications
 model Document {
-  id               Int    @id @default(autoincrement())
+  id               Int            @id @default(autoincrement())
   fileUrl          String
   fileName         String
   fileSize         Int?
-  type             String // resume, cover_letter, portfolio
+  type             String
   jobApplicationId Int
-  createdAt        DateTime @default(now())
-  
-  // Relations
-  jobApplication JobApplication @relation(fields: [jobApplicationId], references: [id], onDelete: Cascade)
-  
-  @@map("documents")
+  createdAt        DateTime       @default(now())
+  jobApplication   JobApplication @relation(fields: [jobApplicationId], references: [id], onDelete: Cascade)
+
   @@index([jobApplicationId])
   @@index([type])
+  @@map("documents")
 }
-
-
-// The schema establishes relationships between these entities 
-// (users have many job applications, applications have many tags/people/documents) and includes proper indexing for performance. 
-// It's essentially a database design for a personal job search management app.
