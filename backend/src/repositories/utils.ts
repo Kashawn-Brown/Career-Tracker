@@ -6,8 +6,8 @@
  */
 
 import { Prisma } from '@prisma/client';
-import { prisma } from '../lib/prisma';
-import { repositories } from './index';
+import { prisma } from '../lib/prisma.js';
+import { repositories } from './index.js';
 
 
 /**

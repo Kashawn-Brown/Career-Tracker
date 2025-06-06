@@ -4,7 +4,7 @@
  * Handles all database operations related to tags.
  * Extends BaseRepository with tag-specific methods.
  */
-import { BaseRepository } from './base.repository';
+import { BaseRepository } from './base.repository.js';
 export class TagRepository extends BaseRepository {
     constructor() {
         super('tag');

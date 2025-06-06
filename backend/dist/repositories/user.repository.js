@@ -4,7 +4,7 @@
  * Handles all database operations related to users.
  * Extends BaseRepository with user-specific methods.
  */
-import { BaseRepository } from './base.repository';
+import { BaseRepository } from './base.repository.js';
 // User repository class extending BaseRepository with User-specific methods
 export class UserRepository extends BaseRepository {
     // Constructor for UserRepository, passing 'user' as the model name

@@ -5,7 +5,7 @@
  * Extends BaseRepository with job application-specific methods.
  */
 import { JobApplication, Prisma } from '@prisma/client';
-import { BaseRepository, PaginatedResult } from './base.repository';
+import { BaseRepository, PaginatedResult } from './base.repository.js';
 export type JobApplicationWithRelations = JobApplication & {
     user?: any;
     documents?: any[];

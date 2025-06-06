@@ -4,7 +4,7 @@
  * Handles all database operations related to contacts.
  * Extends BaseRepository with contact-specific methods.
  */
-import { BaseRepository } from './base.repository';
+import { BaseRepository } from './base.repository.js';
 export class ContactRepository extends BaseRepository {
     constructor() {
         super('contact');

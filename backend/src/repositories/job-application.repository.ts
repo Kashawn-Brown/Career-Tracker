@@ -6,7 +6,7 @@
  */
 
 import { JobApplication, Prisma } from '@prisma/client';
-import { BaseRepository, PaginatedResult } from './base.repository';
+import { BaseRepository, PaginatedResult } from './base.repository.js';
 
 // Type definition for job application with all related entities included
 export type JobApplicationWithRelations = JobApplication & {

@@ -6,52 +6,52 @@
  */
 
 // Base repository
-export { BaseRepository } from './base.repository';
-export type { PaginationOptions, PaginatedResult, SortOptions } from './base.repository';
+export { BaseRepository } from './base.repository.js';
+export type { PaginationOptions, PaginatedResult, SortOptions } from './base.repository.js';
 
 // User repository
-export { UserRepository } from './user.repository';
-export type { UserWithRelations } from './user.repository';
+export { UserRepository } from './user.repository.js';
+export type { UserWithRelations } from './user.repository.js';
 
 // Job Application repository
-export { JobApplicationRepository } from './job-application.repository';
+export { JobApplicationRepository } from './job-application.repository.js';
 export type { 
   JobApplicationWithRelations, 
   JobApplicationFilters 
-} from './job-application.repository';
+} from './job-application.repository.js';
 
 // Contact repository
-export { ContactRepository } from './contact.repository';
+export { ContactRepository } from './contact.repository.js';
 export type { 
   ContactWithRelations, 
   ContactFilters 
-} from './contact.repository';
+} from './contact.repository.js';
 
 // Tag repository
-export { TagRepository } from './tag.repository';
-export type { TagWithRelations } from './tag.repository';
+export { TagRepository } from './tag.repository.js';
+export type { TagWithRelations } from './tag.repository.js';
 
 // Job Connection repository
-export { JobConnectionRepository } from './job-connection.repository';
+export { JobConnectionRepository } from './job-connection.repository.js';
 export type { 
   JobConnectionWithRelations, 
   JobConnectionFilters 
-} from './job-connection.repository';
+} from './job-connection.repository.js';
 
 // Document repository
-export { DocumentRepository } from './document.repository';
+export { DocumentRepository } from './document.repository.js';
 export type { 
   DocumentWithRelations, 
   DocumentFilters 
-} from './document.repository';
+} from './document.repository.js';
 
 // Repository instances (singletons)
-import { UserRepository } from './user.repository';
-import { JobApplicationRepository } from './job-application.repository';
-import { ContactRepository } from './contact.repository';
-import { TagRepository } from './tag.repository';
-import { JobConnectionRepository } from './job-connection.repository';
-import { DocumentRepository } from './document.repository';
+import { UserRepository } from './user.repository.js';
+import { JobApplicationRepository } from './job-application.repository.js';
+import { ContactRepository } from './contact.repository.js';
+import { TagRepository } from './tag.repository.js';
+import { JobConnectionRepository } from './job-connection.repository.js';
+import { DocumentRepository } from './document.repository.js';
 
 export const userRepository = new UserRepository();
 export const jobApplicationRepository = new JobApplicationRepository();

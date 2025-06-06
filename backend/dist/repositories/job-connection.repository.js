@@ -4,7 +4,7 @@
  * Handles all database operations related to job connections.
  * Extends BaseRepository with job connection-specific methods.
  */
-import { BaseRepository } from './base.repository';
+import { BaseRepository } from './base.repository.js';
 export class JobConnectionRepository extends BaseRepository {
     constructor() {
         super('jobConnection');

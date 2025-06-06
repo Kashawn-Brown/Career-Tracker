@@ -4,7 +4,7 @@
  * Handles all database operations related to job applications.
  * Extends BaseRepository with job application-specific methods.
  */
-import { BaseRepository } from './base.repository';
+import { BaseRepository } from './base.repository.js';
 // Job application repository class extending BaseRepository with JobApplication-specific methods
 export class JobApplicationRepository extends BaseRepository {
     // Constructor for JobApplicationRepository, passing 'jobApplication' as the model name

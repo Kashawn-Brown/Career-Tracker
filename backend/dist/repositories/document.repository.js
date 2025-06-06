@@ -4,7 +4,7 @@
  * Handles all database operations related to documents.
  * Extends BaseRepository with document-specific methods.
  */
-import { BaseRepository } from './base.repository';
+import { BaseRepository } from './base.repository.js';
 export class DocumentRepository extends BaseRepository {
     constructor() {
         super('document');

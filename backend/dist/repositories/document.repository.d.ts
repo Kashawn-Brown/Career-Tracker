@@ -5,7 +5,7 @@
  * Extends BaseRepository with document-specific methods.
  */
 import { Document, Prisma } from '@prisma/client';
-import { BaseRepository } from './base.repository';
+import { BaseRepository } from './base.repository.js';
 export type DocumentWithRelations = Document & {
     jobApplication?: any;
 };

@@ -5,7 +5,7 @@
  * Extends BaseRepository with user-specific methods.
  */
 import { User, Prisma } from '@prisma/client';
-import { BaseRepository } from './base.repository';
+import { BaseRepository } from './base.repository.js';
 export type UserWithRelations = User & {
     contacts?: any[];
     jobApplications?: any[];

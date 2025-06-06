@@ -4,8 +4,8 @@
  * Common utility functions for database operations and query patterns.
  * Provides reusable functions for complex operations across repositories.
  */
-import { prisma } from '../lib/prisma';
-import { repositories } from './index';
+import { prisma } from '../lib/prisma.js';
+import { repositories } from './index.js';
 /**
  * Transaction wrapper for multiple repository operations
  */

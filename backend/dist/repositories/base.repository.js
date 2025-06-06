@@ -5,7 +5,7 @@
  * Includes transaction support, error handling, and logging.
  */
 import { Prisma } from '@prisma/client';
-import { prisma } from '../lib/prisma';
+import { prisma } from '../lib/prisma.js';
 // Abstract base repository class providing common CRUD operations for all entity repositories
 export class BaseRepository {
     prisma; // Prisma client instance for database operations

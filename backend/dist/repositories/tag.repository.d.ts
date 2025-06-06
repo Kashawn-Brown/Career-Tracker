@@ -5,7 +5,7 @@
  * Extends BaseRepository with tag-specific methods.
  */
 import { Tag, Prisma } from '@prisma/client';
-import { BaseRepository } from './base.repository';
+import { BaseRepository } from './base.repository.js';
 export type TagWithRelations = Tag & {
     jobApplication?: any;
 };

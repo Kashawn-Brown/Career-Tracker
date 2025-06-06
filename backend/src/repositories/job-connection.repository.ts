@@ -6,7 +6,7 @@
  */
 
 import { JobConnection, Prisma } from '@prisma/client';
-import { BaseRepository } from './base.repository';
+import { BaseRepository } from './base.repository.js';
 
 export type JobConnectionWithRelations = JobConnection & {
   contact?: any;

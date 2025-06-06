@@ -97,9 +97,9 @@ declare class SearchUtils {
             limit?: number;
         };
     }): Promise<{
-        jobApplications: import("./job-application.repository").JobApplicationWithRelations[];
-        contacts: import("./contact.repository").ContactWithRelations[];
-        tags: import("./tag.repository").TagWithRelations[];
+        jobApplications: import("./job-application.repository.js").JobApplicationWithRelations[];
+        contacts: import("./contact.repository.js").ContactWithRelations[];
+        tags: import("./tag.repository.js").TagWithRelations[];
         total: number;
     }>;
     /**
@@ -129,7 +129,7 @@ declare class SearchUtils {
         };
         orderBy?: 'dateApplied' | 'company' | 'position' | 'salary';
         orderDirection?: 'asc' | 'desc';
-    }): Promise<import("./base.repository").PaginatedResult<{
+    }): Promise<import("./base.repository.js").PaginatedResult<{
         id: number;
         createdAt: Date;
         updatedAt: Date;
@@ -249,7 +249,7 @@ declare class AnalyticsUtils {
             data: any;
             createdAt: any;
         }[];
-        upcomingFollowUps: import("./job-application.repository").JobApplicationWithRelations[];
+        upcomingFollowUps: import("./job-application.repository.js").JobApplicationWithRelations[];
     }>;
     /**
      * Get recent activity across all entities

@@ -6,7 +6,7 @@
  */
 
 import { User, Prisma } from '@prisma/client';
-import { BaseRepository } from './base.repository';
+import { BaseRepository } from './base.repository.js';
 
 // Type definition for User with optional related entities
 export type UserWithRelations = User & {

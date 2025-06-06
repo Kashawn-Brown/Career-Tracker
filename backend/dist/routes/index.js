@@ -1,3 +1,4 @@
+import jobApplicationRoutes from './job-applications.js';
 // This file will be used to register all routes
 export default async function routes(fastify) {
     // Root route
@@ -8,7 +9,8 @@ export default async function routes(fastify) {
     fastify.get('/health', async () => {
         return { status: 'ok', timestamp: new Date().toISOString() };
     });
+    // Register job application routes under /api prefix
+    fastify.register(jobApplicationRoutes, { prefix: '/api' });
     // Other routes will be registered here in future tasks
-    // Example: fastify.register(require('./jobApplications'), { prefix: '/api/job-applications' });
 }
 //# sourceMappingURL=index.js.map
