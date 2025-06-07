@@ -63,6 +63,7 @@ export declare class JobApplicationService {
         updatedAt: Date;
         userId: number;
         company: string;
+        notes: string | null;
         position: string;
         dateApplied: Date;
         status: string;
@@ -70,7 +71,6 @@ export declare class JobApplicationService {
         salary: number | null;
         jobLink: string | null;
         compatibilityScore: number | null;
-        notes: string | null;
         isStarred: boolean;
         followUpDate: Date | null;
         deadline: Date | null;
@@ -84,6 +84,7 @@ export declare class JobApplicationService {
         updatedAt: Date;
         userId: number;
         company: string;
+        notes: string | null;
         position: string;
         dateApplied: Date;
         status: string;
@@ -91,7 +92,6 @@ export declare class JobApplicationService {
         salary: number | null;
         jobLink: string | null;
         compatibilityScore: number | null;
-        notes: string | null;
         isStarred: boolean;
         followUpDate: Date | null;
         deadline: Date | null;
@@ -105,6 +105,7 @@ export declare class JobApplicationService {
         updatedAt: Date;
         userId: number;
         company: string;
+        notes: string | null;
         position: string;
         dateApplied: Date;
         status: string;
@@ -112,7 +113,6 @@ export declare class JobApplicationService {
         salary: number | null;
         jobLink: string | null;
         compatibilityScore: number | null;
-        notes: string | null;
         isStarred: boolean;
         followUpDate: Date | null;
         deadline: Date | null;
@@ -126,6 +126,7 @@ export declare class JobApplicationService {
         updatedAt: Date;
         userId: number;
         company: string;
+        notes: string | null;
         position: string;
         dateApplied: Date;
         status: string;
@@ -133,7 +134,6 @@ export declare class JobApplicationService {
         salary: number | null;
         jobLink: string | null;
         compatibilityScore: number | null;
-        notes: string | null;
         isStarred: boolean;
         followUpDate: Date | null;
         deadline: Date | null;

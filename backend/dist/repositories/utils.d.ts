@@ -52,6 +52,7 @@ declare class BulkOperations {
         updatedAt: Date;
         userId: number;
         company: string;
+        notes: string | null;
         position: string;
         dateApplied: Date;
         status: string;
@@ -59,7 +60,6 @@ declare class BulkOperations {
         salary: number | null;
         jobLink: string | null;
         compatibilityScore: number | null;
-        notes: string | null;
         isStarred: boolean;
         followUpDate: Date | null;
         deadline: Date | null;
@@ -135,6 +135,7 @@ declare class SearchUtils {
         updatedAt: Date;
         userId: number;
         company: string;
+        notes: string | null;
         position: string;
         dateApplied: Date;
         status: string;
@@ -142,7 +143,6 @@ declare class SearchUtils {
         salary: number | null;
         jobLink: string | null;
         compatibilityScore: number | null;
-        notes: string | null;
         isStarred: boolean;
         followUpDate: Date | null;
         deadline: Date | null;
