@@ -14,6 +14,8 @@
  * The server provides RESTful API endpoints for managing career-related data
  * and serves as the backend for the Career Tracker application.
  */
+// Load environment variables from .env file
+import 'dotenv/config';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import sensible from '@fastify/sensible';

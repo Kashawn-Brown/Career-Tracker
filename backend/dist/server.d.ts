@@ -14,5 +14,5 @@
  * The server provides RESTful API endpoints for managing career-related data
  * and serves as the backend for the Career Tracker application.
  */
-export {};
+import 'dotenv/config';
 //# sourceMappingURL=server.d.ts.map

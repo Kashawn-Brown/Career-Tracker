@@ -3,61 +3,15 @@
  *
  * Handles HTTP requests for job application CRUD operations.
  * Implements proper error handling, validation, and response formatting.
+ * Uses JobApplicationService for business logic to maintain separation of concerns.
  */
 import { FastifyRequest, FastifyReply } from 'fastify';
-interface CreateJobApplicationRequest {
-    userId: number;
-    company: string;
-    position: string;
-    dateApplied?: string;
-    status?: string;
-    type?: string;
-    salary?: number;
-    jobLink?: string;
-    compatibilityScore?: number;
-    notes?: string;
-    isStarred?: boolean;
-    followUpDate?: string;
-    deadline?: string;
-    tags?: string[];
-}
-interface UpdateJobApplicationRequest {
-    company?: string;
-    position?: string;
-    dateApplied?: string;
-    status?: string;
-    type?: string;
-    salary?: number;
-    jobLink?: string;
-    compatibilityScore?: number;
-    notes?: string;
-    isStarred?: boolean;
-    followUpDate?: string;
-    deadline?: string;
-    tags?: string[];
-}
-interface ListJobApplicationsQuery {
-    page?: number;
-    limit?: number;
-    userId?: number;
-    status?: string;
-    company?: string;
-    position?: string;
-    dateFrom?: string;
-    dateTo?: string;
-    isStarred?: boolean;
-    hasFollowUp?: boolean;
-    salaryMin?: number;
-    salaryMax?: number;
-    compatibilityScoreMin?: number;
-    sortBy?: string;
-    sortOrder?: 'asc' | 'desc';
-}
+import type { JobApplicationListFilters, CreateJobApplicationRequest, UpdateJobApplicationRequest } from '../services/index.js';
 /**
  * List job applications with pagination and filtering
  */
 export declare function listJobApplications(request: FastifyRequest<{
-    Querystring: ListJobApplicationsQuery;
+    Querystring: JobApplicationListFilters;
 }>, reply: FastifyReply): Promise<never>;
 /**
  * Get a single job application by ID
@@ -90,5 +44,4 @@ export declare function deleteJobApplication(request: FastifyRequest<{
         id: string;
     };
 }>, reply: FastifyReply): Promise<never>;
-export {};
 //# sourceMappingURL=job-application.controller.d.ts.map

@@ -3,10 +3,11 @@
  * 
  * Handles HTTP requests for tag management operations.
  * Implements proper error handling, validation, and response formatting.
+ * Uses TagService for business logic to maintain separation of concerns.
  */
 
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { repositories } from '../repositories/index.js';
+import { tagService } from '../services/index.js';
 
 // Interface for request types
 interface ListTagsQuery {
@@ -43,15 +44,11 @@ export async function listTags(
       });
     }
 
-    let tags;
-
-    if (search) {
-      // Search tags for the specific user
-      tags = await repositories.tag.searchTags(search, userId);
-    } else {
-      // Get all tags for the specific user
-      tags = await repositories.tag.findByUser(userId);
-    }
+    const tags = await tagService.getUserTags({
+      userId,
+      search,
+      limit
+    });
 
     return reply.status(200).send(tags);
   } catch (error) {
@@ -84,36 +81,31 @@ export async function addTagsToApplication(
       });
     }
 
-    // Verify job application exists
-    const jobApplication = await repositories.jobApplication.findById(jobApplicationId);
-    if (!jobApplication) {
-      return reply.status(404).send({
-        error: 'Not Found',
-        message: 'Job application not found'
-      });
-    }
-
-    // Filter out empty tags and trim whitespace
-    const validTags = tags
-      .map(tag => tag.trim())
-      .filter(tag => tag.length > 0);
-
-    if (validTags.length === 0) {
-      return reply.status(400).send({
-        error: 'Bad Request',
-        message: 'At least one valid tag is required'
-      });
-    }
-
-    // Add tags to the job application
-    const createdTags = await repositories.tag.createManyForJobApplication(
+    const createdTags = await tagService.addTagsToApplication({
       jobApplicationId,
-      validTags
-    );
+      tags
+    });
 
     return reply.status(200).send(createdTags);
   } catch (error) {
     request.log.error('Error adding tags to application:', error);
+    
+    // Handle specific business logic errors
+    if (error instanceof Error) {
+      if (error.message === 'Job application not found') {
+        return reply.status(404).send({
+          error: 'Not Found',
+          message: error.message
+        });
+      }
+      if (error.message === 'At least one valid tag is required') {
+        return reply.status(400).send({
+          error: 'Bad Request',
+          message: error.message
+        });
+      }
+    }
+
     return reply.status(500).send({
       error: 'Internal Server Error',
       message: 'Failed to add tags to job application'
@@ -141,40 +133,31 @@ export async function removeTagFromApplication(
       });
     }
 
-    // Verify job application exists
-    const jobApplication = await repositories.jobApplication.findById(jobApplicationId);
-    if (!jobApplication) {
-      return reply.status(404).send({
-        error: 'Not Found',
-        message: 'Job application not found'
-      });
-    }
-
-    // Verify tag exists and belongs to the job application
-    const tag = await repositories.tag.findById(tagId);
-    if (!tag) {
-      return reply.status(404).send({
-        error: 'Not Found',
-        message: 'Tag not found'
-      });
-    }
-
-    if (tag.jobApplicationId !== jobApplicationId) {
-      return reply.status(400).send({
-        error: 'Bad Request',
-        message: 'Tag does not belong to the specified job application'
-      });
-    }
-
-    // Delete the tag
-    await repositories.tag.delete(tagId);
-
-    return reply.status(200).send({
-      message: 'Tag removed successfully',
-      deletedTagId: tagId
+    const result = await tagService.removeTagFromApplication({
+      jobApplicationId,
+      tagId
     });
+
+    return reply.status(200).send(result);
   } catch (error) {
     request.log.error('Error removing tag from application:', error);
+
+    // Handle specific business logic errors
+    if (error instanceof Error) {
+      if (error.message === 'Job application not found' || error.message === 'Tag not found') {
+        return reply.status(404).send({
+          error: 'Not Found',
+          message: error.message
+        });
+      }
+      if (error.message === 'Tag does not belong to the specified job application') {
+        return reply.status(400).send({
+          error: 'Bad Request',
+          message: error.message
+        });
+      }
+    }
+
     return reply.status(500).send({
       error: 'Internal Server Error',
       message: 'Failed to remove tag from job application'

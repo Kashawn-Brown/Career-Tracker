@@ -3,6 +3,7 @@
  *
  * Handles HTTP requests for tag management operations.
  * Implements proper error handling, validation, and response formatting.
+ * Uses TagService for business logic to maintain separation of concerns.
  */
 import { FastifyRequest, FastifyReply } from 'fastify';
 interface ListTagsQuery {
