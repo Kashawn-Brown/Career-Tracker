@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import jobApplicationRoutes from './job-applications.js';
+import tagRoutes from './tags.js';
 
 // This file will be used to register all routes
 export default async function routes(fastify: FastifyInstance) {
@@ -15,6 +16,9 @@ export default async function routes(fastify: FastifyInstance) {
 
   // Register job application routes under /api prefix
   fastify.register(jobApplicationRoutes, { prefix: '/api' });
+
+  // Register tag routes under /api prefix
+  fastify.register(tagRoutes, { prefix: '/api' });
 
   // Other routes will be registered here in future tasks
 } 
