@@ -1,7 +1,7 @@
 // This Prisma schema defines the database structure for a job application tracking system.
 // It includes models for users, job applications, contacts, documents, and their relationships.
 // The schema supports features like job application management, contact tracking, document storage,
-// and tagging system to help users organize their job search process.
+// authentication system, and tagging system to help users organize their job search process.
 
 generator client {
   provider = "prisma-client-js"
@@ -12,19 +12,66 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id              Int              @id @default(autoincrement())
-  email           String           @unique
-  name            String
-  resumeLink      String?
-  githubLink      String?
-  linkedinLink    String?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  contacts        Contact[]
-  jobApplications JobApplication[]
+// Define enum for authentication providers
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+  LINKEDIN
+  GITHUB
+}
 
+model User {
+  id                      Int                       @id @default(autoincrement())
+  email                   String                    @unique
+  name                    String
+  // Authentication fields
+  password                String?                   // Hashed password for local auth (nullable for OAuth users)
+  emailVerified           Boolean                   @default(false)
+  provider                AuthProvider              @default(LOCAL)
+  providerId              String?                   // ID from OAuth provider
+  // Existing profile fields
+  resumeLink              String?
+  githubLink              String?
+  linkedinLink            String?
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime                  @updatedAt
+  // Relations
+  contacts                Contact[]
+  jobApplications         JobApplication[]
+  sessions                Session[]
+  emailVerificationTokens EmailVerificationToken[]
+
+  @@index([email])
+  @@index([provider, providerId])
   @@map("users")
+}
+
+model Session {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model EmailVerificationToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+  @@map("email_verification_tokens")
 }
 
 model JobApplication {
