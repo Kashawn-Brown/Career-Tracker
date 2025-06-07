@@ -6,28 +6,27 @@
  */
 
 import { repositories } from '../repositories/index.js';
+import { TagFilters, AddTagsRequest, RemoveTagRequest } from '../models/tag.models.js';
 
-export interface TagFilters {
-  search?: string;
-  limit?: number;
+// Update TagFilters to include userId which is service-specific
+interface TagServiceFilters extends TagFilters {
   userId: number;
 }
 
-export interface AddTagsRequest {
+// Update other interfaces to include jobApplicationId which is service-specific
+interface ServiceAddTagsRequest extends AddTagsRequest {
   jobApplicationId: number;
-  tags: string[];
 }
 
-export interface RemoveTagRequest {
+interface ServiceRemoveTagRequest extends RemoveTagRequest {
   jobApplicationId: number;
-  tagId: number;
 }
 
 export class TagService {
   /**
    * Get tags for a specific user with optional search
    */
-  async getUserTags(filters: TagFilters) {
+  async getUserTags(filters: TagServiceFilters) {
     const { userId, search, limit = 50 } = filters;
 
     if (search) {
@@ -40,7 +39,7 @@ export class TagService {
   /**
    * Add tags to a job application with business validation
    */
-  async addTagsToApplication(request: AddTagsRequest) {
+  async addTagsToApplication(request: ServiceAddTagsRequest) {
     const { jobApplicationId, tags } = request;
 
     // Verify job application exists
@@ -68,7 +67,7 @@ export class TagService {
   /**
    * Remove a tag from a job application with business validation
    */
-  async removeTagFromApplication(request: RemoveTagRequest) {
+  async removeTagFromApplication(request: ServiceRemoveTagRequest) {
     const { jobApplicationId, tagId } = request;
 
     // Verify job application exists

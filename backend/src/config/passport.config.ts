@@ -12,6 +12,7 @@ import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { Strategy as LinkedInStrategy } from 'passport-linkedin-oauth2';
 import { repositories } from '../repositories/index.js';
+import { AuthProvider, OAuthProfile } from '../models/auth.models.js';
 
 // Environment variables for OAuth
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
@@ -20,21 +21,7 @@ const LINKEDIN_CLIENT_ID = process.env.LINKEDIN_CLIENT_ID;
 const LINKEDIN_CLIENT_SECRET = process.env.LINKEDIN_CLIENT_SECRET;
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3001';
 
-// Simple enum for providers (to avoid Prisma import issues)
-export enum AuthProvider {
-  LOCAL = 'LOCAL',
-  GOOGLE = 'GOOGLE',
-  LINKEDIN = 'LINKEDIN',
-  GITHUB = 'GITHUB'
-}
 
-export interface OAuthProfile {
-  id: string;
-  email: string;
-  name: string;
-  provider: AuthProvider;
-  photo?: string;
-}
 
 export class PassportConfig {
   /**

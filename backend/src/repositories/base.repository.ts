@@ -7,27 +7,7 @@
 
 import { PrismaClient, Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
-
-// Interface for pagination parameters when querying data
-export interface PaginationOptions {
-  page?: number;    // Current page number (optional, defaults handled in implementation)
-  limit?: number;   // Number of records per page (optional, defaults handled in implementation)
-}
-
-// Interface for paginated query results with metadata
-export interface PaginatedResult<T> {
-  data: T[];        // Array of records for the current page
-  total: number;    // Total number of records across all pages
-  page: number;     // Current page number
-  limit: number;    // Number of records per page used in this query
-  totalPages: number; // Total number of pages available
-}
-
-// Interface for sorting options when querying data
-export interface SortOptions {
-  field: string;              // Name of the field to sort by
-  direction: 'asc' | 'desc';  // Sort direction: ascending or descending
-}
+import { PaginationOptions, PaginatedResult, SortOptions } from '../models/repository.models.js';
 
 // Abstract base repository class providing common CRUD operations for all entity repositories
 export abstract class BaseRepository<T, CreateInput, UpdateInput, WhereInput> {

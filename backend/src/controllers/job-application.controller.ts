@@ -12,7 +12,7 @@ import type {
   JobApplicationListFilters, 
   CreateJobApplicationRequest, 
   UpdateJobApplicationRequest 
-} from '../services/index.js';
+} from '../models/job-application.models.js';
 
 /**
  * List job applications with pagination and filtering

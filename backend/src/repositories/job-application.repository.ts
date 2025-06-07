@@ -6,30 +6,9 @@
  */
 
 import { JobApplication, Prisma } from '@prisma/client';
-import { BaseRepository, PaginatedResult } from './base.repository.js';
-
-// Type definition for job application with all related entities included
-export type JobApplicationWithRelations = JobApplication & {
-  user?: any;
-  documents?: any[];
-  jobConnections?: any[];
-  tags?: any[];
-};
-
-// Interface defining optional filters for querying job applications
-export interface JobApplicationFilters {
-  userId?: number;
-  status?: string;
-  company?: string;
-  position?: string;
-  dateFrom?: Date;
-  dateTo?: Date;
-  isStarred?: boolean;
-  hasFollowUp?: boolean;
-  salaryMin?: number;
-  salaryMax?: number;
-  compatibilityScoreMin?: number;
-}
+import { BaseRepository } from './base.repository.js';
+import { JobApplicationWithRelations, JobApplicationFilters } from '../models/job-application.models.js';
+import { PaginatedResult } from '../models/repository.models.js';
 
 // Job application repository class extending BaseRepository with JobApplication-specific methods
 export class JobApplicationRepository extends BaseRepository<

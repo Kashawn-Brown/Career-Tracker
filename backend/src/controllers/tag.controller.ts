@@ -8,20 +8,7 @@
 
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { tagService } from '../services/index.js';
-
-// Interface for request types
-interface ListTagsQuery {
-  search?: string;
-  limit?: number;
-}
-
-interface ListTagsParams {
-  userId: string;
-}
-
-interface AddTagsRequest {
-  tags: string[];
-}
+import { ListTagsQuery, ListTagsParams, AddTagsRequest } from '../models/tag.models.js';
 
 /**
  * List all tags with optional filtering

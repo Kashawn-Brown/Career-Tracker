@@ -7,58 +7,12 @@
  */
 
 import { repositories } from '../repositories/index.js';
-import { JobApplicationFilters } from '../repositories/job-application.repository.js';
-
-export interface JobApplicationListFilters {
-  page?: number;
-  limit?: number;
-  userId?: number;
-  status?: string;
-  company?: string;
-  position?: string;
-  dateFrom?: string;
-  dateTo?: string;
-  isStarred?: boolean;
-  hasFollowUp?: boolean;
-  salaryMin?: number;
-  salaryMax?: number;
-  compatibilityScoreMin?: number;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-}
-
-export interface CreateJobApplicationRequest {
-  userId: number;
-  company: string;
-  position: string;
-  dateApplied?: string;
-  status?: string;
-  type?: string;
-  salary?: number;
-  jobLink?: string;
-  compatibilityScore?: number;
-  notes?: string;
-  isStarred?: boolean;
-  followUpDate?: string;
-  deadline?: string;
-  tags?: string[];
-}
-
-export interface UpdateJobApplicationRequest {
-  company?: string;
-  position?: string;
-  dateApplied?: string;
-  status?: string;
-  type?: string;
-  salary?: number;
-  jobLink?: string;
-  compatibilityScore?: number;
-  notes?: string;
-  isStarred?: boolean;
-  followUpDate?: string;
-  deadline?: string;
-  tags?: string[];
-}
+import {
+  JobApplicationListFilters,
+  CreateJobApplicationRequest,
+  UpdateJobApplicationRequest,
+  JobApplicationFilters
+} from '../models/job-application.models.js';
 
 export class JobApplicationService {
   /**

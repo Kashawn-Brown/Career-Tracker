@@ -9,6 +9,13 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import {
+  JWTPayload,
+  TokenPair,
+  EmailVerificationResult,
+  ResendVerificationResult,
+  PasswordValidationResult
+} from '../models/auth.models.js';
 
 // JWT Configuration
 const JWT_SECRET = process.env.JWT_SECRET!;
@@ -19,16 +26,7 @@ const JWT_REFRESH_EXPIRES_IN = '7d'; // Longer-lived refresh tokens
 // Password hashing configuration
 const BCRYPT_ROUNDS = 12; // Strong hashing (10+ rounds as required)
 
-export interface JWTPayload {
-  userId: number;
-  email: string;
-  type: 'access' | 'refresh';
-}
 
-export interface TokenPair {
-  accessToken: string;
-  refreshToken: string;
-}
 
 export class AuthService {
   /**
@@ -188,7 +186,7 @@ export class AuthService {
   /**
    * Validate password strength
    */
-  isValidPassword(password: string): { valid: boolean; errors: string[] } {
+  isValidPassword(password: string): PasswordValidationResult {
     const errors: string[] = [];
 
     if (!password) {
@@ -216,6 +214,159 @@ export class AuthService {
       valid: errors.length === 0,
       errors
     };
+  }
+
+  /**
+   * Store email verification token in database
+   */
+  async storeEmailVerificationToken(userId: number, token: string): Promise<void> {
+    const { PrismaClient } = await import('@prisma/client');
+    const prisma = new PrismaClient();
+    
+    try {
+      await prisma.emailVerificationToken.create({
+        data: {
+          userId,
+          token,
+          expiresAt: this.getEmailVerificationExpiry()
+        }
+      });
+    } finally {
+      await prisma.$disconnect();
+    }
+  }
+
+  /**
+   * Verify email verification token and mark user as verified
+   */
+  async verifyEmailToken(token: string): Promise<EmailVerificationResult> {
+    const { PrismaClient } = await import('@prisma/client');
+    const prisma = new PrismaClient();
+    
+    try {
+      const verificationToken = await prisma.emailVerificationToken.findUnique({
+        where: { token },
+        include: { user: true }
+      });
+
+      if (!verificationToken) {
+        return {
+          success: false,
+          message: 'Invalid verification token'
+        };
+      }
+
+      if (verificationToken.expiresAt < new Date()) {
+        return {
+          success: false,
+          message: 'Verification token has expired',
+          action: 'resend_verification'
+        };
+      }
+
+      // Mark user as verified and delete the token
+      await prisma.$transaction([
+        prisma.user.update({
+          where: { id: verificationToken.userId },
+          data: { emailVerified: true }
+        }),
+        prisma.emailVerificationToken.delete({
+          where: { id: verificationToken.id }
+        })
+      ]);
+
+      return {
+        success: true,
+        message: 'Email verified successfully'
+      };
+    } finally {
+      await prisma.$disconnect();
+    }
+  }
+
+  /**
+   * Resend email verification token (for expired or lost tokens)
+   */
+  async resendEmailVerification(email: string): Promise<ResendVerificationResult> {
+    const { PrismaClient } = await import('@prisma/client');
+    const prisma = new PrismaClient();
+    
+    try {
+      // Find user by email
+      const user = await prisma.user.findUnique({
+        where: { email }
+      });
+
+      if (!user) {
+        return {
+          success: false,
+          message: 'User not found'
+        };
+      }
+
+      if (user.emailVerified) {
+        return {
+          success: false,
+          message: 'Email is already verified'
+        };
+      }
+
+      // Delete any existing verification tokens for this user
+      await prisma.emailVerificationToken.deleteMany({
+        where: { userId: user.id }
+      });
+
+      // Generate new token
+      const newToken = this.generateEmailVerificationToken();
+      await prisma.emailVerificationToken.create({
+        data: {
+          userId: user.id,
+          token: newToken,
+          expiresAt: this.getEmailVerificationExpiry()
+        }
+      });
+
+      return {
+        success: true,
+        message: 'New verification email sent',
+        token: newToken
+      };
+    } finally {
+      await prisma.$disconnect();
+    }
+  }
+
+  /**
+   * Refresh tokens using a valid refresh token
+   */
+  async refreshTokens(refreshToken: string): Promise<TokenPair> {
+    // Verify the refresh token
+    const decoded = this.verifyRefreshToken(refreshToken);
+    
+    // Generate new token pair
+    return this.generateTokenPair(decoded.userId, decoded.email);
+  }
+
+  /**
+   * Clean up expired email verification tokens (maintenance function)
+   */
+  async cleanupExpiredTokens(): Promise<number> {
+    const { PrismaClient } = await import('@prisma/client');
+    const prisma = new PrismaClient();
+    
+    try {
+      const result = await prisma.emailVerificationToken.deleteMany({
+        where: {
+          expiresAt: {
+            lt: new Date()
+          }
+        }
+      });
+
+      return result.count;
+    } finally {
+      await prisma.$disconnect();
+    }
   }
 }
 

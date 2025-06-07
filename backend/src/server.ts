@@ -24,6 +24,7 @@ import sensible from '@fastify/sensible';
 import config from './config/index.js';
 import prisma from './lib/prisma.js';
 import routes from './routes/index.js';
+import { PassportConfig } from './config/passport.config.js';
 
 const server = Fastify({
   logger: {
@@ -40,6 +41,9 @@ const server = Fastify({
 // Register plugins
 server.register(cors, config.cors);
 server.register(sensible);
+
+// Initialize Passport OAuth strategies
+PassportConfig.initialize();
 
 // Register all routes
 server.register(routes);

@@ -7,7 +7,7 @@
 
 // Base repository
 export { BaseRepository } from './base.repository.js';
-export type { PaginationOptions, PaginatedResult, SortOptions } from './base.repository.js';
+export type { PaginationOptions, PaginatedResult, SortOptions } from '../models/repository.models.js';
 
 // User repository
 export { UserRepository } from './user.repository.js';
@@ -15,10 +15,10 @@ export type { UserWithRelations } from './user.repository.js';
 
 // Job Application repository
 export { JobApplicationRepository } from './job-application.repository.js';
-export type { 
-  JobApplicationWithRelations, 
+export type {
+  JobApplicationWithRelations,
   JobApplicationFilters 
-} from './job-application.repository.js';
+} from '../models/job-application.models.js';
 
 // Contact repository
 export { ContactRepository } from './contact.repository.js';
@@ -29,7 +29,7 @@ export type {
 
 // Tag repository
 export { TagRepository } from './tag.repository.js';
-export type { TagWithRelations } from './tag.repository.js';
+export type { TagWithRelations } from '../models/tag.models.js';
 
 // Job Connection repository
 export { JobConnectionRepository } from './job-connection.repository.js';

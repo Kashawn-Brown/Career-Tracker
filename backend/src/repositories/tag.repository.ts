@@ -7,10 +7,7 @@
 
 import { Tag, Prisma } from '@prisma/client';
 import { BaseRepository } from './base.repository.js';
-
-export type TagWithRelations = Tag & {
-  jobApplication?: any;
-};
+import { TagWithRelations } from '../models/tag.models.js';
 
 export class TagRepository extends BaseRepository<
   Tag,
