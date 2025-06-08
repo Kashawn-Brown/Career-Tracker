@@ -3,13 +3,20 @@
  *
  * Defines TypeScript interfaces and types for tag-related entities.
  * These models represent the structure of tag data used throughout the application.
+ * Updated for many-to-many relationship between tags and job applications.
  */
 import { Tag, JobApplication } from '@prisma/client';
 /**
- * Tag with related entities
+ * Tag with related job applications
  */
 export type TagWithRelations = Tag & {
-    jobApplication?: JobApplication;
+    jobApplications?: JobApplication[];
+};
+/**
+ * Job Application with related tags
+ */
+export type JobApplicationWithTags = JobApplication & {
+    tags?: Tag[];
 };
 /**
  * Tag filters for querying
@@ -20,15 +27,22 @@ export interface TagFilters {
 }
 /**
  * Request for adding tags to a job application
+ * Tags will be created if they don't exist, or existing ones will be associated
  */
 export interface AddTagsRequest {
-    tags: string[];
+    tagNames: string[];
 }
 /**
- * Request for removing a tag
+ * Request for removing tags from a job application
+ */
+export interface RemoveTagsRequest {
+    tagNames: string[];
+}
+/**
+ * Request for removing a single tag association (legacy support)
  */
 export interface RemoveTagRequest {
-    tagId: number;
+    tagName: string;
 }
 /**
  * Query parameters for listing tags
@@ -42,5 +56,40 @@ export interface ListTagsQuery {
  */
 export interface ListTagsParams {
     userId: string;
+}
+/**
+ * Tag suggestion response
+ */
+export interface TagSuggestion {
+    id: number;
+    name: string;
+    usageCount?: number;
+}
+/**
+ * Request for tag suggestions
+ */
+export interface TagSuggestionsQuery {
+    q: string;
+    limit?: number;
+    userId?: number;
+}
+/**
+ * Tag statistics
+ */
+export interface TagStats {
+    totalTags: number;
+    totalUniqueUsages: number;
+    mostUsedTags: Array<{
+        name: string;
+        usageCount: number;
+    }>;
+}
+/**
+ * Request for bulk tag operations
+ */
+export interface BulkTagOperation {
+    jobApplicationIds: number[];
+    tagNames: string[];
+    operation: 'add' | 'remove' | 'replace';
 }
 //# sourceMappingURL=tag.models.d.ts.map

@@ -78,7 +78,7 @@ class BulkOperations {
 
         // Create tags if provided
         if (tags && tags.length > 0) {
-          await repositories.tag.createManyForJobApplication(jobApp.id, tags, tx);
+          await repositories.tag.addTagsToJobApplication(jobApp.id, tags, tx);
         }
 
         // Create documents if provided
@@ -142,7 +142,7 @@ class BulkOperations {
       // Delete all related data for each job application
       for (const jobApp of jobApps) {
         await repositories.document.deleteMany({ jobApplicationId: jobApp.id }, tx);
-        await repositories.tag.deleteMany({ jobApplicationId: jobApp.id }, tx);
+        await repositories.tag.removeTagsFromJobApplication(jobApp.id, [], tx); // Remove all tags
         await repositories.jobConnection.deleteMany({ jobApplicationId: jobApp.id }, tx);
       }
 
@@ -188,7 +188,7 @@ class SearchUtils {
     const [jobApplications, contacts, tags] = await Promise.all([
       repositories.jobApplication.searchJobApplications(query, userId, { pagination }),
       repositories.contact.searchContacts(query, userId, { pagination }),
-      repositories.tag.searchTags(query, userId),
+      repositories.tag.suggestTags(query, userId),
     ]);
 
     return {

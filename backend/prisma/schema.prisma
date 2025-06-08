@@ -1,8 +1,3 @@
-// This Prisma schema defines the database structure for a job application tracking system.
-// It includes models for users, job applications, contacts, documents, and their relationships.
-// The schema supports features like job application management, contact tracking, document storage,
-// authentication system, and tagging system to help users organize their job search process.
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -12,34 +7,23 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Define enum for authentication providers
-enum AuthProvider {
-  LOCAL
-  GOOGLE
-  LINKEDIN
-  GITHUB
-}
-
 model User {
-  id                      Int                       @id @default(autoincrement())
-  email                   String                    @unique
+  id                      Int                      @id @default(autoincrement())
+  email                   String                   @unique
   name                    String
-  // Authentication fields
-  password                String?                   // Hashed password for local auth (nullable for OAuth users)
-  emailVerified           Boolean                   @default(false)
-  provider                AuthProvider              @default(LOCAL)
-  providerId              String?                   // ID from OAuth provider
-  // Existing profile fields
   resumeLink              String?
   githubLink              String?
   linkedinLink            String?
-  createdAt               DateTime                  @default(now())
-  updatedAt               DateTime                  @updatedAt
-  // Relations
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  emailVerified           Boolean                  @default(false)
+  password                String?
+  provider                AuthProvider             @default(LOCAL)
+  providerId              String?
   contacts                Contact[]
+  emailVerificationTokens EmailVerificationToken[]
   jobApplications         JobApplication[]
   sessions                Session[]
-  emailVerificationTokens EmailVerificationToken[]
 
   @@index([email])
   @@index([provider, providerId])
@@ -94,7 +78,7 @@ model JobApplication {
   documents          Document[]
   user               User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   jobConnections     JobConnection[]
-  tags               Tag[]
+  tags               Tag[]           @relation("JobApplicationToTag")
 
   @@index([userId])
   @@index([status])
@@ -103,13 +87,12 @@ model JobApplication {
 }
 
 model Tag {
-  id               Int            @id @default(autoincrement())
-  label            String
-  jobApplicationId Int
-  createdAt        DateTime       @default(now())
-  jobApplication   JobApplication @relation(fields: [jobApplicationId], references: [id], onDelete: Cascade)
+  id              Int              @id @default(autoincrement())
+  createdAt       DateTime         @default(now())
+  name            String           @unique
+  jobApplications JobApplication[] @relation("JobApplicationToTag")
 
-  @@index([jobApplicationId])
+  @@index([name])
   @@map("tags")
 }
 
@@ -169,4 +152,11 @@ model Document {
   @@index([jobApplicationId])
   @@index([type])
   @@map("documents")
+}
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+  LINKEDIN
+  GITHUB
 }

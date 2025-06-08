@@ -2,6 +2,7 @@
  * Tag Repository
  *
  * Handles all database operations related to tags.
+ * Updated for many-to-many relationship between tags and job applications.
  * Extends BaseRepository with tag-specific methods.
  */
 import { BaseRepository } from './base.repository.js';
@@ -10,198 +11,235 @@ export class TagRepository extends BaseRepository {
         super('tag');
     }
     /**
-     * Find tags by job application
+     * Find or create a tag by name
+     * Core method for the new tag system - ensures unique tags
+     */
+    async findOrCreateTag(name, tx) {
+        const client = tx || this.prisma;
+        // First try to find existing tag
+        let tag = await client.tag.findUnique({
+            where: { name: name.trim() }
+        });
+        // Create if doesn't exist
+        if (!tag) {
+            tag = await client.tag.create({
+                data: { name: name.trim() }
+            });
+        }
+        return tag;
+    }
+    /**
+     * Find tags by job application ID
      */
     async findByJobApplication(jobApplicationId, tx) {
-        return this.findMany({ jobApplicationId }, {
-            orderBy: { createdAt: 'desc' },
-        }, tx);
+        const client = tx || this.prisma;
+        const jobApp = await client.jobApplication.findUnique({
+            where: { id: jobApplicationId },
+            include: { tags: true }
+        });
+        return jobApp?.tags || [];
     }
     /**
      * Find tags by user (through job applications)
      */
     async findByUser(userId, tx) {
-        return this.findMany({
-            jobApplication: {
-                userId,
+        const client = tx || this.prisma;
+        return client.tag.findMany({
+            where: {
+                jobApplications: {
+                    some: { userId }
+                }
             },
-        }, {
             include: {
-                jobApplication: {
-                    select: {
-                        id: true,
-                        company: true,
-                        position: true,
-                        status: true,
-                    },
-                },
+                jobApplications: {
+                    where: { userId }
+                }
             },
-            orderBy: { createdAt: 'desc' },
-        }, tx);
+            orderBy: { name: 'asc' }
+        });
+    }
+    /**
+     * Search tags for suggestions (case-insensitive)
+     */
+    async suggestTags(query, userId, limit = 10, tx) {
+        const client = tx || this.prisma;
+        const where = {
+            name: { contains: query.trim(), mode: 'insensitive' }
+        };
+        // Optionally filter to user's tags only
+        if (userId) {
+            where.jobApplications = {
+                some: { userId }
+            };
+        }
+        const tags = await client.tag.findMany({
+            where,
+            include: {
+                _count: {
+                    select: { jobApplications: true }
+                },
+                ...(userId && {
+                    jobApplications: {
+                        where: { userId },
+                        select: { id: true }
+                    }
+                })
+            },
+            orderBy: [
+                { name: 'asc' }
+            ],
+            take: limit
+        });
+        return tags.map(tag => ({
+            id: tag.id,
+            name: tag.name,
+            usageCount: tag._count.jobApplications
+        }));
+    }
+    /**
+     * Add tags to a job application
+     * Creates tags if they don't exist, associates existing ones
+     */
+    async addTagsToJobApplication(jobApplicationId, tagNames, tx) {
+        const client = tx || this.prisma;
+        // Find or create all tags
+        const tags = await Promise.all(tagNames.map(name => this.findOrCreateTag(name, client)));
+        // Connect tags to job application
+        await client.jobApplication.update({
+            where: { id: jobApplicationId },
+            data: {
+                tags: {
+                    connect: tags.map(tag => ({ id: tag.id }))
+                }
+            }
+        });
+        return tags;
+    }
+    /**
+     * Remove tags from a job application
+     */
+    async removeTagsFromJobApplication(jobApplicationId, tagNames, tx) {
+        const client = tx || this.prisma;
+        // Find tags by name
+        const tags = await client.tag.findMany({
+            where: { name: { in: tagNames } }
+        });
+        if (tags.length > 0) {
+            // Disconnect tags from job application
+            await client.jobApplication.update({
+                where: { id: jobApplicationId },
+                data: {
+                    tags: {
+                        disconnect: tags.map(tag => ({ id: tag.id }))
+                    }
+                }
+            });
+        }
+    }
+    /**
+     * Replace all tags for a job application
+     */
+    async replaceTagsForJobApplication(jobApplicationId, tagNames, tx) {
+        const client = tx || this.prisma;
+        // Find or create all new tags
+        const newTags = await Promise.all(tagNames.map(name => this.findOrCreateTag(name, client)));
+        // Replace all tags
+        await client.jobApplication.update({
+            where: { id: jobApplicationId },
+            data: {
+                tags: {
+                    set: newTags.map(tag => ({ id: tag.id }))
+                }
+            }
+        });
+        return newTags;
     }
     /**
      * Find popular tags for a user
      */
     async findPopularTagsByUser(userId, limit = 10, tx) {
         const client = tx || this.prisma;
-        const result = await client.tag.groupBy({
-            by: ['label'],
+        const tags = await client.tag.findMany({
             where: {
-                jobApplication: {
-                    userId,
-                },
-            },
-            _count: {
-                label: true,
-            },
-            orderBy: {
-                _count: {
-                    label: 'desc',
-                },
-            },
-            take: limit,
-        });
-        return result.map(item => ({
-            label: item.label,
-            count: item._count.label,
-        }));
-    }
-    /**
-     * Search tags by label
-     */
-    async searchTags(query, userId, tx) {
-        const where = {
-            label: { contains: query, mode: 'insensitive' },
-        };
-        if (userId) {
-            where.jobApplication = { userId };
-        }
-        return this.findMany(where, {
-            include: {
-                jobApplication: {
-                    select: {
-                        id: true,
-                        company: true,
-                        position: true,
-                        status: true,
-                    },
-                },
-            },
-            orderBy: { label: 'asc' },
-        }, tx);
-    }
-    /**
-     * Find unique tag labels for a user
-     */
-    async findUniqueTagLabels(userId, tx) {
-        const client = tx || this.prisma;
-        const result = await client.tag.findMany({
-            where: {
-                jobApplication: {
-                    userId,
-                },
-            },
-            select: {
-                label: true,
-            },
-            distinct: ['label'],
-            orderBy: {
-                label: 'asc',
-            },
-        });
-        return result.map(tag => tag.label);
-    }
-    /**
-     * Create multiple tags for a job application
-     */
-    async createManyForJobApplication(jobApplicationId, labels, tx) {
-        const client = tx || this.prisma;
-        const tagData = labels.map(label => ({
-            label: label.trim(),
-            jobApplicationId,
-        }));
-        const result = await client.tag.createMany({
-            data: tagData,
-            skipDuplicates: true,
-        });
-        // Return the created tags
-        return this.findByJobApplication(jobApplicationId, tx);
-    }
-    /**
-     * Delete all tags for a job application
-     */
-    async deleteByJobApplication(jobApplicationId, tx) {
-        return this.deleteMany({ jobApplicationId }, tx);
-    }
-    /**
-     * Replace tags for a job application
-     */
-    async replaceTagsForJobApplication(jobApplicationId, labels, tx) {
-        if (tx) {
-            // If we're already in a transaction, execute directly
-            await this.deleteByJobApplication(jobApplicationId, tx);
-            if (labels.length > 0) {
-                return this.createManyForJobApplication(jobApplicationId, labels, tx);
-            }
-            return [];
-        }
-        else {
-            // Create a new transaction
-            return this.prisma.$transaction(async (txClient) => {
-                // Delete existing tags
-                await this.deleteByJobApplication(jobApplicationId, txClient);
-                // Create new tags if any
-                if (labels.length > 0) {
-                    return this.createManyForJobApplication(jobApplicationId, labels, txClient);
+                jobApplications: {
+                    some: { userId }
                 }
-                return [];
-            });
-        }
+            },
+            include: {
+                _count: {
+                    select: {
+                        jobApplications: {
+                            where: { userId }
+                        }
+                    }
+                }
+            },
+            orderBy: {
+                name: 'asc'
+            },
+            take: limit
+        });
+        return tags.map(tag => ({
+            id: tag.id,
+            name: tag.name,
+            usageCount: tag._count.jobApplications
+        }));
     }
     /**
      * Get tag statistics for a user
      */
     async getTagStats(userId, tx) {
         const client = tx || this.prisma;
-        const [total, uniqueLabels, mostUsed, byJobApplication,] = await Promise.all([
+        const [totalTags, mostUsed] = await Promise.all([
+            // Count unique tags used by user
             client.tag.count({
                 where: {
-                    jobApplication: { userId },
-                },
+                    jobApplications: {
+                        some: { userId }
+                    }
+                }
             }),
-            this.findUniqueTagLabels(userId, tx),
-            this.findPopularTagsByUser(userId, 5, tx),
-            client.jobApplication.findMany({
-                where: { userId },
-                select: {
-                    id: true,
-                    company: true,
-                    position: true,
-                    _count: {
-                        select: {
-                            tags: true,
-                        },
-                    },
-                },
-                orderBy: {
-                    tags: {
-                        _count: 'desc',
-                    },
-                },
-                take: 10,
-            }),
+            // Get most used tags
+            this.findPopularTagsByUser(userId, 5, client)
         ]);
+        const totalUsages = mostUsed.reduce((sum, tag) => sum + (tag.usageCount || 0), 0);
         return {
-            total,
-            unique: uniqueLabels.length,
-            mostUsed,
-            byJobApplication: byJobApplication.map(job => ({
-                jobApplicationId: job.id,
-                company: job.company,
-                position: job.position,
-                tagCount: job._count.tags,
-            })),
+            totalTags,
+            totalUsages,
+            mostUsed
         };
+    }
+    /**
+     * Clean up orphaned tags (no job applications)
+     * Optional maintenance method
+     */
+    async cleanupOrphanedTags(tx) {
+        const client = tx || this.prisma;
+        const result = await client.tag.deleteMany({
+            where: {
+                jobApplications: {
+                    none: {}
+                }
+            }
+        });
+        return result.count;
+    }
+    /**
+     * Find all unique tag names (for auto-complete)
+     */
+    async findAllTagNames(userId, tx) {
+        const client = tx || this.prisma;
+        const where = userId ? {
+            jobApplications: {
+                some: { userId }
+            }
+        } : {};
+        const tags = await client.tag.findMany({
+            where,
+            select: { name: true },
+            orderBy: { name: 'asc' }
+        });
+        return tags.map(tag => tag.name);
     }
 }
 //# sourceMappingURL=tag.repository.js.map

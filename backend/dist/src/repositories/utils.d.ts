@@ -99,7 +99,7 @@ declare class SearchUtils {
     }): Promise<{
         jobApplications: import("./index.js").JobApplicationWithRelations[];
         contacts: import("./contact.repository.js").ContactWithRelations[];
-        tags: import("./index.js").TagWithRelations[];
+        tags: import("../models/tag.models.js").TagSuggestion[];
         total: number;
     }>;
     /**
@@ -203,18 +203,9 @@ declare class AnalyticsUtils {
             withLinkedIn: number;
         };
         tags: {
-            total: number;
-            unique: number;
-            mostUsed: {
-                label: string;
-                count: number;
-            }[];
-            byJobApplication: {
-                jobApplicationId: number;
-                company: string;
-                position: string;
-                tagCount: number;
-            }[];
+            totalTags: number;
+            totalUsages: number;
+            mostUsed: import("../models/tag.models.js").TagSuggestion[];
         };
         documents: {
             total: number;

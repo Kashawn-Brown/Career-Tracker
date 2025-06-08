@@ -10,8 +10,7 @@ const tagResponseSchema = {
   type: 'object',
   properties: {
     id: { type: 'integer' },
-    label: { type: 'string' },
-    jobApplicationId: { type: 'integer' },
+    name: { type: 'string' },
     createdAt: { type: 'string', format: 'date-time' }
   }
 };

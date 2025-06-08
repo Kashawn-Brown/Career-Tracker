@@ -119,7 +119,7 @@ export class JobApplicationService {
 
       // Add tags if provided
       if (tags && tags.length > 0) {
-        await repositories.tag.createManyForJobApplication(jobApplication.id, tags);
+        await repositories.tag.addTagsToJobApplication(jobApplication.id, tags);
       }
 
       // Fetch the created job application with all relations
@@ -172,12 +172,8 @@ export class JobApplicationService {
 
     // Update tags if provided
     if (tags !== undefined) {
-      // Delete existing tags
-      await repositories.tag.deleteByJobApplication(id);
-      // Create new tags if any provided
-      if (tags.length > 0) {
-        await repositories.tag.createManyForJobApplication(id, tags);
-      }
+      // Replace all tags with new ones
+      await repositories.tag.replaceTagsForJobApplication(id, tags);
     }
 
     // Fetch the updated job application with all relations

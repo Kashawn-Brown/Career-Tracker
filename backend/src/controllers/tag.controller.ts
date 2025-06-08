@@ -59,7 +59,7 @@ export async function addTagsToApplication(
 ) {
   try {
     const jobApplicationId = parseInt(request.params.id, 10);
-    const { tags } = request.body;
+    const { tagNames } = request.body;
 
     if (isNaN(jobApplicationId)) {
       return reply.status(400).send({
@@ -70,7 +70,7 @@ export async function addTagsToApplication(
 
     const createdTags = await tagService.addTagsToApplication({
       jobApplicationId,
-      tags
+      tagNames
     });
 
     return reply.status(200).send(createdTags);
@@ -122,7 +122,7 @@ export async function removeTagFromApplication(
 
     const result = await tagService.removeTagFromApplication({
       jobApplicationId,
-      tagId
+      tagName: tagId.toString() // Convert tagId to tagName for now - this endpoint may need redesign
     });
 
     return reply.status(200).send(result);
