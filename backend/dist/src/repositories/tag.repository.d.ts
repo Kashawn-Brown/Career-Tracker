@@ -14,7 +14,7 @@ export declare class TagRepository extends BaseRepository<Tag, Prisma.TagCreateI
      * Find or create a tag by name
      * Core method for the new tag system - ensures unique tags
      */
-    findOrCreateTag(name: string, tx?: Prisma.TransactionClient): Promise<Tag>;
+    findOrCreateTag(name: string, userId: number, tx?: Prisma.TransactionClient): Promise<Tag>;
     /**
      * Find tags by job application ID
      */

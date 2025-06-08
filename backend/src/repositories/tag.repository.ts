@@ -26,19 +26,29 @@ export class TagRepository extends BaseRepository<
    */
   async findOrCreateTag(
     name: string,
+    userId: number,
     tx?: Prisma.TransactionClient
   ): Promise<Tag> {
     const client = tx || this.prisma;
     
-    // First try to find existing tag
+    // First try to find existing tag for this user
     let tag = await client.tag.findUnique({
-      where: { name: name.trim() }
+      where: { 
+        userId_name: {
+          userId,
+          name: name.trim()
+        }
+      }
     });
 
     // Create if doesn't exist
     if (!tag) {
       tag = await client.tag.create({
-        data: { name: name.trim() }
+        data: { 
+          name: name.trim(),
+          userId
+          
+        }
       });
     }
 
@@ -145,9 +155,19 @@ export class TagRepository extends BaseRepository<
   ): Promise<Tag[]> {
     const client = tx || this.prisma;
     
-    // Find or create all tags
+    // Get the userId from the job application
+    const jobApp = await client.jobApplication.findUnique({
+      where: { id: jobApplicationId },
+      select: { userId: true }
+    });
+    
+    if (!jobApp) {
+      throw new Error('Job application not found');
+    }
+    
+    // Find or create all tags for this user
     const tags = await Promise.all(
-      tagNames.map(name => this.findOrCreateTag(name, client))
+      tagNames.map(name => this.findOrCreateTag(name, jobApp.userId, client))
     );
 
     // Connect tags to job application
@@ -173,9 +193,22 @@ export class TagRepository extends BaseRepository<
   ): Promise<void> {
     const client = tx || this.prisma;
     
-    // Find tags by name
+    // Get the userId from the job application
+    const jobApp = await client.jobApplication.findUnique({
+      where: { id: jobApplicationId },
+      select: { userId: true }
+    });
+    
+    if (!jobApp) {
+      throw new Error('Job application not found');
+    }
+    
+    // Find tags by name for this user only
     const tags = await client.tag.findMany({
-      where: { name: { in: tagNames } }
+      where: { 
+        userId: jobApp.userId,
+        name: { in: tagNames } 
+      }
     });
 
     if (tags.length > 0) {
@@ -201,9 +234,19 @@ export class TagRepository extends BaseRepository<
   ): Promise<Tag[]> {
     const client = tx || this.prisma;
     
-    // Find or create all new tags
+    // Get the userId from the job application
+    const jobApp = await client.jobApplication.findUnique({
+      where: { id: jobApplicationId },
+      select: { userId: true }
+    });
+    
+    if (!jobApp) {
+      throw new Error('Job application not found');
+    }
+    
+    // Find or create all new tags for this user
     const newTags = await Promise.all(
-      tagNames.map(name => this.findOrCreateTag(name, client))
+      tagNames.map(name => this.findOrCreateTag(name, jobApp.userId, client))
     );
 
     // Replace all tags

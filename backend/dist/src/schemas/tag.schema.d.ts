@@ -56,10 +56,7 @@ export declare const listTagsSchema: {
                     id: {
                         type: string;
                     };
-                    label: {
-                        type: string;
-                    };
-                    jobApplicationId: {
+                    name: {
                         type: string;
                     };
                     createdAt: {
@@ -109,10 +106,7 @@ export declare const addTagsToApplicationSchema: {
                     id: {
                         type: string;
                     };
-                    label: {
-                        type: string;
-                    };
-                    jobApplicationId: {
+                    name: {
                         type: string;
                     };
                     createdAt: {

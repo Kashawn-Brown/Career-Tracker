@@ -24,6 +24,7 @@ model User {
   emailVerificationTokens EmailVerificationToken[]
   jobApplications         JobApplication[]
   sessions                Session[]
+  tags                    Tag[]
 
   @@index([email])
   @@index([provider, providerId])
@@ -88,10 +89,14 @@ model JobApplication {
 
 model Tag {
   id              Int              @id @default(autoincrement())
+  userId          Int
   createdAt       DateTime         @default(now())
-  name            String           @unique
+  name            String
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   jobApplications JobApplication[] @relation("JobApplicationToTag")
 
+  @@unique([userId, name])
+  @@index([userId])
   @@index([name])
   @@map("tags")
 }

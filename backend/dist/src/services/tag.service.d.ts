@@ -34,6 +34,7 @@ export declare class TagService {
         name: string;
         id: number;
         createdAt: Date;
+        userId: number;
     }[]>;
     /**
      * Remove tags from a job application with business validation
@@ -56,6 +57,7 @@ export declare class TagService {
         name: string;
         id: number;
         createdAt: Date;
+        userId: number;
     }[]>;
     /**
      * Get tag statistics for a user
@@ -78,6 +80,7 @@ export declare class TagService {
         name: string;
         id: number;
         createdAt: Date;
+        userId: number;
     }[]>;
 }
 export declare const tagService: TagService;
