@@ -35,21 +35,28 @@ export declare const listTagsSchema: {
         200: {
             type: string;
             items: {
+                type: string;
                 properties: {
-                    jobApplication: {
+                    userId: {
                         type: string;
-                        properties: {
-                            id: {
-                                type: string;
-                            };
-                            company: {
-                                type: string;
-                            };
-                            position: {
-                                type: string;
-                            };
-                            status: {
-                                type: string;
+                    };
+                    jobApplications: {
+                        type: string;
+                        items: {
+                            type: string;
+                            properties: {
+                                id: {
+                                    type: string;
+                                };
+                                company: {
+                                    type: string;
+                                };
+                                position: {
+                                    type: string;
+                                };
+                                status: {
+                                    type: string;
+                                };
                             };
                         };
                     };
@@ -64,7 +71,6 @@ export declare const listTagsSchema: {
                         format: string;
                     };
                 };
-                type: string;
             };
         };
     };
@@ -84,7 +90,7 @@ export declare const addTagsToApplicationSchema: {
         type: string;
         required: string[];
         properties: {
-            tags: {
+            tagNames: {
                 type: string;
                 items: {
                     type: string;

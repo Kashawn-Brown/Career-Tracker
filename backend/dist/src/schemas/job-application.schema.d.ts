@@ -102,7 +102,7 @@ export declare const createJobApplicationSchema: {
                             id: {
                                 type: string;
                             };
-                            label: {
+                            name: {
                                 type: string;
                             };
                             createdAt: {
@@ -294,7 +294,7 @@ export declare const updateJobApplicationSchema: {
                             id: {
                                 type: string;
                             };
-                            label: {
+                            name: {
                                 type: string;
                             };
                             createdAt: {
@@ -414,7 +414,7 @@ export declare const getJobApplicationSchema: {
                             id: {
                                 type: string;
                             };
-                            label: {
+                            name: {
                                 type: string;
                             };
                             createdAt: {
@@ -599,7 +599,7 @@ export declare const listJobApplicationsSchema: {
                                         id: {
                                             type: string;
                                         };
-                                        label: {
+                                        name: {
                                             type: string;
                                         };
                                         createdAt: {

@@ -19,4 +19,3 @@ if (process.env.NODE_ENV !== 'production')
     globalForPrisma.prisma = prisma;
 // Export the Prisma instance as default for convenience
 export default prisma;
-//# sourceMappingURL=prisma.js.map

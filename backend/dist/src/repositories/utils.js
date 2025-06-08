@@ -166,7 +166,7 @@ class SearchUtils {
         if (criteria.tags && criteria.tags.length > 0) {
             where.tags = {
                 some: {
-                    label: { in: criteria.tags },
+                    name: { in: criteria.tags },
                 },
             };
         }

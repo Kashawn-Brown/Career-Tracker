@@ -136,9 +136,20 @@ export class TagRepository extends BaseRepository {
      */
     async removeTagsFromJobApplication(jobApplicationId, tagNames, tx) {
         const client = tx || this.prisma;
-        // Find tags by name
+        // Get the userId from the job application
+        const jobApp = await client.jobApplication.findUnique({
+            where: { id: jobApplicationId },
+            select: { userId: true }
+        });
+        if (!jobApp) {
+            throw new Error('Job application not found');
+        }
+        // Find tags by name for this user only
         const tags = await client.tag.findMany({
-            where: { name: { in: tagNames } }
+            where: {
+                userId: jobApp.userId,
+                name: { in: tagNames }
+            }
         });
         if (tags.length > 0) {
             // Disconnect tags from job application

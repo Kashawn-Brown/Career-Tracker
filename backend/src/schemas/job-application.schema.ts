@@ -59,7 +59,7 @@ export const createJobApplicationSchema = {
             type: 'object',
             properties: {
               id: { type: 'integer' },
-              label: { type: 'string' },
+              name: { type: 'string' },
               createdAt: { type: 'string', format: 'date-time' }
             }
           }
@@ -107,7 +107,7 @@ export const updateJobApplicationSchema = {
             type: 'object',
             properties: {
               id: { type: 'integer' },
-              label: { type: 'string' },
+              name: { type: 'string' },
               createdAt: { type: 'string', format: 'date-time' }
             }
           }
@@ -143,7 +143,7 @@ export const getJobApplicationSchema = {
             type: 'object',
             properties: {
               id: { type: 'integer' },
-              label: { type: 'string' },
+              name: { type: 'string' },
               createdAt: { type: 'string', format: 'date-time' }
             }
           }
@@ -210,7 +210,7 @@ export const listJobApplicationsSchema = {
                   type: 'object',
                   properties: {
                     id: { type: 'integer' },
-                    label: { type: 'string' },
+                    name: { type: 'string' },
                     createdAt: { type: 'string', format: 'date-time' }
                   }
                 }

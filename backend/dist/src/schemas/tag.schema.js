@@ -34,16 +34,20 @@ export const listTagsSchema = {
         200: {
             type: 'array',
             items: {
-                ...tagResponseSchema,
+                type: 'object',
                 properties: {
                     ...tagResponseSchema.properties,
-                    jobApplication: {
-                        type: 'object',
-                        properties: {
-                            id: { type: 'integer' },
-                            company: { type: 'string' },
-                            position: { type: 'string' },
-                            status: { type: 'string' }
+                    userId: { type: 'integer' },
+                    jobApplications: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            properties: {
+                                id: { type: 'integer' },
+                                company: { type: 'string' },
+                                position: { type: 'string' },
+                                status: { type: 'string' }
+                            }
                         }
                     }
                 }
@@ -62,9 +66,9 @@ export const addTagsToApplicationSchema = {
     },
     body: {
         type: 'object',
-        required: ['tags'],
+        required: ['tagNames'],
         properties: {
-            tags: {
+            tagNames: {
                 type: 'array',
                 items: { type: 'string', minLength: 1, maxLength: 50 },
                 minItems: 1,

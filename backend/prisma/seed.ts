@@ -92,9 +92,9 @@ async function main() {
       notes: 'Great company culture, interesting tech stack with React and TypeScript.',
       tags: {
         create: [
-          { label: 'React' },
-          { label: 'TypeScript' },
-          { label: 'Remote' }
+          { name: 'React' },
+          { name: 'TypeScript' },
+          { name: 'Remote' }
         ]
       },
       jobConnections: {
@@ -130,10 +130,10 @@ async function main() {
       followUpDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 1 week from now
       tags: {
         create: [
-          { label: 'Node.js' },
-          { label: 'React' },
-          { label: 'Startup' },
-          { label: 'Growth' }
+          { name: 'Node.js' },
+          { name: 'React' },
+          { name: 'Startup' },
+          { name: 'Growth' }
         ]
       },
       jobConnections: {
@@ -178,10 +178,10 @@ async function main() {
       notes: 'Great opportunity at a stable company. Derek can provide insider insights.',
       tags: {
         create: [
-          { label: 'Java' },
-          { label: 'Spring Boot' },
-          { label: 'Banking' },
-          { label: 'Enterprise' }
+          { name: 'Java' },
+          { name: 'Spring Boot' },
+          { name: 'Banking' },
+          { name: 'Enterprise' }
         ]
       },
       jobConnections: {
