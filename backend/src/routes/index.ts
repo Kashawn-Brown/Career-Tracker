@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify';
 import jobApplicationRoutes from './job-applications.js';
 import tagRoutes from './tags.js';
 import authRoutes from './auth.js';
+import testEmailRoutes from './test-email.js';
 
 // This file will be used to register all routes
 export default async function routes(fastify: FastifyInstance) {
@@ -23,6 +24,9 @@ export default async function routes(fastify: FastifyInstance) {
 
   // Register authentication routes under /api/auth prefix
   fastify.register(authRoutes, { prefix: '/api/auth' });
+
+  // Register test email routes under /api/test prefix (remove in production)
+  fastify.register(testEmailRoutes, { prefix: '/api/test' });
 
   // Other routes will be registered here in future tasks
 } 
