@@ -7,6 +7,7 @@
 
 import { FastifyPluginAsync } from 'fastify';
 import { emailService } from '../services/email.service.js';
+import { queueService } from '../services/queue.service.js';
 
 interface TestEmailRequest {
   Body: {
@@ -141,6 +142,99 @@ const testEmailRoutes: FastifyPluginAsync = async (fastify) => {
         error: 'Internal server error'
       });
     }
+  });
+
+  // Test email verification via queue (instant response)
+  fastify.post<TestEmailRequest>('/test-queue-verification', {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['to', 'name'],
+        properties: {
+          to: { type: 'string', format: 'email' },
+          name: { type: 'string' }
+        }
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            message: { type: 'string' },
+            jobQueued: { type: 'boolean' },
+            note: { type: 'string' }
+          }
+        },
+        400: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' }
+          }
+        }
+      }
+    }
+  }, async (request, reply) => {
+    const { to, name } = request.body;
+
+    // Check if queue service is configured
+    if (!queueService.isReady()) {
+      return reply.status(400).send({
+        error: 'Queue service is not configured. Please check REDIS_URL environment variable.'
+      });
+    }
+
+    try {
+      // Add job to queue (instant response!)
+      await queueService.addEmailVerificationJob({
+        to,
+        userName: name,
+        verificationToken: 'test-token-queue-123',
+        verificationUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=test-token-queue-123`
+      });
+
+      return reply.send({
+        success: true,
+        message: `Email verification queued for ${to}. Check your inbox in 5-10 minutes.`,
+        jobQueued: true,
+        note: "If you don't receive the email, please check your spam folder or try again."
+      });
+    } catch (error) {
+      fastify.log.error('Queue test error:', error);
+      return reply.status(500).send({
+        error: 'Failed to queue email job'
+      });
+    }
+  });
+
+  // Get queue statistics
+  fastify.get('/queue-stats', {
+    schema: {
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            queueReady: { type: 'boolean' },
+            stats: {
+              type: 'object',
+              properties: {
+                waiting: { type: 'number' },
+                active: { type: 'number' },
+                completed: { type: 'number' },
+                failed: { type: 'number' }
+              }
+            }
+          }
+        }
+      }
+    }
+  }, async (request, reply) => {
+    const isReady = queueService.isReady();
+    const stats = await queueService.getQueueStats();
+    
+    return reply.send({
+      queueReady: isReady,
+      stats
+    });
   });
 
   // Check email service status
