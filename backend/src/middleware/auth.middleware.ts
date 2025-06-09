@@ -82,16 +82,54 @@ export async function requireAuth(
 }
 
 /**
- * Middleware: Extract user context (placeholder)
- * TODO: Add user extraction logic
+ * Middleware: Extract user context (optional authentication)
+ * 
+ * Tries to extract user info from JWT token if present, but doesn't fail if missing.
+ * This middleware is useful for routes that behave differently for authenticated vs anonymous users.
+ * 
+ * Use cases:
+ * - Public routes that show personalized content when user is logged in
+ * - Routes that display different data/options based on authentication status  
+ * - Public job boards that show "applied" status for authenticated users
+ * - Content that's available to everyone but shows extra features when authenticated
+ * 
+ * After this middleware runs:
+ * - request.user will contain JWTPayload if valid token was provided
+ * - request.user will be undefined if no token or invalid token
+ * - The request always continues (never blocks/returns 401)
  */
 export async function extractUser(
   request: FastifyRequest,
   reply: FastifyReply
 ): Promise<void> {
-  // Placeholder - will implement user context extraction
-  console.log('extractUser middleware called');
-  // For now, just continue
+  try {
+    // Extract token from Authorization header
+    const authHeader = request.headers.authorization;
+    
+    // If no auth header, just continue without user context
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return;
+    }
+
+    // Extract the token (remove "Bearer " prefix)
+    const token = authHeader.substring(7);
+    
+    // If no token, just continue
+    if (!token) {
+      return;
+    }
+
+    // Try to verify the JWT token
+    const payload = authService.verifyAccessToken(token);
+    
+    // Add user information to request object
+    request.user = payload;
+    
+  } catch (error) {
+    // If token verification fails, just continue without user context
+    // This is optional authentication - we don't want to block the request
+    // The request.user will remain undefined
+  }
 }
 
 /**
