@@ -237,6 +237,68 @@ const testEmailRoutes: FastifyPluginAsync = async (fastify) => {
     });
   });
 
+  // Get verification token for testing (DEVELOPMENT ONLY!)
+  fastify.get<{ Querystring: { email: string } }>('/get-verification-token', {
+    schema: {
+      querystring: {
+        type: 'object',
+        required: ['email'],
+        properties: {
+          email: { type: 'string', format: 'email' }
+        }
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            email: { type: 'string' },
+            token: { type: 'string' },
+            message: { type: 'string' }
+          }
+        },
+        404: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' }
+          }
+        }
+      }
+    }
+  }, async (request, reply) => {
+    const { email } = request.query;
+    
+    try {
+      const { PrismaClient } = await import('@prisma/client');
+      const prisma = new PrismaClient();
+      
+      const verificationToken = await prisma.emailVerificationToken.findFirst({
+        where: {
+          user: { email }
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+      
+      await prisma.$disconnect();
+      
+      if (!verificationToken) {
+        return reply.status(404).send({
+          error: 'No verification token found for this email'
+        });
+      }
+      
+      return reply.send({
+        email,
+        token: verificationToken.token,
+        message: 'Use this token to test email verification'
+      });
+    } catch (error) {
+      fastify.log.error('Error getting verification token:', error);
+      return reply.status(500).send({
+        error: 'Internal server error'
+      });
+    }
+  });
+
   // Check email service status
   fastify.get('/email-status', {
     schema: {
@@ -273,4 +335,4 @@ const testEmailRoutes: FastifyPluginAsync = async (fastify) => {
   });
 };
 
-export default testEmailRoutes; 
+export default testEmailRoutes;

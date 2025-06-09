@@ -9,6 +9,7 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import { authService } from '../services/index.js';
 import { userRepository } from '../repositories/index.js';
 import { UserRole } from '../models/user.models.js';
+import { queueService } from '../services/queue.service.js';
 
 export class AuthController {
   /**
@@ -80,8 +81,23 @@ export class AuthController {
       const verificationToken = authService.generateEmailVerificationToken();
       await authService.storeEmailVerificationToken(user.id, verificationToken);
 
-      // TODO: Send verification email (will be implemented in Task 11.5)
-      console.log(`Email verification token for ${email}: ${verificationToken}`);
+      // Send verification email via queue (instant response!)
+      try {
+        if (queueService.isReady()) {
+          await queueService.addEmailVerificationJob({
+            to: email,
+            userName: name,
+            verificationToken,
+            verificationUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}`
+          });
+          console.log(`Email verification job queued for: ${email}`);
+        } else {
+          console.warn(`Queue service not available. Email verification token for ${email}: ${verificationToken}`);
+        }
+      } catch (emailError) {
+        console.error('Failed to queue verification email:', emailError);
+        // Don't fail registration if email queueing fails
+      }
 
       // Generate JWT tokens with user role
       const tokens = authService.generateTokenPair(user.id, user.email, user.role as UserRole);
@@ -190,6 +206,22 @@ export class AuthController {
         });
       }
 
+      // Email verified successfully! Send welcome email
+      try {
+        // We need to get the user info to send the welcome email
+        const user = await userRepository.findByEmailToken(token);
+        if (user && queueService.isReady()) {
+          await queueService.addWelcomeEmailJob({
+            to: user.email,
+            userName: user.name
+          });
+          console.log(`Welcome email job queued for: ${user.email}`);
+        }
+      } catch (emailError) {
+        console.error('Failed to queue welcome email:', emailError);
+        // Don't fail verification if welcome email queueing fails
+      }
+
       return reply.send({
         message: result.message
       });
@@ -269,8 +301,24 @@ export class AuthController {
         });
       }
 
-      // TODO: Send verification email (will be implemented in Task 11.5)
-      console.log(`New email verification token for ${email}: ${result.token}`);
+      // Send verification email via queue
+      try {
+        const user = await userRepository.findByEmail(email);
+        if (user && result.token && queueService.isReady()) {
+          await queueService.addEmailVerificationJob({
+            to: email,
+            userName: user.name,
+            verificationToken: result.token,
+            verificationUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${result.token}`
+          });
+          console.log(`Email verification job re-queued for: ${email}`);
+        } else {
+          console.warn(`Queue service not available. New email verification token for ${email}: ${result.token}`);
+        }
+      } catch (emailError) {
+        console.error('Failed to queue verification email:', emailError);
+        // Don't fail the operation if email queueing fails
+      }
 
       return reply.send({
         message: result.message

@@ -33,6 +33,20 @@ export class UserRepository extends BaseRepository<
     return this.findFirst({ email }, undefined, tx);
   }
 
+  /**
+   * Find user by email verification token
+   */
+  async findByEmailToken(token: string, tx?: Prisma.TransactionClient): Promise<User | null> {
+    const client = tx || this.prisma;
+    
+    const verificationToken = await client.emailVerificationToken.findUnique({
+      where: { token },
+      include: { user: true }
+    });
+
+    return verificationToken?.user || null;
+  }
+
 
   /**
    * Find user with all relations
