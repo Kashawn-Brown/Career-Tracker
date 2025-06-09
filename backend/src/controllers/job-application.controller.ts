@@ -15,14 +15,21 @@ import type {
 } from '../models/job-application.models.js';
 
 /**
- * List job applications with pagination and filtering
+ * List job applications with pagination and filtering (user's own applications)
  */
 export async function listJobApplications(
   request: FastifyRequest<{ Querystring: JobApplicationListFilters }>,
   reply: FastifyReply
 ) {
   try {
-    const result = await jobApplicationService.listJobApplications(request.query);
+    // Extract user ID from JWT token and add to filters
+    const userId = request.user!.userId;
+    const filtersWithUser = {
+      ...request.query,
+      userId
+    };
+    
+    const result = await jobApplicationService.listJobApplications(filtersWithUser);
     return reply.status(200).send(result);
   } catch (error) {
     request.log.error('Error listing job applications:', error);
@@ -34,7 +41,7 @@ export async function listJobApplications(
 }
 
 /**
- * Get a single job application by ID
+ * Get a single job application by ID (user's own application)
  */
 export async function getJobApplication(
   request: FastifyRequest<{ Params: { id: string } }>,
@@ -42,6 +49,7 @@ export async function getJobApplication(
 ) {
   try {
     const id = parseInt(request.params.id, 10);
+    const userId = request.user!.userId;
     
     if (isNaN(id)) {
       return reply.status(400).send({
@@ -51,6 +59,15 @@ export async function getJobApplication(
     }
 
     const jobApplication = await jobApplicationService.getJobApplication(id);
+    
+    // Verify ownership - user can only access their own applications
+    if (jobApplication.userId !== userId) {
+      return reply.status(403).send({
+        error: 'Forbidden',
+        message: 'You can only access your own job applications'
+      });
+    }
+    
     return reply.status(200).send(jobApplication);
   } catch (error) {
     request.log.error('Error getting job application:', error);
@@ -71,14 +88,21 @@ export async function getJobApplication(
 }
 
 /**
- * Create a new job application
+ * Create a new job application (for authenticated user)
  */
 export async function createJobApplication(
   request: FastifyRequest<{ Body: CreateJobApplicationRequest }>,
   reply: FastifyReply
 ) {
   try {
-    const createdJobApplication = await jobApplicationService.createJobApplication(request.body);
+    // Extract user ID from JWT token and add to request data
+    const userId = request.user!.userId;
+    const createData = {
+      ...request.body,
+      userId
+    };
+    
+    const createdJobApplication = await jobApplicationService.createJobApplication(createData);
     return reply.status(201).send(createdJobApplication);
   } catch (error) {
     request.log.error('Error creating job application:', error);
@@ -99,7 +123,7 @@ export async function createJobApplication(
 }
 
 /**
- * Update an existing job application
+ * Update an existing job application (user's own application)
  */
 export async function updateJobApplication(
   request: FastifyRequest<{ Params: { id: string }; Body: UpdateJobApplicationRequest }>,
@@ -107,11 +131,21 @@ export async function updateJobApplication(
 ) {
   try {
     const id = parseInt(request.params.id, 10);
+    const userId = request.user!.userId;
     
     if (isNaN(id)) {
       return reply.status(400).send({
         error: 'Bad Request',
         message: 'Invalid job application ID'
+      });
+    }
+
+    // First check if application exists and user owns it
+    const existingApplication = await jobApplicationService.getJobApplication(id);
+    if (existingApplication.userId !== userId) {
+      return reply.status(403).send({
+        error: 'Forbidden',
+        message: 'You can only update your own job applications'
       });
     }
 
@@ -136,7 +170,7 @@ export async function updateJobApplication(
 }
 
 /**
- * Delete a job application
+ * Delete a job application (user's own application)
  */
 export async function deleteJobApplication(
   request: FastifyRequest<{ Params: { id: string } }>,
@@ -144,11 +178,21 @@ export async function deleteJobApplication(
 ) {
   try {
     const id = parseInt(request.params.id, 10);
+    const userId = request.user!.userId;
     
     if (isNaN(id)) {
       return reply.status(400).send({
         error: 'Bad Request',
         message: 'Invalid job application ID'
+      });
+    }
+
+    // First check if application exists and user owns it
+    const existingApplication = await jobApplicationService.getJobApplication(id);
+    if (existingApplication.userId !== userId) {
+      return reply.status(403).send({
+        error: 'Forbidden',
+        message: 'You can only delete your own job applications'
       });
     }
 
