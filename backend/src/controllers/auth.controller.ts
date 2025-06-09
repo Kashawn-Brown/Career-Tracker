@@ -8,6 +8,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { authService } from '../services/index.js';
 import { userRepository } from '../repositories/index.js';
+import { UserRole } from '../models/user.models.js';
 
 export class AuthController {
   /**
@@ -82,8 +83,8 @@ export class AuthController {
       // TODO: Send verification email (will be implemented in Task 11.5)
       console.log(`Email verification token for ${email}: ${verificationToken}`);
 
-      // Generate JWT tokens
-      const tokens = authService.generateTokenPair(user.id, user.email);
+      // Generate JWT tokens with user role
+      const tokens = authService.generateTokenPair(user.id, user.email, user.role as UserRole);
 
       // Remove password from response
       const { password: _, ...userResponse } = user;
@@ -143,8 +144,8 @@ export class AuthController {
         });
       }
 
-      // Generate JWT tokens
-      const tokens = authService.generateTokenPair(user.id, user.email);
+      // Generate JWT tokens with user role
+      const tokens = authService.generateTokenPair(user.id, user.email, user.role as UserRole);
 
       // Remove password from response
       const { password: _, ...userResponse } = user;

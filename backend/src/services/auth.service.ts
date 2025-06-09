@@ -346,8 +346,8 @@ export class AuthService {
     // Verify the refresh token
     const decoded = this.verifyRefreshToken(refreshToken);
     
-    // Generate new token pair
-    return this.generateTokenPair(decoded.userId, decoded.email);
+    // Generate new token pair with role from existing token
+    return this.generateTokenPair(decoded.userId, decoded.email, decoded.role);
   }
 
   /**

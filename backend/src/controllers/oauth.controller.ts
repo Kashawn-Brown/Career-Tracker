@@ -8,6 +8,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import passport from 'passport';
 import { authService } from '../services/index.js';
+import { UserRole } from '../models/user.models.js';
 
 export class OAuthController {
   /**
@@ -44,8 +45,8 @@ export class OAuthController {
         }
 
         try {
-          // Generate JWT tokens for the user
-          const tokens = authService.generateTokenPair(user.id, user.email);
+          // Generate JWT tokens for the user with role
+          const tokens = authService.generateTokenPair(user.id, user.email, user.role as UserRole);
           
           // Redirect to frontend with tokens in query params (for demo purposes)
           // In production, consider using secure httpOnly cookies or a different approach
@@ -99,8 +100,8 @@ export class OAuthController {
         }
 
         try {
-          // Generate JWT tokens for the user
-          const tokens = authService.generateTokenPair(user.id, user.email);
+          // Generate JWT tokens for the user with role
+          const tokens = authService.generateTokenPair(user.id, user.email, user.role as UserRole);
           
           // Redirect to frontend with tokens in query params (for demo purposes)
           // In production, consider using secure httpOnly cookies or a different approach
