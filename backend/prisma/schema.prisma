@@ -25,6 +25,7 @@ model User {
   emailVerificationTokens EmailVerificationToken[]
   jobApplications         JobApplication[]
   passwordResetTokens     PasswordResetToken[]
+  passwordHistory         PasswordHistory[]
   sessions                Session[]
   tags                    Tag[]
 
@@ -73,6 +74,18 @@ model PasswordResetToken {
   @@index([token])
   @@index([expiresAt])
   @@map("password_reset_tokens")
+}
+
+model PasswordHistory {
+  id              Int      @id @default(autoincrement())
+  userId          Int
+  passwordHash    String
+  createdAt       DateTime @default(now())
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("password_history")
 }
 
 model JobApplication {

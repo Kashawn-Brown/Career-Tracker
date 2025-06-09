@@ -501,10 +501,20 @@ export class AuthService {
         };
       }
 
+      // Check if password has been used recently (prevent reuse)
+      const isPasswordReused = await this.isPasswordRecentlyUsed(tokenVerification.userId, newPassword);
+      if (isPasswordReused) {
+        this.logPasswordResetAttempt(tokenVerification.userId, 'password_reset', false, 'Password reuse attempted');
+        return {
+          success: false,
+          message: 'You cannot reuse a password from the last 6 months. Please choose a different password.'
+        };
+      }
+
       // Hash the new password
       const hashedPassword = await this.hashPassword(newPassword);
 
-      // Update user password and delete used token in a transaction
+      // Update user password, store in history, and delete used token in a transaction
       await prisma.$transaction([
         prisma.user.update({
           where: { id: tokenVerification.userId },
@@ -514,6 +524,9 @@ export class AuthService {
           where: { userId: tokenVerification.userId }
         })
       ]);
+
+      // Store the new password in history (after successful update)
+      await this.storePasswordInHistory(tokenVerification.userId, hashedPassword);
 
       this.logPasswordResetAttempt(tokenVerification.userId, 'password_reset', true, 'Password reset completed successfully');
       
@@ -528,6 +541,74 @@ export class AuthService {
         success: false,
         message: 'An error occurred while resetting your password'
       };
+    } finally {
+      await prisma.$disconnect();
+    }
+  }
+
+  /**
+   * Store password in history for reuse prevention
+   */
+  async storePasswordInHistory(userId: number, passwordHash: string): Promise<void> {
+    const { PrismaClient } = await import('@prisma/client');
+    const prisma = new PrismaClient();
+    
+    try {
+      // Store the password hash in history
+      await prisma.passwordHistory.create({
+        data: {
+          userId,
+          passwordHash
+        }
+      });
+
+      // Clean up old password history entries (older than 6 months)
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+      await prisma.passwordHistory.deleteMany({
+        where: {
+          userId,
+          createdAt: {
+            lt: sixMonthsAgo
+          }
+        }
+      });
+    } finally {
+      await prisma.$disconnect();
+    }
+  }
+
+  /**
+   * Check if password has been used recently (within 6 months)
+   */
+  async isPasswordRecentlyUsed(userId: number, password: string): Promise<boolean> {
+    const { PrismaClient } = await import('@prisma/client');
+    const prisma = new PrismaClient();
+    
+    try {
+      // Get password history for the user within 6 months
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+      const passwordHistory = await prisma.passwordHistory.findMany({
+        where: {
+          userId,
+          createdAt: {
+            gte: sixMonthsAgo
+          }
+        }
+      });
+
+      // Check if the new password matches any recent password
+      for (const historyEntry of passwordHistory) {
+        const isMatch = await this.comparePassword(password, historyEntry.passwordHash);
+        if (isMatch) {
+          return true;
+        }
+      }
+
+      return false;
     } finally {
       await prisma.$disconnect();
     }
