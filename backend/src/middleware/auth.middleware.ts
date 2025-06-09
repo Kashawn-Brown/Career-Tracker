@@ -133,13 +133,37 @@ export async function extractUser(
 }
 
 /**
- * Middleware factory: Role-based access control (placeholder)
- * TODO: Add role checking logic
+ * Middleware factory: Role-based access control
+ * 
+ * Creates middleware that checks if the authenticated user has one of the required roles.
+ * This middleware MUST be used after requireAuth middleware to ensure request.user exists.
+ * 
+ * @param allowedRoles Array of role names that are allowed to access the route
+ * @returns Middleware function that checks user role
+ * 
+ * Usage:
+ * - roleBasedAccess(['ADMIN']) - Admin only
+ * - roleBasedAccess(['ADMIN', 'MODERATOR']) - Admin or Moderator
+ * - roleBasedAccess(['PREMIUM', 'ADMIN']) - Premium users or Admin
  */
 export function roleBasedAccess(allowedRoles: string[]) {
   return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
-    // Placeholder - will implement role checking
-    console.log(`roleBasedAccess middleware called for roles: ${allowedRoles.join(', ')}`);
-    // For now, just continue
+    // Ensure user is authenticated (should be set by requireAuth middleware)
+    if (!request.user) {
+      return reply.status(401).send({
+        error: 'Authentication required',
+        message: 'No user context found. Ensure requireAuth middleware runs before roleBasedAccess.'
+      });
+    }
+
+    // Check if user's role is in the allowed roles
+    if (!allowedRoles.includes(request.user.role)) {
+      return reply.status(403).send({
+        error: 'Access forbidden',
+        message: `This action requires one of the following roles: ${allowedRoles.join(', ')}. Your role: ${request.user.role}`
+      });
+    }
+
+    // User has the required role, continue to the route handler
   };
 } 
