@@ -390,6 +390,92 @@ export class AuthController {
     }
   }
 
+  /**
+   * Verify password reset token
+   * GET /api/auth/reset-password/:token
+   */
+  async verifyPasswordReset(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const { token } = request.params as { token: string };
+
+      if (!token) {
+        return reply.status(400).send({
+          error: 'Password reset token is required'
+        });
+      }
+
+      // Verify the token using the service
+      const result = await authService.verifyPasswordResetToken(token);
+
+      if (!result.valid) {
+        return reply.status(400).send({
+          message: result.message,
+          valid: false
+        });
+      }
+
+      return reply.send({
+        message: result.message,
+        valid: true
+      });
+
+    } catch (error) {
+      console.error('Password reset token verification error:', error);
+      return reply.status(500).send({
+        error: 'Internal server error during token verification'
+      });
+    }
+  }
+
+  /**
+   * Reset password with token
+   * POST /api/auth/reset-password/:token
+   */
+  async resetPassword(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const { token } = request.params as { token: string };
+      const { password } = request.body as { password: string };
+
+      if (!token) {
+        return reply.status(400).send({
+          error: 'Password reset token is required'
+        });
+      }
+
+      if (!password) {
+        return reply.status(400).send({
+          error: 'New password is required'
+        });
+      }
+
+      // Get client IP and User-Agent for security logging
+      const clientIP = request.headers['x-forwarded-for'] || request.headers['x-real-ip'] || request.ip || 'unknown';
+      const userAgent = request.headers['user-agent'] || 'unknown';
+
+      // Reset password using the service
+      const result = await authService.resetPassword(token, password);
+
+      if (!result.success) {
+        return reply.status(400).send({
+          error: result.message
+        });
+      }
+
+      // Log the successful password reset with client details
+      console.log(`[SECURITY_AUDIT] Password Reset Success: IP=${clientIP}, UserAgent=${userAgent}, Token=${token.substring(0, 8)}...`);
+
+      return reply.send({
+        message: result.message
+      });
+
+    } catch (error) {
+      console.error('Password reset error:', error);
+      return reply.status(500).send({
+        error: 'Internal server error during password reset'
+      });
+    }
+  }
+
 
 }
 

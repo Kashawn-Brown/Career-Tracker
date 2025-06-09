@@ -160,6 +160,55 @@ export const forgotPasswordSchema = {
   }
 };
 
+// Schema for verifying password reset token (GET endpoint)
+export const verifyResetTokenSchema = {
+  params: {
+    type: 'object',
+    required: ['token'],
+    properties: {
+      token: { type: 'string', minLength: 32, maxLength: 64 }
+    },
+    additionalProperties: false
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        message: { type: 'string' },
+        valid: { type: 'boolean' }
+      }
+    }
+  }
+};
+
+// Schema for password reset completion (POST endpoint)
+export const resetPasswordSchema = {
+  params: {
+    type: 'object',
+    required: ['token'],
+    properties: {
+      token: { type: 'string', minLength: 32, maxLength: 64 }
+    },
+    additionalProperties: false
+  },
+  body: {
+    type: 'object',
+    required: ['password'],
+    properties: {
+      password: { type: 'string', minLength: 8, maxLength: 128 }
+    },
+    additionalProperties: false
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        message: { type: 'string' }
+      }
+    }
+  }
+};
+
 // Schema for OAuth provider status
 export const oauthStatusSchema = {
   response: {

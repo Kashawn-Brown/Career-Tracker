@@ -435,6 +435,128 @@ export class AuthService {
   }
 
   /**
+   * Verify password reset token validity and expiration
+   */
+  async verifyPasswordResetToken(token: string): Promise<{ valid: boolean; message: string; userId?: number }> {
+    const { PrismaClient } = await import('@prisma/client');
+    const prisma = new PrismaClient();
+    
+    try {
+      const resetToken = await prisma.passwordResetToken.findUnique({
+        where: { token },
+        include: { user: true }
+      });
+
+      if (!resetToken) {
+        this.logPasswordResetAttempt(null, 'token_verification', false, 'Invalid token');
+        return {
+          valid: false,
+          message: 'Invalid or expired password reset token'
+        };
+      }
+
+      if (resetToken.expiresAt < new Date()) {
+        this.logPasswordResetAttempt(resetToken.userId, 'token_verification', false, 'Token expired');
+        return {
+          valid: false,
+          message: 'Password reset token has expired'
+        };
+      }
+
+      this.logPasswordResetAttempt(resetToken.userId, 'token_verification', true, 'Token verified successfully');
+      return {
+        valid: true,
+        message: 'Password reset token is valid',
+        userId: resetToken.userId
+      };
+    } finally {
+      await prisma.$disconnect();
+    }
+  }
+
+  /**
+   * Complete password reset process
+   */
+  async resetPassword(token: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+    const { PrismaClient } = await import('@prisma/client');
+    const prisma = new PrismaClient();
+    
+    try {
+      // First verify the token
+      const tokenVerification = await this.verifyPasswordResetToken(token);
+      if (!tokenVerification.valid || !tokenVerification.userId) {
+        return {
+          success: false,
+          message: tokenVerification.message
+        };
+      }
+
+      // Validate password strength
+      const passwordValidation = this.isValidPassword(newPassword);
+      if (!passwordValidation.valid) {
+        this.logPasswordResetAttempt(tokenVerification.userId, 'password_reset', false, 'Weak password provided');
+        return {
+          success: false,
+          message: `Password does not meet requirements: ${passwordValidation.errors.join(', ')}`
+        };
+      }
+
+      // Hash the new password
+      const hashedPassword = await this.hashPassword(newPassword);
+
+      // Update user password and delete used token in a transaction
+      await prisma.$transaction([
+        prisma.user.update({
+          where: { id: tokenVerification.userId },
+          data: { password: hashedPassword }
+        }),
+        prisma.passwordResetToken.deleteMany({
+          where: { userId: tokenVerification.userId }
+        })
+      ]);
+
+      this.logPasswordResetAttempt(tokenVerification.userId, 'password_reset', true, 'Password reset completed successfully');
+      
+      return {
+        success: true,
+        message: 'Password has been reset successfully'
+      };
+    } catch (error) {
+      console.error('Password reset error:', error);
+      this.logPasswordResetAttempt(null, 'password_reset', false, `System error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return {
+        success: false,
+        message: 'An error occurred while resetting your password'
+      };
+    } finally {
+      await prisma.$disconnect();
+    }
+  }
+
+  /**
+   * Log password reset attempts for security auditing
+   */
+  private logPasswordResetAttempt(
+    userId: number | null, 
+    action: 'token_verification' | 'password_reset', 
+    success: boolean, 
+    details: string
+  ): void {
+    const logEntry = {
+      timestamp: new Date().toISOString(),
+      userId,
+      action,
+      success,
+      details,
+      ip: 'N/A', // Will be populated by controller layer
+      userAgent: 'N/A' // Will be populated by controller layer
+    };
+
+    // For now, log to console. In production, this should go to a security audit log
+    console.log(`[SECURITY_AUDIT] Password Reset: ${JSON.stringify(logEntry)}`);
+  }
+
+  /**
    * Clean up expired email verification tokens (maintenance function)
    */
   async cleanupExpiredTokens(): Promise<number> {
