@@ -30,7 +30,10 @@
     "@fastify/rate-limit": "^10.3.0",
     "@fastify/sensible": "^6.0.3",
     "@prisma/client": "^6.9.0",
+    "@sendgrid/mail": "^8.1.5",
+    "@types/bull": "^3.15.9",
     "bcrypt": "^6.0.0",
+    "bull": "^4.16.5",
     "dotenv": "^16.5.0",
     "fastify": "^5.3.3",
     "jsonwebtoken": "^9.0.2",
@@ -38,7 +41,8 @@
     "passport-google-oauth20": "^2.0.0",
     "passport-linkedin-oauth2": "^2.0.0",
     "pino": "^9.7.0",
-    "pino-pretty": "^13.0.0"
+    "pino-pretty": "^13.0.0",
+    "redis": "^5.5.6"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",

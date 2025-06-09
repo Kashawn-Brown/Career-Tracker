@@ -16,6 +16,7 @@ import {
   ResendVerificationResult,
   PasswordValidationResult
 } from '../models/auth.models.js';
+import { UserRole } from '../models/user.models.js';
 
 // JWT Configuration
 const JWT_SECRET = process.env.JWT_SECRET!;
@@ -58,7 +59,7 @@ export class AuthService {
   /**
    * Generate both access and refresh JWT tokens for a user
    */
-  generateTokenPair(userId: number, email: string): TokenPair {
+  generateTokenPair(userId: number, email: string, role: UserRole = UserRole.USER): TokenPair {
     if (!JWT_SECRET || !JWT_REFRESH_SECRET) {
       throw new Error('JWT secrets not configured');
     }
@@ -66,13 +67,15 @@ export class AuthService {
     const accessTokenPayload: JWTPayload = {
       userId,
       email,
-      type: 'access'
+      type: 'access',
+      role
     };
 
     const refreshTokenPayload: JWTPayload = {
       userId,
       email,
-      type: 'refresh'
+      type: 'refresh',
+      role
     };
 
     const accessToken = jwt.sign(accessTokenPayload, JWT_SECRET, {

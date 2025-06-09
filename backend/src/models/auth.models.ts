@@ -5,6 +5,8 @@
  * These models represent the structure of authentication data used throughout the application.
  */
 
+import { UserRole } from './user.models.js';
+
 /**
  * JWT Payload interface for token content
  */
@@ -12,6 +14,7 @@ export interface JWTPayload {
   userId: number;
   email: string;
   type: 'access' | 'refresh';
+  role: UserRole;
 }
 
 /**
