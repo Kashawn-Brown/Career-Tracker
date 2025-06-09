@@ -13,6 +13,7 @@
 import { FastifyInstance } from 'fastify';
 import { authController } from '../controllers/auth.controller.js';
 import { oauthController } from '../controllers/oauth.controller.js';
+import { requireAuth } from '../middleware/auth.middleware.js';
 import {
   registerSchema,
   loginSchema,
@@ -22,7 +23,15 @@ import {
   forgotPasswordSchema,
   verifyResetTokenSchema,
   resetPasswordSchema,
-  oauthStatusSchema
+  oauthStatusSchema,
+  setupSecurityQuestionsSchema,
+  getSecurityQuestionsSchema,
+  getRecoveryQuestionsSchema,
+  verifySecurityQuestionsSchema,
+  getAvailableSecurityQuestionsSchema,
+  setupSecondaryEmailSchema,
+  verifySecondaryEmailSchema,
+  forgotPasswordSecondarySchema
 } from '../schemas/auth.schema.js';
 
 // Rate limiting configuration
@@ -113,6 +122,77 @@ export default async function authRoutes(fastify: FastifyInstance) {
     },
     schema: resetPasswordSchema
   }, authController.resetPassword.bind(authController));
+
+  // Security Questions Routes
+  
+  // Set up security questions (authenticated)
+  fastify.post('/security-questions', {
+    config: {
+      rateLimit: authRateLimit // 5 requests per minute
+    },
+    schema: setupSecurityQuestionsSchema,
+    preHandler: requireAuth
+  }, authController.setupSecurityQuestions.bind(authController));
+
+  // Get user's security questions (authenticated)
+  fastify.get('/security-questions', {
+    config: {
+      rateLimit: authRateLimit // 5 requests per minute
+    },
+    schema: getSecurityQuestionsSchema,
+    preHandler: requireAuth
+  }, authController.getSecurityQuestions.bind(authController));
+
+  // Get recovery questions for email (public)
+  fastify.post('/recovery-questions', {
+    config: {
+      rateLimit: forgotPasswordRateLimit // 3 requests per hour like forgot password
+    },
+    schema: getRecoveryQuestionsSchema
+  }, authController.getRecoveryQuestions.bind(authController));
+
+  // Verify security questions for recovery (public)
+  fastify.post('/verify-security-questions', {
+    config: {
+      rateLimit: resetPasswordRateLimit // 10 attempts per 15 minutes
+    },
+    schema: verifySecurityQuestionsSchema
+  }, authController.verifySecurityQuestions.bind(authController));
+
+  // Get available security question types (public)
+  fastify.get('/available-security-questions', {
+    config: {
+      rateLimit: authRateLimit // 5 requests per minute (light rate limit for public endpoint)
+    },
+    schema: getAvailableSecurityQuestionsSchema
+  }, authController.getAvailableSecurityQuestions.bind(authController));
+
+  // Secondary Email Management Routes
+  
+  // Set up secondary email (authenticated)
+  fastify.post('/secondary-email', {
+    config: {
+      rateLimit: authRateLimit // 5 requests per minute
+    },
+    schema: setupSecondaryEmailSchema,
+    preHandler: requireAuth
+  }, authController.setupSecondaryEmail.bind(authController));
+
+  // Verify secondary email token (public)
+  fastify.post('/verify-secondary-email', {
+    config: {
+      rateLimit: authRateLimit // 5 requests per minute
+    },
+    schema: verifySecondaryEmailSchema
+  }, authController.verifySecondaryEmail.bind(authController));
+
+  // Forgot password via secondary email (public)
+  fastify.post('/forgot-password-secondary', {
+    config: {
+      rateLimit: forgotPasswordRateLimit // 3 requests per hour like forgot password
+    },
+    schema: forgotPasswordSecondarySchema
+  }, authController.forgotPasswordSecondary.bind(authController));
 
   // OAuth Routes
   

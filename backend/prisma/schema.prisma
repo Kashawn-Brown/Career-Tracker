@@ -18,18 +18,23 @@ model User {
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @updatedAt
   emailVerified           Boolean                  @default(false)
+  secondaryEmail          String?
+  secondaryEmailVerified  Boolean                  @default(false)
   password                String?
   provider                AuthProvider             @default(LOCAL)
   providerId              String?
   contacts                Contact[]
   emailVerificationTokens EmailVerificationToken[]
+  secondaryEmailVerificationTokens SecondaryEmailVerificationToken[]
   jobApplications         JobApplication[]
   passwordResetTokens     PasswordResetToken[]
   passwordHistory         PasswordHistory[]
+  securityQuestions       SecurityQuestion[]
   sessions                Session[]
   tags                    Tag[]
 
   @@index([email])
+  @@index([secondaryEmail])
   @@index([provider, providerId])
   @@map("users")
 }
@@ -62,6 +67,21 @@ model EmailVerificationToken {
   @@map("email_verification_tokens")
 }
 
+model SecondaryEmailVerificationToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  token     String   @unique
+  email     String   // Store the secondary email being verified
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+  @@map("secondary_email_verification_tokens")
+}
+
 model PasswordResetToken {
   id        Int      @id @default(autoincrement())
   userId    Int
@@ -86,6 +106,19 @@ model PasswordHistory {
   @@index([userId])
   @@index([createdAt])
   @@map("password_history")
+}
+
+model SecurityQuestion {
+  id         Int                    @id @default(autoincrement())
+  userId     Int
+  question   SecurityQuestionType
+  answerHash String
+  createdAt  DateTime               @default(now())
+  user       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, question])
+  @@index([userId])
+  @@map("security_questions")
 }
 
 model JobApplication {
@@ -200,4 +233,17 @@ enum UserRole {
   PREMIUM
   ADMIN
   MODERATOR
+}
+
+enum SecurityQuestionType {
+  FIRST_PET_NAME
+  MOTHER_MAIDEN_NAME
+  FIRST_SCHOOL
+  CHILDHOOD_FRIEND
+  BIRTH_CITY
+  FIRST_CAR
+  FAVORITE_TEACHER
+  FIRST_JOB
+  CHILDHOOD_STREET
+  FATHER_MIDDLE_NAME
 }

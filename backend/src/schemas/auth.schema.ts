@@ -252,4 +252,246 @@ export const authErrorResponseSchema = {
       items: { type: 'string' }
     }
   }
+};
+
+// Security Question Types enum for schema validation
+const securityQuestionTypes = [
+  'FIRST_PET_NAME',
+  'MOTHER_MAIDEN_NAME', 
+  'FIRST_SCHOOL',
+  'CHILDHOOD_FRIEND',
+  'BIRTH_CITY',
+  'FIRST_CAR',
+  'FAVORITE_TEACHER',
+  'FIRST_JOB',
+  'CHILDHOOD_STREET',
+  'FATHER_MIDDLE_NAME'
+];
+
+// Schema for setting up security questions
+export const setupSecurityQuestionsSchema = {
+  body: {
+    type: 'object',
+    required: ['questions'],
+    properties: {
+      questions: {
+        type: 'array',
+        minItems: 3,
+        maxItems: 5,
+        items: {
+          type: 'object',
+          required: ['question', 'answer'],
+          properties: {
+            question: { 
+              type: 'string', 
+              enum: securityQuestionTypes 
+            },
+            answer: { 
+              type: 'string', 
+              minLength: 1, 
+              maxLength: 100 
+            }
+          },
+          additionalProperties: false
+        }
+      }
+    },
+    additionalProperties: false
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        message: { type: 'string' },
+        questionsSet: { type: 'integer' }
+      }
+    }
+  }
+};
+
+// Schema for getting user's security questions (without answers)
+export const getSecurityQuestionsSchema = {
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        message: { type: 'string' },
+        questions: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'integer' },
+              question: { 
+                type: 'string', 
+                enum: securityQuestionTypes 
+              },
+              createdAt: { type: 'string', format: 'date-time' }
+            }
+          }
+        }
+      }
+    }
+  }
+};
+
+// Schema for verifying security questions during recovery
+export const verifySecurityQuestionsSchema = {
+  body: {
+    type: 'object',
+    required: ['email', 'answers'],
+    properties: {
+      email: { type: 'string', format: 'email' },
+      answers: {
+        type: 'array',
+        minItems: 2,
+        maxItems: 5,
+        items: {
+          type: 'object',
+          required: ['questionId', 'answer'],
+          properties: {
+            questionId: { type: 'integer' },
+            answer: { 
+              type: 'string', 
+              minLength: 1, 
+              maxLength: 100 
+            }
+          },
+          additionalProperties: false
+        }
+      }
+    },
+    additionalProperties: false
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        message: { type: 'string' },
+        verified: { type: 'boolean' },
+        resetToken: { type: ['string', 'null'] }
+      }
+    }
+  }
+};
+
+// Schema for getting recovery questions for a specific email
+export const getRecoveryQuestionsSchema = {
+  body: {
+    type: 'object',
+    required: ['email'],
+    properties: {
+      email: { type: 'string', format: 'email' }
+    },
+    additionalProperties: false
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        message: { type: 'string' },
+        questions: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'integer' },
+              question: { 
+                type: 'string', 
+                enum: securityQuestionTypes 
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+};
+
+// Schema for getting available security question types with display text
+export const getAvailableSecurityQuestionsSchema = {
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        message: { type: 'string' },
+        questions: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              type: { type: 'string' },
+              text: { type: 'string' }
+            }
+          }
+        }
+      }
+    }
+  }
+};
+
+export const setupSecondaryEmailSchema = {
+  body: {
+    type: 'object',
+    required: ['secondaryEmail'],
+    properties: {
+      secondaryEmail: { 
+        type: 'string',
+        format: 'email',
+        maxLength: 100
+      }
+    }
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        message: { type: 'string' }
+      }
+    }
+  }
+};
+
+export const verifySecondaryEmailSchema = {
+  body: {
+    type: 'object',
+    required: ['token'],
+    properties: {
+      token: { 
+        type: 'string',
+        minLength: 1,
+        maxLength: 255
+      }
+    }
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        message: { type: 'string' }
+      }
+    }
+  }
+};
+
+export const forgotPasswordSecondarySchema = {
+  body: {
+    type: 'object',
+    required: ['email'],
+    properties: {
+      email: { 
+        type: 'string',
+        format: 'email',
+        maxLength: 100
+      }
+    }
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        message: { type: 'string' }
+      }
+    }
+  }
 }; 

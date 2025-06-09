@@ -476,6 +476,317 @@ export class AuthController {
     }
   }
 
+  /**
+   * Set up security questions for a user
+   * POST /api/auth/security-questions
+   */
+  async setupSecurityQuestions(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const { questions } = request.body as {
+        questions: Array<{ question: string; answer: string }>
+      };
+
+      // Get user ID from JWT token (assuming we have auth middleware)
+      const user = (request as any).user;
+      if (!user || !user.id) {
+        return reply.status(401).send({
+          error: 'Authentication required'
+        });
+      }
+
+      // Validate questions array
+      if (!questions || !Array.isArray(questions)) {
+        return reply.status(400).send({
+          error: 'Questions array is required'
+        });
+      }
+
+      if (questions.length < 3 || questions.length > 5) {
+        return reply.status(400).send({
+          error: 'Must provide between 3 and 5 security questions'
+        });
+      }
+
+      // Check for duplicate questions
+      const questionTypes = questions.map(q => q.question);
+      const uniqueQuestions = new Set(questionTypes);
+      if (uniqueQuestions.size !== questionTypes.length) {
+        return reply.status(400).send({
+          error: 'Duplicate questions are not allowed'
+        });
+      }
+
+      // Set up security questions using the service
+      const result = await authService.setupSecurityQuestions(user.id, questions);
+
+      if (!result.success) {
+        return reply.status(400).send({
+          error: result.message
+        });
+      }
+
+      return reply.send({
+        message: result.message,
+        questionsSet: questions.length
+      });
+
+    } catch (error) {
+      console.error('Setup security questions error:', error);
+      return reply.status(500).send({
+        error: 'Internal server error during security questions setup'
+      });
+    }
+  }
+
+  /**
+   * Get user's security questions (authenticated)
+   * GET /api/auth/security-questions
+   */
+  async getSecurityQuestions(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      // Get user ID from JWT token (assuming we have auth middleware)
+      const user = (request as any).user;
+      if (!user || !user.id) {
+        return reply.status(401).send({
+          error: 'Authentication required'
+        });
+      }
+
+      // Get security questions using the service
+      const result = await authService.getUserSecurityQuestions(user.id);
+
+      return reply.send({
+        message: 'Security questions retrieved successfully',
+        questions: result.questions
+      });
+
+    } catch (error) {
+      console.error('Get security questions error:', error);
+      return reply.status(500).send({
+        error: 'Internal server error while retrieving security questions'
+      });
+    }
+  }
+
+  /**
+   * Get recovery questions for an email (public)
+   * POST /api/auth/recovery-questions
+   */
+  async getRecoveryQuestions(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const { email } = request.body as { email: string };
+
+      if (!email) {
+        return reply.status(400).send({
+          error: 'Email is required'
+        });
+      }
+
+      // Validate email format
+      if (!authService.isValidEmail(email)) {
+        return reply.status(400).send({
+          error: 'Invalid email format'
+        });
+      }
+
+      // Get recovery questions using the service
+      const result = await authService.getRecoveryQuestions(email);
+
+      return reply.send({
+        message: result.message,
+        questions: result.questions || []
+      });
+
+    } catch (error) {
+      console.error('Get recovery questions error:', error);
+      return reply.status(500).send({
+        error: 'Internal server error while retrieving recovery questions'
+      });
+    }
+  }
+
+  /**
+   * Verify security questions for account recovery
+   * POST /api/auth/verify-security-questions
+   */
+  async verifySecurityQuestions(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const { email, answers } = request.body as {
+        email: string;
+        answers: Array<{ questionId: number; answer: string }>
+      };
+
+      if (!email) {
+        return reply.status(400).send({
+          error: 'Email is required'
+        });
+      }
+
+      if (!answers || !Array.isArray(answers) || answers.length < 2) {
+        return reply.status(400).send({
+          error: 'At least 2 answers are required'
+        });
+      }
+
+      // Get client IP and User-Agent for security logging
+      const clientIP = request.headers['x-forwarded-for'] || request.headers['x-real-ip'] || request.ip || 'unknown';
+      const userAgent = request.headers['user-agent'] || 'unknown';
+
+      // Verify security questions using the service
+      const result = await authService.verifySecurityQuestions(email, answers);
+
+      // Log the attempt with client details
+      console.log(`[SECURITY_AUDIT] Security Questions Verification: Email=${email}, Success=${result.verified}, IP=${clientIP}, UserAgent=${userAgent}`);
+
+      return reply.send({
+        message: result.message,
+        verified: result.verified,
+        resetToken: result.resetToken || null
+      });
+
+    } catch (error) {
+      console.error('Verify security questions error:', error);
+      return reply.status(500).send({
+        error: 'Internal server error during security questions verification'
+      });
+    }
+  }
+
+  /**
+   * Get available security question types with display text
+   * GET /api/auth/available-security-questions
+   */
+  async getAvailableSecurityQuestions(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      // Get available security questions using the service
+      const result = await authService.getAvailableSecurityQuestions();
+
+      return reply.send({
+        message: 'Available security questions retrieved successfully',
+        questions: result.questions
+      });
+
+    } catch (error) {
+      console.error('Get available security questions error:', error);
+      return reply.status(500).send({
+        error: 'Internal server error while retrieving available security questions'
+      });
+    }
+  }
+
+  /**
+   * Set up secondary email for authenticated user
+   * POST /api/auth/secondary-email
+   */
+  async setupSecondaryEmail(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const { secondaryEmail } = request.body as { secondaryEmail: string };
+
+      // Get user ID from JWT token
+      const user = (request as any).user;
+      if (!user || !user.id) {
+        return reply.status(401).send({
+          error: 'Authentication required'
+        });
+      }
+
+      if (!secondaryEmail) {
+        return reply.status(400).send({
+          error: 'Secondary email is required'
+        });
+      }
+
+      // Set up secondary email using the service
+      const result = await authService.setupSecondaryEmail(user.id, secondaryEmail);
+
+      if (!result.success) {
+        return reply.status(400).send({
+          error: result.message
+        });
+      }
+
+      return reply.send({
+        message: result.message
+      });
+
+    } catch (error) {
+      console.error('Setup secondary email error:', error);
+      return reply.status(500).send({
+        error: 'Internal server error during secondary email setup'
+      });
+    }
+  }
+
+  /**
+   * Verify secondary email token
+   * POST /api/auth/verify-secondary-email
+   */
+  async verifySecondaryEmail(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const { token } = request.body as { token: string };
+
+      if (!token) {
+        return reply.status(400).send({
+          error: 'Verification token is required'
+        });
+      }
+
+      // Verify the token using the service
+      const result = await authService.verifySecondaryEmail(token);
+
+      if (!result.success) {
+        return reply.status(400).send({
+          error: result.message
+        });
+      }
+
+      return reply.send({
+        message: result.message
+      });
+
+    } catch (error) {
+      console.error('Verify secondary email error:', error);
+      return reply.status(500).send({
+        error: 'Internal server error during secondary email verification'
+      });
+    }
+  }
+
+  /**
+   * Request password reset via secondary email
+   * POST /api/auth/forgot-password-secondary
+   */
+  async forgotPasswordSecondary(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const { email } = request.body as { email: string };
+
+      if (!email) {
+        return reply.status(400).send({
+          error: 'Email is required'
+        });
+      }
+
+      // Validate email format
+      if (!authService.isValidEmail(email)) {
+        return reply.status(400).send({
+          error: 'Invalid email format'
+        });
+      }
+
+      // Request password reset using the service
+      const result = await authService.requestPasswordResetSecondary(email);
+
+      return reply.send({
+        message: result.message
+      });
+
+    } catch (error) {
+      console.error('Secondary email password reset error:', error);
+      return reply.status(500).send({
+        error: 'Internal server error during password reset request'
+      });
+    }
+  }
 
 }
 
