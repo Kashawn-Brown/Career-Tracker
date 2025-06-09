@@ -332,6 +332,64 @@ export class AuthController {
     }
   }
 
+  /**
+   * Request password reset
+   * POST /api/auth/forgot-password
+   */
+  async forgotPassword(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const { email } = request.body as { email: string };
+
+      if (!email) {
+        return reply.status(400).send({
+          error: 'Email is required'
+        });
+      }
+
+      // Validate email format
+      if (!authService.isValidEmail(email)) {
+        return reply.status(400).send({
+          error: 'Invalid email format'
+        });
+      }
+
+      // Request password reset using the service
+      const result = await authService.requestPasswordReset(email);
+
+      // If a token was generated (user exists), send the email
+      if (result.token) {
+        try {
+          const user = await userRepository.findByEmail(email);
+          if (user && queueService.isReady()) {
+            await queueService.addPasswordResetJob({
+              to: email,
+              userName: user.name,
+              resetToken: result.token,
+              resetUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${result.token}`
+            });
+            console.log(`Password reset email job queued for: ${email}`);
+          } else {
+            console.warn(`Queue service not available. Password reset token for ${email}: ${result.token}`);
+          }
+        } catch (emailError) {
+          console.error('Failed to queue password reset email:', emailError);
+          // Don't fail the operation if email queueing fails
+        }
+      }
+
+      // Always return success message for security (don't reveal if email exists)
+      return reply.send({
+        message: result.message
+      });
+
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      return reply.status(500).send({
+        error: 'Internal server error during password reset request'
+      });
+    }
+  }
+
 
 }
 

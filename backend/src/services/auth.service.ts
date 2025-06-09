@@ -179,6 +179,23 @@ export class AuthService {
   }
 
   /**
+   * Generate a secure random token for password reset
+   * Returns a URL-safe random string
+   */
+  generatePasswordResetToken(): string {
+    return crypto.randomBytes(32).toString('base64url');
+  }
+
+  /**
+   * Calculate expiration date for password reset tokens (1 hour)
+   */
+  getPasswordResetExpiry(): Date {
+    const expiry = new Date();
+    expiry.setHours(expiry.getHours() + 1); // 1 hour from now
+    return expiry;
+  }
+
+  /**
    * Validate email format using basic regex
    */
   isValidEmail(email: string): boolean {
@@ -348,6 +365,73 @@ export class AuthService {
     
     // Generate new token pair with role from existing token
     return this.generateTokenPair(decoded.userId, decoded.email, decoded.role);
+  }
+
+  /**
+   * Request password reset for a user email
+   * Implements rate limiting (3 requests per email per hour)
+   */
+  async requestPasswordReset(email: string): Promise<{ success: boolean; message: string; token?: string }> {
+    const { PrismaClient } = await import('@prisma/client');
+    const prisma = new PrismaClient();
+    
+    try {
+      // Find user by email (don't reveal if email exists for security)
+      const user = await prisma.user.findUnique({
+        where: { email }
+      });
+
+      // Always return success to not reveal if email exists
+      if (!user) {
+        return {
+          success: true,
+          message: 'If this email is registered, you will receive a password reset link.'
+        };
+      }
+
+      // Check rate limiting - count recent reset requests for this email
+      const oneHourAgo = new Date();
+      oneHourAgo.setHours(oneHourAgo.getHours() - 1);
+
+      const recentRequests = await prisma.passwordResetToken.count({
+        where: {
+          userId: user.id,
+          createdAt: {
+            gte: oneHourAgo
+          }
+        }
+      });
+
+      if (recentRequests >= 3) {
+        return {
+          success: true, // Still return success for security
+          message: 'If this email is registered, you will receive a password reset link.'
+        };
+      }
+
+      // Delete any existing password reset tokens for this user
+      await prisma.passwordResetToken.deleteMany({
+        where: { userId: user.id }
+      });
+
+      // Generate new password reset token
+      const resetToken = this.generatePasswordResetToken();
+      await prisma.passwordResetToken.create({
+        data: {
+          userId: user.id,
+          token: resetToken,
+          expiresAt: this.getPasswordResetExpiry()
+        }
+      });
+
+      return {
+        success: true,
+        message: 'If this email is registered, you will receive a password reset link.',
+        token: resetToken // Only used internally for email sending
+      };
+    } finally {
+      await prisma.$disconnect();
+    }
   }
 
   /**

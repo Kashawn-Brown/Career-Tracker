@@ -140,6 +140,26 @@ export const resendVerificationSchema = {
   }
 };
 
+// Schema for forgot password request
+export const forgotPasswordSchema = {
+  body: {
+    type: 'object',
+    required: ['email'],
+    properties: {
+      email: { type: 'string', format: 'email' }
+    },
+    additionalProperties: false
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        message: { type: 'string' }
+      }
+    }
+  }
+};
+
 // Schema for OAuth provider status
 export const oauthStatusSchema = {
   response: {

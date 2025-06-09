@@ -19,6 +19,7 @@ import {
   verifyEmailSchema,
   refreshTokenSchema,
   resendVerificationSchema,
+  forgotPasswordSchema,
   oauthStatusSchema
 } from '../schemas/auth.schema.js';
 
@@ -31,6 +32,11 @@ const authRateLimit = {
 const resendRateLimit = {
   max: 3, // 3 requests per 5 minutes for resend
   timeWindow: 5 * 60 * 1000 // 5 minutes
+};
+
+const forgotPasswordRateLimit = {
+  max: 3, // 3 requests per hour for password reset
+  timeWindow: 60 * 60 * 1000 // 1 hour
 };
 
 export default async function authRoutes(fastify: FastifyInstance) {
@@ -76,6 +82,14 @@ export default async function authRoutes(fastify: FastifyInstance) {
     },
     schema: resendVerificationSchema
   }, authController.resendVerification.bind(authController));
+
+  // Forgot Password
+  fastify.post('/forgot-password', {
+    config: {
+      rateLimit: forgotPasswordRateLimit // 3 requests per hour
+    },
+    schema: forgotPasswordSchema
+  }, authController.forgotPassword.bind(authController));
 
   // OAuth Routes
   
