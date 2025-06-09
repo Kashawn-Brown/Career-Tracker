@@ -14,6 +14,10 @@ import {
   WelcomeEmailData,
   PasswordResetData,
   JobApplicationNotificationData,
+  SecurityQuestionsChangedData,
+  SecondaryEmailNotificationData,
+  RecoveryAttemptData,
+  SuspiciousActivityData,
   EmailConfig,
   EmailResult,
   BulkEmailResult

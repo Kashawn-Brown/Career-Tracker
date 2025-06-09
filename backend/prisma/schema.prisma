@@ -23,6 +23,7 @@ model User {
   password                String?
   provider                AuthProvider             @default(LOCAL)
   providerId              String?
+  auditLogs               AuditLog[]
   contacts                Contact[]
   emailVerificationTokens EmailVerificationToken[]
   secondaryEmailVerificationTokens SecondaryEmailVerificationToken[]
@@ -119,6 +120,24 @@ model SecurityQuestion {
   @@unique([userId, question])
   @@index([userId])
   @@map("security_questions")
+}
+
+model AuditLog {
+  id          Int             @id @default(autoincrement())
+  userId      Int?
+  event       AuditEventType
+  details     String?         // JSON string for additional event details
+  ipAddress   String?
+  userAgent   String?
+  successful  Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  user        User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([event])
+  @@index([createdAt])
+  @@index([ipAddress])
+  @@map("audit_logs")
 }
 
 model JobApplication {
@@ -246,4 +265,27 @@ enum SecurityQuestionType {
   FIRST_JOB
   CHILDHOOD_STREET
   FATHER_MIDDLE_NAME
+}
+
+enum AuditEventType {
+  LOGIN_SUCCESS
+  LOGIN_FAILURE
+  LOGOUT
+  PASSWORD_CHANGE
+  PASSWORD_RESET_REQUEST
+  PASSWORD_RESET_SUCCESS
+  EMAIL_VERIFICATION
+  SECURITY_QUESTIONS_SETUP
+  SECURITY_QUESTIONS_CHANGE
+  SECURITY_QUESTION_VERIFICATION_SUCCESS
+  SECURITY_QUESTION_VERIFICATION_FAILURE
+  SECONDARY_EMAIL_ADDED
+  SECONDARY_EMAIL_CHANGED
+  SECONDARY_EMAIL_VERIFICATION
+  SECONDARY_EMAIL_RECOVERY
+  ACCOUNT_LOCKED
+  ACCOUNT_UNLOCKED
+  SUSPICIOUS_ACTIVITY
+  MULTIPLE_FAILED_ATTEMPTS
+  SESSION_EXPIRED
 }

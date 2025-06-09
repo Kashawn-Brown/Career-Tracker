@@ -14,6 +14,7 @@ import { FastifyInstance } from 'fastify';
 import { authController } from '../controllers/auth.controller.js';
 import { oauthController } from '../controllers/oauth.controller.js';
 import { requireAuth } from '../middleware/auth.middleware.js';
+import { securityMiddleware } from '../middleware/security.middleware.js';
 import {
   registerSchema,
   loginSchema,
@@ -59,6 +60,16 @@ export default async function authRoutes(fastify: FastifyInstance) {
   // Register rate limiting plugin
   await fastify.register(import('@fastify/rate-limit'));
 
+  // CSRF Token endpoint
+  fastify.get('/csrf-token', {
+    config: {
+      rateLimit: {
+        max: 10, // 10 requests per minute for CSRF tokens
+        timeWindow: 60 * 1000
+      }
+    }
+  }, securityMiddleware.getCSRFToken());
+
   // User Registration
   fastify.post('/register', {
     config: {
@@ -72,7 +83,8 @@ export default async function authRoutes(fastify: FastifyInstance) {
     config: {
       rateLimit: authRateLimit
     },
-    schema: loginSchema
+    schema: loginSchema,
+    preHandler: [securityMiddleware.loginRateLimit()]
   }, authController.login.bind(authController));
 
   // Email Verification
@@ -104,7 +116,8 @@ export default async function authRoutes(fastify: FastifyInstance) {
     config: {
       rateLimit: forgotPasswordRateLimit // 3 requests per hour
     },
-    schema: forgotPasswordSchema
+    schema: forgotPasswordSchema,
+    preHandler: [securityMiddleware.passwordResetRateLimit()]
   }, authController.forgotPassword.bind(authController));
 
   // Verify Password Reset Token
@@ -156,7 +169,8 @@ export default async function authRoutes(fastify: FastifyInstance) {
     config: {
       rateLimit: resetPasswordRateLimit // 10 attempts per 15 minutes
     },
-    schema: verifySecurityQuestionsSchema
+    schema: verifySecurityQuestionsSchema,
+    preHandler: [securityMiddleware.securityQuestionRateLimit()]
   }, authController.verifySecurityQuestions.bind(authController));
 
   // Get available security question types (public)
@@ -191,7 +205,8 @@ export default async function authRoutes(fastify: FastifyInstance) {
     config: {
       rateLimit: forgotPasswordRateLimit // 3 requests per hour like forgot password
     },
-    schema: forgotPasswordSecondarySchema
+    schema: forgotPasswordSecondarySchema,
+    preHandler: [securityMiddleware.passwordResetRateLimit()]
   }, authController.forgotPasswordSecondary.bind(authController));
 
   // OAuth Routes

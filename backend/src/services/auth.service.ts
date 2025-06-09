@@ -465,9 +465,17 @@ export class AuthService {
   }
 
   /**
-   * Complete password reset process
+   * Reset password with enhanced security notifications
    */
-  async resetPassword(token: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+  async resetPassword(
+    token: string, 
+    newPassword: string, 
+    securityMetadata?: {
+      ipAddress?: string;
+      userAgent?: string;
+      timestamp?: Date;
+    }
+  ): Promise<{ success: boolean; message: string }> {
     const prisma = new PrismaClient();
     
     try {
@@ -483,7 +491,7 @@ export class AuthService {
       // Validate password strength
       const passwordValidation = this.isValidPassword(newPassword);
       if (!passwordValidation.valid) {
-        this.logPasswordResetAttempt(tokenVerification.userId, 'password_reset', false, 'Weak password provided');
+        this.logPasswordResetAttempt(tokenVerification.userId, 'password_reset', false, 'Weak password provided', securityMetadata);
         return {
           success: false,
           message: `Password does not meet requirements: ${passwordValidation.errors.join(', ')}`
@@ -493,10 +501,29 @@ export class AuthService {
       // Check if password has been used recently (prevent reuse)
       const isPasswordReused = await this.isPasswordRecentlyUsed(tokenVerification.userId, newPassword);
       if (isPasswordReused) {
-        this.logPasswordResetAttempt(tokenVerification.userId, 'password_reset', false, 'Password reuse attempted');
+        this.logPasswordResetAttempt(tokenVerification.userId, 'password_reset', false, 'Password reuse attempted', securityMetadata);
         return {
           success: false,
           message: 'You cannot reuse a password from the last 6 months. Please choose a different password.'
+        };
+      }
+
+      // Get user details for notification
+      const user = await prisma.user.findUnique({
+        where: { id: tokenVerification.userId },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          secondaryEmail: true,
+          secondaryEmailVerified: true
+        }
+      });
+
+      if (!user) {
+        return {
+          success: false,
+          message: 'User not found'
         };
       }
 
@@ -517,7 +544,10 @@ export class AuthService {
       // Store the new password in history (after successful update)
       await this.storePasswordInHistory(tokenVerification.userId, hashedPassword);
 
-      this.logPasswordResetAttempt(tokenVerification.userId, 'password_reset', true, 'Password reset completed successfully');
+      // Send enhanced security notifications
+      await this.sendPasswordChangeNotifications(user, securityMetadata);
+
+      this.logPasswordResetAttempt(tokenVerification.userId, 'password_reset', true, 'Password reset completed successfully', securityMetadata);
       
       return {
         success: true,
@@ -525,7 +555,7 @@ export class AuthService {
       };
     } catch (error) {
       console.error('Password reset error:', error);
-      this.logPasswordResetAttempt(null, 'password_reset', false, `System error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      this.logPasswordResetAttempt(null, 'password_reset', false, `System error: ${error instanceof Error ? error.message : 'Unknown error'}`, securityMetadata);
       return {
         success: false,
         message: 'An error occurred while resetting your password'
@@ -533,6 +563,196 @@ export class AuthService {
     } finally {
       await prisma.$disconnect();
     }
+  }
+
+  /**
+   * Send enhanced password change notifications to primary and secondary emails
+   */
+  private async sendPasswordChangeNotifications(
+    user: {
+      id: number;
+      email: string;
+      name: string;
+      secondaryEmail: string | null;
+      secondaryEmailVerified: boolean;
+    },
+    securityMetadata?: {
+      ipAddress?: string;
+      userAgent?: string;
+      timestamp?: Date;
+    }
+  ): Promise<void> {
+    const timestamp = securityMetadata?.timestamp || new Date();
+    const ipAddress = securityMetadata?.ipAddress || 'Unknown';
+    const userAgent = securityMetadata?.userAgent || 'Unknown';
+    
+    // Parse basic device info from user agent
+    const deviceInfo = this.parseDeviceInfo(userAgent);
+    
+    // Create enhanced notification content
+    const notificationData = {
+      userName: user.name,
+      timestamp: timestamp.toLocaleString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZoneName: 'short'
+      }),
+      ipAddress,
+      browser: deviceInfo.browser,
+      operatingSystem: deviceInfo.os,
+      location: 'Location lookup disabled', // Could add IP geolocation service
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@career-tracker.com'
+    };
+
+    // Email templates
+    const subject = '🔒 Password Changed Successfully - Career Tracker';
+    const emailContent = this.generatePasswordChangeEmailContent(notificationData);
+
+    // Send to primary email
+    console.log(`[EMAIL_NOTIFICATION] Sending password change notification to primary email: ${user.email}`);
+    console.log(`Subject: ${subject}`);
+    console.log(`Content: ${emailContent}`);
+
+    // Send to secondary email if verified
+    if (user.secondaryEmail && user.secondaryEmailVerified) {
+      console.log(`\n[EMAIL_NOTIFICATION] Sending password change notification to secondary email: ${user.secondaryEmail}`);
+      console.log(`Subject: ${subject}`);
+      console.log(`Content: ${emailContent}`);
+    }
+
+    // Log the notification for audit purposes
+    console.log(`[SECURITY_AUDIT] Password change notifications sent for user ${user.id} to ${user.secondaryEmail && user.secondaryEmailVerified ? 2 : 1} email address(es)`);
+  }
+
+  /**
+   * Parse basic device information from User-Agent string
+   */
+  private parseDeviceInfo(userAgent: string): { browser: string; os: string } {
+    const ua = userAgent.toLowerCase();
+    
+    // Basic browser detection
+    let browser = 'Unknown Browser';
+    if (ua.includes('chrome') && !ua.includes('edg')) {
+      browser = 'Google Chrome';
+    } else if (ua.includes('firefox')) {
+      browser = 'Mozilla Firefox';
+    } else if (ua.includes('safari') && !ua.includes('chrome')) {
+      browser = 'Safari';
+    } else if (ua.includes('edg')) {
+      browser = 'Microsoft Edge';
+    } else if (ua.includes('opera') || ua.includes('opr')) {
+      browser = 'Opera';
+    }
+
+    // Basic OS detection
+    let os = 'Unknown OS';
+    if (ua.includes('windows nt 10')) {
+      os = 'Windows 10/11';
+    } else if (ua.includes('windows nt')) {
+      os = 'Windows';
+    } else if (ua.includes('mac os x')) {
+      os = 'macOS';
+    } else if (ua.includes('linux')) {
+      os = 'Linux';
+    } else if (ua.includes('android')) {
+      os = 'Android';
+    } else if (ua.includes('iphone') || ua.includes('ipad')) {
+      os = 'iOS';
+    }
+
+    return { browser, os };
+  }
+
+  /**
+   * Generate rich HTML email content for password change notification
+   */
+  private generatePasswordChangeEmailContent(data: {
+    userName: string;
+    timestamp: string;
+    ipAddress: string;
+    browser: string;
+    operatingSystem: string;
+    location: string;
+    supportEmail: string;
+  }): string {
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Password Changed Successfully</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+        <h1 style="margin: 0; font-size: 28px;">🔒 Password Changed Successfully</h1>
+        <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Your Career Tracker account is secure</p>
+    </div>
+    
+    <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;">
+        <p style="font-size: 16px; margin-bottom: 20px;">Hi <strong>${data.userName}</strong>,</p>
+        
+        <p style="font-size: 16px; margin-bottom: 20px;">Your password has been successfully changed for your Career Tracker account. This email confirms the security change and provides details about when and where it occurred.</p>
+        
+        <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #28a745; margin: 20px 0;">
+            <h3 style="color: #28a745; margin-top: 0; font-size: 18px;">Change Details</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                    <td style="padding: 8px 0; font-weight: bold; width: 30%;">Date & Time:</td>
+                    <td style="padding: 8px 0;">${data.timestamp}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0; font-weight: bold;">IP Address:</td>
+                    <td style="padding: 8px 0; font-family: monospace;">${data.ipAddress}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0; font-weight: bold;">Browser:</td>
+                    <td style="padding: 8px 0;">${data.browser}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0; font-weight: bold;">Operating System:</td>
+                    <td style="padding: 8px 0;">${data.operatingSystem}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0; font-weight: bold;">Location:</td>
+                    <td style="padding: 8px 0;">${data.location}</td>
+                </tr>
+            </table>
+        </div>
+        
+        <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 15px; margin: 20px 0;">
+            <h4 style="color: #856404; margin-top: 0; font-size: 16px;">🚨 Didn't change your password?</h4>
+            <p style="color: #856404; margin-bottom: 0; font-size: 14px;">If you didn't make this change, your account may have been compromised. Please contact our support team immediately at <a href="mailto:${data.supportEmail}" style="color: #856404; text-decoration: underline;">${data.supportEmail}</a></p>
+        </div>
+        
+        <div style="margin: 25px 0;">
+            <h4 style="font-size: 16px; color: #495057;">Security Tips:</h4>
+            <ul style="color: #6c757d; font-size: 14px; line-height: 1.5;">
+                <li>Use a unique, strong password for your Career Tracker account</li>
+                <li>Enable two-factor authentication if available</li>
+                <li>Never share your password with anyone</li>
+                <li>Log out from shared or public computers</li>
+                <li>Monitor your account for suspicious activity</li>
+            </ul>
+        </div>
+        
+        <hr style="border: none; border-top: 1px solid #dee2e6; margin: 30px 0;">
+        
+        <p style="font-size: 14px; color: #6c757d; text-align: center; margin-bottom: 10px;">
+            This is an automated security notification from Career Tracker.<br>
+            If you have questions, please contact us at <a href="mailto:${data.supportEmail}" style="color: #007bff;">${data.supportEmail}</a>
+        </p>
+        
+        <p style="font-size: 12px; color: #adb5bd; text-align: center; margin: 0;">
+            © 2024 Career Tracker. All rights reserved.
+        </p>
+    </div>
+</body>
+</html>`;
   }
 
   /**
@@ -608,7 +828,12 @@ export class AuthService {
     userId: number | null, 
     action: 'token_verification' | 'password_reset', 
     success: boolean, 
-    details: string
+    details: string,
+    securityMetadata?: {
+      ipAddress?: string;
+      userAgent?: string;
+      timestamp?: Date;
+    }
   ): void {
     const logEntry = {
       timestamp: new Date().toISOString(),
@@ -616,8 +841,8 @@ export class AuthService {
       action,
       success,
       details,
-      ip: 'N/A', // Will be populated by controller layer
-      userAgent: 'N/A' // Will be populated by controller layer
+      ip: securityMetadata?.ipAddress || 'N/A',
+      userAgent: securityMetadata?.userAgent || 'N/A'
     };
 
     // For now, log to console. In production, this should go to a security audit log

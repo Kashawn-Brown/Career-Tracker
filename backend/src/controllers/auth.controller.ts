@@ -428,7 +428,7 @@ export class AuthController {
   }
 
   /**
-   * Reset password with token
+   * Reset password using valid token
    * POST /api/auth/reset-password/:token
    */
   async resetPassword(request: FastifyRequest, reply: FastifyReply) {
@@ -436,24 +436,21 @@ export class AuthController {
       const { token } = request.params as { token: string };
       const { password } = request.body as { password: string };
 
-      if (!token) {
-        return reply.status(400).send({
-          error: 'Password reset token is required'
-        });
-      }
-
       if (!password) {
         return reply.status(400).send({
           error: 'New password is required'
         });
       }
 
-      // Get client IP and User-Agent for security logging
-      const clientIP = request.headers['x-forwarded-for'] || request.headers['x-real-ip'] || request.ip || 'unknown';
-      const userAgent = request.headers['user-agent'] || 'unknown';
+      // Collect security metadata
+      const securityMetadata = {
+        ipAddress: request.ip || request.socket.remoteAddress || 'Unknown',
+        userAgent: request.headers['user-agent'] || 'Unknown',
+        timestamp: new Date()
+      };
 
-      // Reset password using the service
-      const result = await authService.resetPassword(token, password);
+      // Reset password with enhanced notifications
+      const result = await authService.resetPassword(token, password, securityMetadata);
 
       if (!result.success) {
         return reply.status(400).send({
@@ -461,15 +458,12 @@ export class AuthController {
         });
       }
 
-      // Log the successful password reset with client details
-      console.log(`[SECURITY_AUDIT] Password Reset Success: IP=${clientIP}, UserAgent=${userAgent}, Token=${token.substring(0, 8)}...`);
-
       return reply.send({
         message: result.message
       });
 
     } catch (error) {
-      console.error('Password reset error:', error);
+      console.error('Reset password error:', error);
       return reply.status(500).send({
         error: 'Internal server error during password reset'
       });
