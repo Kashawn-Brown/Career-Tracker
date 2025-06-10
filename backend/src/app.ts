@@ -20,6 +20,8 @@
 import Fastify, { FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import sensible from '@fastify/sensible';
+import swagger from '@fastify/swagger';
+import swaggerUi from '@fastify/swagger-ui';
 import config from './config/index.js';
 import routes from './routes/index.js';
 import { PassportConfig } from './config/passport.config.js';
@@ -44,6 +46,53 @@ export function buildApp(): FastifyInstance {
   // Register plugins
   app.register(cors, config.cors);
   app.register(sensible);
+
+  // Register Swagger documentation (pilot implementation)
+  app.register(swagger, {
+    openapi: {
+      openapi: '3.0.0',
+      info: {
+        title: 'Career Tracker API',
+        description: 'REST API for Career Tracker application - job application management system',
+        version: '1.0.0',
+        contact: {
+          name: 'Career Tracker Team',
+          email: 'dev@careertracker.com'
+        }
+      },
+      servers: [
+        {
+          url: 'http://localhost:3002',
+          description: 'Development server'
+        }
+      ],
+      components: {
+        securitySchemes: {
+          bearerAuth: {
+            type: 'http',
+            scheme: 'bearer',
+            bearerFormat: 'JWT',
+            description: 'JWT access token for authenticated requests'
+          }
+        }
+      },
+      security: [
+        {
+          bearerAuth: []
+        }
+      ]
+    }
+  });
+
+  app.register(swaggerUi, {
+    routePrefix: '/docs',
+    uiConfig: {
+      docExpansion: 'list',
+      deepLinking: false
+    },
+    staticCSP: true,
+    transformSpecificationClone: true
+  });
 
   // Set global error handler
   app.setErrorHandler(globalErrorHandler);
