@@ -1,5 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import jobApplicationRoutes from './job-applications.js';
+import contactRoutes from './contacts.js';
+import jobConnectionRoutes from './job-connections.js';
 import tagRoutes from './tags.js';
 import authRoutes from './auth.js';
 import testEmailRoutes from './test-email.js';
@@ -19,6 +21,12 @@ export default async function routes(fastify: FastifyInstance) {
 
   // Register job application routes under /api prefix
   fastify.register(jobApplicationRoutes, { prefix: '/api' });
+
+  // Register contact routes under /api prefix
+  fastify.register(contactRoutes, { prefix: '/api' });
+
+  // Register job connection routes under /api prefix
+  fastify.register(jobConnectionRoutes, { prefix: '/api' });
 
   // Register tag routes under /api prefix
   fastify.register(tagRoutes, { prefix: '/api' });
