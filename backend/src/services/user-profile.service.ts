@@ -25,7 +25,7 @@ export class UserProfileService {
       throw new BusinessLogicError('User not found', 404);
     }
 
-    // Return only profile-relevant fields
+    // Return all fields required by the schema
     return {
       id: user.id,
       name: user.name,
@@ -37,7 +37,14 @@ export class UserProfileService {
       currentJobTitle: user.currentJobTitle,
       githubLink: user.githubLink,
       linkedinLink: user.linkedinLink,
-      resumeLink: user.resumeLink
+      resumeLink: user.resumeLink,
+      secondaryEmail: user.secondaryEmail,
+      role: user.role, // Should be USER by default
+      emailVerified: user.emailVerified,
+      secondaryEmailVerified: user.secondaryEmailVerified,
+      provider: user.provider,
+      createdAt: user.createdAt.toISOString(),
+      updatedAt: user.updatedAt.toISOString()
     };
   }
 
@@ -77,7 +84,14 @@ export class UserProfileService {
         currentJobTitle: updatedUser.currentJobTitle,
         githubLink: updatedUser.githubLink,
         linkedinLink: updatedUser.linkedinLink,
-        resumeLink: updatedUser.resumeLink
+        resumeLink: updatedUser.resumeLink,
+        secondaryEmail: updatedUser.secondaryEmail,
+        role: updatedUser.role,
+        emailVerified: updatedUser.emailVerified,
+        secondaryEmailVerified: updatedUser.secondaryEmailVerified,
+        provider: updatedUser.provider,
+        createdAt: updatedUser.createdAt.toISOString(),
+        updatedAt: updatedUser.updatedAt.toISOString()
       };
     } catch (error) {
       // Handle Prisma errors

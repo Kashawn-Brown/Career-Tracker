@@ -6,6 +6,7 @@ import tagRoutes from './tags.js';
 import authRoutes from './auth.js';
 import testEmailRoutes from './test-email.js';
 import { adminRoutes } from './admin.js';
+import userProfileRoutes from './user-profile.js';
 
 // This file will be used to register all routes
 export default async function routes(fastify: FastifyInstance) {
@@ -39,6 +40,9 @@ export default async function routes(fastify: FastifyInstance) {
 
   // Register admin routes under /api/admin prefix
   fastify.register(adminRoutes, { prefix: '/api/admin' });
+
+  // Register user profile routes under /api prefix
+  fastify.register(userProfileRoutes, { prefix: '/api' });
 
   // Other routes will be registered here in future tasks
 } 

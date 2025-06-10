@@ -1,56 +1,26 @@
 /**
  * Career Tracker API Server
  * 
- * This is the main server file that sets up and configures the Fastify web server
- * for the Career Tracker application. It handles:
+ * Main server entry point that starts the Fastify web server for production.
  * 
- * - Server initialization with logging configuration
- * - Plugin registration (CORS, sensible defaults)
- * - Health check endpoints for monitoring
- * - Database connectivity testing
- * - Basic API route setup
- * - Server startup and error handling
+ * Architecture:
+ * - Uses app.ts for Fastify app configuration (industry best practice)
+ * - This file handles only server startup and lifecycle management
+ * - Separation enables testing, modularity, and deployment flexibility
  * 
  * The server provides RESTful API endpoints for managing career-related data
  * and serves as the backend for the Career Tracker application.
+ * 
+ * For testing or programmatic access, import buildApp from './app.js' instead.
  */
 
 // Load environment variables from .env file
 import 'dotenv/config';
 
-import Fastify from 'fastify';
-import cors from '@fastify/cors';
-import sensible from '@fastify/sensible';
 import config from './config/index.js';
-import prisma from './lib/prisma.js';
-import routes from './routes/index.js';
-import { PassportConfig } from './config/passport.config.js';
-import { globalErrorHandler } from './middleware/error.middleware.js';
+import { buildApp } from './app.js';
 
-const server = Fastify({
-  logger: {
-    transport: {
-      target: 'pino-pretty',
-      options: {
-        translateTime: 'HH:MM:ss Z',
-        ignore: 'pid,hostname',
-      },
-    },
-  },
-});
-
-// Register plugins
-server.register(cors, config.cors);
-server.register(sensible);
-
-// Set global error handler
-server.setErrorHandler(globalErrorHandler);
-
-// Initialize Passport OAuth strategies
-PassportConfig.initialize();
-
-// Register all routes
-server.register(routes);
+const server = buildApp();
 
 // Start the server
 const start = async () => {

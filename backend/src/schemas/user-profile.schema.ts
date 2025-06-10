@@ -49,6 +49,53 @@ const UserProfileFields = {
   }),
 
   // Optional fields that can be null or string
+  phone: Type.Optional(Type.Union([
+    Type.String({
+      minLength: 1,
+      maxLength: 50,
+      description: 'Phone number'
+    }),
+    Type.Null()
+  ])),
+
+  bio: Type.Optional(Type.Union([
+    Type.String({
+      minLength: 1,
+      maxLength: 500,
+      description: 'User bio/description'
+    }),
+    Type.Null()
+  ])),
+
+  skills: Type.Optional(Type.Union([
+    Type.Array(Type.String({
+      minLength: 1,
+      maxLength: 50
+    }), {
+      maxItems: 20,
+      description: 'Array of user skills'
+    }),
+    Type.Null()
+  ])),
+
+  location: Type.Optional(Type.Union([
+    Type.String({
+      minLength: 1,
+      maxLength: 100,
+      description: 'User location'
+    }),
+    Type.Null()
+  ])),
+
+  currentJobTitle: Type.Optional(Type.Union([
+    Type.String({
+      minLength: 1,
+      maxLength: 100,
+      description: 'Current job title'
+    }),
+    Type.Null()
+  ])),
+
   secondaryEmail: Type.Optional(Type.Union([
     Type.String({
       format: 'email',
@@ -102,6 +149,11 @@ const UserProfileResponseSchema = Type.Object({
   id: Type.Number({ description: 'User ID' }),
   name: UserProfileFields.name,
   email: UserProfileFields.email,
+  phone: UserProfileFields.phone,
+  bio: UserProfileFields.bio,
+  skills: UserProfileFields.skills,
+  location: UserProfileFields.location,
+  currentJobTitle: UserProfileFields.currentJobTitle,
   secondaryEmail: UserProfileFields.secondaryEmail,
   resumeLink: UserProfileFields.resumeLink,
   githubLink: UserProfileFields.githubLink,
@@ -125,6 +177,11 @@ const UserProfileResponseSchema = Type.Object({
  */
 const UserProfileUpdateRequestSchema = Type.Object({
   name: Type.Optional(UserProfileFields.name),
+  phone: UserProfileFields.phone,                   // Already optional
+  bio: UserProfileFields.bio,                       // Already optional
+  skills: UserProfileFields.skills,                 // Already optional
+  location: UserProfileFields.location,             // Already optional
+  currentJobTitle: UserProfileFields.currentJobTitle, // Already optional
   secondaryEmail: UserProfileFields.secondaryEmail, // Already optional
   resumeLink: UserProfileFields.resumeLink,         // Already optional
   githubLink: UserProfileFields.githubLink,         // Already optional

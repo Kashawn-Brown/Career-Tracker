@@ -32,7 +32,10 @@ export async function requireAuth(
     if (!authHeader) {
       return reply.status(401).send({
         error: 'Authentication required',
-        message: 'No authorization header provided'
+        message: 'No authorization header provided',
+        statusCode: 401,
+        timestamp: new Date().toISOString(),
+        path: request.url
       });
     }
 
@@ -40,7 +43,10 @@ export async function requireAuth(
     if (!authHeader.startsWith('Bearer ')) {
       return reply.status(401).send({
         error: 'Invalid authorization format',
-        message: 'Authorization header must start with "Bearer "'
+        message: 'Authorization header must start with "Bearer "',
+        statusCode: 401,
+        timestamp: new Date().toISOString(),
+        path: request.url
       });
     }
 
@@ -50,7 +56,10 @@ export async function requireAuth(
     if (!token) {
       return reply.status(401).send({
         error: 'Authentication required',
-        message: 'No token provided'
+        message: 'No token provided',
+        statusCode: 401,
+        timestamp: new Date().toISOString(),
+        path: request.url
       });
     }
 
@@ -76,7 +85,10 @@ export async function requireAuth(
     
     return reply.status(401).send({
       error: 'Authentication failed',
-      message
+      message,
+      statusCode: 401,
+      timestamp: new Date().toISOString(),
+      path: request.url
     });
   }
 }
@@ -152,7 +164,10 @@ export function roleBasedAccess(allowedRoles: string[]) {
     if (!request.user) {
       return reply.status(401).send({
         error: 'Authentication required',
-        message: 'No user context found. Ensure requireAuth middleware runs before roleBasedAccess.'
+        message: 'No user context found. Ensure requireAuth middleware runs before roleBasedAccess.',
+        statusCode: 401,
+        timestamp: new Date().toISOString(),
+        path: request.url
       });
     }
 
@@ -160,7 +175,10 @@ export function roleBasedAccess(allowedRoles: string[]) {
     if (!allowedRoles.includes(request.user.role)) {
       return reply.status(403).send({
         error: 'Access forbidden',
-        message: `This action requires one of the following roles: ${allowedRoles.join(', ')}. Your role: ${request.user.role}`
+        message: `This action requires one of the following roles: ${allowedRoles.join(', ')}. Your role: ${request.user.role}`,
+        statusCode: 403,
+        timestamp: new Date().toISOString(),
+        path: request.url
       });
     }
 
