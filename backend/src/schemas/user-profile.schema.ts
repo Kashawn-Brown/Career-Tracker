@@ -279,33 +279,60 @@ export const userProfileValidation = {
 
   /**
    * Sanitize profile update data
-   * Ensures data is clean before validation
+   * Ensures data is clean before validation and converts null → undefined for repository compatibility
    */
-  sanitizeUpdateData: (data: any): Partial<UserProfileUpdateRequest> => {
+  sanitizeUpdateData: (data: any): any => {
     const sanitized: any = {};
     
+    // Helper function to convert null to undefined and trim strings
+    const sanitizeField = (value: any): string | undefined => {
+      if (value === null || value === undefined) return undefined;
+      return typeof value === 'string' ? value.trim() : value;
+    };
+    
     if (data.name !== undefined) {
-      sanitized.name = typeof data.name === 'string' ? data.name.trim() : data.name;
+      sanitized.name = sanitizeField(data.name);
     }
     
-    if (data.secondaryEmail !== undefined) {
-      sanitized.secondaryEmail = data.secondaryEmail === null ? null : 
-        (typeof data.secondaryEmail === 'string' ? data.secondaryEmail.trim().toLowerCase() : data.secondaryEmail);
+    if (data.phone !== undefined) {
+      sanitized.phone = sanitizeField(data.phone);
+    }
+    
+    if (data.bio !== undefined) {
+      sanitized.bio = sanitizeField(data.bio);
+    }
+    
+    if (data.skills !== undefined) {
+      // Handle skills array specially
+      if (data.skills === null) {
+        sanitized.skills = undefined; // Convert null to undefined
+      } else if (Array.isArray(data.skills)) {
+        sanitized.skills = data.skills.map((skill: any) => 
+          typeof skill === 'string' ? skill.trim() : skill
+        ).filter((skill: any) => skill !== ''); // Remove empty strings
+      } else {
+        sanitized.skills = data.skills;
+      }
+    }
+    
+    if (data.location !== undefined) {
+      sanitized.location = sanitizeField(data.location);
+    }
+    
+    if (data.currentJobTitle !== undefined) {
+      sanitized.currentJobTitle = sanitizeField(data.currentJobTitle);
     }
     
     if (data.resumeLink !== undefined) {
-      sanitized.resumeLink = data.resumeLink === null ? null :
-        (typeof data.resumeLink === 'string' ? data.resumeLink.trim() : data.resumeLink);
+      sanitized.resumeLink = sanitizeField(data.resumeLink);
     }
     
     if (data.githubLink !== undefined) {
-      sanitized.githubLink = data.githubLink === null ? null :
-        (typeof data.githubLink === 'string' ? data.githubLink.trim() : data.githubLink);
+      sanitized.githubLink = sanitizeField(data.githubLink);
     }
     
     if (data.linkedinLink !== undefined) {
-      sanitized.linkedinLink = data.linkedinLink === null ? null :
-        (typeof data.linkedinLink === 'string' ? data.linkedinLink.trim() : data.linkedinLink);
+      sanitized.linkedinLink = sanitizeField(data.linkedinLink);
     }
     
     return sanitized;

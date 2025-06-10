@@ -165,13 +165,24 @@ export class UserRepository extends BaseRepository<
     id: number,
     data: {
       name?: string;
+      phone?: string;
+      bio?: string;
+      skills?: string[]; // Array of skills that will be stored as JSON
+      location?: string;
+      currentJobTitle?: string;
       resumeLink?: string;
       githubLink?: string;
       linkedinLink?: string;
     },
     tx?: Prisma.TransactionClient
   ): Promise<User> {
-    return this.update(id, data, undefined, tx);
+    // Convert skills array to JSON for Prisma storage
+    const updateData = { ...data };
+    if (data.skills !== undefined) {
+      (updateData as any).skills = data.skills; // Prisma handles JSON conversion
+    }
+    
+    return this.update(id, updateData, undefined, tx);
   }
 
 
