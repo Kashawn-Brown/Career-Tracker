@@ -12,6 +12,11 @@ model User {
   email                   String                   @unique
   name                    String
   role                    UserRole                 @default(USER)
+  phone                   String?
+  bio                     String?
+  skills                  Json?                    // Array of strings stored as JSON
+  location                String?
+  currentJobTitle         String?
   resumeLink              String?
   githubLink              String?
   linkedinLink            String?

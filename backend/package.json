@@ -32,6 +32,7 @@
     "@fastify/sensible": "^6.0.3",
     "@prisma/client": "^6.9.0",
     "@sendgrid/mail": "^8.1.5",
+    "@sinclair/typebox": "^0.34.33",
     "@types/bull": "^3.15.9",
     "bcrypt": "^6.0.0",
     "bull": "^4.16.5",
