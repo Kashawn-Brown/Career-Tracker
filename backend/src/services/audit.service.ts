@@ -284,11 +284,11 @@ export class AuditService {
   /**
    * Log account locked
    */
-  async logAccountLocked(userId: number, reason: string, ipAddress?: string, userAgent?: string): Promise<void> {
+  async logAccountLocked(userId: number, ipAddress?: string, userAgent?: string, details?: string): Promise<void> {
     await this.logEvent({
       userId,
       event: AuditEventType.ACCOUNT_LOCKED,
-      details: { reason },
+      details: details ? JSON.parse(details) : undefined,
       ipAddress,
       userAgent,
       successful: false,
@@ -413,6 +413,214 @@ export class AuditService {
     });
 
     return result.count;
+  }
+
+  // Admin-specific audit methods
+
+  /**
+   * Log admin security access
+   */
+  async logAdminSecurityAccess(adminId: number, ipAddress?: string, userAgent?: string, details?: string): Promise<void> {
+    await this.logEvent({
+      userId: adminId,
+      event: AuditEventType.ADMIN_LOGIN,
+      details: { action: 'security_access', description: details },
+      ipAddress,
+      userAgent,
+    });
+  }
+
+  /**
+   * Log admin security action
+   */
+  async logAdminSecurityAction(adminId: number, action: string, ipAddress?: string, userAgent?: string): Promise<void> {
+    await this.logEvent({
+      userId: adminId,
+      event: AuditEventType.ADMIN_LOGIN,
+      details: { action: 'security_action', description: action },
+      ipAddress,
+      userAgent,
+    });
+  }
+
+  /**
+   * Log account unlocked
+   */
+  async logAccountUnlocked(userId: number, ipAddress?: string, userAgent?: string, details?: string): Promise<void> {
+    await this.logEvent({
+      userId,
+      event: AuditEventType.ACCOUNT_UNLOCKED,
+      details: details ? JSON.parse(details) : undefined,
+      ipAddress,
+      userAgent,
+      successful: true,
+    });
+  }
+
+  /**
+   * Log forced password reset
+   */
+  async logForcedPasswordReset(userId: number, ipAddress?: string, userAgent?: string, reason?: string): Promise<void> {
+    await this.logEvent({
+      userId,
+      event: AuditEventType.PASSWORD_RESET_FORCED,
+      details: { reason },
+      ipAddress,
+      userAgent,
+      successful: true,
+    });
+  }
+
+  /**
+   * Log password reset completed
+   */
+  async logPasswordResetCompleted(userId: number, ipAddress?: string, userAgent?: string): Promise<void> {
+    await this.logEvent({
+      userId,
+      event: AuditEventType.PASSWORD_CHANGE,
+      details: { type: 'forced_reset_completed' },
+      ipAddress,
+      userAgent,
+      successful: true,
+    });
+  }
+
+  /**
+   * Log failed login attempt
+   */
+  async logFailedLogin(userId: number, ipAddress?: string, userAgent?: string, reason?: string): Promise<void> {
+    await this.logEvent({
+      userId,
+      event: AuditEventType.LOGIN_FAILURE,
+      details: { reason },
+      ipAddress,
+      userAgent,
+      successful: false,
+    });
+  }
+
+  /**
+   * Get user security logs with pagination
+   */
+  async getUserSecurityLogs(userId: number, options: {
+    page?: number;
+    limit?: number;
+    eventType?: string;
+  } = {}): Promise<{
+    logs: any[];
+    total: number;
+    totalPages: number;
+  }> {
+    const { page = 1, limit = 20, eventType } = options;
+    const offset = (page - 1) * limit;
+
+    const where: any = { userId };
+    
+    // Filter by security-related events
+    const securityEvents = [
+      AuditEventType.LOGIN_SUCCESS,
+      AuditEventType.LOGIN_FAILURE,
+      AuditEventType.ACCOUNT_LOCKED,
+      AuditEventType.ACCOUNT_UNLOCKED,
+      AuditEventType.PASSWORD_CHANGE,
+      AuditEventType.PASSWORD_RESET_FORCED,
+      AuditEventType.SUSPICIOUS_ACTIVITY,
+      AuditEventType.MULTIPLE_FAILED_ATTEMPTS
+    ];
+
+    if (eventType) {
+      where.event = eventType;
+    } else {
+      where.event = { in: securityEvents };
+    }
+
+    const [logs, total] = await Promise.all([
+      prisma.auditLog.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: offset,
+        take: limit,
+      }),
+      prisma.auditLog.count({ where })
+    ]);
+
+    return {
+      logs: logs.map(log => ({
+        ...log,
+        details: log.details ? JSON.parse(log.details) : null,
+      })),
+      total,
+      totalPages: Math.ceil(total / limit)
+    };
+  }
+
+  /**
+   * Get security statistics for admin dashboard
+   */
+  async getSecurityStatistics(): Promise<{
+    totalLockedAccounts: number;
+    totalForcedPasswordResets: number;
+    recentFailedLogins: number;
+    recentLockouts: number;
+    topLockoutReasons: Array<{ reason: string; count: number }>;
+  }> {
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    const [
+      totalLockedAccounts,
+      totalForcedPasswordResets,
+      recentFailedLogins,
+      recentLockouts,
+      lockoutReasons
+    ] = await Promise.all([
+      // Total currently locked accounts
+      prisma.userSecurity.count({
+        where: { isLocked: true }
+      }),
+      
+      // Total accounts with forced password reset
+      prisma.userSecurity.count({
+        where: { forcePasswordReset: true }
+      }),
+      
+      // Failed logins in last 24 hours
+      prisma.auditLog.count({
+        where: {
+          event: AuditEventType.LOGIN_FAILURE,
+          createdAt: { gte: twentyFourHoursAgo }
+        }
+      }),
+      
+      // Account lockouts in last 24 hours
+      prisma.auditLog.count({
+        where: {
+          event: AuditEventType.ACCOUNT_LOCKED,
+          createdAt: { gte: twentyFourHoursAgo }
+        }
+      }),
+      
+      // Top lockout reasons
+      prisma.userSecurity.groupBy({
+        by: ['lastLockoutReason'],
+        where: {
+          lastLockoutReason: { not: null }
+        },
+        _count: { lastLockoutReason: true },
+        orderBy: { _count: { lastLockoutReason: 'desc' } },
+        take: 5
+      })
+    ]);
+
+    return {
+      totalLockedAccounts,
+      totalForcedPasswordResets,
+      recentFailedLogins,
+      recentLockouts,
+      topLockoutReasons: lockoutReasons.map(reason => ({
+        reason: reason.lastLockoutReason || 'Unknown',
+        count: reason._count.lastLockoutReason
+      }))
+    };
   }
 }
 

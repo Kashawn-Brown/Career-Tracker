@@ -349,6 +349,174 @@ export class EmailService {
       </html>
     `;
   }
+
+  /**
+   * Send account locked notification email
+   */
+  async sendAccountLockedEmail(email: string, userName: string, unlockTime: Date, reason: string): Promise<EmailResult> {
+    const html = this.generateAccountLockedTemplate({ email, userName, unlockTime, reason });
+    
+    return await this.sendEmail({
+      to: email,
+      subject: '⚠️ Account Locked - Career Tracker',
+      template: EmailTemplate.SECURITY_ALERT,
+      templateData: { email, userName, unlockTime, reason }
+    }, html);
+  }
+
+  /**
+   * Send account unlocked notification email
+   */
+  async sendAccountUnlockedEmail(email: string, userName: string, reason: string): Promise<EmailResult> {
+    const html = this.generateAccountUnlockedTemplate({ email, userName, reason });
+    
+    return await this.sendEmail({
+      to: email,
+      subject: '✅ Account Unlocked - Career Tracker',
+      template: EmailTemplate.SECURITY_ALERT,
+      templateData: { email, userName, reason }
+    }, html);
+  }
+
+  /**
+   * Send forced password reset notification email
+   */
+  async sendForcedPasswordResetEmail(email: string, userName: string, reason: string): Promise<EmailResult> {
+    const html = this.generateForcedPasswordResetTemplate({ email, userName, reason });
+    
+    return await this.sendEmail({
+      to: email,
+      subject: '🔒 Password Reset Required - Career Tracker',
+      template: EmailTemplate.SECURITY_ALERT,
+      templateData: { email, userName, reason }
+    }, html);
+  }
+
+  /**
+   * Generate HTML template for account locked notification
+   */
+  private generateAccountLockedTemplate(data: { email: string; userName: string; unlockTime: Date; reason: string }): string {
+    const unlockTimeString = data.unlockTime.toLocaleString();
+    
+    return `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Account Locked</title>
+      </head>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+          <h1 style="color: white; margin: 0; font-size: 28px;">⚠️ Account Locked</h1>
+        </div>
+        
+        <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;">
+          <h2 style="color: #495057; margin-top: 0;">Hi ${data.userName},</h2>
+          
+          <p>Your Career Tracker account has been temporarily locked for security reasons.</p>
+          
+          <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 15px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>Reason:</strong> ${data.reason}</p>
+            <p style="margin: 10px 0 0 0;"><strong>Unlock Time:</strong> ${unlockTimeString}</p>
+          </div>
+          
+          <p>Your account will be automatically unlocked at the time shown above. If you believe this was done in error, please contact our support team.</p>
+          
+          <p style="color: #6c757d; font-size: 14px; margin-top: 30px;">
+            For your security, please ensure you're using a strong, unique password and enable two-factor authentication when it becomes available.
+          </p>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Generate HTML template for account unlocked notification
+   */
+  private generateAccountUnlockedTemplate(data: { email: string; userName: string; reason: string }): string {
+    return `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Account Unlocked</title>
+      </head>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+          <h1 style="color: white; margin: 0; font-size: 28px;">✅ Account Unlocked</h1>
+        </div>
+        
+        <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;">
+          <h2 style="color: #495057; margin-top: 0;">Hi ${data.userName},</h2>
+          
+          <p>Great news! Your Career Tracker account has been unlocked and you can now log in normally.</p>
+          
+          <div style="background: #d1ecf1; border: 1px solid #bee5eb; border-radius: 5px; padding: 15px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>Unlock Reason:</strong> ${data.reason}</p>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/login" 
+               style="background: #007bff; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
+              Log In to Your Account
+            </a>
+          </div>
+          
+          <p style="color: #6c757d; font-size: 14px; margin-top: 30px;">
+            To keep your account secure, please use a strong password and avoid sharing your login credentials.
+          </p>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Generate HTML template for forced password reset notification
+   */
+  private generateForcedPasswordResetTemplate(data: { email: string; userName: string; reason: string }): string {
+    return `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Password Reset Required</title>
+      </head>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+          <h1 style="color: white; margin: 0; font-size: 28px;">🔒 Password Reset Required</h1>
+        </div>
+        
+        <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;">
+          <h2 style="color: #495057; margin-top: 0;">Hi ${data.userName},</h2>
+          
+          <p>For security reasons, you are required to reset your password before you can continue using your Career Tracker account.</p>
+          
+          <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 15px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>Reason:</strong> ${data.reason}</p>
+          </div>
+          
+          <p>This is a security measure to protect your account. You will need to create a new password the next time you log in.</p>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/login" 
+               style="background: #dc3545; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
+              Reset Password Now
+            </a>
+          </div>
+          
+          <p style="color: #6c757d; font-size: 14px; margin-top: 30px;">
+            When creating your new password, please choose a strong password that you haven't used before on other websites.
+          </p>
+        </div>
+      </body>
+      </html>
+    `;
+  }
 }
 
 // Export singleton instance

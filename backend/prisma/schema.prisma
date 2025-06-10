@@ -33,6 +33,7 @@ model User {
   securityQuestions       SecurityQuestion[]
   sessions                Session[]
   tags                    Tag[]
+  userSecurity            UserSecurity?
 
   @@index([email])
   @@index([secondaryEmail])
@@ -138,6 +139,25 @@ model AuditLog {
   @@index([createdAt])
   @@index([ipAddress])
   @@map("audit_logs")
+}
+
+model UserSecurity {
+  id                      String    @id @default(cuid())
+  userId                  Int       @unique
+  user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isLocked                Boolean   @default(false)
+  lockoutCount            Int       @default(0)
+  lockoutUntil            DateTime?
+  lastLockoutReason       String?
+  forcePasswordReset      Boolean   @default(false)
+  forcePasswordResetReason String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([isLocked])
+  @@index([lockoutUntil])
+  @@map("user_security")
 }
 
 model JobApplication {
@@ -274,6 +294,7 @@ enum AuditEventType {
   PASSWORD_CHANGE
   PASSWORD_RESET_REQUEST
   PASSWORD_RESET_SUCCESS
+  PASSWORD_RESET_FORCED
   EMAIL_VERIFICATION
   SECURITY_QUESTIONS_SETUP
   SECURITY_QUESTIONS_CHANGE
@@ -288,4 +309,5 @@ enum AuditEventType {
   SUSPICIOUS_ACTIVITY
   MULTIPLE_FAILED_ATTEMPTS
   SESSION_EXPIRED
+  ADMIN_LOGIN
 }

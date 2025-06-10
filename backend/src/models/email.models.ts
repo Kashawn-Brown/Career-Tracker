@@ -17,7 +17,8 @@ export enum EmailTemplate {
   SECONDARY_EMAIL_ADDED = 'secondary_email_added',
   SECONDARY_EMAIL_CHANGED = 'secondary_email_changed',
   RECOVERY_ATTEMPT = 'recovery_attempt',
-  SUSPICIOUS_ACTIVITY = 'suspicious_activity'
+  SUSPICIOUS_ACTIVITY = 'suspicious_activity',
+  SECURITY_ALERT = 'security_alert'
 }
 
 /**
