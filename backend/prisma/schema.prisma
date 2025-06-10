@@ -252,16 +252,23 @@ model JobConnection {
 
 model Document {
   id               Int            @id @default(autoincrement())
-  fileUrl          String
-  fileName         String
-  fileSize         Int?
-  type             String
+  filename         String         // Internal filename used for storage
+  originalName     String         // Original filename from user
+  path             String         // Full file path for local storage
+  fileUrl          String         // URL for accessing the file (keeping for backward compatibility)
+  fileSize         Int?           // File size in bytes
+  mimeType         String         // MIME type (e.g., 'application/pdf')
+  type             String         // Document type (e.g., 'resume', 'cover_letter') - keeping for backward compatibility
+  uploadDate       DateTime       @default(now()) // When the file was uploaded
   jobApplicationId Int
   createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
   jobApplication   JobApplication @relation(fields: [jobApplicationId], references: [id], onDelete: Cascade)
 
   @@index([jobApplicationId])
   @@index([type])
+  @@index([mimeType])
+  @@index([uploadDate])
   @@map("documents")
 }
 
