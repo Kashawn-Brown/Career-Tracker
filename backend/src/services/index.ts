@@ -12,4 +12,10 @@ export { jobApplicationService, JobApplicationService } from './job-application.
 export type { JobApplicationListFilters, CreateJobApplicationRequest, UpdateJobApplicationRequest } from '../models/job-application.models.js';
 
 export { authService, AuthService } from './auth.service.js';
-export type { JWTPayload, TokenPair } from '../models/auth.models.js'; 
+export type { JWTPayload, TokenPair } from '../models/auth.models.js';
+
+export { ContactService } from './contact.service.js';
+export type { ContactListFilters, CreateContactRequest, UpdateContactRequest } from '../models/contact.models.js';
+
+export { JobConnectionService } from './job-connection.service.js';
+export type { JobConnectionListFilters, CreateJobConnectionRequest, UpdateJobConnectionRequest, UpdateJobConnectionStatusRequest } from '../models/job-connection.models.js'; 
