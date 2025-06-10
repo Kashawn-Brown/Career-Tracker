@@ -336,14 +336,15 @@ export const userProfileValidation = {
 
   /**
    * Sanitize profile update data
-   * Ensures data is clean before validation and converts null → undefined for repository compatibility
+   * Ensures data is clean before validation and preserves nulls to clear fields in database
    */
   sanitizeUpdateData: (data: any): any => {
     const sanitized: any = {};
     
-    // Helper function to convert null to undefined and trim strings
-    const sanitizeField = (value: any): string | undefined => {
-      if (value === null || value === undefined) return undefined;
+    // Helper function to preserve null (for clearing fields) and trim strings
+    const sanitizeField = (value: any): string | null | undefined => {
+      if (value === null) return null; // Preserve null to clear field in database
+      if (value === undefined) return undefined; // Preserve undefined to skip field update
       return typeof value === 'string' ? value.trim() : value;
     };
     
@@ -362,7 +363,7 @@ export const userProfileValidation = {
     if (data.skills !== undefined) {
       // Handle skills array specially
       if (data.skills === null) {
-        sanitized.skills = undefined; // Convert null to undefined
+        sanitized.skills = null; // Preserve null to clear skills array
       } else if (Array.isArray(data.skills)) {
         sanitized.skills = data.skills.map((skill: any) => 
           typeof skill === 'string' ? skill.trim() : skill
@@ -378,6 +379,19 @@ export const userProfileValidation = {
     
     if (data.currentJobTitle !== undefined) {
       sanitized.currentJobTitle = sanitizeField(data.currentJobTitle);
+    }
+    
+    if (data.secondaryEmail !== undefined) {
+      // Special handling for secondary email: trim and convert to lowercase
+      if (data.secondaryEmail === null) {
+        sanitized.secondaryEmail = null; // Preserve null to clear secondary email
+      } else if (data.secondaryEmail === undefined) {
+        sanitized.secondaryEmail = undefined; // Preserve undefined to skip update
+      } else if (typeof data.secondaryEmail === 'string') {
+        sanitized.secondaryEmail = data.secondaryEmail.trim().toLowerCase();
+      } else {
+        sanitized.secondaryEmail = data.secondaryEmail; // Pass through non-string values
+      }
     }
     
     if (data.resumeLink !== undefined) {

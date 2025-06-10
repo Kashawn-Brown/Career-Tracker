@@ -197,6 +197,7 @@ describe('User Profile Schema Validation', () => {
       const result = userProfileValidation.sanitizeUpdateData(input);
 
       expect(result.name).toBe('John Doe');
+      // All fields now preserve null to clear them in the database consistently
       expect(result.secondaryEmail).toBe(null);
       expect(result.resumeLink).toBe(null);
       expect(result.githubLink).toBe(null);
@@ -233,7 +234,7 @@ describe('User Profile Schema Validation', () => {
 
       expect(result.name).toBe(123); // Non-string passed through
       expect(result.secondaryEmail).toBe(456); // Non-string passed through
-      expect(result.resumeLink).toBe(null);
+      expect(result.resumeLink).toBe(null); // null preserved to clear field in database
       expect(result.githubLink).toBe(undefined);
       expect(result.linkedinLink).toBe('');
     });
