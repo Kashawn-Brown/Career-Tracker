@@ -351,6 +351,20 @@ export class EmailService {
   }
 
   /**
+   * Send password changed notification email
+   */
+  async sendPasswordChangedEmail(email: string, userName: string, ipAddress?: string, userAgent?: string): Promise<EmailResult> {
+    const html = this.generatePasswordChangedTemplate({ email, userName, ipAddress, userAgent });
+    
+    return await this.sendEmail({
+      to: email,
+      subject: '🔒 Password Changed - Career Tracker',
+      template: EmailTemplate.SECURITY_ALERT,
+      templateData: { email, userName, ipAddress, userAgent }
+    }, html);
+  }
+
+  /**
    * Send account locked notification email
    */
   async sendAccountLockedEmail(email: string, userName: string, unlockTime: Date, reason: string): Promise<EmailResult> {
@@ -390,6 +404,62 @@ export class EmailService {
       template: EmailTemplate.SECURITY_ALERT,
       templateData: { email, userName, reason }
     }, html);
+  }
+
+  /**
+   * Generate HTML template for password changed notification
+   */
+  private generatePasswordChangedTemplate(data: { email: string; userName: string; ipAddress?: string; userAgent?: string }): string {
+    const locationInfo = data.ipAddress ? `IP Address: ${data.ipAddress}` : 'Unknown location';
+    const deviceInfo = data.userAgent ? `Device: ${data.userAgent}` : 'Unknown device';
+    
+    return `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Password Changed</title>
+      </head>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+          <h1 style="color: white; margin: 0; font-size: 28px;">🔒 Password Changed</h1>
+        </div>
+        
+        <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;">
+          <h2 style="color: #495057; margin-top: 0;">Hi ${data.userName},</h2>
+          
+          <p>Your Career Tracker account password has been successfully changed.</p>
+          
+          <div style="background: #d1ecf1; border: 1px solid #bee5eb; border-radius: 5px; padding: 15px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>Changed on:</strong> ${new Date().toLocaleString()}</p>
+            <p style="margin: 10px 0 0 0;"><strong>Location:</strong> ${locationInfo}</p>
+            <p style="margin: 10px 0 0 0;"><strong>Device:</strong> ${deviceInfo}</p>
+          </div>
+          
+          <p>If you did not make this change, please contact our support team immediately and consider the following steps:</p>
+          
+          <ul style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 15px; margin: 20px 0;">
+            <li>Reset your password immediately</li>
+            <li>Check your account for any unauthorized activity</li>
+            <li>Enable two-factor authentication when available</li>
+            <li>Review your recent login activity</li>
+          </ul>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/login" 
+               style="background: #007bff; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
+              Log In to Your Account
+            </a>
+          </div>
+          
+          <p style="color: #6c757d; font-size: 14px; margin-top: 30px;">
+            If you made this change, you can safely ignore this email. This notification helps keep your account secure.
+          </p>
+        </div>
+      </body>
+      </html>
+    `;
   }
 
   /**
