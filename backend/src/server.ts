@@ -25,6 +25,7 @@ import config from './config/index.js';
 import prisma from './lib/prisma.js';
 import routes from './routes/index.js';
 import { PassportConfig } from './config/passport.config.js';
+import { globalErrorHandler } from './middleware/error.middleware.js';
 
 const server = Fastify({
   logger: {
@@ -41,6 +42,9 @@ const server = Fastify({
 // Register plugins
 server.register(cors, config.cors);
 server.register(sensible);
+
+// Set global error handler
+server.setErrorHandler(globalErrorHandler);
 
 // Initialize Passport OAuth strategies
 PassportConfig.initialize();
