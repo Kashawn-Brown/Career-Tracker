@@ -46,7 +46,10 @@ class BulkOperations {
       tags?: string[];
       documents?: Array<{
         fileUrl: string;
-        fileName: string;
+        filename: string;
+        originalName: string;
+        path: string;
+        mimeType: string;
         fileSize?: number;
         type: string;
       }>;

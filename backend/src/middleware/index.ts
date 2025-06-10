@@ -18,4 +18,11 @@ export {
   createValidationError,
   isCustomError,
   type ErrorResponse
-} from './error.middleware.js'; 
+} from './error.middleware.js';
+
+export {
+  uploadSingle,
+  uploadMultiple,
+  cleanupFile,
+  getFileInfo
+} from './upload.middleware.js'; 

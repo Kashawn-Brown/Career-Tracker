@@ -22,6 +22,7 @@ import cors from '@fastify/cors';
 import sensible from '@fastify/sensible';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
+import multipart from '@fastify/multipart';
 import config from './config/index.js';
 import routes from './routes/index.js';
 import { PassportConfig } from './config/passport.config.js';
@@ -46,6 +47,13 @@ export function buildApp(): FastifyInstance {
   // Register plugins
   app.register(cors, config.cors);
   app.register(sensible);
+
+  // Register multipart plugin for file uploads
+  app.register(multipart, {
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB
+    },
+  });
 
   // Register Swagger documentation (pilot implementation)
   app.register(swagger, {

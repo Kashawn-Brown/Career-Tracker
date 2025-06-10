@@ -15,7 +15,7 @@ export type DocumentWithRelations = Document & {
 export interface DocumentFilters {
   jobApplicationId?: number;
   type?: string;
-  fileName?: string;
+  filename?: string;
   fileSizeMin?: number;
   fileSizeMax?: number;
   createdAfter?: Date;
@@ -155,7 +155,7 @@ export class DocumentRepository extends BaseRepository<
     tx?: Prisma.TransactionClient
   ): Promise<DocumentWithRelations[]> {
     const where: Prisma.DocumentWhereInput = {
-      fileName: { contains: query, mode: 'insensitive' },
+      filename: { contains: query, mode: 'insensitive' },
     };
 
     if (userId) {
@@ -175,7 +175,7 @@ export class DocumentRepository extends BaseRepository<
             },
           },
         },
-        orderBy: { fileName: 'asc' },
+        orderBy: { filename: 'asc' },
         pagination: options?.pagination,
       },
       tx
@@ -191,7 +191,7 @@ export class DocumentRepository extends BaseRepository<
     tx?: Prisma.TransactionClient
   ): Promise<DocumentWithRelations[]> {
     const where: Prisma.DocumentWhereInput = {
-      fileName: { endsWith: extension, mode: 'insensitive' },
+      filename: { endsWith: extension, mode: 'insensitive' },
     };
 
     if (userId) {
@@ -211,7 +211,7 @@ export class DocumentRepository extends BaseRepository<
             },
           },
         },
-        orderBy: { fileName: 'asc' },
+        orderBy: { filename: 'asc' },
       },
       tx
     );
@@ -264,14 +264,14 @@ export class DocumentRepository extends BaseRepository<
       }),
       client.document.findMany({
         where: { jobApplication: { userId } },
-        select: { fileName: true },
+        select: { filename: true },
       }),
     ]);
 
     // Process file extensions
     const extensionMap = new Map<string, number>();
     allDocuments.forEach(doc => {
-      const extension = doc.fileName.split('.').pop()?.toLowerCase() || 'unknown';
+      const extension = doc.filename.split('.').pop()?.toLowerCase() || 'unknown';
       extensionMap.set(extension, (extensionMap.get(extension) || 0) + 1);
     });
 
@@ -396,8 +396,8 @@ export class DocumentRepository extends BaseRepository<
       where.type = filters.type;
     }
 
-    if (filters.fileName) {
-      where.fileName = { contains: filters.fileName, mode: 'insensitive' };
+    if (filters.filename) {
+      where.filename = { contains: filters.filename, mode: 'insensitive' };
     }
 
     if (filters.fileSizeMin || filters.fileSizeMax) {
