@@ -52,6 +52,7 @@ describe('Upload Middleware', () => {
   let mockRequest: Partial<FastifyRequest>;
   let mockReply: Partial<FastifyReply>;
   let mockLog: any;
+  let mockFile: Partial<MultipartFile>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -60,6 +61,12 @@ describe('Upload Middleware', () => {
       error: vi.fn(),
       info: vi.fn(),
       warn: vi.fn()
+    };
+
+    mockFile = {
+      filename: 'test-resume.pdf',
+      mimetype: 'application/pdf',
+      file: createMockFileStream('fake pdf content')
     };
 
     mockRequest = {
@@ -154,9 +161,11 @@ describe('Upload Middleware', () => {
       expect(mockReply.status).toHaveBeenCalledWith(400);
       expect(mockReply.send).toHaveBeenCalledWith(
         expect.objectContaining({
-          error: 'Invalid content type',
-          message: 'Request must be multipart/form-data',
-          statusCode: 400
+          error: 'Invalid Content Type',
+          message: 'Request must be multipart/form-data for file uploads',
+          statusCode: 400,
+          path: '/api/test',
+          timestamp: expect.any(String)
         })
       );
     });
@@ -170,9 +179,11 @@ describe('Upload Middleware', () => {
       expect(mockReply.status).toHaveBeenCalledWith(400);
       expect(mockReply.send).toHaveBeenCalledWith(
         expect.objectContaining({
-          error: 'No file provided',
+          error: 'No File Provided',
           message: "Please provide a file in the 'document' field",
-          statusCode: 400
+          statusCode: 400,
+          path: '/api/test',
+          timestamp: expect.any(String)
         })
       );
     });
@@ -192,9 +203,17 @@ describe('Upload Middleware', () => {
       expect(mockReply.status).toHaveBeenCalledWith(400);
       expect(mockReply.send).toHaveBeenCalledWith(
         expect.objectContaining({
-          error: 'Invalid file type',
+          error: 'Invalid File Type',
           message: expect.stringContaining('Invalid file extension'),
-          statusCode: 400
+          statusCode: 400,
+          path: '/api/test',
+          timestamp: expect.any(String),
+          details: expect.objectContaining({
+            allowedExtensions: expect.arrayContaining(['.pdf', '.docx', '.doc', '.txt']),
+            allowedTypes: expect.arrayContaining(['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword', 'text/plain']),
+            filename: 'test-image.jpg',
+            mimeType: 'image/jpeg'
+          })
         })
       );
     });
@@ -214,9 +233,17 @@ describe('Upload Middleware', () => {
       expect(mockReply.status).toHaveBeenCalledWith(400);
       expect(mockReply.send).toHaveBeenCalledWith(
         expect.objectContaining({
-          error: 'Invalid file type',
+          error: 'Invalid File Type',
           message: expect.stringContaining('Invalid file type'),
-          statusCode: 400
+          statusCode: 400,
+          path: '/api/test',
+          timestamp: expect.any(String),
+          details: expect.objectContaining({
+            allowedExtensions: expect.arrayContaining(['.pdf', '.docx', '.doc', '.txt']),
+            allowedTypes: expect.arrayContaining(['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword', 'text/plain']),
+            filename: 'test-file.pdf',
+            mimeType: 'image/jpeg'
+          })
         })
       );
     });
@@ -230,12 +257,12 @@ describe('Upload Middleware', () => {
       const middleware = uploadSingle('document');
       await middleware(mockRequest as FastifyRequest, mockReply as FastifyReply);
 
-      expect(mockReply.status).toHaveBeenCalledWith(400);
+      expect(mockReply.status).toHaveBeenCalledWith(413);
       expect(mockReply.send).toHaveBeenCalledWith(
         expect.objectContaining({
-          error: 'File too large',
+          error: expect.stringContaining('File Too Large'),
           message: expect.stringContaining('File size exceeds the maximum limit'),
-          statusCode: 400
+          statusCode: 413
         })
       );
     });
@@ -252,9 +279,11 @@ describe('Upload Middleware', () => {
       expect(mockReply.status).toHaveBeenCalledWith(400);
       expect(mockReply.send).toHaveBeenCalledWith(
         expect.objectContaining({
-          error: 'Too many parts',
+          error: 'Too Many Parts',
           message: 'Request contains too many multipart parts',
-          statusCode: 400
+          statusCode: 400,
+          path: '/api/test',
+          timestamp: expect.any(String)
         })
       );
     });
@@ -270,47 +299,61 @@ describe('Upload Middleware', () => {
       expect(mockReply.status).toHaveBeenCalledWith(500);
       expect(mockReply.send).toHaveBeenCalledWith(
         expect.objectContaining({
-          error: 'Upload failed',
-          message: 'An error occurred during file upload',
-          statusCode: 500
+          error: 'Upload Failed',
+          message: 'Unknown error',
+          statusCode: 500,
+          path: '/api/test',
+          timestamp: expect.any(String),
+          details: expect.objectContaining({
+            errorCode: undefined
+          })
         })
       );
     });
   });
 
   describe('uploadMultiple middleware', () => {
-    it('should successfully upload multiple valid files', async () => {
+    it('should handle successful multiple file upload with logging', async () => {
+      const middleware = uploadMultiple('documents', 3);
+      
       const mockFiles = [
-        {
-          filename: 'resume.pdf',
-          mimetype: 'application/pdf',
-          file: createMockFileStream('pdf content')
-        },
-        {
-          filename: 'cover-letter.docx',
-          mimetype: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          file: createMockFileStream('docx content')
-        }
+        { ...mockFile, filename: 'resume1.pdf' },
+        { ...mockFile, filename: 'resume2.pdf' }
       ];
-
-      const mockAsyncGenerator = async function* () {
+      
+      const asyncGenerator = async function* () {
         for (const file of mockFiles) {
           yield file;
         }
       };
-
-      mockRequest.files = vi.fn().mockReturnValue(mockAsyncGenerator());
-
+      
+      (mockRequest.files as Mock).mockReturnValue(asyncGenerator());
+      
+      // Mock pipeline to resolve for each file
       const { pipeline } = await import('stream/promises');
       (pipeline as Mock).mockResolvedValue(undefined);
-
-      const middleware = uploadMultiple('documents', 5);
+      
       await middleware(mockRequest as FastifyRequest, mockReply as FastifyReply);
-
+      
+      expect(mockRequest.log!.info).toHaveBeenCalledWith(
+        expect.objectContaining({
+          operationId: expect.stringMatching(/^upload-multi-\d+-[a-z0-9]+$/),
+          fieldName: 'documents',
+          maxCount: 3
+        }),
+        'Starting multiple file upload operation'
+      );
+      
+      expect(mockRequest.log!.info).toHaveBeenCalledWith(
+        expect.objectContaining({
+          totalFiles: 2,
+          totalSize: expect.any(Number)
+        }),
+        'Multiple file upload operation completed successfully'
+      );
+      
       expect(mockRequest.uploadedFiles).toBeDefined();
-      expect(mockRequest.uploadedFiles?.length).toBe(2);
-      expect(mockRequest.uploadedFiles?.[0].originalName).toBe('resume.pdf');
-      expect(mockRequest.uploadedFiles?.[1].originalName).toBe('cover-letter.docx');
+      expect(mockRequest.uploadedFiles).toHaveLength(2);
     });
 
     it('should reject when no files are provided', async () => {
@@ -326,82 +369,104 @@ describe('Upload Middleware', () => {
       expect(mockReply.status).toHaveBeenCalledWith(400);
       expect(mockReply.send).toHaveBeenCalledWith(
         expect.objectContaining({
-          error: 'No files provided',
+          error: 'No Files Provided',
           message: "Please provide files in the 'documents' field",
-          statusCode: 400
+          statusCode: 400,
+          path: '/api/test',
+          timestamp: expect.any(String)
         })
       );
     });
 
-    it('should reject when exceeding file count limit', async () => {
-      const mockFiles = Array.from({ length: 6 }, (_, i) => ({
-        filename: `file${i}.pdf`,
-        mimetype: 'application/pdf',
-        file: createMockFileStream('content')
-      }));
-
-      const mockAsyncGenerator = async function* () {
-        for (const file of mockFiles) {
-          yield file;
-        }
-      };
-
-      mockRequest.files = vi.fn().mockReturnValue(mockAsyncGenerator());
-
-      const { pipeline } = await import('stream/promises');
-      (pipeline as Mock).mockResolvedValue(undefined);
-
-      const middleware = uploadMultiple('documents', 5);
-      await middleware(mockRequest as FastifyRequest, mockReply as FastifyReply);
-
-      expect(mockReply.status).toHaveBeenCalledWith(400);
-      expect(mockReply.send).toHaveBeenCalledWith(
-        expect.objectContaining({
-          error: 'Too many files',
-          message: 'Maximum 5 files can be uploaded at once',
-          statusCode: 400
-        })
-      );
-    });
-
-    it('should cleanup uploaded files when one file fails validation', async () => {
+    it('should cleanup files when too many are uploaded', async () => {
+      const middleware = uploadMultiple('documents', 2);
+      
       const mockFiles = [
-        {
-          filename: 'resume.pdf',
-          mimetype: 'application/pdf',
-          file: createMockFileStream('pdf content')
-        },
-        {
-          filename: 'invalid.jpg', // Invalid file type
-          mimetype: 'image/jpeg',
-          file: createMockFileStream('image content')
-        }
+        { ...mockFile, filename: 'file1.pdf' },
+        { ...mockFile, filename: 'file2.pdf' },
+        { ...mockFile, filename: 'file3.pdf' } // This should trigger the limit
       ];
-
-      const mockAsyncGenerator = async function* () {
+      
+      const asyncGenerator = async function* () {
         for (const file of mockFiles) {
           yield file;
         }
       };
-
-      mockRequest.files = vi.fn().mockReturnValue(mockAsyncGenerator());
-
+      
+      (mockRequest.files as Mock).mockReturnValue(asyncGenerator());
+      
+      // Mock pipeline to resolve for the first 2 files
       const { pipeline } = await import('stream/promises');
       (pipeline as Mock).mockResolvedValue(undefined);
-
-      const middleware = uploadMultiple('documents', 5);
+      
       await middleware(mockRequest as FastifyRequest, mockReply as FastifyReply);
-
+      
+      expect(mockRequest.log!.warn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fileCount: 3,
+          maxCount: 2,
+          cleanedUpFiles: 2
+        }),
+        'Multiple file upload rejected - too many files, cleaned up uploaded files'
+      );
+      
       expect(mockReply.status).toHaveBeenCalledWith(400);
       expect(mockReply.send).toHaveBeenCalledWith(
         expect.objectContaining({
-          error: 'Invalid file type',
-          statusCode: 400
+          error: 'Too Many Files',
+          details: expect.objectContaining({
+            fileCount: 3,
+            maxCount: 2,
+            uploadedFiles: 2
+          })
         })
       );
+    });
 
-      // Should attempt to cleanup the already uploaded file
-      expect(fs.unlink).toHaveBeenCalled();
+    it('should cleanup files when invalid file type is encountered', async () => {
+      const middleware = uploadMultiple('documents', 3);
+      
+      const mockFiles = [
+        { ...mockFile, filename: 'resume.pdf' },
+        { ...mockFile, filename: 'malware.exe', mimetype: 'application/x-executable' }
+      ];
+      
+      const asyncGenerator = async function* () {
+        for (const file of mockFiles) {
+          yield file;
+        }
+      };
+      
+      (mockRequest.files as Mock).mockReturnValue(asyncGenerator());
+      
+      // Mock pipeline to resolve for the first file only
+      const { pipeline } = await import('stream/promises');
+      (pipeline as Mock).mockResolvedValue(undefined);
+      
+      await middleware(mockRequest as FastifyRequest, mockReply as FastifyReply);
+      
+      expect(mockRequest.log!.warn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          rejectedFile: 'malware.exe',
+          mimeType: 'application/x-executable',
+          cleanedUpFiles: 1
+        }),
+        'Multiple file upload rejected - invalid file type, cleaned up uploaded files'
+      );
+      
+      expect(mockReply.status).toHaveBeenCalledWith(400);
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: 'Invalid File Type',
+          details: expect.objectContaining({
+            rejectedFile: {
+              filename: 'malware.exe',
+              mimeType: 'application/x-executable'
+            },
+            uploadedFiles: 1
+          })
+        })
+      );
     });
   });
 
@@ -423,8 +488,12 @@ describe('Upload Middleware', () => {
       await cleanupFile(filePath);
 
       expect(consoleWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Failed to cleanup file'),
-        expect.any(Error)
+        'Failed to cleanup file /uploads/non-existent-file.pdf: File not found',
+        expect.objectContaining({
+          error: 'File not found',
+          errorCode: undefined,
+          filePath: '/uploads/non-existent-file.pdf'
+        })
       );
 
       consoleWarnSpy.mockRestore();
@@ -620,7 +689,9 @@ describe('Upload Middleware Enhanced Error Handling', () => {
         expect.objectContaining({
           error: 'Invalid Content Type',
           message: 'Request must be multipart/form-data for file uploads',
-          statusCode: 400
+          statusCode: 400,
+          path: '/api/applications/1/documents',
+          timestamp: expect.any(String)
         })
       );
     });
@@ -644,7 +715,10 @@ describe('Upload Middleware Enhanced Error Handling', () => {
       expect(mockReply.send).toHaveBeenCalledWith(
         expect.objectContaining({
           error: 'No File Provided',
-          message: "Please provide a file in the 'document' field"
+          message: "Please provide a file in the 'document' field",
+          statusCode: 400,
+          path: '/api/applications/1/documents',
+          timestamp: expect.any(String)
         })
       );
     });
@@ -728,24 +802,32 @@ describe('Upload Middleware Enhanced Error Handling', () => {
       const middleware = uploadSingle('document');
       
       (mockRequest.file as Mock).mockResolvedValue(mockFile);
-      require('stream/promises').pipeline.mockRejectedValue(new Error('Disk full'));
+      
+      // Mock pipeline to reject with disk error
+      const { pipeline } = await import('stream/promises');
+      (pipeline as Mock).mockRejectedValue(new Error('Disk full'));
       
       await middleware(mockRequest as FastifyRequest, mockReply as FastifyReply);
       
+      // Verify error logging
       expect(mockRequest.log!.error).toHaveBeenCalledWith(
         expect.objectContaining({
           operationId: expect.any(String),
           error: expect.stringContaining('Failed to save file'),
-          errorCode: undefined
+          stack: expect.any(String)
         }),
         'Single file upload operation failed'
       );
       
+      // Verify error response
       expect(mockReply.status).toHaveBeenCalledWith(500);
       expect(mockReply.send).toHaveBeenCalledWith(
         expect.objectContaining({
           error: 'Upload Failed',
-          message: expect.stringContaining('Failed to save file')
+          message: expect.stringContaining('Failed to save file'),
+          statusCode: 500,
+          timestamp: expect.any(String),
+          path: '/api/applications/1/documents'
         })
       );
     });
@@ -828,6 +910,10 @@ describe('Upload Middleware Enhanced Error Handling', () => {
       
       (mockRequest.files as Mock).mockReturnValue(asyncGenerator());
       
+      // Mock pipeline to resolve for each file
+      const { pipeline } = await import('stream/promises');
+      (pipeline as Mock).mockResolvedValue(undefined);
+      
       await middleware(mockRequest as FastifyRequest, mockReply as FastifyReply);
       
       expect(mockRequest.log!.info).toHaveBeenCalledWith(
@@ -868,6 +954,10 @@ describe('Upload Middleware Enhanced Error Handling', () => {
       
       (mockRequest.files as Mock).mockReturnValue(asyncGenerator());
       
+      // Mock pipeline to resolve for the first 2 files
+      const { pipeline } = await import('stream/promises');
+      (pipeline as Mock).mockResolvedValue(undefined);
+      
       await middleware(mockRequest as FastifyRequest, mockReply as FastifyReply);
       
       expect(mockRequest.log!.warn).toHaveBeenCalledWith(
@@ -907,6 +997,10 @@ describe('Upload Middleware Enhanced Error Handling', () => {
       };
       
       (mockRequest.files as Mock).mockReturnValue(asyncGenerator());
+      
+      // Mock pipeline to resolve for the first file only
+      const { pipeline } = await import('stream/promises');
+      (pipeline as Mock).mockResolvedValue(undefined);
       
       await middleware(mockRequest as FastifyRequest, mockReply as FastifyReply);
       

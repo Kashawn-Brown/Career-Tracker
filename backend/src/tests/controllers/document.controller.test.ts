@@ -7,7 +7,7 @@
 
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { uploadDocument, listDocuments, getDocument, deleteDocument } from '../../controllers/document.controller.js';
-import { documentService, fileUploadService } from '../../services/index.js';
+import { documentService, fileUploadService, jobApplicationService } from '../../services/index.js';
 
 // Mock the services
 vi.mock('../../services/index.js', () => ({
@@ -20,6 +20,9 @@ vi.mock('../../services/index.js', () => ({
   fileUploadService: {
     storeUploadedFile: vi.fn(),
     deleteFile: vi.fn()
+  },
+  jobApplicationService: {
+    getJobApplication: vi.fn()
   }
 }));
 
@@ -31,7 +34,8 @@ const createMockRequest = (overrides = {}) => ({
   uploadedFile: null,
   log: {
     error: vi.fn(),
-    warn: vi.fn()
+    warn: vi.fn(),
+    info: vi.fn()
   },
   ...overrides
 });
@@ -63,6 +67,14 @@ describe('Document Controller', () => {
       });
       const mockReply = createMockReply();
 
+      // Mock job application validation
+      const mockJobApplication = {
+        id: 1,
+        userId: 1, // Matches the user in the request
+        title: 'Test Job'
+      };
+      vi.mocked(jobApplicationService.getJobApplication).mockResolvedValue(mockJobApplication as any);
+
       const mockStoreResult = {
         success: true,
         filePath: '/uploads/stored-file.pdf'
@@ -76,10 +88,11 @@ describe('Document Controller', () => {
       };
 
       vi.mocked(fileUploadService.storeUploadedFile).mockResolvedValue(mockStoreResult);
-      vi.mocked(documentService.createDocument).mockResolvedValue(mockDocument);
+      vi.mocked(documentService.createDocument).mockResolvedValue(mockDocument as any);
 
       await uploadDocument(mockRequest as any, mockReply as any);
 
+      expect(jobApplicationService.getJobApplication).toHaveBeenCalledWith(1);
       expect(fileUploadService.storeUploadedFile).toHaveBeenCalledWith(mockRequest.uploadedFile);
       expect(documentService.createDocument).toHaveBeenCalledWith({
         jobApplicationId: 1,
@@ -115,6 +128,14 @@ describe('Document Controller', () => {
       });
       const mockReply = createMockReply();
 
+      // Mock job application validation - must pass for code to reach file validation
+      const mockJobApplication = {
+        id: 1,
+        userId: 1,
+        title: 'Test Job'
+      };
+      vi.mocked(jobApplicationService.getJobApplication).mockResolvedValue(mockJobApplication as any);
+
       await uploadDocument(mockRequest as any, mockReply as any);
 
       expect(mockReply.status).toHaveBeenCalledWith(400);
@@ -137,6 +158,14 @@ describe('Document Controller', () => {
       });
       const mockReply = createMockReply();
 
+      // Mock job application validation
+      const mockJobApplication = {
+        id: 1,
+        userId: 1,
+        title: 'Test Job'
+      };
+      vi.mocked(jobApplicationService.getJobApplication).mockResolvedValue(mockJobApplication as any);
+
       const mockStoreResult = {
         success: false,
         error: 'Storage failed'
@@ -148,9 +177,16 @@ describe('Document Controller', () => {
 
       expect(mockReply.status).toHaveBeenCalledWith(500);
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Internal Server Error',
-        message: 'Failed to store uploaded file',
-        details: 'Storage failed'
+        error: 'File Storage Error',
+        message: 'Failed to store uploaded file to storage system',
+        details: expect.objectContaining({
+          originalName: 'resume.pdf',
+          fileSize: 1024,
+          mimeType: 'application/pdf',
+          storageError: 'Storage failed',
+          timestamp: expect.any(String),
+          operation: 'file_storage'
+        })
       });
     });
   });

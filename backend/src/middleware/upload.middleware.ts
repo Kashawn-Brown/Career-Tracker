@@ -451,6 +451,13 @@ export function uploadMultiple(fieldName: string = 'documents', maxCount: number
           // Clean up already uploaded files
           await cleanupFiles(uploadedFiles.map(file => file.path));
           
+          request.log.warn({
+            operationId,
+            fileCount,
+            maxCount,
+            cleanedUpFiles: uploadedFiles.length
+          }, 'Multiple file upload rejected - too many files, cleaned up uploaded files');
+          
           const errorResponse = createErrorResponse(
             'Too Many Files',
             `Maximum ${maxCount} files can be uploaded at once`,
@@ -463,13 +470,6 @@ export function uploadMultiple(fieldName: string = 'documents', maxCount: number
             }
           );
           
-          request.log.warn({
-            operationId,
-            fileCount,
-            maxCount,
-            cleanedUpFiles: uploadedFiles.length
-          }, 'Multiple file upload rejected - too many files, cleaned up uploaded files');
-          
           return reply.status(400).send(errorResponse);
         }
         
@@ -478,6 +478,14 @@ export function uploadMultiple(fieldName: string = 'documents', maxCount: number
         if (!typeValidation.valid) {
           // Clean up already uploaded files
           await cleanupFiles(uploadedFiles.map(file => file.path));
+          
+          request.log.warn({
+            operationId,
+            rejectedFile: part.filename,
+            mimeType: part.mimetype,
+            error: typeValidation.error,
+            cleanedUpFiles: uploadedFiles.length
+          }, 'Multiple file upload rejected - invalid file type, cleaned up uploaded files');
           
           const errorResponse = createErrorResponse(
             'Invalid File Type',
@@ -494,14 +502,6 @@ export function uploadMultiple(fieldName: string = 'documents', maxCount: number
               uploadedFiles: uploadedFiles.length
             }
           );
-          
-          request.log.warn({
-            operationId,
-            rejectedFile: part.filename,
-            mimeType: part.mimetype,
-            error: typeValidation.error,
-            cleanedUpFiles: uploadedFiles.length
-          }, 'Multiple file upload rejected - invalid file type, cleaned up uploaded files');
           
           return reply.status(400).send(errorResponse);
         }
@@ -590,10 +590,13 @@ export function uploadMultiple(fieldName: string = 'documents', maxCount: number
       // Add files info to request for access in route handlers
       request.uploadedFiles = uploadedFiles;
       
+      const totalFiles = uploadedFiles.length;
+      const totalSize = uploadedFiles.reduce((sum, file) => sum + file.size, 0);
+
       request.log.info({
         operationId,
-        totalFiles: uploadedFiles.length,
-        totalSize: uploadedFiles.reduce((sum, file) => sum + file.size, 0),
+        totalFiles,
+        totalSize,
         files: uploadedFiles.map(file => ({
           originalName: file.originalName,
           filename: file.filename,
