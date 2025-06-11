@@ -7,7 +7,7 @@
  */
 
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { documentService, fileUploadService } from '../services/index.js';
+import { documentService, fileUploadService, jobApplicationService } from '../services/index.js';
 import type { DocumentListFilters } from '../models/document.models.js';
 
 /**
@@ -17,15 +17,22 @@ export async function uploadDocument(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply
 ) {
+  const jobApplicationId = parseInt(request.params.id, 10);
+  const userId = request.user!.userId;
+
   try {
-    const jobApplicationId = parseInt(request.params.id, 10);
-    const userId = request.user!.userId;
 
     if (isNaN(jobApplicationId)) {
       return reply.status(400).send({
         error: 'Bad Request',
         message: 'Invalid job application ID'
       });
+    }
+
+    // Validate that the job application exists and belongs to the user
+    const jobApplication = await jobApplicationService.getJobApplication(jobApplicationId);
+    if (!jobApplication || jobApplication.userId !== userId) {
+      throw new Error('Job application not found');
     }
 
     // Check if file was uploaded (handled by upload middleware)
@@ -43,9 +50,16 @@ export async function uploadDocument(
     
     if (!storeResult.success) {
       return reply.status(500).send({
-        error: 'Internal Server Error',
-        message: 'Failed to store uploaded file',
-        details: storeResult.error
+        error: 'File Storage Error',
+        message: 'Failed to store uploaded file to storage system',
+        details: {
+          originalName: uploadedFile.originalName,
+          fileSize: uploadedFile.size,
+          mimeType: uploadedFile.mimeType,
+          storageError: storeResult.error,
+          timestamp: new Date().toISOString(),
+          operation: 'file_storage'
+        }
       });
     }
 
@@ -59,32 +73,111 @@ export async function uploadDocument(
       mimeType: uploadedFile.mimeType
     };
 
-    const document = await documentService.createDocument(documentData);
+    let document;
+    try {
+      document = await documentService.createDocument(documentData);
+    } catch (dbError) {
+      // If database operation fails, attempt to clean up stored file
+      const cleanupPath = storeResult.filePath || uploadedFile.path;
+      if (cleanupPath) {
+        try {
+          const cleanupResult = await fileUploadService.deleteFile(cleanupPath);
+          request.log.info(`File cleanup ${cleanupResult.success ? 'successful' : 'failed'} after database error`);
+        } catch (cleanupError) {
+          request.log.error('Failed to cleanup file after database error:', cleanupError);
+        }
+      }
+
+      return reply.status(500).send({
+        error: 'Database Operation Error',
+        message: 'Failed to save document metadata to database',
+        details: {
+          originalName: uploadedFile.originalName,
+          fileSize: uploadedFile.size,
+          jobApplicationId,
+          dbError: dbError instanceof Error ? dbError.message : 'Unknown database error',
+          cleanupAttempted: !!cleanupPath,
+          timestamp: new Date().toISOString(),
+          operation: 'document_creation'
+        }
+      });
+    }
     
     return reply.status(201).send(document);
   } catch (error) {
     request.log.error('Error uploading document:', error);
 
-    // Handle specific business logic errors
+    // Handle specific business logic errors with enhanced responses
     if (error instanceof Error) {
+      // Job application not found
       if (error.message === 'Job application not found') {
+        console.log('🔍 DEBUG VALUES:');
+        console.log('jobApplicationId:', jobApplicationId, 'type:', typeof jobApplicationId);
+        console.log('userId:', userId, 'type:', typeof userId);
+        console.log('request.user:', request.user);
+        
         return reply.status(404).send({
-          error: 'Not Found',
-          message: error.message
+          error: 'Resource Not Found',
+          message: 'The specified job application does not exist or you do not have access to it',
+          details: {
+            jobApplicationId,
+            userId,
+            timestamp: new Date().toISOString(),
+            operation: 'application_validation'
+          }
         });
+        
+        
       }
       
+      // Validation errors
       if (error.message.includes('required') || error.message.includes('Invalid')) {
         return reply.status(400).send({
-          error: 'Bad Request',
-          message: error.message
+          error: 'Validation Error',
+          message: error.message,
+          details: {
+            jobApplicationId,
+            timestamp: new Date().toISOString(),
+            operation: 'input_validation'
+          }
+        });
+      }
+
+      // Permission/Authorization errors
+      if (error.message.includes('permission') || error.message.includes('unauthorized') || error.message.includes('access')) {
+        return reply.status(403).send({
+          error: 'Access Forbidden',
+          message: 'You do not have permission to upload documents to this job application',
+          details: {
+            jobApplicationId,
+            userId,
+            timestamp: new Date().toISOString(),
+            operation: 'authorization_check'
+          }
+        });
+      }
+
+      // File size or type errors
+      if (error.message.includes('file size') || error.message.includes('file type') || error.message.includes('mime')) {
+        return reply.status(413).send({
+          error: 'File Validation Error',
+          message: error.message,
+          details: {
+            timestamp: new Date().toISOString(),
+            operation: 'file_validation'
+          }
         });
       }
     }
 
     return reply.status(500).send({
       error: 'Internal Server Error',
-      message: 'Failed to upload document'
+      message: 'An unexpected error occurred during document upload',
+      details: {
+        timestamp: new Date().toISOString(),
+        operation: 'document_upload',
+        errorType: error instanceof Error ? error.constructor.name : 'Unknown'
+      }
     });
   }
 }

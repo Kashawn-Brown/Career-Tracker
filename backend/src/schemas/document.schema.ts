@@ -37,6 +37,15 @@ export const errorResponseSchema = {
   properties: {
     error: { type: 'string' },
     message: { type: 'string' },
+    details: {
+      type: 'object',
+      properties: {
+        jobApplicationId: { type: 'number' },
+        userId: { type: 'number' },
+        timestamp: { type: 'string' },
+        operation: { type: 'string' }
+      },
+    },
     statusCode: { type: 'integer' },
     timestamp: { type: 'string', format: 'date-time' },
     path: { type: 'string' }
