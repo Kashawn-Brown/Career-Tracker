@@ -1,4 +1,13 @@
-// Configuration settings for the backend
+/**
+ * Configuration settings for the backend application.
+ * 
+ * This module exports a centralized configuration object that contains
+ * all environment-specific settings including server configuration,
+ * CORS policies, database connection details, and file upload constraints.
+ * 
+ * Configuration values are primarily sourced from environment variables
+ * with sensible defaults for development environments.
+ */
 
 const config = {
   server: {

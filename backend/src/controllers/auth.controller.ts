@@ -18,6 +18,7 @@ export class AuthController {
    */
   async register(request: FastifyRequest, reply: FastifyReply) {
     try {
+      // Retrieve the users registration details from the request body
       const { email, password, name } = request.body as {
         email: string;
         password: string;

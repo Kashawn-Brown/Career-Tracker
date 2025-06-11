@@ -3,6 +3,7 @@
  * Supports local storage (MVP) with easy migration to cloud storage
  */
 
+/** Main storage configuration interface */
 export interface StorageConfig {
   type: 'local' | 'cloudinary' | 's3'
   local?: LocalStorageConfig
@@ -10,6 +11,7 @@ export interface StorageConfig {
   s3?: S3Config
 }
 
+/** Configuration for local file storage */
 export interface LocalStorageConfig {
   uploadDir: string
   baseUrl: string
@@ -17,6 +19,7 @@ export interface LocalStorageConfig {
   allowedTypes: string[]
 }
 
+/** Configuration for Cloudinary cloud storage */
 export interface CloudinaryConfig {
   cloudName: string
   apiKey: string
@@ -24,6 +27,7 @@ export interface CloudinaryConfig {
   folder?: string
 }
 
+/** Configuration for AWS S3 storage */
 export interface S3Config {
   accessKeyId: string
   secretAccessKey: string
