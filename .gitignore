@@ -28,5 +28,8 @@ node_modules/
 tasks.json
 tasks/ 
 
+# File uploads (should not be committed)
+uploads/
+
 # place for future features
 z-possible_future_features/

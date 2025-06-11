@@ -19,4 +19,7 @@ export * from './contact.controller.js';
 export * from './job-connection.controller.js';
 
 // Tag Controllers
-export * from './tag.controller.js'; 
+export * from './tag.controller.js';
+
+// Document Controllers
+export * from './document.controller.js'; 
