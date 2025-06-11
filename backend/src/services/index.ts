@@ -18,4 +18,10 @@ export { ContactService } from './contact.service.js';
 export type { ContactListFilters, CreateContactRequest, UpdateContactRequest } from '../models/contact.models.js';
 
 export { JobConnectionService } from './job-connection.service.js';
-export type { JobConnectionListFilters, CreateJobConnectionRequest, UpdateJobConnectionRequest, UpdateJobConnectionStatusRequest } from '../models/job-connection.models.js'; 
+export type { JobConnectionListFilters, CreateJobConnectionRequest, UpdateJobConnectionRequest, UpdateJobConnectionStatusRequest } from '../models/job-connection.models.js';
+
+export { documentService, DocumentService } from './document.service.js';
+export type { DocumentListFilters, CreateDocumentRequest, UpdateDocumentRequest, DocumentStats, DocumentListResponse } from '../models/document.models.js';
+
+export { fileUploadService, FileUploadService } from './file-upload.service.js';
+export type { FileStorageResult, FileRetrievalResult } from './file-upload.service.js'; 
