@@ -5,17 +5,17 @@
  */
 
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { AuthService } from '../services/auth.service.js';
-import { JWTPayload } from '../models/auth.models.js';
+import { JwtPayload } from '../interfaces/jwt.interface.js';
+import { verifyAccessToken } from '../services/jwt.service.js';
 
 // Extend FastifyRequest to include user information
 declare module 'fastify' {
   interface FastifyRequest {
-    user?: JWTPayload;
+    user?: JwtPayload;
   }
 }
 
-const authService = new AuthService();
+
 
 /**
  * Middleware: Require authentication via JWT token
@@ -64,7 +64,7 @@ export async function requireAuth(
     }
 
     // Verify the JWT token
-    const payload = authService.verifyAccessToken(token);
+    const payload = verifyAccessToken(token);
     
     // Add user information to request object
     request.user = payload;
@@ -106,7 +106,7 @@ export async function requireAuth(
  * - Content that's available to everyone but shows extra features when authenticated
  * 
  * After this middleware runs:
- * - request.user will contain JWTPayload if valid token was provided
+ * - request.user will contain JwtPayload if valid token was provided
  * - request.user will be undefined if no token or invalid token
  * - The request always continues (never blocks/returns 401)
  */
@@ -132,7 +132,7 @@ export async function extractUser(
     }
 
     // Try to verify the JWT token
-    const payload = authService.verifyAccessToken(token);
+    const payload = verifyAccessToken(token);
     
     // Add user information to request object
     request.user = payload;

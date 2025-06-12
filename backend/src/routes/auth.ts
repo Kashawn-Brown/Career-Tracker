@@ -36,6 +36,12 @@ import {
 } from '../schemas/auth.schema.js';
 
 // Rate limiting configuration
+/*
+per-IP address limit by default in Fastify's rate limiting plugin.
+Each unique IP address can make 5 requests per minute to endpoints using authRateLimit. 
+So if 100 different users hit the endpoint simultaneously, each can make 5 requests within their minute window 
+- it's not shared globally across all users.
+*/
 const authRateLimit = {
   max: 5, // 5 requests per minute
   timeWindow: 60 * 1000 // 1 minute
@@ -70,6 +76,8 @@ export default async function authRoutes(fastify: FastifyInstance) {
     }
   }, securityMiddleware.getCSRFToken());
 
+  /* ROUTES */
+
   // User Registration
   fastify.post('/register', {
     config: {
@@ -77,6 +85,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
     },
     schema: registerSchema
   }, authController.register.bind(authController));
+
 
   // User Login
   fastify.post('/login', {
@@ -87,7 +96,8 @@ export default async function authRoutes(fastify: FastifyInstance) {
     preHandler: [securityMiddleware.loginRateLimit()]
   }, authController.login.bind(authController));
 
-  // Email Verification
+
+  // Email Verification - user clicks link in verification email
   fastify.post('/verify-email', {
     config: {
       rateLimit: authRateLimit
@@ -95,7 +105,8 @@ export default async function authRoutes(fastify: FastifyInstance) {
     schema: verifyEmailSchema
   }, authController.verifyEmail.bind(authController));
 
-  // Token Refresh
+
+  // Token Refresh - used when access token expires
   fastify.post('/refresh', {
     config: {
       rateLimit: authRateLimit
@@ -103,13 +114,15 @@ export default async function authRoutes(fastify: FastifyInstance) {
     schema: refreshTokenSchema
   }, authController.refreshToken.bind(authController));
 
-  // Resend Email Verification
+
+  // Resend Email Verification - used when user doesn't receive verification email
   fastify.post('/resend-verification', {
     config: {
       rateLimit: resendRateLimit // Stricter rate limit for resend
     },
     schema: resendVerificationSchema
   }, authController.resendVerification.bind(authController));
+
 
   // Forgot Password
   fastify.post('/forgot-password', {
@@ -120,7 +133,8 @@ export default async function authRoutes(fastify: FastifyInstance) {
     preHandler: [securityMiddleware.passwordResetRateLimit()]
   }, authController.forgotPassword.bind(authController));
 
-  // Verify Password Reset Token
+
+  // Verify Password Reset Token - used when user clicks link in password reset email
   fastify.get('/reset-password/:token', {
     config: {
       rateLimit: resetPasswordRateLimit // 10 attempts per 15 minutes
@@ -128,7 +142,8 @@ export default async function authRoutes(fastify: FastifyInstance) {
     schema: verifyResetTokenSchema
   }, authController.verifyPasswordReset.bind(authController));
 
-  // Complete Password Reset
+
+  // Complete Password Reset - used when user enters new password
   fastify.post('/reset-password/:token', {
     config: {
       rateLimit: resetPasswordRateLimit // 10 attempts per 15 minutes
@@ -136,7 +151,8 @@ export default async function authRoutes(fastify: FastifyInstance) {
     schema: resetPasswordSchema
   }, authController.resetPassword.bind(authController));
 
-  // Security Questions Routes
+
+  /* Security Questions Routes */
   
   // Set up security questions (authenticated)
   fastify.post('/security-questions', {
@@ -181,7 +197,8 @@ export default async function authRoutes(fastify: FastifyInstance) {
     schema: getAvailableSecurityQuestionsSchema
   }, authController.getAvailableSecurityQuestions.bind(authController));
 
-  // Secondary Email Management Routes
+
+  /* Secondary Email Management Routes */
   
   // Set up secondary email (authenticated)
   fastify.post('/secondary-email', {
@@ -192,6 +209,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
     preHandler: requireAuth
   }, authController.setupSecondaryEmail.bind(authController));
 
+  
   // Verify secondary email token (public)
   fastify.post('/verify-secondary-email', {
     config: {
@@ -199,6 +217,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
     },
     schema: verifySecondaryEmailSchema
   }, authController.verifySecondaryEmail.bind(authController));
+
 
   // Forgot password via secondary email (public)
   fastify.post('/forgot-password-secondary', {
@@ -209,20 +228,25 @@ export default async function authRoutes(fastify: FastifyInstance) {
     preHandler: [securityMiddleware.passwordResetRateLimit()]
   }, authController.forgotPasswordSecondary.bind(authController));
 
-  // OAuth Routes
+  
+  /* OAuth Routes */
   
   // Google OAuth - Initiate
   fastify.get('/google', oauthController.googleAuth.bind(oauthController));
   
+
   // Google OAuth - Callback
   fastify.get('/callback/google', oauthController.googleCallback.bind(oauthController));
   
+
   // LinkedIn OAuth - Initiate
   fastify.get('/linkedin', oauthController.linkedinAuth.bind(oauthController));
   
+
   // LinkedIn OAuth - Callback
   fastify.get('/callback/linkedin', oauthController.linkedinCallback.bind(oauthController));
   
+
   // OAuth Provider Status
   fastify.get('/oauth/status', {
     schema: oauthStatusSchema

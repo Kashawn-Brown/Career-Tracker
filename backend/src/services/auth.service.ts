@@ -8,27 +8,298 @@
 
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
+
 import crypto from 'crypto';
 import {
-  JWTPayload,
-  TokenPair,
   EmailVerificationResult,
   ResendVerificationResult,
   PasswordValidationResult
 } from '../models/auth.models.js';
 import { UserRole } from '../models/user.models.js';
-
-// JWT Configuration
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this-in-production';
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'your-super-secret-refresh-key-change-this-in-production';
-const JWT_EXPIRES_IN = '15m'; // Short-lived access tokens
-const JWT_REFRESH_EXPIRES_IN = '7d'; // Longer-lived refresh tokens
+import { JwtPayload, TokenPair } from '../interfaces/jwt.interface.js';
+import { generateTokenPair, verifyAccessToken, verifyRefreshToken, refreshTokens as jwtRefreshTokens } from './jwt.service.js';
+import { userRepository } from '../repositories/index.js';
+import { queueService } from './queue.service.js';
 
 // Password hashing configuration
 const BCRYPT_ROUNDS = 12; // Strong hashing (10+ rounds as required)
 
+// Define return types for the new service methods
+export interface RegisterUserResult {
+  success: boolean;
+  statusCode: number;
+  message?: string;
+  user?: any;
+  tokens?: TokenPair;
+  error?: string;
+  details?: string[];
+  action?: string;
+}
+
+export interface LoginUserResult {
+  success: boolean;
+  statusCode: number;
+  message?: string;
+  user?: any;
+  tokens?: TokenPair;
+  error?: string;
+}
+
+export interface InitiatePasswordResetResult {
+  success: boolean;
+  statusCode: number;
+  message?: string;
+  error?: string;
+}
+
 export class AuthService {
+  /**
+   * Register a new user with email and password
+   * Handles validation, user creation, email verification setup, and JWT token generation
+   */
+  async registerUser(email: string, password: string, name: string): Promise<RegisterUserResult> {
+    try {
+      // Validate input
+      if (!email || !password || !name) {
+        return {
+          success: false,
+          statusCode: 400,
+          error: 'Missing required fields: email, password, name'
+        };
+      }
+
+      // Validate email format
+      if (!this.isValidEmail(email)) {
+        return {
+          success: false,
+          statusCode: 400,
+          error: 'Invalid email format'
+        };
+      }
+
+      // Validate password strength
+      const passwordValidation = this.isValidPassword(password);
+      if (!passwordValidation.valid) {
+        return {
+          success: false,
+          statusCode: 400,
+          error: 'Password validation failed',
+          details: passwordValidation.errors
+        };
+      }
+
+      // Check if user already exists
+      const existingUser = await userRepository.findByEmail(email);
+      if (existingUser) {
+        // If user exists but hasn't verified email, offer to resend verification
+        if (!existingUser.emailVerified) {
+          return {
+            success: false,
+            statusCode: 409,
+            error: 'You have already registered with this email but haven\'t verified it yet.',
+            action: 'resend_verification',
+            message: 'Would you like to resend the verification email?'
+          };
+        }
+        
+        return {
+          success: false,
+          statusCode: 409,
+          error: 'User with this email already exists and is verified'
+        };
+      }
+
+      // Hash password
+      const hashedPassword = await this.hashPassword(password);
+
+      // Create user
+      const user = await userRepository.create({
+        email,
+        password: hashedPassword,
+        name,
+        emailVerified: false,
+        provider: 'LOCAL',
+        providerId: null
+      });
+
+      // Generate and store email verification token
+      const verificationToken = this.generateEmailVerificationToken();
+      await this.storeEmailVerificationToken(user.id, verificationToken);
+
+      // Send verification email via queue (instant response!)
+      try {
+        if (queueService.isReady()) {
+          await queueService.addEmailVerificationJob({
+            to: email,
+            userName: name,
+            verificationToken,
+            verificationUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}`
+          });
+          console.log(`Email verification job queued for: ${email}`);
+        } else {
+          console.warn(`Queue service not available. Email verification token for ${email}: ${verificationToken}`);
+        }
+      } catch (emailError) {
+        console.error('Failed to queue verification email:', emailError);
+        // Don't fail registration if email queueing fails
+      }
+
+      // Generate JWT tokens with user role
+      const tokens = generateTokenPair(user.id, user.email, user.role as UserRole);
+
+      // Remove password from response
+      const { password: _, ...userResponse } = user;
+
+      return {
+        success: true,
+        statusCode: 201,
+        message: 'User registered successfully. Please check your email for verification.',
+        user: userResponse,
+        tokens
+      };
+
+    } catch (error) {
+      console.error('Registration error:', error);
+      return {
+        success: false,
+        statusCode: 500,
+        error: 'Internal server error during registration'
+      };
+    }
+  }
+
+  /**
+   * Login user with email and password
+   * Handles validation, credential verification, and JWT token generation
+   */
+  async loginUser(email: string, password: string): Promise<LoginUserResult> {
+    try {
+      // Validate input
+      if (!email || !password) {
+        return {
+          success: false,
+          statusCode: 400,
+          error: 'Email and password are required'
+        };
+      }
+
+      // Find user
+      const user = await userRepository.findByEmail(email);
+      if (!user) {
+        return {
+          success: false,
+          statusCode: 401,
+          error: 'Invalid credentials'
+        };
+      }
+
+      // Check if user has a password (OAuth users don't)
+      if (!user.password) {
+        return {
+          success: false,
+          statusCode: 401,
+          error: 'This account uses OAuth login. Please use Google or LinkedIn to sign in.'
+        };
+      }
+
+      // Verify password
+      const isPasswordValid = await this.comparePassword(password, user.password);
+      if (!isPasswordValid) {
+        return {
+          success: false,
+          statusCode: 401,
+          error: 'Invalid credentials'
+        };
+      }
+
+      // Generate JWT tokens with user role
+      const tokens = generateTokenPair(user.id, user.email, user.role as UserRole);
+
+      // Remove password from response
+      const { password: _, ...userResponse } = user;
+
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Login successful',
+        user: userResponse,
+        tokens
+      };
+
+    } catch (error) {
+      console.error('Login error:', error);
+      return {
+        success: false,
+        statusCode: 500,
+        error: 'Internal server error during login'
+      };
+    }
+  }
+
+  /**
+   * Initiate password reset process from forgot password form
+   * Handles validation, user lookup, rate limiting, token generation, and email queueing
+   */
+  async initiatePasswordReset(email: string): Promise<InitiatePasswordResetResult> {
+    try {
+      if (!email) {
+        return {
+          success: false,
+          statusCode: 400,
+          error: 'Email is required'
+        };
+      }
+
+      // Validate email format
+      if (!this.isValidEmail(email)) {
+        return {
+          success: false,
+          statusCode: 400,
+          error: 'Invalid email format'
+        };
+      }
+
+      // Request password reset using the existing service method
+      const result = await this.requestPasswordReset(email);
+
+      // If a token was generated (user exists), send the email
+      if (result.token) {
+        try {
+          const user = await userRepository.findByEmail(email);
+          if (user && queueService.isReady()) {
+            await queueService.addPasswordResetJob({
+              to: email,
+              userName: user.name,
+              resetToken: result.token,
+              resetUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${result.token}`
+            });
+            console.log(`Password reset email job queued for: ${email}`);
+          } else {
+            console.warn(`Queue service not available. Password reset token for ${email}: ${result.token}`);
+          }
+        } catch (emailError) {
+          console.error('Failed to queue password reset email:', emailError);
+          // Don't fail the operation if email queueing fails
+        }
+      }
+
+      // Always return success message for security (don't reveal if email exists)
+      return {
+        success: true,
+        statusCode: 200,
+        message: result.message
+      };
+
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      return {
+        success: false,
+        statusCode: 500,
+        error: 'Internal server error during password reset request'
+      };
+    }
+  }
+
   /**
    * Hash a password using bcrypt with 12 rounds for strong security
    */
@@ -51,101 +322,7 @@ export class AuthService {
     return await bcrypt.compare(password, hash);
   }
 
-  /**
-   * Generate both access and refresh JWT tokens for a user
-   */
-  generateTokenPair(userId: number, email: string, role: UserRole = UserRole.USER): TokenPair {
-    if (!JWT_SECRET || !JWT_REFRESH_SECRET) {
-      throw new Error('JWT secrets not configured');
-    }
 
-    const accessTokenPayload: JWTPayload = {
-      userId,
-      email,
-      type: 'access',
-      role
-    };
-
-    const refreshTokenPayload: JWTPayload = {
-      userId,
-      email,
-      type: 'refresh',
-      role
-    };
-
-    const accessToken = jwt.sign(accessTokenPayload, JWT_SECRET, {
-      expiresIn: JWT_EXPIRES_IN,
-      algorithm: 'HS256'
-    });
-
-    const refreshToken = jwt.sign(refreshTokenPayload, JWT_REFRESH_SECRET, {
-      expiresIn: JWT_REFRESH_EXPIRES_IN,
-      algorithm: 'HS256'
-    });
-
-    return {
-      accessToken,
-      refreshToken
-    };
-  }
-
-  /**
-   * Verify and decode an access JWT token
-   */
-  verifyAccessToken(token: string): JWTPayload {
-    if (!JWT_SECRET) {
-      throw new Error('JWT secret not configured');
-    }
-
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET, {
-        algorithms: ['HS256']
-      }) as JWTPayload;
-
-      if (decoded.type !== 'access') {
-        throw new Error('Invalid token type');
-      }
-
-      return decoded;
-    } catch (error) {
-      if (error instanceof jwt.TokenExpiredError) {
-        throw new Error('Token expired');
-      } else if (error instanceof jwt.JsonWebTokenError) {
-        throw new Error('Invalid token');
-      } else {
-        throw error;
-      }
-    }
-  }
-
-  /**
-   * Verify and decode a refresh JWT token
-   */
-  verifyRefreshToken(token: string): JWTPayload {
-    if (!JWT_REFRESH_SECRET) {
-      throw new Error('JWT refresh secret not configured');
-    }
-
-    try {
-      const decoded = jwt.verify(token, JWT_REFRESH_SECRET, {
-        algorithms: ['HS256']
-      }) as JWTPayload;
-
-      if (decoded.type !== 'refresh') {
-        throw new Error('Invalid token type');
-      }
-
-      return decoded;
-    } catch (error) {
-      if (error instanceof jwt.TokenExpiredError) {
-        throw new Error('Refresh token expired');
-      } else if (error instanceof jwt.JsonWebTokenError) {
-        throw new Error('Invalid refresh token');
-      } else {
-        throw error;
-      }
-    }
-  }
 
   /**
    * Generate a secure random token for email verification
@@ -352,11 +529,7 @@ export class AuthService {
    * Refresh tokens using a valid refresh token
    */
   async refreshTokens(refreshToken: string): Promise<TokenPair> {
-    // Verify the refresh token
-    const decoded = this.verifyRefreshToken(refreshToken);
-    
-    // Generate new token pair with role from existing token
-    return this.generateTokenPair(decoded.userId, decoded.email, decoded.role);
+    return jwtRefreshTokens(refreshToken);
   }
 
   /**

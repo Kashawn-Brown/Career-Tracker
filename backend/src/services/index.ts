@@ -12,7 +12,7 @@ export { jobApplicationService, JobApplicationService } from './job-application.
 export type { JobApplicationListFilters, CreateJobApplicationRequest, UpdateJobApplicationRequest } from '../models/job-application.models.js';
 
 export { authService, AuthService } from './auth.service.js';
-export type { JWTPayload, TokenPair } from '../models/auth.models.js';
+export type { JwtPayload, TokenPair } from '../interfaces/jwt.interface.js';
 
 export { ContactService } from './contact.service.js';
 export type { ContactListFilters, CreateContactRequest, UpdateContactRequest } from '../models/contact.models.js';
