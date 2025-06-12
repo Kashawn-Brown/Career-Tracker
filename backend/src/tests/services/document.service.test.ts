@@ -5,11 +5,11 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { DocumentService } from './document.service.js';
-import { repositories } from '../repositories/index.js';
+import { DocumentService } from '../../services/document.service.js';
+import { repositories } from '../../repositories/index.js';
 
 // Mock the repositories
-vi.mock('../repositories/index.js', () => ({
+vi.mock('../../repositories/index.js', () => ({
   repositories: {
     document: {
       create: vi.fn(),

@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { FileUploadService } from './file-upload.service.js';
+import { FileUploadService } from '../../services/file-upload.service.js';
 import fs from 'fs/promises';
 import { createReadStream } from 'fs';
 
@@ -16,7 +16,7 @@ vi.mock('fs', () => ({
   createWriteStream: vi.fn(),
 }));
 
-vi.mock('../config/storage.js', () => ({
+vi.mock('../../config/storage.js', () => ({
   getValidatedStorageConfig: vi.fn(() => ({
     type: 'local',
     local: {
