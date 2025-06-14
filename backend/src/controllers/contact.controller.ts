@@ -3,28 +3,30 @@
  * 
  * Handles HTTP requests for contact CRUD operations.
  * Implements proper error handling, validation, and response formatting.
- * Uses ContactService for business logic to maintain separation of concerns.
+ * Uses contactService for business logic to maintain separation of concerns.
+ * Follows auth-style controller pattern.
  */
 
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { ContactService } from '../services/contact.service.js';
+import { contactService } from '../services/index.js';
 import type { 
   ContactListFilters, 
   CreateContactRequest, 
   UpdateContactRequest 
 } from '../models/contact.models.js';
 
-// Create service instance
-const contactService = new ContactService();
+export class ContactController {
 
-/**
- * List contacts with pagination and filtering (user's own contacts)
- */
-export async function listContacts(
-  request: FastifyRequest<{ Querystring: ContactListFilters }>,
-  reply: FastifyReply
-) {
-  try {
+  // CORE CONTACT OPERATIONS
+
+  /**
+   * List contacts with pagination and filtering (user's own contacts)
+   * GET /api/contacts
+   */
+  async listContacts(
+    request: FastifyRequest<{ Querystring: ContactListFilters }>,
+    reply: FastifyReply
+  ) {
     // Extract user ID from JWT token and add to filters
     const userId = request.user!.userId;
     const filtersWithUser = {
@@ -33,71 +35,62 @@ export async function listContacts(
     };
     
     const result = await contactService.listContacts(filtersWithUser);
-    return reply.status(200).send(result);
-  } catch (error) {
-    request.log.error('Error listing contacts:', error);
-    
-    // Handle specific business logic errors
-    if (error instanceof Error && error.message === 'User ID is required for listing contacts') {
-      return reply.status(400).send({
-        error: 'Bad Request',
-        message: error.message
+
+    // Handle service result
+    if (!result.success) {
+      return reply.status(result.statusCode).send({
+        error: result.error
       });
     }
 
-    return reply.status(500).send({
-      error: 'Internal Server Error',
-      message: 'Failed to retrieve contacts'
+    return reply.status(result.statusCode).send({
+      message: result.message,
+      contacts: result.contacts,
+      pagination: result.pagination
     });
   }
-}
 
-/**
- * Get a single contact by ID (user's own contact)
- */
-export async function getContact(
-  request: FastifyRequest<{ Params: { id: string } }>,
-  reply: FastifyReply
-) {
-  try {
+  /**
+   * Get a single contact by ID (user's own contact)
+   * GET /api/contacts/:id
+   */
+  async getContact(
+    request: FastifyRequest<{ Params: { id: string } }>,
+    reply: FastifyReply
+  ) {
     const id = parseInt(request.params.id, 10);
     const userId = request.user!.userId;
     
+    // Basic validation handled in controller for HTTP concerns
     if (isNaN(id)) {
       return reply.status(400).send({
-        error: 'Bad Request',
-        message: 'Invalid contact ID'
+        error: 'Invalid contact ID format'
       });
     }
 
-    const contact = await contactService.getContact(id, userId);
-    return reply.status(200).send(contact);
-  } catch (error) {
-    request.log.error('Error getting contact:', error);
+    const result = await contactService.getContact(id, userId);
 
-    // Handle specific business logic errors
-    if (error instanceof Error && error.message === 'Contact not found') {
-      return reply.status(404).send({
-        error: 'Not Found',
-        message: error.message
+    // Handle service result
+    if (!result.success) {
+      return reply.status(result.statusCode).send({
+        error: result.error
       });
     }
 
-    return reply.status(500).send({
-      error: 'Internal Server Error',
-      message: 'Failed to retrieve contact'
+    return reply.status(result.statusCode).send({
+      message: result.message,
+      contact: result.contact
     });
   }
-}
 
-/**
- * Create a new contact (for authenticated user)
- */
-export async function createContact(
-  request: FastifyRequest<{ Body: CreateContactRequest }>,
-  reply: FastifyReply
-) {
-  try {
+  /**
+   * Create a new contact (for authenticated user)
+   * POST /api/contacts
+   */
+  async createContact(
+    request: FastifyRequest<{ Body: CreateContactRequest }>,
+    reply: FastifyReply
+  ) {
     // Extract user ID from JWT token and add to request data
     const userId = request.user!.userId;
     const createData = {
@@ -105,131 +98,118 @@ export async function createContact(
       userId
     };
     
-    const createdContact = await contactService.createContact(createData);
-    return reply.status(201).send(createdContact);
-  } catch (error) {
-    request.log.error('Error creating contact:', error);
-    
-    // Handle specific business logic errors
-    if (error instanceof Error) {
-      if (error.message.includes('Contact name is required') ||
-          error.message.includes('Invalid email format') ||
-          error.message.includes('Invalid LinkedIn URL format') ||
-          error.message.includes('Contact with this name already exists')) {
-        return reply.status(400).send({
-          error: 'Bad Request',
-          message: error.message
-        });
-      }
-      
-      if (error.message === 'Invalid user ID provided') {
-        return reply.status(400).send({
-          error: 'Bad Request',
-          message: error.message
-        });
-      }
-    }
+    const result = await contactService.createContact(createData);
 
-    return reply.status(500).send({
-      error: 'Internal Server Error',
-      message: 'Failed to create contact'
-    });
-  }
-}
-
-/**
- * Update an existing contact (user's own contact)
- */
-export async function updateContact(
-  request: FastifyRequest<{ Params: { id: string }; Body: UpdateContactRequest }>,
-  reply: FastifyReply
-) {
-  try {
-    const id = parseInt(request.params.id, 10);
-    const userId = request.user!.userId;
-    
-    if (isNaN(id)) {
-      return reply.status(400).send({
-        error: 'Bad Request',
-        message: 'Invalid contact ID'
+    // Handle service result
+    if (!result.success) {
+      return reply.status(result.statusCode).send({
+        error: result.error
       });
     }
 
-    const updatedContact = await contactService.updateContact(id, userId, request.body);
-    return reply.status(200).send(updatedContact);
-  } catch (error) {
-    request.log.error('Error updating contact:', error);
-
-    // Handle specific business logic errors
-    if (error instanceof Error) {
-      if (error.message === 'Contact not found') {
-        return reply.status(404).send({
-          error: 'Not Found',
-          message: error.message
-        });
-      }
-      
-      if (error.message.includes('Contact name cannot be empty') ||
-          error.message.includes('Invalid email format') ||
-          error.message.includes('Invalid LinkedIn URL format') ||
-          error.message.includes('Contact with this name already exists')) {
-        return reply.status(400).send({
-          error: 'Bad Request',
-          message: error.message
-        });
-      }
-    }
-
-    return reply.status(500).send({
-      error: 'Internal Server Error',
-      message: 'Failed to update contact'
+    return reply.status(result.statusCode).send({
+      message: result.message,
+      contact: result.contact
     });
   }
-}
 
-/**
- * Delete a contact (user's own contact)
- */
-export async function deleteContact(
-  request: FastifyRequest<{ Params: { id: string } }>,
-  reply: FastifyReply
-) {
-  try {
+  /**
+   * Update an existing contact (user's own contact)
+   * PUT /api/contacts/:id
+   */
+  async updateContact(
+    request: FastifyRequest<{ Params: { id: string }; Body: UpdateContactRequest }>,
+    reply: FastifyReply
+  ) {
     const id = parseInt(request.params.id, 10);
     const userId = request.user!.userId;
     
+    // Basic validation handled in controller for HTTP concerns
     if (isNaN(id)) {
       return reply.status(400).send({
-        error: 'Bad Request',
-        message: 'Invalid contact ID'
+        error: 'Invalid contact ID format'
+      });
+    }
+
+    const result = await contactService.updateContact(id, userId, request.body);
+
+    // Handle service result
+    if (!result.success) {
+      return reply.status(result.statusCode).send({
+        error: result.error
+      });
+    }
+
+    return reply.status(result.statusCode).send({
+      message: result.message,
+      contact: result.contact
+    });
+  }
+
+  /**
+   * Delete a contact (user's own contact)
+   * DELETE /api/contacts/:id
+   */
+  async deleteContact(
+    request: FastifyRequest<{ Params: { id: string } }>,
+    reply: FastifyReply
+  ) {
+    const id = parseInt(request.params.id, 10);
+    const userId = request.user!.userId;
+    
+    // Basic validation handled in controller for HTTP concerns
+    if (isNaN(id)) {
+      return reply.status(400).send({
+        error: 'Invalid contact ID format'
       });
     }
 
     const result = await contactService.deleteContact(id, userId);
-    return reply.status(200).send(result);
-  } catch (error) {
-    request.log.error('Error deleting contact:', error);
 
-    // Handle specific business logic errors
-    if (error instanceof Error) {
-      if (error.message === 'Contact not found') {
-        return reply.status(404).send({
-          error: 'Not Found',
-          message: error.message
-        });
-      }
-      
-      if (error.message.includes('Cannot delete contact with associated job connections')) {
-        return reply.status(409).send({
-          error: 'Conflict',
-          message: error.message
-        });
-      }
+    // Handle service result
+    if (!result.success) {
+      return reply.status(result.statusCode).send({
+        error: result.error
+      });
     }
 
-    return reply.status(500).send({
-      error: 'Internal Server Error',
-      message: 'Failed to delete contact'
+    return reply.status(result.statusCode).send({
+      message: result.message
     });
   }
-} 
+
+  /**
+   * Get contact statistics for the authenticated user
+   * GET /api/contacts/stats
+   */
+  async getContactStats(
+    request: FastifyRequest,
+    reply: FastifyReply
+  ) {
+    const userId = request.user!.userId;
+
+    const result = await contactService.getContactStats(userId);
+
+    // Handle service result
+    if (!result.success) {
+      return reply.status(result.statusCode).send({
+        error: result.error
+      });
+    }
+
+    return reply.status(result.statusCode).send({
+      message: result.message,
+      stats: result.stats
+    });
+  }
+}
+
+// Export controller functions for routing (following auth pattern)
+const contactController = new ContactController();
+
+export const listContacts = contactController.listContacts.bind(contactController);
+export const getContact = contactController.getContact.bind(contactController);
+export const createContact = contactController.createContact.bind(contactController);
+export const updateContact = contactController.updateContact.bind(contactController);
+export const deleteContact = contactController.deleteContact.bind(contactController);
+export const getContactStats = contactController.getContactStats.bind(contactController); 

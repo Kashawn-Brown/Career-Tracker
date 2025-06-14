@@ -14,8 +14,18 @@ export type { JobApplicationListFilters, CreateJobApplicationRequest, UpdateJobA
 export { authService, AuthService } from './auth.service.js';
 export type { JwtPayload, TokenPair } from '../interfaces/jwt.interface.js';
 
-export { ContactService } from './contact.service.js';
-export type { ContactListFilters, CreateContactRequest, UpdateContactRequest } from '../models/contact.models.js';
+export { contactService, ContactService } from './contact.service.js';
+export type { 
+  ContactListFilters, 
+  CreateContactRequest, 
+  UpdateContactRequest,
+  ListContactsResult,
+  GetContactResult,
+  CreateContactResult,
+  UpdateContactResult,
+  DeleteContactResult,
+  ContactStatsResult
+} from '../models/contact.models.js';
 
 export { JobConnectionService } from './job-connection.service.js';
 export type { JobConnectionListFilters, CreateJobConnectionRequest, UpdateJobConnectionRequest, UpdateJobConnectionStatusRequest } from '../models/job-connection.models.js';

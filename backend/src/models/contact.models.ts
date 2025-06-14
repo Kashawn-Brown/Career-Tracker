@@ -75,4 +75,73 @@ export interface ContactFilters {
   hasEmail?: boolean;
   hasPhone?: boolean;
   hasLinkedin?: boolean;
+}
+
+// ====================
+// SERVICE RESULT TYPES
+// ====================
+
+/**
+ * Base result interface for all contact operations
+ */
+interface BaseContactResult {
+  success: boolean;
+  statusCode: number;
+  message?: string;
+  error?: string;
+}
+
+/**
+ * Result for listing contacts operation
+ */
+export interface ListContactsResult extends BaseContactResult {
+  contacts?: ContactWithRelations[];
+  pagination?: {
+    total: number;
+    page: number;
+    limit: number;
+    pages: number;
+  };
+}
+
+/**
+ * Result for getting a single contact operation
+ */
+export interface GetContactResult extends BaseContactResult {
+  contact?: ContactWithRelations;
+}
+
+/**
+ * Result for creating a contact operation
+ */
+export interface CreateContactResult extends BaseContactResult {
+  contact?: ContactWithRelations;
+}
+
+/**
+ * Result for updating a contact operation
+ */
+export interface UpdateContactResult extends BaseContactResult {
+  contact?: ContactWithRelations;
+}
+
+/**
+ * Result for deleting a contact operation
+ */
+export interface DeleteContactResult extends BaseContactResult {
+  message?: string;
+}
+
+/**
+ * Result for contact statistics operation
+ */
+export interface ContactStatsResult extends BaseContactResult {
+  stats?: {
+    total: number;
+    withEmail: number;
+    withPhone: number;
+    withLinkedin: number;
+    byCompany: Record<string, number>;
+    byConnectionType: Record<string, number>;
+  };
 } 
