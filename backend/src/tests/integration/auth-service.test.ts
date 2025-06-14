@@ -10,6 +10,7 @@
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import { authService } from '../../services/auth.service.js';
+import { jwtService } from '../../services/jwt.service.js';
 
 describe('AuthService Integration Tests', () => {
   const testPassword = 'MySecurePass123!';
@@ -54,7 +55,7 @@ describe('AuthService Integration Tests', () => {
         return;
       }
 
-      const tokenPair = authService.generateTokenPair(1, 'test@example.com');
+      const tokenPair = jwtService.generateTokenPair(1, 'test@example.com');
       
       expect(tokenPair.accessToken).toBeDefined();
       expect(tokenPair.refreshToken).toBeDefined();
@@ -68,8 +69,8 @@ describe('AuthService Integration Tests', () => {
         return;
       }
 
-      const tokenPair = authService.generateTokenPair(1, 'test@example.com');
-      const decoded = authService.verifyAccessToken(tokenPair.accessToken);
+      const tokenPair = jwtService.generateTokenPair(1, 'test@example.com');
+      const decoded = jwtService.verifyAccessToken(tokenPair.accessToken);
       
       expect(decoded.userId).toBe(1);
       expect(decoded.email).toBe('test@example.com');
@@ -81,8 +82,8 @@ describe('AuthService Integration Tests', () => {
         return;
       }
 
-      const tokenPair = authService.generateTokenPair(1, 'test@example.com');
-      const decoded = authService.verifyRefreshToken(tokenPair.refreshToken);
+      const tokenPair = jwtService.generateTokenPair(1, 'test@example.com');
+      const decoded = jwtService.verifyRefreshToken(tokenPair.refreshToken);
       
       expect(decoded.userId).toBe(1);
       expect(decoded.email).toBe('test@example.com');
@@ -91,7 +92,7 @@ describe('AuthService Integration Tests', () => {
 
   describe('Email Verification', () => {
     it('should generate email verification token', () => {
-      const token = authService.generateEmailVerificationToken();
+      const token = authService.generateToken();
       
       expect(token).toBeDefined();
       expect(typeof token).toBe('string');

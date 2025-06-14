@@ -29,7 +29,7 @@ describe('Password Reset Service Tests', () => {
     });
 
     it('should generate tokens with correct format', () => {
-      const token = authService.generatePasswordResetToken();
+      const token = authService.generateToken();
       
       expect(token).toBeDefined();
       expect(typeof token).toBe('string');
@@ -46,7 +46,7 @@ describe('Password Reset Service Tests', () => {
     });
 
     it('should handle properly formatted but non-existent tokens', async () => {
-      const testToken = authService.generatePasswordResetToken();
+      const testToken = authService.generateToken();
       const result = await authService.resetPassword(testToken, 'StrongPassword123!');
       
       // Should fail due to non-existent token in database

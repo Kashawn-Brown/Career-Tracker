@@ -6,7 +6,7 @@
 
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { JwtPayload } from '../interfaces/jwt.interface.js';
-import { verifyAccessToken } from '../services/jwt.service.js';
+import { jwtService } from '../services/jwt.service.js';
 
 // Extend FastifyRequest to include user information
 declare module 'fastify' {
@@ -64,7 +64,7 @@ export async function requireAuth(
     }
 
     // Verify the JWT token
-    const payload = verifyAccessToken(token);
+    const payload = jwtService.verifyAccessToken(token);
     
     // Add user information to request object
     request.user = payload;
@@ -132,7 +132,7 @@ export async function extractUser(
     }
 
     // Try to verify the JWT token
-    const payload = verifyAccessToken(token);
+    const payload = jwtService.verifyAccessToken(token);
     
     // Add user information to request object
     request.user = payload;

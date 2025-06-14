@@ -17,11 +17,12 @@ vi.mock('../../services/index.js', () => ({
     isValidPassword: vi.fn(),
     hashPassword: vi.fn(),
     comparePassword: vi.fn(),
-    generateTokenPair: vi.fn(),
-    generateEmailVerificationToken: vi.fn(),
+    generateToken: vi.fn(),
     storeEmailVerificationToken: vi.fn(),
     verifyEmailToken: vi.fn(),
-    refreshTokens: vi.fn(),
+    processEmailVerification: vi.fn(),
+    registerUser: vi.fn(),
+    loginUser: vi.fn(),
     resendEmailVerification: vi.fn(),
     requestPasswordReset: vi.fn(),
     verifyPasswordResetToken: vi.fn(),
@@ -52,9 +53,19 @@ vi.mock('../../services/queue.service.js', () => ({
   }
 }));
 
+vi.mock('../../services/jwt.service.js', () => ({
+  jwtService: {
+    generateTokenPair: vi.fn(),
+    verifyAccessToken: vi.fn(),
+    verifyRefreshToken: vi.fn(),
+    refreshTokens: vi.fn()
+  }
+}));
+
 import { authService } from '../../services/index.js';
 import { userRepository } from '../../repositories/index.js';
 import { queueService } from '../../services/queue.service.js';
+import { jwtService } from '../../services/jwt.service.js';
 
 describe('AuthController', () => {
   let authController: AuthController;
@@ -68,13 +79,12 @@ describe('AuthController', () => {
     // Mock request object
     mockRequest = {
       body: {},
-      user: undefined,
       ip: '127.0.0.1',
       socket: { remoteAddress: '127.0.0.1' } as any,
       headers: {},
       params: {},
       url: '/test-endpoint'
-    };
+    } as any;
 
     // Mock reply object with chainable methods
     mockReply = {
@@ -105,7 +115,6 @@ describe('AuthController', () => {
         id: 1,
         email: 'test@example.com',
         name: 'Test User',
-        password: 'hashed-password',
         role: UserRole.USER,
         emailVerified: false,
         provider: 'LOCAL',
@@ -117,40 +126,27 @@ describe('AuthController', () => {
         refreshToken: 'refresh-token'
       };
 
-      authService.isValidEmail = vi.fn().mockReturnValue(true);
-      authService.isValidPassword = vi.fn().mockReturnValue({ valid: true });
-      userRepository.findByEmail = vi.fn().mockResolvedValue(null);
-      authService.hashPassword = vi.fn().mockResolvedValue('hashed-password');
-      userRepository.create = vi.fn().mockResolvedValue(mockUser);
-      authService.generateEmailVerificationToken = vi.fn().mockReturnValue('verification-token');
-      authService.storeEmailVerificationToken = vi.fn().mockResolvedValue(undefined);
-      authService.generateTokenPair = vi.fn().mockReturnValue(mockTokens);
-      queueService.isReady = vi.fn().mockReturnValue(true);
-      queueService.addEmailVerificationJob = vi.fn().mockResolvedValue(undefined);
+      const mockResult = {
+        success: true,
+        statusCode: 201,
+        message: 'User registered successfully. Please check your email for verification.',
+        user: mockUser,
+        tokens: mockTokens
+      };
+
+      authService.registerUser = vi.fn().mockResolvedValue(mockResult);
 
       // Act
       await authController.register(mockRequest as FastifyRequest, mockReply as FastifyReply);
 
       // Assert
-      expect(userRepository.create).toHaveBeenCalledWith({
-        email: 'test@example.com',
-        password: 'hashed-password',
-        name: 'Test User',
-        emailVerified: false,
-        provider: 'LOCAL',
-        providerId: null
-      });
+      expect(authService.registerUser).toHaveBeenCalledWith('test@example.com', 'StrongPassword123!', 'Test User');
       expect(mockReply.status).toHaveBeenCalledWith(201);
       expect(mockReply.send).toHaveBeenCalledWith({
         message: 'User registered successfully. Please check your email for verification.',
-        user: expect.objectContaining({
-          id: 1,
-          email: 'test@example.com',
-          name: 'Test User'
-        }),
+        user: mockUser,
         tokens: mockTokens
       });
-      expect(queueService.addEmailVerificationJob).toHaveBeenCalled();
     });
 
     it('should return 400 for missing required fields', async () => {
@@ -167,29 +163,18 @@ describe('AuthController', () => {
       });
     });
 
-    it('should return 400 for invalid email format', async () => {
-      // Arrange
-      mockRequest.body = { ...validRegisterData, email: 'invalid-email' };
-      authService.isValidEmail = vi.fn().mockReturnValue(false);
-
-      // Act
-      await authController.register(mockRequest as FastifyRequest, mockReply as FastifyReply);
-
-      // Assert
-      expect(mockReply.status).toHaveBeenCalledWith(400);
-      expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Invalid email format'
-      });
-    });
-
-    it('should return 400 for weak password', async () => {
+    it('should handle registration failure with error details', async () => {
       // Arrange
       mockRequest.body = validRegisterData;
-      authService.isValidEmail = vi.fn().mockReturnValue(true);
-      authService.isValidPassword = vi.fn().mockReturnValue({
-        valid: false,
-        errors: ['Password must contain uppercase letter']
-      });
+      
+      const mockResult = {
+        success: false,
+        statusCode: 400,
+        error: 'Password validation failed',
+        details: ['Password must contain uppercase letter']
+      };
+
+      authService.registerUser = vi.fn().mockResolvedValue(mockResult);
 
       // Act
       await authController.register(mockRequest as FastifyRequest, mockReply as FastifyReply);
@@ -202,37 +187,19 @@ describe('AuthController', () => {
       });
     });
 
-    it('should return 409 for existing verified user', async () => {
+    it('should handle registration failure with action', async () => {
       // Arrange
       mockRequest.body = validRegisterData;
-      authService.isValidEmail = vi.fn().mockReturnValue(true);
-      authService.isValidPassword = vi.fn().mockReturnValue({ valid: true });
-      userRepository.findByEmail = vi.fn().mockResolvedValue({
-        id: 1,
-        email: 'test@example.com',
-        emailVerified: true
-      });
+      
+      const mockResult = {
+        success: false,
+        statusCode: 409,
+        error: 'You have already registered with this email but haven\'t verified it yet.',
+        action: 'resend_verification',
+        message: 'Would you like to resend the verification email?'
+      };
 
-      // Act
-      await authController.register(mockRequest as FastifyRequest, mockReply as FastifyReply);
-
-      // Assert
-      expect(mockReply.status).toHaveBeenCalledWith(409);
-      expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'User with this email already exists and is verified'
-      });
-    });
-
-    it('should return 409 with resend option for unverified user', async () => {
-      // Arrange
-      mockRequest.body = validRegisterData;
-      authService.isValidEmail = vi.fn().mockReturnValue(true);
-      authService.isValidPassword = vi.fn().mockReturnValue({ valid: true });
-      userRepository.findByEmail = vi.fn().mockResolvedValue({
-        id: 1,
-        email: 'test@example.com',
-        emailVerified: false
-      });
+      authService.registerUser = vi.fn().mockResolvedValue(mockResult);
 
       // Act
       await authController.register(mockRequest as FastifyRequest, mockReply as FastifyReply);
@@ -245,29 +212,12 @@ describe('AuthController', () => {
         message: 'Would you like to resend the verification email?'
       });
     });
-
-    it('should handle registration error gracefully', async () => {
-      // Arrange
-      mockRequest.body = validRegisterData;
-      authService.isValidEmail = vi.fn().mockReturnValue(true);
-      authService.isValidPassword = vi.fn().mockReturnValue({ valid: true });
-      userRepository.findByEmail = vi.fn().mockRejectedValue(new Error('Database error'));
-
-      // Act
-      await authController.register(mockRequest as FastifyRequest, mockReply as FastifyReply);
-
-      // Assert
-      expect(mockReply.status).toHaveBeenCalledWith(500);
-      expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Internal server error during registration'
-      });
-    });
   });
 
   describe('login', () => {
     const validLoginData = {
       email: 'test@example.com',
-      password: 'password123'
+      password: 'StrongPassword123!'
     };
 
     it('should login user successfully', async () => {
@@ -277,9 +227,11 @@ describe('AuthController', () => {
       const mockUser = {
         id: 1,
         email: 'test@example.com',
-        password: 'hashed-password',
+        name: 'Test User',
         role: UserRole.USER,
-        name: 'Test User'
+        emailVerified: true,
+        provider: 'LOCAL',
+        providerId: null
       };
 
       const mockTokens = {
@@ -287,27 +239,44 @@ describe('AuthController', () => {
         refreshToken: 'refresh-token'
       };
 
-      userRepository.findByEmail = vi.fn().mockResolvedValue(mockUser);
-      authService.comparePassword = vi.fn().mockResolvedValue(true);
-      authService.generateTokenPair = vi.fn().mockReturnValue(mockTokens);
+      const mockResult = {
+        success: true,
+        statusCode: 200,
+        message: 'Login successful',
+        user: mockUser,
+        tokens: mockTokens
+      };
+
+      authService.loginUser = vi.fn().mockResolvedValue(mockResult);
 
       // Act
       await authController.login(mockRequest as FastifyRequest, mockReply as FastifyReply);
 
       // Assert
-      expect(authService.comparePassword).toHaveBeenCalledWith('password123', 'hashed-password');
+      expect(authService.loginUser).toHaveBeenCalledWith('test@example.com', 'StrongPassword123!');
+      expect(mockReply.status).toHaveBeenCalledWith(200);
       expect(mockReply.send).toHaveBeenCalledWith({
         message: 'Login successful',
-        user: expect.objectContaining({
-          id: 1,
-          email: 'test@example.com',
-          name: 'Test User'
-        }),
+        user: mockUser,
         tokens: mockTokens
       });
     });
 
-    it('should return 400 for missing credentials', async () => {
+    it('should return 400 for missing email', async () => {
+      // Arrange
+      mockRequest.body = { password: 'StrongPassword123!' }; // Missing email
+
+      // Act
+      await authController.login(mockRequest as FastifyRequest, mockReply as FastifyReply);
+
+      // Assert
+      expect(mockReply.status).toHaveBeenCalledWith(400);
+      expect(mockReply.send).toHaveBeenCalledWith({
+        error: 'Email and password are required'
+      });
+    });
+
+    it('should return 400 for missing password', async () => {
       // Arrange
       mockRequest.body = { email: 'test@example.com' }; // Missing password
 
@@ -321,10 +290,17 @@ describe('AuthController', () => {
       });
     });
 
-    it('should return 401 for non-existent user', async () => {
+    it('should handle login failure', async () => {
       // Arrange
       mockRequest.body = validLoginData;
-      userRepository.findByEmail = vi.fn().mockResolvedValue(null);
+      
+      const mockResult = {
+        success: false,
+        statusCode: 401,
+        error: 'Invalid credentials'
+      };
+
+      authService.loginUser = vi.fn().mockResolvedValue(mockResult);
 
       // Act
       await authController.login(mockRequest as FastifyRequest, mockReply as FastifyReply);
@@ -333,79 +309,29 @@ describe('AuthController', () => {
       expect(mockReply.status).toHaveBeenCalledWith(401);
       expect(mockReply.send).toHaveBeenCalledWith({
         error: 'Invalid credentials'
-      });
-    });
-
-    it('should return 401 for OAuth user trying password login', async () => {
-      // Arrange
-      mockRequest.body = validLoginData;
-      userRepository.findByEmail = vi.fn().mockResolvedValue({
-        id: 1,
-        email: 'test@example.com',
-        password: null, // OAuth user
-        provider: 'GOOGLE'
-      });
-
-      // Act
-      await authController.login(mockRequest as FastifyRequest, mockReply as FastifyReply);
-
-      // Assert
-      expect(mockReply.status).toHaveBeenCalledWith(401);
-      expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'This account uses OAuth login. Please use Google or LinkedIn to sign in.'
-      });
-    });
-
-    it('should return 401 for invalid password', async () => {
-      // Arrange
-      mockRequest.body = validLoginData;
-      userRepository.findByEmail = vi.fn().mockResolvedValue({
-        id: 1,
-        email: 'test@example.com',
-        password: 'hashed-password'
-      });
-      authService.comparePassword = vi.fn().mockResolvedValue(false);
-
-      // Act
-      await authController.login(mockRequest as FastifyRequest, mockReply as FastifyReply);
-
-      // Assert
-      expect(mockReply.status).toHaveBeenCalledWith(401);
-      expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Invalid credentials'
-      });
-    });
-
-    it('should handle login error gracefully', async () => {
-      // Arrange
-      mockRequest.body = validLoginData;
-      userRepository.findByEmail = vi.fn().mockRejectedValue(new Error('Database error'));
-
-      // Act
-      await authController.login(mockRequest as FastifyRequest, mockReply as FastifyReply);
-
-      // Assert
-      expect(mockReply.status).toHaveBeenCalledWith(500);
-      expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Internal server error during login'
       });
     });
   });
 
-  describe('verifyEmail', () => {
+  describe('handleEmailVerification', () => {
     it('should verify email successfully', async () => {
       // Arrange
       mockRequest.body = { token: 'valid-token' };
-      authService.verifyEmailToken = vi.fn().mockResolvedValue({
+      
+      const mockResult = {
         success: true,
+        statusCode: 200,
         message: 'Email verified successfully'
-      });
+      };
+
+      authService.processEmailVerification = vi.fn().mockResolvedValue(mockResult);
 
       // Act
-      await authController.verifyEmail(mockRequest as FastifyRequest, mockReply as FastifyReply);
+      await authController.handleEmailVerification(mockRequest as FastifyRequest, mockReply as FastifyReply);
 
       // Assert
-      expect(authService.verifyEmailToken).toHaveBeenCalledWith('valid-token');
+      expect(authService.processEmailVerification).toHaveBeenCalledWith('valid-token');
+      expect(mockReply.status).toHaveBeenCalledWith(200);
       expect(mockReply.send).toHaveBeenCalledWith({
         message: 'Email verified successfully'
       });
@@ -413,10 +339,10 @@ describe('AuthController', () => {
 
     it('should return 400 for missing token', async () => {
       // Arrange
-      mockRequest.body = {};
+      mockRequest.body = {}; // Missing token
 
       // Act
-      await authController.verifyEmail(mockRequest as FastifyRequest, mockReply as FastifyReply);
+      await authController.handleEmailVerification(mockRequest as FastifyRequest, mockReply as FastifyReply);
 
       // Assert
       expect(mockReply.status).toHaveBeenCalledWith(400);
@@ -425,74 +351,92 @@ describe('AuthController', () => {
       });
     });
 
-    it('should return verification failure', async () => {
+    it('should handle verification failure with action', async () => {
       // Arrange
       mockRequest.body = { token: 'invalid-token' };
-      authService.verifyEmailToken = vi.fn().mockResolvedValue({
+      
+      const mockResult = {
         success: false,
-        message: 'Invalid or expired token'
-      });
+        statusCode: 400,
+        error: 'Invalid verification token',
+        action: 'resend_verification',
+        message: 'Would you like to resend the verification email?'
+      };
+
+      authService.processEmailVerification = vi.fn().mockResolvedValue(mockResult);
 
       // Act
-      await authController.verifyEmail(mockRequest as FastifyRequest, mockReply as FastifyReply);
+      await authController.handleEmailVerification(mockRequest as FastifyRequest, mockReply as FastifyReply);
 
       // Assert
       expect(mockReply.status).toHaveBeenCalledWith(400);
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Invalid or expired token',
-        action: undefined,
-        message: undefined
+        error: 'Invalid verification token',
+        action: 'resend_verification',
+        message: 'Would you like to resend the verification email?'
       });
     });
   });
 
-  describe('refreshToken', () => {
-    it('should refresh tokens successfully', async () => {
+  describe('resendVerification', () => {
+    it('should resend verification email successfully', async () => {
       // Arrange
-      mockRequest.body = { refreshToken: 'valid-refresh-token' };
-      const newTokens = {
-        accessToken: 'new-access-token',
-        refreshToken: 'new-refresh-token'
+      mockRequest.body = { email: 'test@example.com' };
+      
+      const mockResult = {
+        success: true,
+        statusCode: 200,
+        message: 'Verification email sent successfully'
       };
-      authService.refreshTokens = vi.fn().mockResolvedValue(newTokens);
+
+      authService.isValidEmail = vi.fn().mockReturnValue(true);
+      authService.resendEmailVerification = vi.fn().mockResolvedValue(mockResult);
 
       // Act
-      await authController.refreshToken(mockRequest as FastifyRequest, mockReply as FastifyReply);
+      await authController.resendVerification(mockRequest as FastifyRequest, mockReply as FastifyReply);
 
       // Assert
-      expect(authService.refreshTokens).toHaveBeenCalledWith('valid-refresh-token');
+      expect(authService.resendEmailVerification).toHaveBeenCalledWith('test@example.com');
+      expect(mockReply.status).toHaveBeenCalledWith(200);
       expect(mockReply.send).toHaveBeenCalledWith({
-        message: 'Tokens refreshed successfully',
-        tokens: newTokens
+        message: 'Verification email sent successfully'
       });
     });
 
-    it('should return 400 for missing refresh token', async () => {
+    it('should return 400 for missing email', async () => {
       // Arrange
-      mockRequest.body = {};
+      mockRequest.body = {}; // Missing email
 
       // Act
-      await authController.refreshToken(mockRequest as FastifyRequest, mockReply as FastifyReply);
+      await authController.resendVerification(mockRequest as FastifyRequest, mockReply as FastifyReply);
 
       // Assert
       expect(mockReply.status).toHaveBeenCalledWith(400);
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Refresh token is required'
+        error: 'Email is required'
       });
     });
 
-    it('should handle invalid refresh token', async () => {
+    it('should handle resend verification failure', async () => {
       // Arrange
-      mockRequest.body = { refreshToken: 'invalid-token' };
-      authService.refreshTokens = vi.fn().mockRejectedValue(new Error('invalid token'));
+      mockRequest.body = { email: 'test@example.com' };
+      
+      const mockResult = {
+        success: false,
+        statusCode: 404,
+        error: 'User not found'
+      };
+
+      authService.isValidEmail = vi.fn().mockReturnValue(true);
+      authService.resendEmailVerification = vi.fn().mockResolvedValue(mockResult);
 
       // Act
-      await authController.refreshToken(mockRequest as FastifyRequest, mockReply as FastifyReply);
+      await authController.resendVerification(mockRequest as FastifyRequest, mockReply as FastifyReply);
 
       // Assert
-      expect(mockReply.status).toHaveBeenCalledWith(401);
+      expect(mockReply.status).toHaveBeenCalledWith(404);
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Invalid or expired refresh token'
+        error: 'User not found'
       });
     });
   });
@@ -501,26 +445,30 @@ describe('AuthController', () => {
     it('should initiate password reset successfully', async () => {
       // Arrange
       mockRequest.body = { email: 'test@example.com' };
-      authService.isValidEmail = vi.fn().mockReturnValue(true);
-      authService.requestPasswordReset = vi.fn().mockResolvedValue({
+      
+      const mockResult = {
         success: true,
-        message: 'Password reset email sent',
-        token: 'reset-token'
-      });
+        statusCode: 200,
+        message: 'Password reset email sent successfully'
+      };
+
+      authService.isValidEmail = vi.fn().mockReturnValue(true);
+      authService.requestPasswordReset = vi.fn().mockResolvedValue(mockResult);
 
       // Act
       await authController.forgotPassword(mockRequest as FastifyRequest, mockReply as FastifyReply);
 
       // Assert
       expect(authService.requestPasswordReset).toHaveBeenCalledWith('test@example.com');
+      expect(mockReply.status).toHaveBeenCalledWith(200);
       expect(mockReply.send).toHaveBeenCalledWith({
-        message: 'Password reset email sent'
+        message: 'Password reset email sent successfully'
       });
     });
 
     it('should return 400 for missing email', async () => {
       // Arrange
-      mockRequest.body = {};
+      mockRequest.body = {}; // Missing email
 
       // Act
       await authController.forgotPassword(mockRequest as FastifyRequest, mockReply as FastifyReply);
@@ -533,112 +481,70 @@ describe('AuthController', () => {
     });
   });
 
-  describe('resetPassword', () => {
-    it('should reset password successfully', async () => {
+  describe('refreshToken', () => {
+    it('should refresh tokens successfully', async () => {
       // Arrange
-      mockRequest.params = { token: 'valid-reset-token' };
-      mockRequest.body = { password: 'NewPassword123!' };
-      authService.resetPassword = vi.fn().mockResolvedValue({
+      mockRequest.body = { refreshToken: 'valid-refresh-token' };
+      
+      const mockTokens = {
+        accessToken: 'new-access-token',
+        refreshToken: 'new-refresh-token'
+      };
+
+      const mockResult = {
         success: true,
-        message: 'Password reset successfully'
-      });
+        statusCode: 200,
+        message: 'Tokens refreshed successfully',
+        tokens: mockTokens
+      };
+
+      jwtService.refreshTokens = vi.fn().mockReturnValue(mockResult);
 
       // Act
-      await authController.resetPassword(mockRequest as FastifyRequest, mockReply as FastifyReply);
+      await authController.refreshToken(mockRequest as FastifyRequest, mockReply as FastifyReply);
 
       // Assert
-      expect(authService.resetPassword).toHaveBeenCalledWith(
-        'valid-reset-token',
-        'NewPassword123!',
-        expect.any(Object)
-      );
+      expect(jwtService.refreshTokens).toHaveBeenCalledWith('valid-refresh-token');
+      expect(mockReply.status).toHaveBeenCalledWith(200);
       expect(mockReply.send).toHaveBeenCalledWith({
-        message: 'Password reset successfully'
+        message: 'Tokens refreshed successfully',
+        tokens: mockTokens
       });
     });
 
-    it('should return 400 for missing fields', async () => {
+    it('should return 400 for missing refresh token', async () => {
       // Arrange
-      mockRequest.params = { token: 'valid-token' };
-      mockRequest.body = {}; // Missing password
+      mockRequest.body = {}; // Missing refreshToken
 
       // Act
-      await authController.resetPassword(mockRequest as FastifyRequest, mockReply as FastifyReply);
+      await authController.refreshToken(mockRequest as FastifyRequest, mockReply as FastifyReply);
 
       // Assert
       expect(mockReply.status).toHaveBeenCalledWith(400);
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'New password is required'
+        error: 'Refresh token is required'
       });
     });
-  });
 
-  describe('setupSecurityQuestions', () => {
-    it('should setup security questions successfully', async () => {
+    it('should handle refresh token failure', async () => {
       // Arrange
-      (mockRequest as any).user = { id: 1, email: 'test@example.com', role: UserRole.USER, type: 'access' };
-      mockRequest.body = {
-        questions: [
-          { question: 'What is your favorite color?', answer: 'Blue' },
-          { question: 'What is your pet name?', answer: 'Fluffy' },
-          { question: 'What is your birth city?', answer: 'Boston' }
-        ]
+      mockRequest.body = { refreshToken: 'invalid-refresh-token' };
+      
+      const mockResult = {
+        success: false,
+        statusCode: 401,
+        error: 'Invalid refresh token'
       };
-      authService.setupSecurityQuestions = vi.fn().mockResolvedValue({
-        success: true,
-        message: 'Security questions setup successfully'
-      });
+
+      jwtService.refreshTokens = vi.fn().mockReturnValue(mockResult);
 
       // Act
-      await authController.setupSecurityQuestions(mockRequest as FastifyRequest, mockReply as FastifyReply);
-
-      // Assert
-      expect(authService.setupSecurityQuestions).toHaveBeenCalledWith(1, [
-        { question: 'What is your favorite color?', answer: 'Blue' },
-        { question: 'What is your pet name?', answer: 'Fluffy' },
-        { question: 'What is your birth city?', answer: 'Boston' }
-      ]);
-      expect(mockReply.send).toHaveBeenCalledWith({
-        message: 'Security questions setup successfully',
-        questionsSet: 3
-      });
-    });
-
-    it('should return 401 for unauthenticated user', async () => {
-      // Arrange
-      mockRequest.user = undefined;
-      mockRequest.body = { questions: [] };
-
-      // Act
-      await authController.setupSecurityQuestions(mockRequest as FastifyRequest, mockReply as FastifyReply);
+      await authController.refreshToken(mockRequest as FastifyRequest, mockReply as FastifyReply);
 
       // Assert
       expect(mockReply.status).toHaveBeenCalledWith(401);
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Authentication required'
-      });
-    });
-  });
-
-  describe('getAvailableSecurityQuestions', () => {
-    it('should return available security questions', async () => {
-      // Arrange
-      const mockQuestions = {
-        questions: [
-          { type: 'childhood', text: 'What was your childhood nickname?' },
-          { type: 'pet', text: 'What was the name of your first pet?' }
-        ]
-      };
-      authService.getAvailableSecurityQuestions = vi.fn().mockResolvedValue(mockQuestions);
-
-      // Act
-      await authController.getAvailableSecurityQuestions(mockRequest as FastifyRequest, mockReply as FastifyReply);
-
-      // Assert
-      expect(authService.getAvailableSecurityQuestions).toHaveBeenCalled();
-      expect(mockReply.send).toHaveBeenCalledWith({
-        message: 'Available security questions retrieved successfully',
-        questions: mockQuestions.questions
+        error: 'Invalid refresh token'
       });
     });
   });

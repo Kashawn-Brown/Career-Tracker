@@ -9,8 +9,12 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import { authService } from '../services/index.js';
 import { userRepository } from '../repositories/index.js';
 import { queueService } from '../services/queue.service.js';
+import { jwtService } from '../services/jwt.service.js';
 
 export class AuthController {
+
+  // CORE AUTHENTICATION
+  
   /**
    * Register a new user with email and password
    * POST /api/auth/register
@@ -18,10 +22,17 @@ export class AuthController {
   async register(request: FastifyRequest, reply: FastifyReply) {
     // Retrieve the users registration details from the request body
     const { email, password, name } = request.body as {
-      email: string;
-      password: string;
-      name: string;
+      email?: string;
+      password?: string;
+      name?: string;
     };
+
+    // Validate input
+    if (!email || !password || !name) {
+      return reply.status(400).send({
+        error: 'Missing required fields: email, password, name'
+      });
+    }
 
     // Make the call to the auth service to register the user
     const result = await authService.registerUser(email, password, name);
@@ -45,6 +56,7 @@ export class AuthController {
     });
   }
 
+
   /**
    * Login with email and password
    * POST /api/auth/login
@@ -52,9 +64,16 @@ export class AuthController {
   async login(request: FastifyRequest, reply: FastifyReply) {
     // Retrieve the users login details from the request body
     const { email, password } = request.body as {
-      email: string;
-      password: string;
+      email?: string;
+      password?: string;
     };
+
+    // Validate input
+    if (!email || !password) {
+      return reply.status(400).send({
+        error: 'Email and password are required'
+      });
+    }
 
     // Make the call to the auth service to login the user
     const result = await authService.loginUser(email, password);
@@ -74,160 +93,91 @@ export class AuthController {
     });
   }
 
+  
+  // EMAIL VERIFICATION
+
   /**
-   * Verify email with token
-   * POST /api/auth/verify-email
+   * Handle email verification with token
+   * POST /api/auth/email-verification
    */
-  async verifyEmail(request: FastifyRequest, reply: FastifyReply) {
-    try {
-      // Retrieve the token from the request body
-      const { token } = request.body as { token: string };
+  async handleEmailVerification(request: FastifyRequest, reply: FastifyReply) {
+    // Retrieve the token from the request body
+    const { token } = request.body as { token: string };
 
-      // If the token is not provided, return an error
-      if (!token) {
-        return reply.status(400).send({
-          error: 'Verification token is required'
-        });
-      }
+    // Validate input
+    if (!token) {
+      return reply.status(400).send({
+        error: 'Verification token is required'
+      });
+    }
 
-      // Verify the token using the service
-      const result = await authService.verifyEmailToken(token);
+    // Make the call to the auth service to verify the email token
+    const result = await authService.processEmailVerification(token);
 
-      // If the email verification fails, return the error
-      if (!result.success) {
-        const statusCode = result.action === 'resend_verification' ? 400 : 400;
-        return reply.status(statusCode).send({
-          error: result.message,
-          action: result.action,
-          message: result.action === 'resend_verification' ? 'Please request a new verification email' : undefined
-        });
-      }
+    // If the email verification fails, build response and return the error
+    if (!result.success) {
+      const response: any = {
+        error: result.error
+      };
 
-      // Email verified successfully! Send welcome email
-      try {
-        // We need to get the user info to send the welcome email
-        const user = await userRepository.findByEmailToken(token);
-        if (user && queueService.isReady()) {
-          await queueService.addWelcomeEmailJob({
-            to: user.email,
-            userName: user.name
-          });
-          console.log(`Welcome email job queued for: ${user.email}`);
+      if (result.action) {
+        response.action = result.action;
+        if (result.message) {
+          response.message = result.message;
         }
-      } catch (emailError) {
-        console.error('Failed to queue welcome email:', emailError);
-        // Don't fail verification if welcome email queueing fails
       }
 
-      return reply.send({
-        message: result.message
-      });
-
-    } catch (error) {
-      console.error('Email verification error:', error);
-      return reply.status(500).send({
-        error: 'Internal server error during email verification'
-      });
+      return reply.status(result.statusCode).send(response);
     }
+
+    return reply.status(result.statusCode).send({
+      message: result.message
+    });
   }
 
-  /**
-   * Refresh JWT tokens
-   * POST /api/auth/refresh
-   */
-  async refreshToken(request: FastifyRequest, reply: FastifyReply) {
-    try {
-      const { refreshToken } = request.body as { refreshToken: string };
-
-      if (!refreshToken) {
-        return reply.status(400).send({
-          error: 'Refresh token is required'
-        });
-      }
-
-      // Refresh tokens using the service
-      const tokens = await authService.refreshTokens(refreshToken);
-
-      return reply.send({
-        message: 'Tokens refreshed successfully',
-        tokens
-      });
-
-    } catch (error) {
-      console.error('Token refresh error:', error);
-      
-      if (error instanceof Error && (error.message.includes('invalid') || error.message.includes('expired'))) {
-        return reply.status(401).send({
-          error: 'Invalid or expired refresh token'
-        });
-      }
-
-      return reply.status(500).send({
-        error: 'Internal server error during token refresh'
-      });
-    }
-  }
 
   /**
    * Resend email verification
    * POST /api/auth/resend-verification
    */
   async resendVerification(request: FastifyRequest, reply: FastifyReply) {
-    try {
-      const { email } = request.body as { email: string };
+    // Retrieve the email from the request body
+    const { email } = request.body as { email: string };
 
-      if (!email) {
-        return reply.status(400).send({
-          error: 'Email is required'
-        });
-      }
-
-      // Validate email format
-      if (!authService.isValidEmail(email)) {
-        return reply.status(400).send({
-          error: 'Invalid email format'
-        });
-      }
-
-      // Resend verification using the service
-      const result = await authService.resendEmailVerification(email);
-
-      if (!result.success) {
-        return reply.status(400).send({
-          error: result.message
-        });
-      }
-
-      // Send verification email via queue
-      try {
-        const user = await userRepository.findByEmail(email);
-        if (user && result.token && queueService.isReady()) {
-          await queueService.addEmailVerificationJob({
-            to: email,
-            userName: user.name,
-            verificationToken: result.token,
-            verificationUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${result.token}`
-          });
-          console.log(`Email verification job re-queued for: ${email}`);
-        } else {
-          console.warn(`Queue service not available. New email verification token for ${email}: ${result.token}`);
-        }
-      } catch (emailError) {
-        console.error('Failed to queue verification email:', emailError);
-        // Don't fail the operation if email queueing fails
-      }
-
-      return reply.send({
-        message: result.message
-      });
-
-    } catch (error) {
-      console.error('Resend verification error:', error);
-      return reply.status(500).send({
-        error: 'Internal server error during resend verification'
+    // Validate input
+    if (!email) {
+      return reply.status(400).send({
+        error: 'Email is required'
       });
     }
+
+    // Validate email format here as well as in the service to optimize for performance and UX
+    if (!authService.isValidEmail(email)) {
+      return {
+        success: false,
+        statusCode: 400,
+        error: 'Invalid email format'
+      };
+    }
+
+    // Call the auth service to handle resend verification
+    const result = await authService.resendEmailVerification(email);
+
+    // If the resend verification fails, return the error
+    if (!result.success) {
+      return reply.status(result.statusCode).send({
+        error: result.error
+      });
+    }
+
+    // If the resend verification succeeds, return the message
+    return reply.status(result.statusCode).send({
+      message: result.message
+    });
   }
+
+
+  // PASSWORD RESET
 
   /**
    * Request password reset
@@ -236,18 +186,33 @@ export class AuthController {
   async forgotPassword(request: FastifyRequest, reply: FastifyReply) {
     const { email } = request.body as { email: string };
 
-    const result = await authService.initiatePasswordReset(email);
-
-    if (!result.success) {
-      return reply.status(result.statusCode).send({
-        error: result.error
+    // Validate input
+    if (!email) {
+      return reply.status(400).send({
+        error: 'Email is required'
       });
     }
 
-    return reply.status(result.statusCode).send({
+    // Validate email format here as well as in the service to optimize for performance and UX
+    if (!authService.isValidEmail(email)) {
+      return reply.status(400).send({
+        error: 'Invalid email format'
+      });
+    }
+
+    const result = await authService.requestPasswordReset(email);
+
+    if (!result.success) {
+      return reply.status(500).send({
+        error: 'Internal server error during password reset request'
+      });
+    }
+
+    return reply.status(200).send({
       message: result.message
     });
   }
+
 
   /**
    * Verify password reset token
@@ -286,6 +251,7 @@ export class AuthController {
     }
   }
 
+
   /**
    * Reset password using valid token
    * POST /api/auth/reset-password/:token
@@ -294,12 +260,19 @@ export class AuthController {
     try {
       const { token } = request.params as { token: string };
       const { password } = request.body as { password: string };
+      
+      if (!token) {
+        return reply.status(400).send({
+          error: 'Password reset token is required'
+        });
+      }
 
       if (!password) {
         return reply.status(400).send({
           error: 'New password is required'
         });
       }
+
 
       // Collect security metadata
       const securityMetadata = {
@@ -311,12 +284,14 @@ export class AuthController {
       // Reset password with enhanced notifications
       const result = await authService.resetPassword(token, password, securityMetadata);
 
+      // If the password reset fails, return an error
       if (!result.success) {
         return reply.status(400).send({
           error: result.message
         });
       }
 
+      // If the password reset succeeds, return the message
       return reply.send({
         message: result.message
       });
@@ -329,67 +304,46 @@ export class AuthController {
     }
   }
 
+
+  // SECURITY QUESTIONS
+  
   /**
    * Set up security questions for a user
    * POST /api/auth/security-questions
    */
   async setupSecurityQuestions(request: FastifyRequest, reply: FastifyReply) {
-    try {
-      const { questions } = request.body as {
-        questions: Array<{ question: string; answer: string }>
-      };
+    // Retrieve the questions from the request body
+    const { questions } = request.body as {
+      questions: Array<{ question: string; answer: string }>
+    };
 
-      // Get user ID from JWT token (assuming we have auth middleware)
-      const user = (request as any).user;
-      if (!user || !user.id) {
-        return reply.status(401).send({
-          error: 'Authentication required'
-        });
-      }
-
-      // Validate questions array
-      if (!questions || !Array.isArray(questions)) {
-        return reply.status(400).send({
-          error: 'Questions array is required'
-        });
-      }
-
-      if (questions.length < 3 || questions.length > 5) {
-        return reply.status(400).send({
-          error: 'Must provide between 3 and 5 security questions'
-        });
-      }
-
-      // Check for duplicate questions
-      const questionTypes = questions.map(q => q.question);
-      const uniqueQuestions = new Set(questionTypes);
-      if (uniqueQuestions.size !== questionTypes.length) {
-        return reply.status(400).send({
-          error: 'Duplicate questions are not allowed'
-        });
-      }
-
-      // Set up security questions using the service
-      const result = await authService.setupSecurityQuestions(user.id, questions);
-
-      if (!result.success) {
-        return reply.status(400).send({
-          error: result.message
-        });
-      }
-
-      return reply.send({
-        message: result.message,
-        questionsSet: questions.length
-      });
-
-    } catch (error) {
-      console.error('Setup security questions error:', error);
-      return reply.status(500).send({
-        error: 'Internal server error during security questions setup'
-      });
+    // Check if request.user.id exists
+    const user = (request as any).user;
+    if (!user || !user.id) {
+      return reply.status(401).send({error: 'Authentication required'});
     }
+
+    // Call authService.setupSecurityQuestionsWithValidation
+    const validation = await authService.validateSecurityQuestions(questions);
+
+    // If the questions are not valid, return an error
+    if (!validation.success) {
+      return reply.status(validation.statusCode).send({error: validation.error});
+    }
+
+    // Convert user.id to number and call authService.setupSecurityQuestions
+    const result = await authService.setupSecurityQuestions(user.id, questions);
+
+    if (!result.success) {
+      return reply.status(result.statusCode).send({error: result.error});
+    }
+
+    return reply.status(result.statusCode).send({
+      message: result.message,
+      questionsSet: questions.length
+    });
   }
+
 
   /**
    * Get user's security questions (authenticated)
@@ -399,17 +353,17 @@ export class AuthController {
     try {
       // Get user ID from JWT token (assuming we have auth middleware)
       const user = (request as any).user;
+
+      // if user is not authenticated, return an error
       if (!user || !user.id) {
-        return reply.status(401).send({
-          error: 'Authentication required'
-        });
+        return reply.status(401).send({error: 'Authentication required'});
       }
 
       // Get security questions using the service
       const result = await authService.getUserSecurityQuestions(user.id);
 
-      return reply.send({
-        message: 'Security questions retrieved successfully',
+      return reply.status(result.statusCode).send({
+        message: result.message,
         questions: result.questions
       });
 
@@ -421,29 +375,37 @@ export class AuthController {
     }
   }
 
+
   /**
    * Get recovery questions for an email (public)
    * POST /api/auth/recovery-questions
    */
   async getRecoveryQuestions(request: FastifyRequest, reply: FastifyReply) {
     try {
+      // Retrieve the email from the request body
       const { email } = request.body as { email: string };
 
-      if (!email) {
-        return reply.status(400).send({
-          error: 'Email is required'
-        });
-      }
+      // if email is not provided, return an error
+      if (!email) { return reply.status(400).send({error: 'Email is required'}); }
 
-      // Validate email format
+      // Validate email format here as well as in the service to  optimize for performance and UX
       if (!authService.isValidEmail(email)) {
-        return reply.status(400).send({
+        return {
+          success: false,
+          statusCode: 400,
           error: 'Invalid email format'
-        });
+        };
       }
 
       // Get recovery questions using the service
       const result = await authService.getRecoveryQuestions(email);
+
+      // If the recovery questions fail, return an error
+      if (!result.success) {
+        return reply.status(result.statusCode || 500).send({
+          error: result.error
+        });
+      }
 
       return reply.send({
         message: result.message,
@@ -458,23 +420,26 @@ export class AuthController {
     }
   }
 
+
   /**
    * Verify security questions for account recovery
    * POST /api/auth/verify-security-questions
    */
   async verifySecurityQuestions(request: FastifyRequest, reply: FastifyReply) {
-    try {
-      const { email, answers } = request.body as {
-        email: string;
-        answers: Array<{ questionId: number; answer: string }>
-      };
+    // Retrieve the email and answers from the request body
+    const { email, answers } = request.body as {
+      email: string;
+      answers: Array<{ questionId: number; answer: string }>
+    };
 
+      // Validate email was provided
       if (!email) {
         return reply.status(400).send({
           error: 'Email is required'
         });
       }
 
+      // Validate answers were provided (at least 2 are required)
       if (!answers || !Array.isArray(answers) || answers.length < 2) {
         return reply.status(400).send({
           error: 'At least 2 answers are required'
@@ -485,25 +450,27 @@ export class AuthController {
       const clientIP = request.headers['x-forwarded-for'] || request.headers['x-real-ip'] || request.ip || 'unknown';
       const userAgent = request.headers['user-agent'] || 'unknown';
 
-      // Verify security questions using the service
-      const result = await authService.verifySecurityQuestions(email, answers);
+    // Call authService.verifySecurityQuestions with clientInfo
+    const result = await authService.verifySecurityQuestions(email, answers, {
+      ip: clientIP as string,
+      userAgent: userAgent as string
+    });
 
-      // Log the attempt with client details
-      console.log(`[SECURITY_AUDIT] Security Questions Verification: Email=${email}, Success=${result.verified}, IP=${clientIP}, UserAgent=${userAgent}`);
-
-      return reply.send({
-        message: result.message,
-        verified: result.verified,
-        resetToken: result.resetToken || null
-      });
-
-    } catch (error) {
-      console.error('Verify security questions error:', error);
-      return reply.status(500).send({
-        error: 'Internal server error during security questions verification'
+    // If the security questions are not verified, return an error
+    if (!result.success) {
+      return reply.status(result.statusCode).send({
+        error: result.error
       });
     }
+
+    // If the security questions are verified, return the message and the reset token
+    return reply.status(result.statusCode).send({
+      message: result.message,
+      verified: result.verified,
+      resetToken: result.resetToken || null
+    });
   }
+
 
   /**
    * Get available security question types with display text
@@ -527,6 +494,9 @@ export class AuthController {
     }
   }
 
+
+  // SECONDARY EMAIL
+
   /**
    * Set up secondary email for authenticated user
    * POST /api/auth/secondary-email
@@ -537,28 +507,39 @@ export class AuthController {
 
       // Get user ID from JWT token
       const user = (request as any).user;
+
+      // if user is not authenticated, return an error
       if (!user || !user.id) {
         return reply.status(401).send({
           error: 'Authentication required'
         });
       }
 
+      // if secondary email is not provided, return an error
       if (!secondaryEmail) {
         return reply.status(400).send({
           error: 'Secondary email is required'
+        });
+      }
+      // Validate email format here as well as in the service to optimize for performance and UX
+      if (!authService.isValidEmail(secondaryEmail)) {
+        return reply.status(400).send({
+          error: 'Invalid email format'
         });
       }
 
       // Set up secondary email using the service
       const result = await authService.setupSecondaryEmail(user.id, secondaryEmail);
 
+      // If the secondary email setup fails, return an error
       if (!result.success) {
-        return reply.status(400).send({
-          error: result.message
+        return reply.status(result.statusCode).send({
+          error: result.error
         });
       }
 
-      return reply.send({
+      // If the secondary email setup succeeds, return the message
+      return reply.status(result.statusCode).send({
         message: result.message
       });
 
@@ -570,14 +551,17 @@ export class AuthController {
     }
   }
 
+
   /**
    * Verify secondary email token
    * POST /api/auth/verify-secondary-email
    */
   async verifySecondaryEmail(request: FastifyRequest, reply: FastifyReply) {
     try {
+      // Retrieve the token from the request body
       const { token } = request.body as { token: string };
 
+      // if token is not provided, return an error
       if (!token) {
         return reply.status(400).send({
           error: 'Verification token is required'
@@ -587,13 +571,15 @@ export class AuthController {
       // Verify the token using the service
       const result = await authService.verifySecondaryEmail(token);
 
+      // If the secondary email verification fails, return an error
       if (!result.success) {
-        return reply.status(400).send({
-          error: result.message
+        return reply.status(result.statusCode).send({
+          error: result.error
         });
       }
 
-      return reply.send({
+      // If the secondary email verification succeeds, return the message
+      return reply.status(result.statusCode).send({
         message: result.message
       });
 
@@ -605,21 +591,24 @@ export class AuthController {
     }
   }
 
-  /**
-   * Request password reset via secondary email
+
+  /** Request password reset via secondary email
+   * 
    * POST /api/auth/forgot-password-secondary
    */
   async forgotPasswordSecondary(request: FastifyRequest, reply: FastifyReply) {
     try {
+      // Retrieve the email from the request body
       const { email } = request.body as { email: string };
 
+      // if email is not provided, return an error
       if (!email) {
         return reply.status(400).send({
           error: 'Email is required'
         });
       }
 
-      // Validate email format
+      // Validate email format here as well as in the service to optimize for performance and UX
       if (!authService.isValidEmail(email)) {
         return reply.status(400).send({
           error: 'Invalid email format'
@@ -629,7 +618,15 @@ export class AuthController {
       // Request password reset using the service
       const result = await authService.requestPasswordResetSecondary(email);
 
-      return reply.send({
+      // If the password reset request fails, return an error
+      if (!result.success) {
+        return reply.status(result.statusCode).send({
+          error: result.error
+        });
+      }
+
+      // If the password reset request succeeds, return the message
+      return reply.status(result.statusCode).send({
         message: result.message
       });
 
@@ -639,6 +636,44 @@ export class AuthController {
         error: 'Internal server error during password reset request'
       });
     }
+  }
+
+
+  // TOKEN REFRESH
+
+  /** Refresh JWT tokens
+   * 
+   * POST /api/auth/refresh
+   * 
+   * when access token expires, use refresh token to get new valid access token
+   * 
+   */
+  async refreshToken(request: FastifyRequest, reply: FastifyReply) {
+    // Retrieve the refresh token from the request body
+    const { refreshToken } = request.body as { refreshToken: string };
+
+    // Validate input
+    if (!refreshToken) {
+      return reply.status(400).send({
+        error: 'Refresh token is required'
+      });
+    }
+
+    // Make the call to the JWT service to refresh the tokens
+    const result = jwtService.refreshTokens(refreshToken);
+
+    // If the token refresh fails, return the error
+    if (!result.success) {
+      return reply.status(result.statusCode).send({
+        error: result.error
+      });
+    }
+
+    // If the token refresh succeeds, return the new tokens
+    return reply.status(result.statusCode).send({
+      message: result.message,
+      tokens: result.tokens
+    });
   }
 
 }

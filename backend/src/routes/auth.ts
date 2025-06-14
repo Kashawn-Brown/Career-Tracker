@@ -103,7 +103,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
       rateLimit: authRateLimit
     },
     schema: verifyEmailSchema
-  }, authController.verifyEmail.bind(authController));
+  }, authController.handleEmailVerification.bind(authController));
 
 
   // Token Refresh - used when access token expires
@@ -173,6 +173,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
   }, authController.getSecurityQuestions.bind(authController));
 
   // Get recovery questions for email (public)
+  // when user clicks forgot password (chooses to answer security questions)
   fastify.post('/recovery-questions', {
     config: {
       rateLimit: forgotPasswordRateLimit // 3 requests per hour like forgot password
