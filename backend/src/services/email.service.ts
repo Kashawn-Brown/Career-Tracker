@@ -2,11 +2,12 @@
  * Email Service
  * 
  * Handles email sending operations using SendGrid API.
- * Provides template-based emails for user verification, notifications,
- * and other application email needs.
+ * Provides business logic for email operations with proper error handling
+ * and standardized result types following the auth service pattern.
  */
 
 import sgMail from '@sendgrid/mail';
+import { PrismaClient } from '@prisma/client';
 import {
   EmailTemplate,
   EmailData,
@@ -20,8 +21,24 @@ import {
   SuspiciousActivityData,
   EmailConfig,
   EmailResult,
-  BulkEmailResult
+  BulkEmailResult,
+  TestEmailVerificationResult,
+  TestWelcomeEmailResult,
+  QueueTestEmailVerificationResult,
+  EmailServiceStatusResult,
+  QueueServiceStatsResult,
+  GetVerificationTokenResult,
+  JobApplicationNotificationEmailResult,
+  SecurityNotificationEmailResult
 } from '../models/email.models.js';
+import {
+  generateEmailVerificationTemplate,
+  generateWelcomeTemplate,
+  generatePasswordResetTemplate,
+  generateJobApplicationNotificationTemplate,
+  generatePasswordChangedTemplate
+} from '../utils/emailTemplates.js';
+import { queueService } from './queue.service.js';
 
 export class EmailService {
   private config: EmailConfig;
@@ -64,10 +81,331 @@ export class EmailService {
   }
 
   /**
+   * Validate email format using basic regex
+   */
+  isValidEmail(email: string): boolean {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  }
+
+  // ============================================================================
+  // BUSINESS LOGIC METHODS (Following Auth Service Pattern)
+  // ============================================================================
+
+  /**
+   * Send test email verification with business logic and error handling
+   */
+  async sendTestEmailVerification(to: string, name: string): Promise<TestEmailVerificationResult> {
+    try {
+      // Check if email service is configured
+      if (!this.isReady()) {
+        return {
+          success: false,
+          statusCode: 400,
+          error: 'Email service is not configured. Please check SENDGRID_API_KEY environment variable.'
+        };
+      }
+
+      // Send email verification
+      const result = await this.sendEmailVerification({
+        to,
+        userName: name,
+        verificationToken: 'test-token-123',
+        verificationUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=test-token-123`
+      });
+
+      if (result.success) {
+        return {
+          success: true,
+          statusCode: 200,
+          message: `Test verification email sent to ${to}`,
+          messageId: result.messageId
+        };
+      } else {
+        return {
+          success: false,
+          statusCode: 400,
+          error: result.error || 'Failed to send email'
+        };
+      }
+    } catch (error) {
+      console.error('Test email verification error:', error);
+      return {
+        success: false,
+        statusCode: 500,
+        error: 'Internal server error'
+      };
+    }
+  }
+
+  /**
+   * Send test welcome email with business logic and error handling
+   */
+  async sendTestWelcomeEmail(to: string, name: string): Promise<TestWelcomeEmailResult> {
+    try {
+      // Check if email service is configured
+      if (!this.isReady()) {
+        return {
+          success: false,
+          statusCode: 400,
+          error: 'Email service is not configured. Please check SENDGRID_API_KEY environment variable.'
+        };
+      }
+
+      // Send welcome email
+      const result = await this.sendWelcomeEmail({
+        to,
+        userName: name
+      });
+
+      if (result.success) {
+        return {
+          success: true,
+          statusCode: 200,
+          message: `Test welcome email sent to ${to}`,
+          messageId: result.messageId
+        };
+      } else {
+        return {
+          success: false,
+          statusCode: 400,
+          error: result.error || 'Failed to send email'
+        };
+      }
+    } catch (error) {
+      console.error('Test welcome email error:', error);
+      return {
+        success: false,
+        statusCode: 500,
+        error: 'Internal server error'
+      };
+    }
+  }
+
+  /**
+   * Queue test email verification with business logic and error handling
+   */
+  async queueTestEmailVerification(to: string, name: string): Promise<QueueTestEmailVerificationResult> {
+    try {
+      // Check if queue service is configured
+      if (!queueService.isReady()) {
+        return {
+          success: false,
+          statusCode: 400,
+          error: 'Queue service is not configured. Please check REDIS_URL environment variable.'
+        };
+      }
+
+      // Add job to queue
+      await queueService.addEmailVerificationJob({
+        to,
+        userName: name,
+        verificationToken: 'test-token-queue-123',
+        verificationUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=test-token-queue-123`
+      });
+
+      return {
+        success: true,
+        statusCode: 200,
+        message: `Email verification queued for ${to}. Check your inbox in 5-10 minutes.`,
+        jobQueued: true,
+        note: "If you don't receive the email, please check your spam folder or try again."
+      };
+    } catch (error) {
+      console.error('Queue test email error:', error);
+      return {
+        success: false,
+        statusCode: 500,
+        error: 'Failed to queue email job'
+      };
+    }
+  }
+
+  /**
+   * Get email service status and configuration
+   */
+  async getEmailServiceStatus(): Promise<EmailServiceStatusResult> {
+    const isReady = this.isReady();
+    
+    return {
+      statusCode: 200,
+      configured: isReady,
+      message: isReady ? 'Email service is ready' : 'Email service needs configuration',
+      config: {
+        fromEmail: process.env.FROM_EMAIL || 'noreply@career-tracker.com',
+        fromName: process.env.FROM_NAME || 'Career Tracker',
+        hasApiKey: !!process.env.SENDGRID_API_KEY
+      }
+    };
+  }
+
+  /**
+   * Get queue service statistics
+   */
+  async getQueueServiceStats(): Promise<QueueServiceStatsResult> {
+    const isReady = queueService.isReady();
+    const stats = await queueService.getQueueStats();
+    
+    return {
+      statusCode: 200,
+      queueReady: isReady,
+      stats
+    };
+  }
+
+  /**
+   * Get verification token for testing (DEVELOPMENT ONLY!)
+   */
+  async getVerificationToken(email: string): Promise<GetVerificationTokenResult> {
+    try {
+      const prisma = new PrismaClient();
+      
+      const verificationToken = await prisma.emailVerificationToken.findFirst({
+        where: {
+          user: { email }
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+      
+      await prisma.$disconnect();
+      
+      if (!verificationToken) {
+        return {
+          success: false,
+          statusCode: 404,
+          error: 'No verification token found for this email'
+        };
+      }
+      
+      return {
+        success: true,
+        statusCode: 200,
+        email,
+        token: verificationToken.token,
+        message: 'Use this token to test email verification'
+      };
+    } catch (error) {
+      console.error('Error getting verification token:', error);
+      return {
+        success: false,
+        statusCode: 500,
+        error: 'Internal server error'
+      };
+    }
+  }
+
+  /**
+   * Send job application notification email
+   */
+  async sendJobApplicationNotificationEmail(data: JobApplicationNotificationData): Promise<JobApplicationNotificationEmailResult> {
+    try {
+      // Check if email service is configured
+      if (!this.isReady()) {
+        return {
+          success: false,
+          statusCode: 400,
+          error: 'Email service is not configured. Please check SENDGRID_API_KEY environment variable.'
+        };
+      }
+
+      // Send job application notification
+      const result = await this.sendJobApplicationNotification(data);
+
+      if (result.success) {
+        return {
+          success: true,
+          statusCode: 200,
+          message: `Job application notification sent to ${data.to}`,
+          messageId: result.messageId
+        };
+      } else {
+        return {
+          success: false,
+          statusCode: 400,
+          error: result.error || 'Failed to send email'
+        };
+      }
+    } catch (error) {
+      console.error('Job application notification error:', error);
+      return {
+        success: false,
+        statusCode: 500,
+        error: 'Internal server error'
+      };
+    }
+  }
+
+  /**
+   * Send security notification emails
+   */
+  async sendSecurityNotificationEmail(type: string, to: string, userName: string, additionalData: any): Promise<SecurityNotificationEmailResult> {
+    try {
+      // Check if email service is configured
+      if (!this.isReady()) {
+        return {
+          success: false,
+          statusCode: 400,
+          error: 'Email service is not configured. Please check SENDGRID_API_KEY environment variable.'
+        };
+      }
+
+      let result: EmailResult;
+      
+      // Handle different types of security notifications
+      switch (type) {
+        case 'password_changed':
+          result = await this.sendPasswordChangedEmail(to, userName, additionalData.ipAddress, additionalData.userAgent);
+          break;
+        case 'account_locked':
+          result = await this.sendAccountLockedEmail(to, userName, additionalData.unlockTime, additionalData.reason);
+          break;
+        case 'account_unlocked':
+          result = await this.sendAccountUnlockedEmail(to, userName, additionalData.reason);
+          break;
+        case 'forced_password_reset':
+          result = await this.sendForcedPasswordResetEmail(to, userName, additionalData.reason);
+          break;
+        default:
+          return {
+            success: false,
+            statusCode: 400,
+            error: `Unknown security notification type: ${type}`
+          };
+      }
+
+      if (result.success) {
+        return {
+          success: true,
+          statusCode: 200,
+          message: `${type} notification sent to ${to}`,
+          messageId: result.messageId
+        };
+      } else {
+        return {
+          success: false,
+          statusCode: 400,
+          error: result.error || 'Failed to send email'
+        };
+      }
+    } catch (error) {
+      console.error('Security notification error:', error);
+      return {
+        success: false,
+        statusCode: 500,
+        error: 'Internal server error'
+      };
+    }
+  }
+
+  // ============================================================================
+  // CORE EMAIL SENDING METHODS (Existing functionality preserved)
+  // ============================================================================
+
+  /**
    * Send email verification email
    */
   async sendEmailVerification(data: EmailVerificationData): Promise<EmailResult> {
-    const html = this.generateEmailVerificationTemplate(data);
+    const html = generateEmailVerificationTemplate(data);
     
     return await this.sendEmail({
       to: data.to,
@@ -81,7 +419,7 @@ export class EmailService {
    * Send welcome email after successful verification
    */
   async sendWelcomeEmail(data: WelcomeEmailData): Promise<EmailResult> {
-    const html = this.generateWelcomeTemplate(data);
+    const html = generateWelcomeTemplate(data);
     
     return await this.sendEmail({
       to: data.to,
@@ -95,7 +433,7 @@ export class EmailService {
    * Send password reset email
    */
   async sendPasswordReset(data: PasswordResetData): Promise<EmailResult> {
-    const html = this.generatePasswordResetTemplate(data);
+    const html = generatePasswordResetTemplate(data);
     
     return await this.sendEmail({
       to: data.to,
@@ -109,13 +447,69 @@ export class EmailService {
    * Send job application notification
    */
   async sendJobApplicationNotification(data: JobApplicationNotificationData): Promise<EmailResult> {
-    const html = this.generateJobApplicationNotificationTemplate(data);
+    const html = generateJobApplicationNotificationTemplate(data);
     
     return await this.sendEmail({
       to: data.to,
       subject: `Job Application Submitted: ${data.position} at ${data.company}`,
       template: EmailTemplate.JOB_APPLICATION_NOTIFICATION,
       templateData: data
+    }, html);
+  }
+
+  /**
+   * Send password changed notification email
+   */
+  async sendPasswordChangedEmail(email: string, userName: string, ipAddress?: string, userAgent?: string): Promise<EmailResult> {
+    const html = generatePasswordChangedTemplate({ email, userName, ipAddress, userAgent });
+    
+    return await this.sendEmail({
+      to: email,
+      subject: '🔒 Password Changed - Career Tracker',
+      template: EmailTemplate.SECURITY_ALERT,
+      templateData: { email, userName, ipAddress, userAgent }
+    }, html);
+  }
+
+  /**
+   * Send account locked notification email
+   */
+  async sendAccountLockedEmail(email: string, userName: string, unlockTime: Date, reason: string): Promise<EmailResult> {
+    const html = this.generateAccountLockedTemplate({ email, userName, unlockTime, reason });
+    
+    return await this.sendEmail({
+      to: email,
+      subject: '⚠️ Account Locked - Career Tracker',
+      template: EmailTemplate.SECURITY_ALERT,
+      templateData: { email, userName, unlockTime, reason }
+    }, html);
+  }
+
+  /**
+   * Send account unlocked notification email
+   */
+  async sendAccountUnlockedEmail(email: string, userName: string, reason: string): Promise<EmailResult> {
+    const html = this.generateAccountUnlockedTemplate({ email, userName, reason });
+    
+    return await this.sendEmail({
+      to: email,
+      subject: '✅ Account Unlocked - Career Tracker',
+      template: EmailTemplate.SECURITY_ALERT,
+      templateData: { email, userName, reason }
+    }, html);
+  }
+
+  /**
+   * Send forced password reset notification email
+   */
+  async sendForcedPasswordResetEmail(email: string, userName: string, reason: string): Promise<EmailResult> {
+    const html = this.generateForcedPasswordResetTemplate({ email, userName, reason });
+    
+    return await this.sendEmail({
+      to: email,
+      subject: '🔒 Password Reset Required - Career Tracker',
+      template: EmailTemplate.SECURITY_ALERT,
+      templateData: { email, userName, reason }
     }, html);
   }
 
@@ -169,298 +563,9 @@ export class EmailService {
     }
   }
 
-  /**
-   * Generate HTML template for email verification
-   */
-  private generateEmailVerificationTemplate(data: EmailVerificationData): string {
-    return `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Verify Your Email</title>
-      </head>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-          <h1 style="color: white; margin: 0; font-size: 28px;">Career Tracker</h1>
-        </div>
-        
-        <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;">
-          <h2 style="color: #495057; margin-top: 0;">Welcome, ${data.userName}!</h2>
-          
-          <p>Thank you for signing up for Career Tracker. To complete your registration and start tracking your job applications, please verify your email address.</p>
-          
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${data.verificationUrl}" 
-               style="background: #28a745; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
-              Verify Email Address
-            </a>
-          </div>
-          
-          <p style="color: #6c757d; font-size: 14px;">
-            If the button doesn't work, copy and paste this link into your browser:<br>
-            <a href="${data.verificationUrl}" style="color: #007bff; word-break: break-all;">${data.verificationUrl}</a>
-          </p>
-          
-          <p style="color: #6c757d; font-size: 14px; margin-top: 30px;">
-            This verification link will expire in 24 hours. If you didn't create an account with Career Tracker, you can safely ignore this email.
-          </p>
-        </div>
-      </body>
-      </html>
-    `;
-  }
-
-  /**
-   * Generate HTML template for welcome email
-   */
-  private generateWelcomeTemplate(data: WelcomeEmailData): string {
-    return `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Welcome to Career Tracker</title>
-      </head>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-          <h1 style="color: white; margin: 0; font-size: 28px;">🎉 Welcome to Career Tracker!</h1>
-        </div>
-        
-        <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;">
-          <h2 style="color: #495057; margin-top: 0;">Hi ${data.userName},</h2>
-          
-          <p>Your email has been verified successfully! You're now ready to start organizing and tracking your job search journey.</p>
-          
-          <h3 style="color: #495057;">What's next?</h3>
-          <ul style="color: #6c757d;">
-            <li>📝 Add your first job application</li>
-            <li>🏷️ Organize applications with tags</li>
-            <li>📊 Track your application status</li>
-            <li>🤝 Manage your professional connections</li>
-          </ul>
-          
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard" 
-               style="background: #007bff; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
-              Go to Dashboard
-            </a>
-          </div>
-          
-          <p style="color: #6c757d; font-size: 14px;">
-            Need help getting started? Check out our <a href="#" style="color: #007bff;">quick start guide</a> or reply to this email if you have any questions.
-          </p>
-        </div>
-      </body>
-      </html>
-    `;
-  }
-
-  /**
-   * Generate HTML template for password reset
-   */
-  private generatePasswordResetTemplate(data: PasswordResetData): string {
-    return `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Reset Your Password</title>
-      </head>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-          <h1 style="color: white; margin: 0; font-size: 28px;">Career Tracker</h1>
-        </div>
-        
-        <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;">
-          <h2 style="color: #495057; margin-top: 0;">Password Reset Request</h2>
-          
-          <p>Hi ${data.userName},</p>
-          
-          <p>We received a request to reset the password for your Career Tracker account. Click the button below to create a new password:</p>
-          
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${data.resetUrl}" 
-               style="background: #dc3545; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
-              Reset Password
-            </a>
-          </div>
-          
-          <p style="color: #6c757d; font-size: 14px;">
-            If the button doesn't work, copy and paste this link into your browser:<br>
-            <a href="${data.resetUrl}" style="color: #007bff; word-break: break-all;">${data.resetUrl}</a>
-          </p>
-          
-          <p style="color: #6c757d; font-size: 14px; margin-top: 30px;">
-            This password reset link will expire in 1 hour. If you didn't request a password reset, you can safely ignore this email.
-          </p>
-        </div>
-      </body>
-      </html>
-    `;
-  }
-
-  /**
-   * Generate HTML template for job application notification
-   */
-  private generateJobApplicationNotificationTemplate(data: JobApplicationNotificationData): string {
-    return `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Job Application Submitted</title>
-      </head>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-          <h1 style="color: white; margin: 0; font-size: 28px;">📋 Application Submitted!</h1>
-        </div>
-        
-        <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;">
-          <h2 style="color: #495057; margin-top: 0;">Great job, ${data.userName}!</h2>
-          
-          <p>You've successfully submitted a job application. Here are the details:</p>
-          
-          <div style="background: white; border: 1px solid #dee2e6; border-radius: 5px; padding: 20px; margin: 20px 0;">
-            <h3 style="margin-top: 0; color: #495057;">Application Details</h3>
-            <p><strong>Position:</strong> ${data.position}</p>
-            <p><strong>Company:</strong> ${data.company}</p>
-            <p><strong>Date Applied:</strong> ${data.applicationDate}</p>
-          </div>
-          
-          <p>Your application is now being tracked in your Career Tracker dashboard. We'll help you stay organized throughout your job search journey!</p>
-          
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/applications" 
-               style="background: #28a745; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
-              View All Applications
-            </a>
-          </div>
-          
-          <p style="color: #6c757d; font-size: 14px;">
-            💡 <strong>Tip:</strong> Set up follow-up reminders and track your application status to stay on top of your job search!
-          </p>
-        </div>
-      </body>
-      </html>
-    `;
-  }
-
-  /**
-   * Send password changed notification email
-   */
-  async sendPasswordChangedEmail(email: string, userName: string, ipAddress?: string, userAgent?: string): Promise<EmailResult> {
-    const html = this.generatePasswordChangedTemplate({ email, userName, ipAddress, userAgent });
-    
-    return await this.sendEmail({
-      to: email,
-      subject: '🔒 Password Changed - Career Tracker',
-      template: EmailTemplate.SECURITY_ALERT,
-      templateData: { email, userName, ipAddress, userAgent }
-    }, html);
-  }
-
-  /**
-   * Send account locked notification email
-   */
-  async sendAccountLockedEmail(email: string, userName: string, unlockTime: Date, reason: string): Promise<EmailResult> {
-    const html = this.generateAccountLockedTemplate({ email, userName, unlockTime, reason });
-    
-    return await this.sendEmail({
-      to: email,
-      subject: '⚠️ Account Locked - Career Tracker',
-      template: EmailTemplate.SECURITY_ALERT,
-      templateData: { email, userName, unlockTime, reason }
-    }, html);
-  }
-
-  /**
-   * Send account unlocked notification email
-   */
-  async sendAccountUnlockedEmail(email: string, userName: string, reason: string): Promise<EmailResult> {
-    const html = this.generateAccountUnlockedTemplate({ email, userName, reason });
-    
-    return await this.sendEmail({
-      to: email,
-      subject: '✅ Account Unlocked - Career Tracker',
-      template: EmailTemplate.SECURITY_ALERT,
-      templateData: { email, userName, reason }
-    }, html);
-  }
-
-  /**
-   * Send forced password reset notification email
-   */
-  async sendForcedPasswordResetEmail(email: string, userName: string, reason: string): Promise<EmailResult> {
-    const html = this.generateForcedPasswordResetTemplate({ email, userName, reason });
-    
-    return await this.sendEmail({
-      to: email,
-      subject: '🔒 Password Reset Required - Career Tracker',
-      template: EmailTemplate.SECURITY_ALERT,
-      templateData: { email, userName, reason }
-    }, html);
-  }
-
-  /**
-   * Generate HTML template for password changed notification
-   */
-  private generatePasswordChangedTemplate(data: { email: string; userName: string; ipAddress?: string; userAgent?: string }): string {
-    const locationInfo = data.ipAddress ? `IP Address: ${data.ipAddress}` : 'Unknown location';
-    const deviceInfo = data.userAgent ? `Device: ${data.userAgent}` : 'Unknown device';
-    
-    return `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Password Changed</title>
-      </head>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-          <h1 style="color: white; margin: 0; font-size: 28px;">🔒 Password Changed</h1>
-        </div>
-        
-        <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;">
-          <h2 style="color: #495057; margin-top: 0;">Hi ${data.userName},</h2>
-          
-          <p>Your Career Tracker account password has been successfully changed.</p>
-          
-          <div style="background: #d1ecf1; border: 1px solid #bee5eb; border-radius: 5px; padding: 15px; margin: 20px 0;">
-            <p style="margin: 0;"><strong>Changed on:</strong> ${new Date().toLocaleString()}</p>
-            <p style="margin: 10px 0 0 0;"><strong>Location:</strong> ${locationInfo}</p>
-            <p style="margin: 10px 0 0 0;"><strong>Device:</strong> ${deviceInfo}</p>
-          </div>
-          
-          <p>If you did not make this change, please contact our support team immediately and consider the following steps:</p>
-          
-          <ul style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 15px; margin: 20px 0;">
-            <li>Reset your password immediately</li>
-            <li>Check your account for any unauthorized activity</li>
-            <li>Enable two-factor authentication when available</li>
-            <li>Review your recent login activity</li>
-          </ul>
-          
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/login" 
-               style="background: #007bff; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
-              Log In to Your Account
-            </a>
-          </div>
-          
-          <p style="color: #6c757d; font-size: 14px; margin-top: 30px;">
-            If you made this change, you can safely ignore this email. This notification helps keep your account secure.
-          </p>
-        </div>
-      </body>
-      </html>
-    `;
-  }
+  // ============================================================================
+  // PRIVATE TEMPLATE METHODS (Remaining templates not moved to utils)
+  // ============================================================================
 
   /**
    * Generate HTML template for account locked notification
@@ -492,10 +597,6 @@ export class EmailService {
           </div>
           
           <p>Your account will be automatically unlocked at the time shown above. If you believe this was done in error, please contact our support team.</p>
-          
-          <p style="color: #6c757d; font-size: 14px; margin-top: 30px;">
-            For your security, please ensure you're using a strong, unique password and enable two-factor authentication when it becomes available.
-          </p>
         </div>
       </body>
       </html>
@@ -522,22 +623,18 @@ export class EmailService {
         <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;">
           <h2 style="color: #495057; margin-top: 0;">Hi ${data.userName},</h2>
           
-          <p>Great news! Your Career Tracker account has been unlocked and you can now log in normally.</p>
+          <p>Good news! Your Career Tracker account has been unlocked and you can now access your account again.</p>
           
-          <div style="background: #d1ecf1; border: 1px solid #bee5eb; border-radius: 5px; padding: 15px; margin: 20px 0;">
+          <div style="background: #d1edff; border: 1px solid #bee5eb; border-radius: 5px; padding: 15px; margin: 20px 0;">
             <p style="margin: 0;"><strong>Unlock Reason:</strong> ${data.reason}</p>
           </div>
           
           <div style="text-align: center; margin: 30px 0;">
             <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/login" 
                style="background: #007bff; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
-              Log In to Your Account
+              Sign In to Your Account
             </a>
           </div>
-          
-          <p style="color: #6c757d; font-size: 14px; margin-top: 30px;">
-            To keep your account secure, please use a strong password and avoid sharing your login credentials.
-          </p>
         </div>
       </body>
       </html>
@@ -557,7 +654,7 @@ export class EmailService {
         <title>Password Reset Required</title>
       </head>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+        <div style="background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
           <h1 style="color: white; margin: 0; font-size: 28px;">🔒 Password Reset Required</h1>
         </div>
         
@@ -570,18 +667,12 @@ export class EmailService {
             <p style="margin: 0;"><strong>Reason:</strong> ${data.reason}</p>
           </div>
           
-          <p>This is a security measure to protect your account. You will need to create a new password the next time you log in.</p>
-          
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/login" 
+            <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/forgot-password" 
                style="background: #dc3545; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
               Reset Password Now
             </a>
           </div>
-          
-          <p style="color: #6c757d; font-size: 14px; margin-top: 30px;">
-            When creating your new password, please choose a strong password that you haven't used before on other websites.
-          </p>
         </div>
       </body>
       </html>
@@ -589,5 +680,4 @@ export class EmailService {
   }
 }
 
-// Export singleton instance
 export const emailService = new EmailService(); 

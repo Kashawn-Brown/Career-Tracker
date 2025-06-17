@@ -9,6 +9,9 @@
 export * from './auth.controller.js';
 export * from './oauth.controller.js';
 
+// Email Controllers
+export * from './email.controller.js';
+
 // Job Application Controllers  
 export * from './job-application.controller.js';
 

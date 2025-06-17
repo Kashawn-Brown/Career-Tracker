@@ -38,6 +38,31 @@ export type {
 } from '../models/auth.models.js';
 export type { JWTPayload, TokenPair } from '../models/jwt.models.js';
 
+export { emailService, EmailService } from './email.service.js';
+export type {
+  EmailTemplate,
+  EmailData,
+  EmailVerificationData,
+  WelcomeEmailData,
+  PasswordResetData,
+  JobApplicationNotificationData,
+  SecurityQuestionsChangedData,
+  SecondaryEmailNotificationData,
+  RecoveryAttemptData,
+  SuspiciousActivityData,
+  EmailConfig,
+  EmailResult,
+  BulkEmailResult,
+  TestEmailVerificationResult,
+  TestWelcomeEmailResult,
+  QueueTestEmailVerificationResult,
+  EmailServiceStatusResult,
+  QueueServiceStatsResult,
+  GetVerificationTokenResult,
+  JobApplicationNotificationEmailResult,
+  SecurityNotificationEmailResult
+} from '../models/email.models.js';
+
 export { contactService, ContactService } from './contact.service.js';
 export type { 
   ContactListFilters, 

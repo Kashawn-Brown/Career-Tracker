@@ -146,4 +146,104 @@ export interface BulkEmailResult {
   successCount: number;
   failureCount: number;
   errors: string[];
+}
+
+// ============================================================================
+// EMAIL SERVICE RESULT INTERFACES (Following Auth Pattern)
+// ============================================================================
+
+/**
+ * Test Email Verification Result interface
+ */
+export interface TestEmailVerificationResult {
+  success: boolean;
+  statusCode: number;
+  message?: string;
+  messageId?: string;
+  error?: string;
+}
+
+/**
+ * Test Welcome Email Result interface
+ */
+export interface TestWelcomeEmailResult {
+  success: boolean;
+  statusCode: number;
+  message?: string;
+  messageId?: string;
+  error?: string;
+}
+
+/**
+ * Queue Test Email Verification Result interface
+ */
+export interface QueueTestEmailVerificationResult {
+  success: boolean;
+  statusCode: number;
+  message?: string;
+  jobQueued?: boolean;
+  note?: string;
+  error?: string;
+}
+
+/**
+ * Email Service Status Result interface
+ */
+export interface EmailServiceStatusResult {
+  statusCode: number;
+  configured: boolean;
+  message: string;
+  config: {
+    fromEmail: string;
+    fromName: string;
+    hasApiKey: boolean;
+  };
+}
+
+/**
+ * Queue Service Stats Result interface
+ */
+export interface QueueServiceStatsResult {
+  statusCode: number;
+  queueReady: boolean;
+  stats: {
+    waiting: number;
+    active: number;
+    completed: number;
+    failed: number;
+  } | null;
+}
+
+/**
+ * Get Verification Token Result interface
+ */
+export interface GetVerificationTokenResult {
+  success: boolean;
+  statusCode: number;
+  email?: string;
+  token?: string;
+  message?: string;
+  error?: string;
+}
+
+/**
+ * Job Application Notification Email Result interface
+ */
+export interface JobApplicationNotificationEmailResult {
+  success: boolean;
+  statusCode: number;
+  message?: string;
+  messageId?: string;
+  error?: string;
+}
+
+/**
+ * Security Notification Email Result interface
+ */
+export interface SecurityNotificationEmailResult {
+  success: boolean;
+  statusCode: number;
+  message?: string;
+  messageId?: string;
+  error?: string;
 } 
