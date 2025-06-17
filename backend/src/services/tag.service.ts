@@ -2,7 +2,7 @@
  * Tag Service
  * 
  * Business logic layer for tag operations.
- * Updated for many-to-many relationship and tag suggestions.
+ * Follows auth service pattern with standardized result objects.
  * Handles validation, business rules, and coordinates repository calls.
  */
 
@@ -14,7 +14,13 @@ import {
   RemoveTagRequest,
   TagSuggestion,
   TagSuggestionsQuery,
-  TagStats
+  TagStats,
+  ListUserTagsResult,
+  AddTagsToApplicationResult,
+  RemoveTagsFromApplicationResult,
+  TagSuggestionsResult,
+  TagStatsResult,
+  TagCleanupResult
 } from '../models/tag.models.js';
 
 // Update TagFilters to include userId which is service-specific
@@ -39,100 +45,189 @@ export class TagService {
   /**
    * Get tags for a specific user with optional search
    */
-  async getUserTags(filters: TagServiceFilters) {
-    const { userId, search, limit = 50 } = filters;
+  async getUserTags(filters: TagServiceFilters): Promise<ListUserTagsResult> {
+    try {
+      const { userId, search, limit = 50 } = filters;
 
-    if (search) {
-      return await repositories.tag.suggestTags(search, userId, limit);
-    } else {
-      return await repositories.tag.findByUser(userId);
+      let tags: TagSuggestion[];
+
+      if (search) {
+        tags = await repositories.tag.suggestTags(search, userId, limit);
+      } else {
+        const userTags = await repositories.tag.findByUser(userId);
+        tags = userTags.map(tag => ({
+          id: tag.id,
+          name: tag.name,
+          usageCount: tag.jobApplications?.length || 0
+        }));
+      }
+
+      return {
+        success: true,
+        statusCode: 200,
+        tags
+      };
+    } catch (error) {
+      console.error('Error getting user tags:', error);
+      return {
+        success: false,
+        statusCode: 500,
+        error: 'Failed to retrieve tags'
+      };
     }
   }
 
   /**
    * Get tag suggestions based on query string
    */
-  async getTagSuggestions(query: TagSuggestionsQuery): Promise<TagSuggestion[]> {
-    const { q, limit = 10, userId } = query;
+  async getTagSuggestions(query: TagSuggestionsQuery): Promise<TagSuggestionsResult> {
+    try {
+      const { q, limit = 10, userId } = query;
 
-    if (!q || q.trim().length < 1) {
-      // If no query, return popular tags for the user
-      if (userId) {
-        return await repositories.tag.findPopularTagsByUser(userId, limit);
+      if (!q || q.trim().length < 1) {
+        // If no query, return popular tags for the user
+        if (userId) {
+          const suggestions = await repositories.tag.findPopularTagsByUser(userId, limit);
+          return {
+            success: true,
+            statusCode: 200,
+            suggestions
+          };
+        }
+        return {
+          success: true,
+          statusCode: 200,
+          suggestions: []
+        };
       }
-      return [];
-    }
 
-    return await repositories.tag.suggestTags(q, userId, limit);
+      const suggestions = await repositories.tag.suggestTags(q, userId, limit);
+
+      return {
+        success: true,
+        statusCode: 200,
+        suggestions
+      };
+    } catch (error) {
+      console.error('Error getting tag suggestions:', error);
+      return {
+        success: false,
+        statusCode: 500,
+        error: 'Failed to get tag suggestions'
+      };
+    }
   }
 
   /**
    * Add tags to a job application with business validation
    */
-  async addTagsToApplication(request: ServiceAddTagsRequest) {
-    const { jobApplicationId, tagNames } = request;
+  async addTagsToApplication(request: ServiceAddTagsRequest): Promise<AddTagsToApplicationResult> {
+    try {
+      const { jobApplicationId, tagNames } = request;
 
-    // Verify job application exists
-    const jobApplication = await repositories.jobApplication.findById(jobApplicationId);
-    if (!jobApplication) {
-      throw new Error('Job application not found');
+      // Verify job application exists
+      const jobApplication = await repositories.jobApplication.findById(jobApplicationId);
+      if (!jobApplication) {
+        return {
+          success: false,
+          statusCode: 404,
+          error: 'Job application not found'
+        };
+      }
+
+      // Filter out empty tags, trim whitespace, and remove duplicates
+      const validTagNames = [...new Set(
+        tagNames
+          .map(tag => tag.trim())
+          .filter(tag => tag.length > 0)
+      )];
+
+      if (validTagNames.length === 0) {
+        return {
+          success: false,
+          statusCode: 400,
+          error: 'At least one valid tag is required'
+        };
+      }
+
+      // Add tags to the job application (creates tags if they don't exist)
+      const tags = await repositories.tag.addTagsToJobApplication(
+        jobApplicationId,
+        validTagNames
+      );
+
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Tags added successfully',
+        tags
+      };
+    } catch (error) {
+      console.error('Error adding tags to application:', error);
+      return {
+        success: false,
+        statusCode: 500,
+        error: 'Failed to add tags to job application'
+      };
     }
-
-    // Filter out empty tags, trim whitespace, and remove duplicates
-    const validTagNames = [...new Set(
-      tagNames
-        .map(tag => tag.trim())
-        .filter(tag => tag.length > 0)
-    )];
-
-    if (validTagNames.length === 0) {
-      throw new Error('At least one valid tag is required');
-    }
-
-    // Add tags to the job application (creates tags if they don't exist)
-    return await repositories.tag.addTagsToJobApplication(
-      jobApplicationId,
-      validTagNames
-    );
   }
 
   /**
    * Remove tags from a job application with business validation
    */
-  async removeTagsFromApplication(request: ServiceRemoveTagsRequest) {
-    const { jobApplicationId, tagNames } = request;
+  async removeTagsFromApplication(request: ServiceRemoveTagsRequest): Promise<RemoveTagsFromApplicationResult> {
+    try {
+      const { jobApplicationId, tagNames } = request;
 
-    // Verify job application exists
-    const jobApplication = await repositories.jobApplication.findById(jobApplicationId);
-    if (!jobApplication) {
-      throw new Error('Job application not found');
+      // Verify job application exists
+      const jobApplication = await repositories.jobApplication.findById(jobApplicationId);
+      if (!jobApplication) {
+        return {
+          success: false,
+          statusCode: 404,
+          error: 'Job application not found'
+        };
+      }
+
+      // Filter out empty tag names
+      const validTagNames = tagNames
+        .map(tag => tag.trim())
+        .filter(tag => tag.length > 0);
+
+      if (validTagNames.length === 0) {
+        return {
+          success: false,
+          statusCode: 400,
+          error: 'At least one valid tag name is required'
+        };
+      }
+
+      // Remove tags from the job application
+      await repositories.tag.removeTagsFromJobApplication(
+        jobApplicationId,
+        validTagNames
+      );
+
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Tags removed successfully',
+        removedTagNames: validTagNames
+      };
+    } catch (error) {
+      console.error('Error removing tags from application:', error);
+      return {
+        success: false,
+        statusCode: 500,
+        error: 'Failed to remove tags from job application'
+      };
     }
-
-    // Filter out empty tag names
-    const validTagNames = tagNames
-      .map(tag => tag.trim())
-      .filter(tag => tag.length > 0);
-
-    if (validTagNames.length === 0) {
-      throw new Error('At least one valid tag name is required');
-    }
-
-    // Remove tags from the job application
-    await repositories.tag.removeTagsFromJobApplication(
-      jobApplicationId,
-      validTagNames
-    );
-
-    return {
-      message: 'Tags removed successfully',
-      removedTagNames: validTagNames
-    };
   }
 
   /**
    * Remove a single tag from a job application (legacy support)
    */
-  async removeTagFromApplication(request: ServiceRemoveTagRequest) {
+  async removeTagFromApplication(request: ServiceRemoveTagRequest): Promise<RemoveTagsFromApplicationResult> {
     const { jobApplicationId, tagName } = request;
 
     return await this.removeTagsFromApplication({
@@ -144,73 +239,166 @@ export class TagService {
   /**
    * Replace all tags for a job application
    */
-  async replaceTagsForApplication(request: ServiceAddTagsRequest) {
-    const { jobApplicationId, tagNames } = request;
+  async replaceTagsForApplication(request: ServiceAddTagsRequest): Promise<AddTagsToApplicationResult> {
+    try {
+      const { jobApplicationId, tagNames } = request;
 
-    // Verify job application exists
-    const jobApplication = await repositories.jobApplication.findById(jobApplicationId);
-    if (!jobApplication) {
-      throw new Error('Job application not found');
+      // Verify job application exists
+      const jobApplication = await repositories.jobApplication.findById(jobApplicationId);
+      if (!jobApplication) {
+        return {
+          success: false,
+          statusCode: 404,
+          error: 'Job application not found'
+        };
+      }
+
+      // Filter out empty tags, trim whitespace, and remove duplicates
+      const validTagNames = [...new Set(
+        tagNames
+          .map(tag => tag.trim())
+          .filter(tag => tag.length > 0)
+      )];
+
+      // Replace all tags (empty array will remove all tags)
+      const tags = await repositories.tag.replaceTagsForJobApplication(
+        jobApplicationId,
+        validTagNames
+      );
+
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Tags replaced successfully',
+        tags
+      };
+    } catch (error) {
+      console.error('Error replacing tags for application:', error);
+      return {
+        success: false,
+        statusCode: 500,
+        error: 'Failed to replace tags for job application'
+      };
     }
-
-    // Filter out empty tags, trim whitespace, and remove duplicates
-    const validTagNames = [...new Set(
-      tagNames
-        .map(tag => tag.trim())
-        .filter(tag => tag.length > 0)
-    )];
-
-    // Replace all tags (empty array will remove all tags)
-    return await repositories.tag.replaceTagsForJobApplication(
-      jobApplicationId,
-      validTagNames
-    );
   }
 
   /**
    * Get tag statistics for a user
    */
-  async getTagStats(userId: number): Promise<TagStats> {
-    const stats = await repositories.tag.getTagStats(userId);
-    
-    return {
-      totalTags: stats.totalTags,
-      totalUniqueUsages: stats.totalUsages,
-      mostUsedTags: stats.mostUsed.map(tag => ({
-        name: tag.name,
-        usageCount: tag.usageCount || 0
-      }))
-    };
+  async getTagStats(userId: number): Promise<TagStatsResult> {
+    try {
+      const stats = await repositories.tag.getTagStats(userId);
+      
+      const tagStats: TagStats = {
+        totalTags: stats.totalTags,
+        totalUniqueUsages: stats.totalUsages,
+        mostUsedTags: stats.mostUsed.map(tag => ({
+          name: tag.name,
+          usageCount: tag.usageCount || 0
+        }))
+      };
+
+      return {
+        success: true,
+        statusCode: 200,
+        stats: tagStats
+      };
+    } catch (error) {
+      console.error('Error getting tag stats:', error);
+      return {
+        success: false,
+        statusCode: 500,
+        error: 'Failed to get tag statistics'
+      };
+    }
   }
 
   /**
    * Get all unique tag names for a user (useful for autocomplete)
    */
-  async getAllTagNames(userId?: number): Promise<string[]> {
-    return await repositories.tag.findAllTagNames(userId);
+  async getAllTagNames(userId?: number): Promise<TagSuggestionsResult> {
+    try {
+      const tagNames = await repositories.tag.findAllTagNames(userId);
+      const suggestions = tagNames.map((name, index) => ({
+        id: index + 1, // Temporary ID for compatibility
+        name,
+        usageCount: 0
+      }));
+
+      return {
+        success: true,
+        statusCode: 200,
+        suggestions
+      };
+    } catch (error) {
+      console.error('Error getting all tag names:', error);
+      return {
+        success: false,
+        statusCode: 500,
+        error: 'Failed to get tag names'
+      };
+    }
   }
 
   /**
    * Clean up orphaned tags (maintenance operation)
    */
-  async cleanupOrphanedTags(): Promise<{ removedCount: number }> {
-    const removedCount = await repositories.tag.cleanupOrphanedTags();
-    return { removedCount };
+  async cleanupOrphanedTags(): Promise<TagCleanupResult> {
+    try {
+      const removedCount = await repositories.tag.cleanupOrphanedTags();
+      
+      return {
+        success: true,
+        statusCode: 200,
+        message: `Cleaned up ${removedCount} orphaned tags`,
+        removedCount
+      };
+    } catch (error) {
+      console.error('Error cleaning up orphaned tags:', error);
+      return {
+        success: false,
+        statusCode: 500,
+        error: 'Failed to cleanup orphaned tags'
+      };
+    }
   }
 
   /**
-   * Get tags for a specific job application
+   * Get tags associated with a specific job application
    */
-  async getTagsForJobApplication(jobApplicationId: number) {
-    // Verify job application exists
-    const jobApplication = await repositories.jobApplication.findById(jobApplicationId);
-    if (!jobApplication) {
-      throw new Error('Job application not found');
-    }
+  async getTagsForJobApplication(jobApplicationId: number): Promise<TagSuggestionsResult> {
+    try {
+      // Verify job application exists
+      const jobApplication = await repositories.jobApplication.findById(jobApplicationId);
+      if (!jobApplication) {
+        return {
+          success: false,
+          statusCode: 404,
+          error: 'Job application not found'
+        };
+      }
 
-    return await repositories.tag.findByJobApplication(jobApplicationId);
+      const tags = await repositories.tag.findByJobApplication(jobApplicationId);
+      const suggestions = tags.map(tag => ({
+        id: tag.id,
+        name: tag.name,
+        usageCount: 1 // This tag is used by this job application
+      }));
+
+      return {
+        success: true,
+        statusCode: 200,
+        suggestions
+      };
+    } catch (error) {
+      console.error('Error getting tags for job application:', error);
+      return {
+        success: false,
+        statusCode: 500,
+        error: 'Failed to get tags for job application'
+      };
+    }
   }
 }
 
-// Export singleton instance
 export const tagService = new TagService(); 

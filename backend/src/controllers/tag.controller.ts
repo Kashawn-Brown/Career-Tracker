@@ -2,28 +2,29 @@
  * Tag Controller
  * 
  * Handles HTTP requests for tag management operations.
+ * Follows auth controller pattern with class-based structure.
  * Implements proper error handling, validation, and response formatting.
- * Uses TagService for business logic to maintain separation of concerns.
  */
 
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { tagService } from '../services/index.js';
 import { ListTagsQuery, ListTagsParams, AddTagsRequest } from '../models/tag.models.js';
 
-/**
- * List all tags with optional filtering
- */
-export async function listTags(
-  request: FastifyRequest<{ 
-    Params: ListTagsParams;
-    Querystring: ListTagsQuery 
-  }>,
-  reply: FastifyReply
-) {
-  try {
-    const userId = parseInt(request.params.userId, 10);
-    const { search, limit = 50 } = request.query;
+export class TagController {
 
+  /**
+   * List all tags with optional filtering
+   * GET /api/users/:userId/tags
+   */
+  async listTags(
+    request: FastifyRequest<{ 
+      Params: ListTagsParams;
+      Querystring: ListTagsQuery 
+    }>,
+    reply: FastifyReply
+  ) {
+    // Validate user ID
+    const userId = parseInt(request.params.userId, 10);
     if (isNaN(userId)) {
       return reply.status(400).send({
         error: 'Bad Request',
@@ -31,36 +32,39 @@ export async function listTags(
       });
     }
 
-    const tags = await tagService.getUserTags({
+    // Extract query parameters
+    const { search, limit = 50 } = request.query;
+
+    // Call service method
+    const result = await tagService.getUserTags({
       userId,
       search,
       limit
     });
 
-    return reply.status(200).send(tags);
-  } catch (error) {
-    request.log.error('Error listing tags:', error);
-    return reply.status(500).send({
-      error: 'Internal Server Error',
-      message: 'Failed to retrieve tags'
-    });
+    // Handle service result
+    if (!result.success) {
+      return reply.status(result.statusCode).send({
+        error: result.error
+      });
+    }
+
+    return reply.status(result.statusCode).send(result.tags);
   }
-}
 
-/**
- * Add tags to a job application
- */
-export async function addTagsToApplication(
-  request: FastifyRequest<{ 
-    Params: { id: string }; 
-    Body: AddTagsRequest 
-  }>,
-  reply: FastifyReply
-) {
-  try {
+  /**
+   * Add tags to a job application
+   * POST /api/applications/:id/tags
+   */
+  async addTagsToApplication(
+    request: FastifyRequest<{ 
+      Params: { id: string }; 
+      Body: AddTagsRequest 
+    }>,
+    reply: FastifyReply
+  ) {
+    // Validate job application ID
     const jobApplicationId = parseInt(request.params.id, 10);
-    const { tagNames } = request.body;
-
     if (isNaN(jobApplicationId)) {
       return reply.status(400).send({
         error: 'Bad Request',
@@ -68,86 +72,74 @@ export async function addTagsToApplication(
       });
     }
 
-    const createdTags = await tagService.addTagsToApplication({
+    // Extract request body
+    const { tagNames } = request.body;
+
+    // Call service method
+    const result = await tagService.addTagsToApplication({
       jobApplicationId,
       tagNames
     });
 
-    return reply.status(200).send(createdTags);
-  } catch (error) {
-    request.log.error('Error adding tags to application:', error);
-    
-    // Handle specific business logic errors
-    if (error instanceof Error) {
-      if (error.message === 'Job application not found') {
-        return reply.status(404).send({
-          error: 'Not Found',
-          message: error.message
-        });
-      }
-      if (error.message === 'At least one valid tag is required') {
-        return reply.status(400).send({
-          error: 'Bad Request',
-          message: error.message
-        });
-      }
+    // Handle service result
+    if (!result.success) {
+      return reply.status(result.statusCode).send({
+        error: result.error
+      });
     }
 
-    return reply.status(500).send({
-      error: 'Internal Server Error',
-      message: 'Failed to add tags to job application'
+    return reply.status(result.statusCode).send(result.tags);
+  }
+
+  /**
+   * Remove a tag from a job application
+   * DELETE /api/applications/:id/tags/:tagId
+   */
+  async removeTagFromApplication(
+    request: FastifyRequest<{ 
+      Params: { id: string; tagId: string } 
+    }>,
+    reply: FastifyReply
+  ) {
+    // Validate job application ID
+    const jobApplicationId = parseInt(request.params.id, 10);
+    if (isNaN(jobApplicationId)) {
+      return reply.status(400).send({
+        error: 'Bad Request',
+        message: 'Invalid job application ID'
+      });
+    }
+
+    // Validate tag ID
+    const tagId = parseInt(request.params.tagId, 10);
+    if (isNaN(tagId)) {
+      return reply.status(400).send({
+        error: 'Bad Request',
+        message: 'Invalid tag ID'
+      });
+    }
+
+    // Call service method
+    // Note: This endpoint uses tagId but service expects tagName
+    // This is a legacy endpoint design issue that should be addressed
+    const result = await tagService.removeTagFromApplication({
+      jobApplicationId,
+      tagName: tagId.toString() // Converting tagId to tagName for backward compatibility
+    });
+
+    // Handle service result
+    if (!result.success) {
+      return reply.status(result.statusCode).send({
+        error: result.error
+      });
+    }
+
+    return reply.status(result.statusCode).send({
+      message: result.message,
+      removedTagNames: result.removedTagNames
     });
   }
 }
 
-/**
- * Remove a tag from a job application
- */
-export async function removeTagFromApplication(
-  request: FastifyRequest<{ 
-    Params: { id: string; tagId: string } 
-  }>,
-  reply: FastifyReply
-) {
-  try {
-    const jobApplicationId = parseInt(request.params.id, 10);
-    const tagId = parseInt(request.params.tagId, 10);
-
-    if (isNaN(jobApplicationId) || isNaN(tagId)) {
-      return reply.status(400).send({
-        error: 'Bad Request',
-        message: 'Invalid job application ID or tag ID'
-      });
-    }
-
-    const result = await tagService.removeTagFromApplication({
-      jobApplicationId,
-      tagName: tagId.toString() // Convert tagId to tagName for now - this endpoint may need redesign
-    });
-
-    return reply.status(200).send(result);
-  } catch (error) {
-    request.log.error('Error removing tag from application:', error);
-
-    // Handle specific business logic errors
-    if (error instanceof Error) {
-      if (error.message === 'Job application not found' || error.message === 'Tag not found') {
-        return reply.status(404).send({
-          error: 'Not Found',
-          message: error.message
-        });
-      }
-      if (error.message === 'Tag does not belong to the specified job application') {
-        return reply.status(400).send({
-          error: 'Bad Request',
-          message: error.message
-        });
-      }
-    }
-
-    return reply.status(500).send({
-      error: 'Internal Server Error',
-      message: 'Failed to remove tag from job application'
-    });
-  }
-} 
+// Export singleton instance
+export const tagController = new TagController(); 

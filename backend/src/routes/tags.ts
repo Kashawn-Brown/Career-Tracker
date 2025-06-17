@@ -6,11 +6,7 @@
  */
 
 import { FastifyInstance } from 'fastify';
-import {
-  listTags,
-  addTagsToApplication,
-  removeTagFromApplication
-} from '../controllers/tag.controller.js';
+import { tagController } from '../controllers/tag.controller.js';
 import {
   listTagsSchema,
   addTagsToApplicationSchema,
@@ -40,7 +36,7 @@ export default async function tagRoutes(fastify: FastifyInstance) {
         ...commonErrorResponses
       }
     },
-    handler: listTags
+    handler: tagController.listTags.bind(tagController)
   });
 
   /**
@@ -56,7 +52,7 @@ export default async function tagRoutes(fastify: FastifyInstance) {
         ...commonErrorResponses
       }
     },
-    handler: addTagsToApplication
+    handler: tagController.addTagsToApplication.bind(tagController)
   });
 
   /**
@@ -72,6 +68,6 @@ export default async function tagRoutes(fastify: FastifyInstance) {
         ...commonErrorResponses
       }
     },
-    handler: removeTagFromApplication
+    handler: tagController.removeTagFromApplication.bind(tagController)
   });
 } 

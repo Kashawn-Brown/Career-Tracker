@@ -104,4 +104,56 @@ export interface BulkTagOperation {
   jobApplicationIds: number[];
   tagNames: string[];
   operation: 'add' | 'remove' | 'replace';
+}
+
+/**
+ * Base result interface for tag operations
+ */
+interface BaseTagResult {
+  success: boolean;
+  statusCode: number;
+  error?: string;
+  message?: string;
+}
+
+/**
+ * Result for listing user tags
+ */
+export interface ListUserTagsResult extends BaseTagResult {
+  tags?: TagSuggestion[];
+}
+
+/**
+ * Result for adding tags to application
+ */
+export interface AddTagsToApplicationResult extends BaseTagResult {
+  tags?: Tag[];
+}
+
+/**
+ * Result for removing tags from application
+ */
+export interface RemoveTagsFromApplicationResult extends BaseTagResult {
+  removedTagNames?: string[];
+}
+
+/**
+ * Result for tag suggestions
+ */
+export interface TagSuggestionsResult extends BaseTagResult {
+  suggestions?: TagSuggestion[];
+}
+
+/**
+ * Result for tag statistics
+ */
+export interface TagStatsResult extends BaseTagResult {
+  stats?: TagStats;
+}
+
+/**
+ * Result for cleanup operations
+ */
+export interface TagCleanupResult extends BaseTagResult {
+  removedCount?: number;
 } 

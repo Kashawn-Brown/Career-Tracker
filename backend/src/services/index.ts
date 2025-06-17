@@ -6,7 +6,17 @@
  */
 
 export { tagService, TagService } from './tag.service.js';
-export type { TagFilters, AddTagsRequest, RemoveTagRequest } from '../models/tag.models.js';
+export type { 
+  TagFilters, 
+  AddTagsRequest, 
+  RemoveTagRequest,
+  ListUserTagsResult,
+  AddTagsToApplicationResult,
+  RemoveTagsFromApplicationResult,
+  TagSuggestionsResult,
+  TagStatsResult,
+  TagCleanupResult
+} from '../models/tag.models.js';
 
 export { jobApplicationService, JobApplicationService } from './job-application.service.js';
 export type { JobApplicationListFilters, CreateJobApplicationRequest, UpdateJobApplicationRequest } from '../models/job-application.models.js';
