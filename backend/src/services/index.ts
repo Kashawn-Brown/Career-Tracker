@@ -76,7 +76,7 @@ export type {
   ContactStatsResult
 } from '../models/contact.models.js';
 
-export { JobConnectionService } from './job-connection.service.js';
+export { jobConnectionService, JobConnectionService } from './job-connection.service.js';
 export type { JobConnectionListFilters, CreateJobConnectionRequest, UpdateJobConnectionRequest, UpdateJobConnectionStatusRequest } from '../models/job-connection.models.js';
 
 export { documentService, DocumentService } from './document.service.js';

@@ -84,4 +84,59 @@ export interface JobConnectionFilters {
   hasContact?: boolean;
   contactedAfter?: Date;
   contactedBefore?: Date;
+}
+
+// Service Result Types (following auth pattern)
+
+/**
+ * Base service result interface
+ */
+interface BaseServiceResult {
+  success: boolean;
+  statusCode: number;
+  error?: string;
+  message?: string;
+}
+
+/**
+ * Result for listing job connections
+ */
+export interface ListJobConnectionsResult extends BaseServiceResult {
+  data?: {
+    jobConnections: JobConnectionWithRelations[];
+    pagination: {
+      total: number;
+      page: number;
+      limit: number;
+      pages: number;
+    };
+  };
+}
+
+/**
+ * Result for getting a single job connection
+ */
+export interface GetJobConnectionResult extends BaseServiceResult {
+  jobConnection?: JobConnectionWithRelations;
+}
+
+/**
+ * Result for creating a job connection
+ */
+export interface CreateJobConnectionResult extends BaseServiceResult {
+  jobConnection?: JobConnectionWithRelations;
+}
+
+/**
+ * Result for updating a job connection
+ */
+export interface UpdateJobConnectionResult extends BaseServiceResult {
+  jobConnection?: JobConnectionWithRelations;
+}
+
+/**
+ * Result for deleting a job connection
+ */
+export interface DeleteJobConnectionResult extends BaseServiceResult {
+  message?: string;
 } 

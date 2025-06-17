@@ -3,6 +3,7 @@
  * 
  * Business logic layer for job connection operations.
  * Handles validation, business rules, and coordinates repository calls.
+ * Follows auth-style service pattern with structured result returns.
  */
 
 import { repositories } from '../repositories/index.js';
@@ -11,184 +12,293 @@ import {
   CreateJobConnectionRequest,
   UpdateJobConnectionRequest,
   UpdateJobConnectionStatusRequest,
-  JobConnectionFilters
+  JobConnectionFilters,
+  ListJobConnectionsResult,
+  GetJobConnectionResult,
+  CreateJobConnectionResult,
+  UpdateJobConnectionResult,
+  DeleteJobConnectionResult
 } from '../models/job-connection.models.js';
 
 export class JobConnectionService {
   /**
    * List job connections for an application with pagination and filtering
    */
-  async listJobConnections(applicationId: number, userId: number, filters: Omit<JobConnectionListFilters, 'jobApplicationId'>) {
-    const {
-      page = 1,
-      limit = 20,
-      status,
-      connectionType,
-      hasContact,
-      contactedAfter,
-      contactedBefore,
-      sortBy = 'createdAt',
-      sortOrder = 'desc'
-    } = filters;
+  async listJobConnections(
+    applicationId: number, 
+    userId: number, 
+    filters: Omit<JobConnectionListFilters, 'jobApplicationId'>
+  ): Promise<ListJobConnectionsResult> {
+    try {
+      const {
+        page = 1,
+        limit = 20,
+        status,
+        connectionType,
+        hasContact,
+        contactedAfter,
+        contactedBefore,
+        sortBy = 'createdAt',
+        sortOrder = 'desc'
+      } = filters;
 
-    // Verify the job application belongs to the user
-    const jobApplication = await repositories.jobApplication.findById(applicationId);
-    if (!jobApplication || jobApplication.userId !== userId) {
-      throw new Error('Job application not found');
-    }
-
-    // Build repository filters
-    const repositoryFilters: JobConnectionFilters = {
-      jobApplicationId: applicationId,
-      status,
-      connectionType,
-      hasContact,
-      contactedAfter: contactedAfter ? new Date(contactedAfter) : undefined,
-      contactedBefore: contactedBefore ? new Date(contactedBefore) : undefined
-    };
-
-    // Build order by
-    const orderBy = { [sortBy]: sortOrder };
-
-    // Get paginated results
-    const jobConnections = await repositories.jobConnection.findByJobApplication(applicationId);
-    
-    // Apply filters (simplified - in production you'd do this in the repository)
-    let filteredConnections = jobConnections;
-    
-    if (status) {
-      filteredConnections = filteredConnections.filter(conn => conn.status === status);
-    }
-    
-    if (connectionType) {
-      filteredConnections = filteredConnections.filter(conn => conn.connectionType === connectionType);
-    }
-    
-    if (hasContact !== undefined) {
-      filteredConnections = filteredConnections.filter(conn => 
-        hasContact ? conn.contactId !== null : conn.contactId === null
-      );
-    }
-
-    // Apply pagination
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
-    const paginatedConnections = filteredConnections.slice(startIndex, endIndex);
-
-    const total = filteredConnections.length;
-    const pages = Math.ceil(total / limit);
-
-    return {
-      jobConnections: paginatedConnections,
-      pagination: {
-        total,
-        page,
-        limit,
-        pages
+      // Verify the job application belongs to the user
+      const jobApplication = await repositories.jobApplication.findById(applicationId);
+      if (!jobApplication || jobApplication.userId !== userId) {
+        return {
+          success: false,
+          statusCode: 404,
+          error: 'Job application not found'
+        };
       }
-    };
+
+      // Build repository filters
+      const repositoryFilters: JobConnectionFilters = {
+        jobApplicationId: applicationId,
+        status,
+        connectionType,
+        hasContact,
+        contactedAfter: contactedAfter ? new Date(contactedAfter) : undefined,
+        contactedBefore: contactedBefore ? new Date(contactedBefore) : undefined
+      };
+
+      // Get all connections for the application
+      const jobConnections = await repositories.jobConnection.findByJobApplication(applicationId);
+      
+      // Apply filters (simplified - in production you'd do this in the repository)
+      let filteredConnections = jobConnections;
+      
+      if (status) {
+        filteredConnections = filteredConnections.filter(conn => conn.status === status);
+      }
+      
+      if (connectionType) {
+        filteredConnections = filteredConnections.filter(conn => conn.connectionType === connectionType);
+      }
+      
+      if (hasContact !== undefined) {
+        filteredConnections = filteredConnections.filter(conn => 
+          hasContact ? conn.contactId !== null : conn.contactId === null
+        );
+      }
+
+      // Apply pagination
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      const paginatedConnections = filteredConnections.slice(startIndex, endIndex);
+
+      const total = filteredConnections.length;
+      const pages = Math.ceil(total / limit);
+
+      return {
+        success: true,
+        statusCode: 200,
+        data: {
+          jobConnections: paginatedConnections,
+          pagination: {
+            total,
+            page,
+            limit,
+            pages
+          }
+        }
+      };
+
+    } catch (error) {
+      console.error('Error listing job connections:', error);
+      return {
+        success: false,
+        statusCode: 500,
+        error: 'Failed to retrieve job connections'
+      };
+    }
   }
 
   /**
    * Get a single job connection by ID with all relations
    */
-  async getJobConnection(applicationId: number, connectionId: number, userId: number) {
-    // Verify the job application belongs to the user
-    const jobApplication = await repositories.jobApplication.findById(applicationId);
-    if (!jobApplication || jobApplication.userId !== userId) {
-      throw new Error('Job application not found');
+  async getJobConnection(applicationId: number, connectionId: number, userId: number): Promise<GetJobConnectionResult> {
+    try {
+      // Verify the job application belongs to the user
+      const jobApplication = await repositories.jobApplication.findById(applicationId);
+      if (!jobApplication || jobApplication.userId !== userId) {
+        return {
+          success: false,
+          statusCode: 404,
+          error: 'Job application not found'
+        };
+      }
+
+      const jobConnection = await repositories.jobConnection.findByIdWithRelations(connectionId);
+
+      if (!jobConnection || jobConnection.jobApplicationId !== applicationId) {
+        return {
+          success: false,
+          statusCode: 404,
+          error: 'Job connection not found'
+        };
+      }
+
+      return {
+        success: true,
+        statusCode: 200,
+        jobConnection
+      };
+
+    } catch (error) {
+      console.error('Error getting job connection:', error);
+      return {
+        success: false,
+        statusCode: 500,
+        error: 'Failed to retrieve job connection'
+      };
     }
-
-    const jobConnection = await repositories.jobConnection.findByIdWithRelations(connectionId);
-
-    if (!jobConnection || jobConnection.jobApplicationId !== applicationId) {
-      throw new Error('Job connection not found');
-    }
-
-    return jobConnection;
   }
 
   /**
    * Create a new job connection with business validation
    */
-  async createJobConnection(applicationId: number, userId: number, data: Omit<CreateJobConnectionRequest, 'jobApplicationId'>) {
-    // Verify the job application belongs to the user
-    const jobApplication = await repositories.jobApplication.findById(applicationId);
-    if (!jobApplication || jobApplication.userId !== userId) {
-      throw new Error('Job application not found');
-    }
-
-    // Validate required fields
-    if (!data.name?.trim()) {
-      throw new Error('Contact name is required');
-    }
-
-    if (!data.connectionType?.trim()) {
-      throw new Error('Connection type is required');
-    }
-
-    // Validate connection type enum
-    const validConnectionTypes = ['referral', 'recruiter', 'hiring_manager', 'employee', 'alumni', 'networking', 'other'];
-    if (!validConnectionTypes.includes(data.connectionType)) {
-      throw new Error('Invalid connection type');
-    }
-
-    // Validate status enum if provided
-    if (data.status) {
-      const validStatuses = ['not_contacted', 'contacted', 'responded', 'meeting_scheduled', 'no_response', 'rejected'];
-      if (!validStatuses.includes(data.status)) {
-        throw new Error('Invalid status');
-      }
-    }
-
-    // Validate email format if provided
-    if (data.email && !this.isValidEmail(data.email)) {
-      throw new Error('Invalid email format');
-    }
-
-    // Validate contact exists if contactId is provided
-    if (data.contactId) {
-      const contact = await repositories.contact.findById(data.contactId);
-      if (!contact || contact.userId !== userId) {
-        throw new Error('Contact not found');
-      }
-    }
-
-    // Check for duplicate connection (same name and connection type for this application)
-    const existingConnections = await repositories.jobConnection.findByJobApplication(applicationId);
-    const duplicateConnection = existingConnections.find(conn => 
-      conn.name.toLowerCase() === data.name.toLowerCase() && 
-      conn.connectionType === data.connectionType
-    );
-    
-    if (duplicateConnection) {
-      throw new Error('Connection with this name and type already exists for this application');
-    }
-
-    // Create the job connection data for repository
-    const createData = {
-      ...data,
-      jobApplicationId: applicationId,
-      status: data.status || 'not_contacted',
-      jobApplication: { connect: { id: applicationId } },
-      ...(data.contactId && { contact: { connect: { id: data.contactId } } })
-    };
-
-    // Remove contactId from createData since we're using the relation
-    if (data.contactId) {
-      delete (createData as any).contactId;
-    }
-
+  async createJobConnection(
+    applicationId: number, 
+    userId: number, 
+    data: Omit<CreateJobConnectionRequest, 'jobApplicationId'>
+  ): Promise<CreateJobConnectionResult> {
     try {
+      // Verify the job application belongs to the user
+      const jobApplication = await repositories.jobApplication.findById(applicationId);
+      if (!jobApplication || jobApplication.userId !== userId) {
+        return {
+          success: false,
+          statusCode: 404,
+          error: 'Job application not found'
+        };
+      }
+
+      // Validate required fields
+      if (!data.name?.trim()) {
+        return {
+          success: false,
+          statusCode: 400,
+          error: 'Contact name is required'
+        };
+      }
+
+      if (!data.connectionType?.trim()) {
+        return {
+          success: false,
+          statusCode: 400,
+          error: 'Connection type is required'
+        };
+      }
+
+      // Validate connection type enum
+      const validConnectionTypes = ['referral', 'recruiter', 'hiring_manager', 'employee', 'alumni', 'networking', 'other'];
+      if (!validConnectionTypes.includes(data.connectionType)) {
+        return {
+          success: false,
+          statusCode: 400,
+          error: 'Invalid connection type'
+        };
+      }
+
+      // Validate status enum if provided
+      if (data.status) {
+        const validStatuses = ['not_contacted', 'contacted', 'responded', 'meeting_scheduled', 'no_response', 'rejected'];
+        if (!validStatuses.includes(data.status)) {
+          return {
+            success: false,
+            statusCode: 400,
+            error: 'Invalid status'
+          };
+        }
+      }
+
+      // Validate email format if provided
+      if (data.email && !this.isValidEmail(data.email)) {
+        return {
+          success: false,
+          statusCode: 400,
+          error: 'Invalid email format'
+        };
+      }
+
+      // Validate contact exists if contactId is provided
+      if (data.contactId) {
+        const contact = await repositories.contact.findById(data.contactId);
+        if (!contact || contact.userId !== userId) {
+          return {
+            success: false,
+            statusCode: 400,
+            error: 'Contact not found'
+          };
+        }
+      }
+
+      // Check for duplicate connection (same name and connection type for this application)
+      const existingConnections = await repositories.jobConnection.findByJobApplication(applicationId);
+      const duplicateConnection = existingConnections.find(conn => 
+        conn.name.toLowerCase() === data.name.toLowerCase() && 
+        conn.connectionType === data.connectionType
+      );
+      
+      if (duplicateConnection) {
+        return {
+          success: false,
+          statusCode: 400,
+          error: 'Connection with this name and type already exists for this application'
+        };
+      }
+
+      // Create the job connection data for repository
+      const createData = {
+        ...data,
+        jobApplicationId: applicationId,
+        status: data.status || 'not_contacted',
+        jobApplication: { connect: { id: applicationId } },
+        ...(data.contactId && { contact: { connect: { id: data.contactId } } })
+      };
+
+      // Remove contactId from createData since we're using the relation
+      if (data.contactId) {
+        delete (createData as any).contactId;
+      }
+
       const jobConnection = await repositories.jobConnection.create(createData);
       
       // Fetch the created job connection with all relations
-      return await repositories.jobConnection.findByIdWithRelations(jobConnection.id);
-    } catch (error) {
-      if (error instanceof Error && error.message.includes('Foreign key constraint')) {
-        throw new Error('Invalid application or contact ID provided');
+      const createdJobConnection = await repositories.jobConnection.findByIdWithRelations(jobConnection.id);
+      
+      if (!createdJobConnection) {
+        return {
+          success: false,
+          statusCode: 500,
+          error: 'Failed to retrieve created job connection'
+        };
       }
-      throw error;
+
+      return {
+        success: true,
+        statusCode: 201,
+        message: 'Job connection created successfully',
+        jobConnection: createdJobConnection
+      };
+
+    } catch (error) {
+      console.error('Error creating job connection:', error);
+      
+      if (error instanceof Error && error.message.includes('Foreign key constraint')) {
+        return {
+          success: false,
+          statusCode: 400,
+          error: 'Invalid application or contact ID provided'
+        };
+      }
+      
+      return {
+        success: false,
+        statusCode: 500,
+        error: 'Failed to create job connection'
+      };
     }
   }
 
@@ -200,145 +310,230 @@ export class JobConnectionService {
     connectionId: number, 
     userId: number, 
     data: UpdateJobConnectionRequest
-  ) {
-    // Verify the job application belongs to the user
-    const jobApplication = await repositories.jobApplication.findById(applicationId);
-    if (!jobApplication || jobApplication.userId !== userId) {
-      throw new Error('Job application not found');
-    }
-
-    // Check if job connection exists and belongs to the application
-    const existingConnection = await repositories.jobConnection.findById(connectionId);
-    if (!existingConnection || existingConnection.jobApplicationId !== applicationId) {
-      throw new Error('Job connection not found');
-    }
-
-    // Validate data if provided
-    if (data.name !== undefined && !data.name?.trim()) {
-      throw new Error('Contact name cannot be empty');
-    }
-
-    if (data.connectionType) {
-      const validConnectionTypes = ['referral', 'recruiter', 'hiring_manager', 'employee', 'alumni', 'networking', 'other'];
-      if (!validConnectionTypes.includes(data.connectionType)) {
-        throw new Error('Invalid connection type');
+  ): Promise<UpdateJobConnectionResult> {
+    try {
+      // Verify the job application belongs to the user
+      const jobApplication = await repositories.jobApplication.findById(applicationId);
+      if (!jobApplication || jobApplication.userId !== userId) {
+        return {
+          success: false,
+          statusCode: 404,
+          error: 'Job application not found'
+        };
       }
-    }
 
-    if (data.status) {
-      const validStatuses = ['not_contacted', 'contacted', 'responded', 'meeting_scheduled', 'no_response', 'rejected'];
-      if (!validStatuses.includes(data.status)) {
-        throw new Error('Invalid status');
+      // Verify the job connection exists and belongs to the application
+      const existingConnection = await repositories.jobConnection.findByIdWithRelations(connectionId);
+      if (!existingConnection || existingConnection.jobApplicationId !== applicationId) {
+        return {
+          success: false,
+          statusCode: 404,
+          error: 'Job connection not found'
+        };
       }
-    }
 
-    if (data.email && !this.isValidEmail(data.email)) {
-      throw new Error('Invalid email format');
-    }
-
-    // Validate contact exists if contactId is provided
-    if (data.contactId) {
-      const contact = await repositories.contact.findById(data.contactId);
-      if (!contact || contact.userId !== userId) {
-        throw new Error('Contact not found');
+      // Validate connection type enum if provided
+      if (data.connectionType) {
+        const validConnectionTypes = ['referral', 'recruiter', 'hiring_manager', 'employee', 'alumni', 'networking', 'other'];
+        if (!validConnectionTypes.includes(data.connectionType)) {
+          return {
+            success: false,
+            statusCode: 400,
+            error: 'Invalid connection type'
+          };
+        }
       }
-    }
 
-    // Check for duplicate connection if name or connectionType is being updated
-    if (data.name || data.connectionType) {
-      const nameToCheck = data.name || existingConnection.name;
-      const typeToCheck = data.connectionType || existingConnection.connectionType;
+      // Validate status enum if provided
+      if (data.status) {
+        const validStatuses = ['not_contacted', 'contacted', 'responded', 'meeting_scheduled', 'no_response', 'rejected'];
+        if (!validStatuses.includes(data.status)) {
+          return {
+            success: false,
+            statusCode: 400,
+            error: 'Invalid status'
+          };
+        }
+      }
+
+      // Validate email format if provided
+      if (data.email && !this.isValidEmail(data.email)) {
+        return {
+          success: false,
+          statusCode: 400,
+          error: 'Invalid email format'
+        };
+      }
+
+      // Validate contact exists if contactId is provided
+      if (data.contactId) {
+        const contact = await repositories.contact.findById(data.contactId);
+        if (!contact || contact.userId !== userId) {
+          return {
+            success: false,
+            statusCode: 400,
+            error: 'Contact not found'
+          };
+        }
+      }
+
+      // Check for duplicate name and connection type if being updated
+      if (data.name && data.connectionType) {
+        const existingConnections = await repositories.jobConnection.findByJobApplication(applicationId);
+        const duplicateConnection = existingConnections.find(conn => 
+          conn.id !== connectionId &&
+          conn.name.toLowerCase() === data.name!.toLowerCase() && 
+          conn.connectionType === data.connectionType
+        );
+        
+        if (duplicateConnection) {
+          return {
+            success: false,
+            statusCode: 400,
+            error: 'Connection with this name and type already exists for this application'
+          };
+        }
+      }
+
+      // Prepare update data
+      const updateData = {
+        ...data,
+        ...(data.contactedAt && { contactedAt: new Date(data.contactedAt) }),
+        ...(data.contactId && { contact: { connect: { id: data.contactId } } })
+      };
+
+      // Remove contactId from updateData since we're using the relation
+      if (data.contactId) {
+        delete (updateData as any).contactId;
+      }
+
+      const updatedJobConnection = await repositories.jobConnection.update(connectionId, updateData);
       
-      const existingConnections = await repositories.jobConnection.findByJobApplication(applicationId);
-      const duplicateConnection = existingConnections.find(conn => 
-        conn.id !== connectionId &&
-        conn.name.toLowerCase() === nameToCheck.toLowerCase() && 
-        conn.connectionType === typeToCheck
-      );
+      // Fetch the updated job connection with all relations
+      const result = await repositories.jobConnection.findByIdWithRelations(updatedJobConnection.id);
       
-      if (duplicateConnection) {
-        throw new Error('Connection with this name and type already exists for this application');
+      if (!result) {
+        return {
+          success: false,
+          statusCode: 500,
+          error: 'Failed to retrieve updated job connection'
+        };
       }
+
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Job connection updated successfully',
+        jobConnection: result
+      };
+
+    } catch (error) {
+      console.error('Error updating job connection:', error);
+      return {
+        success: false,
+        statusCode: 500,
+        error: 'Failed to update job connection'
+      };
     }
-
-    // Convert date string to Date object if provided
-    const updateData = { ...data };
-    if (updateData.contactedAt) {
-      (updateData as any).contactedAt = new Date(updateData.contactedAt);
-    }
-
-    // Remove undefined values
-    const cleanData = Object.fromEntries(
-      Object.entries(updateData).filter(([_, value]) => value !== undefined)
-    );
-
-    // Update job connection
-    await repositories.jobConnection.update(connectionId, cleanData);
-
-    // Fetch the updated job connection with all relations
-    return await repositories.jobConnection.findByIdWithRelations(connectionId);
   }
 
   /**
-   * Update job connection status (convenience method)
+   * Update job connection status
    */
   async updateJobConnectionStatus(
     applicationId: number, 
     connectionId: number, 
     userId: number, 
     data: UpdateJobConnectionStatusRequest
-  ) {
-    // Validate status
-    const validStatuses = ['not_contacted', 'contacted', 'responded', 'meeting_scheduled', 'no_response', 'rejected'];
-    if (!validStatuses.includes(data.status)) {
-      throw new Error('Invalid status');
+  ): Promise<UpdateJobConnectionResult> {
+    try {
+      // Validate status enum
+      const validStatuses = ['not_contacted', 'contacted', 'responded', 'meeting_scheduled', 'no_response', 'rejected'];
+      if (!validStatuses.includes(data.status)) {
+        return {
+          success: false,
+          statusCode: 400,
+          error: 'Invalid status'
+        };
+      }
+
+      const updateData: UpdateJobConnectionRequest = {
+        status: data.status,
+        notes: data.notes,
+        ...(data.contactedAt && { contactedAt: data.contactedAt })
+      };
+
+      return await this.updateJobConnection(applicationId, connectionId, userId, updateData);
+
+    } catch (error) {
+      console.error('Error updating job connection status:', error);
+      return {
+        success: false,
+        statusCode: 500,
+        error: 'Failed to update job connection status'
+      };
     }
-
-    const updateData: UpdateJobConnectionRequest = {
-      status: data.status,
-      notes: data.notes,
-      contactedAt: data.contactedAt
-    };
-
-    // If status is 'contacted' and no contactedAt provided, set to now
-    if (data.status === 'contacted' && !data.contactedAt) {
-      updateData.contactedAt = new Date().toISOString();
-    }
-
-    return await this.updateJobConnection(applicationId, connectionId, userId, updateData);
   }
 
   /**
-   * Delete a job connection with business validation
+   * Delete a job connection
    */
-  async deleteJobConnection(applicationId: number, connectionId: number, userId: number) {
-    // Verify the job application belongs to the user
-    const jobApplication = await repositories.jobApplication.findById(applicationId);
-    if (!jobApplication || jobApplication.userId !== userId) {
-      throw new Error('Job application not found');
+  async deleteJobConnection(applicationId: number, connectionId: number, userId: number): Promise<DeleteJobConnectionResult> {
+    try {
+      // Verify the job application belongs to the user
+      const jobApplication = await repositories.jobApplication.findById(applicationId);
+      if (!jobApplication || jobApplication.userId !== userId) {
+        return {
+          success: false,
+          statusCode: 404,
+          error: 'Job application not found'
+        };
+      }
+
+      // Verify the job connection exists and belongs to the application
+      const existingConnection = await repositories.jobConnection.findByIdWithRelations(connectionId);
+      if (!existingConnection || existingConnection.jobApplicationId !== applicationId) {
+        return {
+          success: false,
+          statusCode: 404,
+          error: 'Job connection not found'
+        };
+      }
+
+      await repositories.jobConnection.delete(connectionId);
+
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Job connection deleted successfully'
+      };
+
+    } catch (error) {
+      console.error('Error deleting job connection:', error);
+      return {
+        success: false,
+        statusCode: 500,
+        error: 'Failed to delete job connection'
+      };
     }
-
-    // Check if job connection exists and belongs to the application
-    const existingConnection = await repositories.jobConnection.findById(connectionId);
-    if (!existingConnection || existingConnection.jobApplicationId !== applicationId) {
-      throw new Error('Job connection not found');
-    }
-
-    // Delete the job connection
-    await repositories.jobConnection.delete(connectionId);
-
-    return { message: 'Job connection deleted successfully', deletedConnectionId: connectionId };
   }
 
+  /**
+   * Helper methods
+   */
+  
   /**
    * Get job connection statistics for a user
    */
   async getJobConnectionStats(userId: number) {
-    return await repositories.jobConnection.getJobConnectionStats(userId);
+    // Implementation remains the same - this is a helper method
+    // that doesn't follow the same pattern as it's not exposed via controller
+    const stats = await repositories.jobConnection.getJobConnectionStats(userId);
+    return stats;
   }
 
   /**
-   * Mark job connection as contacted
+   * Mark a connection as contacted
    */
   async markAsContacted(applicationId: number, connectionId: number, userId: number, notes?: string) {
     return await this.updateJobConnectionStatus(applicationId, connectionId, userId, {
@@ -355,4 +550,7 @@ export class JobConnectionService {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   }
-} 
+}
+
+// Export singleton instance
+export const jobConnectionService = new JobConnectionService(); 
