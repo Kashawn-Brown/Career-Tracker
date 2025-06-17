@@ -1,18 +1,31 @@
 /**
  * File Upload Service
  * 
- * Business logic layer for file storage operations.
- * Abstracts file storage with support for local storage (MVP) and future cloud storage.
- * Handles storing, retrieving, and deleting files.
+ * Business logic layer for file upload operations following the established auth pattern.
+ * Handles file processing, validation, storage coordination, and business rules.
+ * Provides standardized result types for consistent API responses.
  */
 
 import fs from 'fs/promises';
 import path from 'path';
-import { createReadStream, createWriteStream } from 'fs';
-import { pipeline } from 'stream/promises';
+import { createReadStream } from 'fs';
 import { getValidatedStorageConfig } from '../config/storage.js';
 import { UploadedFileInfo } from '../models/document.models.js';
+import {
+  ProcessSingleFileUploadResult,
+  ProcessMultipleFileUploadResult,
+  GetFileInfoResult,
+  DownloadFileResult,
+  DeleteFileResult,
+  UploadConfigurationResult,
+  FileValidationResult,
+  MultipleFileValidationResult,
+  FileProcessingOptions,
+  FileStorageMetadata,
+  FileUploadError
+} from '../models/file-upload.models.js';
 
+// Legacy interfaces for backward compatibility
 export interface FileStorageResult {
   success: boolean;
   filePath?: string;
@@ -30,6 +43,642 @@ export interface FileRetrievalResult {
 
 export class FileUploadService {
   private config = getValidatedStorageConfig();
+
+  // ===== NEW BUSINESS LOGIC METHODS (AUTH PATTERN) =====
+
+  /**
+   * Process a single file upload with validation and storage
+   * Main business logic method for single file operations
+   */
+  async processSingleFileUpload(
+    uploadedFile: UploadedFileInfo,
+    options: FileProcessingOptions = {}
+  ): Promise<ProcessSingleFileUploadResult> {
+    try {
+      // Validate the uploaded file
+      const validation = await this.validateSingleFile(uploadedFile);
+      if (!validation.valid) {
+        return {
+          success: false,
+          statusCode: 400,
+          error: 'File Validation Failed',
+          message: 'The uploaded file failed validation checks',
+          details: {
+            filename: uploadedFile.originalName,
+            errors: validation.errors
+          }
+        };
+      }
+
+      // Store the file using the storage service
+      const storeResult = await this.storeUploadedFile(uploadedFile);
+      
+      if (!storeResult.success) {
+        return {
+          success: false,
+          statusCode: 500,
+          error: 'File Storage Error',
+          message: 'Failed to store the uploaded file',
+          details: {
+            filename: uploadedFile.originalName,
+            storageError: storeResult.error
+          }
+        };
+      }
+
+      // Generate file URL if requested
+      let fileUrl: string | undefined;
+      if (options.generateUrl !== false) {
+        try {
+          fileUrl = await this.getFileUrl(storeResult.filePath || uploadedFile.filename) || undefined;
+        } catch (error) {
+          // Don't fail the upload if URL generation fails
+          console.warn('Failed to generate file URL:', error);
+        }
+      }
+
+      return {
+        success: true,
+        statusCode: 201,
+        message: 'File uploaded successfully',
+        file: {
+          filename: uploadedFile.filename,
+          originalName: uploadedFile.originalName,
+          size: uploadedFile.size,
+          mimeType: uploadedFile.mimeType,
+          url: fileUrl,
+          path: storeResult.filePath || uploadedFile.path,
+          uploadDate: uploadedFile.uploadDate
+        }
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        statusCode: 500,
+        error: 'Internal Server Error',
+        message: 'An unexpected error occurred during file upload',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Process multiple file uploads with validation and storage
+   * Main business logic method for multiple file operations
+   */
+  async processMultipleFileUpload(
+    uploadedFiles: UploadedFileInfo[],
+    options: FileProcessingOptions = {}
+  ): Promise<ProcessMultipleFileUploadResult> {
+    try {
+      if (!uploadedFiles || uploadedFiles.length === 0) {
+        return {
+          success: false,
+          statusCode: 400,
+          error: 'No Files Provided',
+          message: 'No files were provided for upload'
+        };
+      }
+
+      // Validate all files
+      const validation = await this.validateMultipleFiles(uploadedFiles);
+      
+      // For partial success scenarios, we should process valid files even if some are invalid
+      // Only fail completely if NO files are valid
+      if (validation.validFiles.length === 0) {
+        return {
+          success: false,
+          statusCode: 400,
+          error: 'File Validation Failed',
+          message: 'No valid files to process',
+          details: {
+            totalFiles: validation.totalFiles,
+            errors: validation.errors,
+            invalidFiles: validation.invalidFiles.map(invalid => ({
+              filename: invalid.file.originalName,
+              errors: invalid.errors
+            }))
+          }
+        };
+      }
+
+      // Process each valid file
+      const processedFiles: Array<NonNullable<ProcessSingleFileUploadResult['file']>> = [];
+      const errors: FileUploadError[] = [];
+      let totalSize = 0;
+
+      for (const file of validation.validFiles) {
+        try {
+          const storeResult = await this.storeUploadedFile(file);
+          
+          if (storeResult.success) {
+            // Generate file URL if requested
+            let fileUrl: string | undefined;
+            if (options.generateUrl !== false) {
+              try {
+                fileUrl = await this.getFileUrl(storeResult.filePath || file.filename) || undefined;
+              } catch (error) {
+                console.warn(`Failed to generate URL for ${file.filename}:`, error);
+              }
+            }
+
+            processedFiles.push({
+              filename: file.filename,
+              originalName: file.originalName,
+              size: file.size,
+              mimeType: file.mimeType,
+              url: fileUrl,
+              path: storeResult.filePath || file.path,
+              uploadDate: file.uploadDate
+            });
+
+            totalSize += file.size;
+          } else {
+            errors.push({
+              code: 'STORAGE_ERROR',
+              message: storeResult.error || 'Failed to store file',
+              file: {
+                filename: file.originalName,
+                size: file.size,
+                mimeType: file.mimeType
+              }
+            });
+          }
+        } catch (error) {
+          errors.push({
+            code: 'PROCESSING_ERROR',
+            message: error instanceof Error ? error.message : 'Unknown processing error',
+            file: {
+              filename: file.originalName,
+              size: file.size,
+              mimeType: file.mimeType
+            }
+          });
+        }
+      }
+
+      // Determine overall success
+      const allOriginalFilesProcessed = processedFiles.length === uploadedFiles.length;
+      const allValidFilesProcessed = processedFiles.length === validation.validFiles.length;
+      const hasProcessedFiles = processedFiles.length > 0;
+
+      if (!hasProcessedFiles) {
+        return {
+          success: false,
+          statusCode: 500,
+          error: 'File Processing Failed',
+          message: 'Failed to process any of the uploaded files',
+          details: { errors }
+        };
+      }
+
+      const result = {
+        success: true, // Partial success is still success - any files processed successfully
+        statusCode: allOriginalFilesProcessed ? 201 : 207, // 207 Multi-Status for partial success (some files rejected/failed)
+        message: allOriginalFilesProcessed 
+          ? 'All files uploaded successfully'
+          : `${processedFiles.length} of ${uploadedFiles.length} files uploaded successfully`,
+        files: processedFiles,
+        totalFiles: processedFiles.length,
+        totalSize,
+        details: errors.length > 0 ? { errors } : undefined
+      };
+      
+      return result;
+
+    } catch (error) {
+      return {
+        success: false,
+        statusCode: 500,
+        error: 'Internal Server Error',
+        message: 'An unexpected error occurred during multiple file upload',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Get file information and metadata
+   * Business logic method for file info retrieval
+   */
+  async getFileInfo(filename: string): Promise<GetFileInfoResult> {
+    try {
+      if (!filename || filename.trim() === '') {
+        return {
+          success: false,
+          statusCode: 400,
+          error: 'Bad Request',
+          message: 'Filename is required'
+        };
+      }
+
+      // Check if file exists
+      const exists = await this.fileExists(filename);
+      
+      if (!exists) {
+        return {
+          success: false,
+          statusCode: 404,
+          error: 'File Not Found',
+          message: `File '${filename}' does not exist`
+        };
+      }
+
+      // Get file details from storage
+      const fileInfo = await this.getFileDetails(filename);
+      
+      if (!fileInfo) {
+        return {
+          success: false,
+          statusCode: 500,
+          error: 'Internal Server Error',
+          message: 'Failed to retrieve file information'
+        };
+      }
+
+      // Generate file URL
+      let fileUrl: string | undefined;
+      try {
+        fileUrl = await this.getFileUrl(filename) || undefined;
+      } catch (error) {
+        console.warn(`Failed to generate URL for ${filename}:`, error);
+      }
+
+      return {
+        success: true,
+        statusCode: 200,
+        file: {
+          filename: fileInfo.filename,
+          originalName: fileInfo.originalName || fileInfo.filename,
+          size: fileInfo.size,
+          mimeType: fileInfo.mimeType || 'application/octet-stream',
+          url: fileUrl,
+          exists: true,
+          uploadDate: fileInfo.uploadDate
+        }
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        statusCode: 500,
+        error: 'Internal Server Error',
+        message: 'An unexpected error occurred while retrieving file information',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Download a file with stream handling
+   * Business logic method for file download
+   */
+  async downloadFile(filename: string): Promise<DownloadFileResult> {
+    try {
+      if (!filename || filename.trim() === '') {
+        return {
+          success: false,
+          statusCode: 400,
+          error: 'Bad Request',
+          message: 'Filename is required'
+        };
+      }
+
+      // Check if file exists
+      const exists = await this.fileExists(filename);
+      
+      if (!exists) {
+        return {
+          success: false,
+          statusCode: 404,
+          error: 'File Not Found',
+          message: `File '${filename}' does not exist`
+        };
+      }
+
+      // Retrieve file from storage
+      const retrievalResult = await this.retrieveFile(filename);
+      
+      if (!retrievalResult.success || !retrievalResult.stream) {
+        return {
+          success: false,
+          statusCode: 500,
+          error: 'File Retrieval Error',
+          message: retrievalResult.error || 'Failed to retrieve file for download'
+        };
+      }
+
+      // Get file details for metadata
+      const fileInfo = await this.getFileDetails(filename);
+
+      return {
+        success: true,
+        statusCode: 200,
+        stream: retrievalResult.stream,
+        filename: fileInfo?.originalName || filename,
+        contentType: retrievalResult.contentType || fileInfo?.mimeType || 'application/octet-stream',
+        contentLength: String(retrievalResult.contentLength || fileInfo?.size || 0)
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        statusCode: 500,
+        error: 'Internal Server Error',
+        message: 'An unexpected error occurred during file download',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Delete a file from storage
+   * Business logic method for file deletion
+   */
+  async deleteFileByName(filename: string): Promise<DeleteFileResult> {
+    try {
+      if (!filename || filename.trim() === '') {
+        return {
+          success: false,
+          statusCode: 400,
+          error: 'Bad Request',
+          message: 'Filename is required'
+        };
+      }
+
+      // Check if file exists
+      const exists = await this.fileExists(filename);
+      
+      if (!exists) {
+        return {
+          success: false,
+          statusCode: 404,
+          error: 'File Not Found',
+          message: `File '${filename}' does not exist`
+        };
+      }
+
+             // Delete the file
+       const deleteResult = await this.deleteFileFromStorage(filename);
+      
+      if (!deleteResult.success) {
+        return {
+          success: false,
+          statusCode: 500,
+          error: 'File Deletion Error',
+          message: deleteResult.error || 'Failed to delete file'
+        };
+      }
+
+      return {
+        success: true,
+        statusCode: 200,
+        message: `File '${filename}' deleted successfully`
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        statusCode: 500,
+        error: 'Internal Server Error',
+        message: 'An unexpected error occurred during file deletion',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Get upload configuration for client
+   * Business logic method for configuration retrieval
+   */
+  getUploadConfiguration(): UploadConfigurationResult {
+    const storageInfo = this.getStorageInfo();
+    
+    return {
+      maxFileSize: storageInfo.maxFileSize || 10485760,
+      maxFileSizeMB: (storageInfo.maxFileSize || 10485760) / (1024 * 1024),
+      allowedMimeTypes: storageInfo.allowedTypes || ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'],
+      allowedExtensions: this.getAllowedExtensions(),
+      uploadDir: this.config.local?.uploadDir || 'uploads',
+      storageType: this.config.type,
+      supportedFeatures: {
+        multipleFiles: true,
+        streamDownload: true,
+        urlGeneration: this.config.type === 'local' || this.config.type === 'cloudinary'
+      }
+    };
+  }
+
+  // ===== VALIDATION METHODS =====
+
+  /**
+   * Validate a single uploaded file
+   */
+  private async validateSingleFile(file: UploadedFileInfo): Promise<FileValidationResult> {
+    const errors: string[] = [];
+
+    // Check file existence
+    if (!file || !file.filename) {
+      errors.push('File information is missing or invalid');
+      return { valid: false, errors };
+    }
+
+    // Validate file size
+    const maxSize = this.getStorageInfo().maxFileSize || 10485760;
+    if (file.size > maxSize) {
+      errors.push(`File size (${(file.size / (1024 * 1024)).toFixed(2)}MB) exceeds maximum limit of ${(maxSize / (1024 * 1024)).toFixed(0)}MB`);
+    }
+
+    // Validate file type
+    const allowedTypes = this.getStorageInfo().allowedTypes || [];
+    if (allowedTypes.length > 0 && !allowedTypes.includes(file.mimeType)) {
+      errors.push(`File type '${file.mimeType}' is not allowed. Allowed types: ${allowedTypes.join(', ')}`);
+    }
+
+    // Validate file extension
+    const ext = path.extname(file.originalName).toLowerCase();
+    const allowedExtensions = this.getAllowedExtensions();
+    if (allowedExtensions.length > 0 && !allowedExtensions.includes(ext)) {
+      errors.push(`File extension '${ext}' is not allowed. Allowed extensions: ${allowedExtensions.join(', ')}`);
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors,
+      file: {
+        filename: file.filename,
+        size: file.size,
+        mimeType: file.mimeType
+      }
+    };
+  }
+
+  /**
+   * Validate multiple uploaded files
+   */
+  private async validateMultipleFiles(files: UploadedFileInfo[]): Promise<MultipleFileValidationResult> {
+    const validFiles: UploadedFileInfo[] = [];
+    const invalidFiles: Array<{ file: UploadedFileInfo; errors: string[] }> = [];
+    const allErrors: string[] = [];
+    let totalSize = 0;
+
+    for (const file of files) {
+      const validation = await this.validateSingleFile(file);
+      
+      if (validation.valid) {
+        validFiles.push(file);
+        totalSize += file.size;
+      } else {
+        invalidFiles.push({ file, errors: validation.errors });
+        allErrors.push(...validation.errors);
+      }
+    }
+
+    // Check total size limit (if applicable)
+    const maxTotalSize = this.getStorageInfo().maxFileSize * 5; // Allow 5x single file limit for multiple
+    if (totalSize > maxTotalSize) {
+      allErrors.push(`Total size of all files (${(totalSize / (1024 * 1024)).toFixed(2)}MB) exceeds limit`);
+    }
+
+    return {
+      valid: invalidFiles.length === 0 && allErrors.length === 0,
+      errors: allErrors,
+      validFiles,
+      invalidFiles,
+      totalFiles: files.length,
+      totalSize
+    };
+  }
+
+  /**
+   * Get file details for a given filename
+   */
+  private async getFileDetails(filename: string): Promise<FileStorageMetadata | null> {
+    try {
+      switch (this.config.type) {
+        case 'local':
+          return await this.getLocalFileDetails(filename);
+        case 'cloudinary':
+          return await this.getCloudinaryFileDetails(filename);
+        case 's3':
+          return await this.getS3FileDetails(filename);
+        default:
+          return null;
+      }
+    } catch (error) {
+      console.error('Error getting file details:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get local file details
+   */
+  private async getLocalFileDetails(filename: string): Promise<FileStorageMetadata | null> {
+    if (!this.config.local) return null;
+
+    try {
+      const filePath = path.join(process.cwd(), this.config.local.uploadDir, 'documents', filename);
+      const stats = await fs.stat(filePath);
+      
+      return {
+        filename,
+        originalName: filename, // We don't store original names separately in local storage
+        size: stats.size,
+        mimeType: this.guessMimeType(filename),
+        path: filename,
+        url: this.getLocalFileUrl(filename),
+        storageProvider: 'local',
+        uploadDate: stats.birthtime || stats.ctime
+      };
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /**
+   * Get Cloudinary file details (placeholder)
+   */
+  private async getCloudinaryFileDetails(filename: string): Promise<FileStorageMetadata | null> {
+    // TODO: Implement when Cloudinary is set up
+    return null;
+  }
+
+  /**
+   * Get S3 file details (placeholder)
+   */
+  private async getS3FileDetails(filename: string): Promise<FileStorageMetadata | null> {
+    // TODO: Implement when S3 is set up
+    return null;
+  }
+
+  /**
+   * Wrapper method for deleteFile for clarity
+   */
+  private async deleteFileFromStorage(filename: string): Promise<{ success: boolean; error?: string }> {
+    // Call the existing storage abstraction method
+    try {
+      switch (this.config.type) {
+        case 'local':
+          return await this.deleteFileLocally(filename);
+        case 'cloudinary':
+          return await this.deleteFileCloudinary(filename);
+        case 's3':
+          return await this.deleteFileS3(filename);
+        default:
+          return {
+            success: false,
+            error: `Unsupported storage type: ${this.config.type}`
+          };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown deletion error'
+      };
+    }
+  }
+
+  /**
+   * Get allowed file extensions based on configuration
+   */
+  private getAllowedExtensions(): string[] {
+    // Map common MIME types to extensions
+    const mimeToExt: Record<string, string> = {
+      'application/pdf': '.pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+      'application/msword': '.doc',
+      'text/plain': '.txt',
+      'image/jpeg': '.jpg',
+      'image/png': '.png',
+      'image/gif': '.gif'
+    };
+
+    const allowedTypes = this.getStorageInfo().allowedTypes;
+    return allowedTypes.map(type => mimeToExt[type]).filter(Boolean);
+  }
+
+  /**
+   * Guess MIME type from file extension
+   */
+  private guessMimeType(filename: string): string {
+    const ext = path.extname(filename).toLowerCase();
+    const extToMime: Record<string, string> = {
+      '.pdf': 'application/pdf',
+      '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      '.doc': 'application/msword',
+      '.txt': 'text/plain',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.png': 'image/png',
+      '.gif': 'image/gif'
+    };
+
+    return extToMime[ext] || 'application/octet-stream';
+  }
+
+  // ===== EXISTING METHODS (STORAGE ABSTRACTION) =====
 
   /**
    * Store a file using the configured storage provider
@@ -208,7 +857,12 @@ export class FileUploadService {
     return {
       type: this.config.type,
       maxFileSize: this.config.local?.maxFileSize || 10485760, // Default 10MB
-      allowedTypes: this.config.local?.allowedTypes || []
+      allowedTypes: this.config.local?.allowedTypes || [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+        'text/plain'
+      ]
     };
   }
 

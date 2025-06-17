@@ -25,4 +25,7 @@ export * from './job-connection.controller.js';
 export * from './tag.controller.js';
 
 // Document Controllers
-export * from './document.controller.js'; 
+export * from './document.controller.js';
+
+// File Upload Controllers
+export * from './file-upload.controller.js'; 
