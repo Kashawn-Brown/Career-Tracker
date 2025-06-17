@@ -77,34 +77,48 @@ describe('DocumentService', () => {
         type: 'resume', // PDF should determine resume type
         jobApplication: { connect: { id: 1 } }
       });
-      expect(result).toEqual(mockDocWithRelations);
+      expect(result.success).toBe(true);
+      expect(result.statusCode).toBe(201);
+      expect(result.document).toEqual(mockDocWithRelations);
     });
 
-    it('should throw error when job application ID is missing', async () => {
+    it('should return error when job application ID is missing', async () => {
       // Arrange
       const invalidRequest = { ...validCreateRequest, jobApplicationId: undefined };
 
-      // Act & Assert
-      await expect(documentService.createDocument(invalidRequest as any))
-        .rejects.toThrow('Job application ID is required');
+      // Act
+      const result = await documentService.createDocument(invalidRequest as any);
+
+      // Assert
+      expect(result.success).toBe(false);
+      expect(result.statusCode).toBe(400);
+      expect(result.message).toBe('Job application ID is required');
     });
 
-    it('should throw error when filename is missing', async () => {
+    it('should return error when filename is missing', async () => {
       // Arrange
       const invalidRequest = { ...validCreateRequest, filename: '' };
 
-      // Act & Assert
-      await expect(documentService.createDocument(invalidRequest))
-        .rejects.toThrow('Filename is required');
+      // Act
+      const result = await documentService.createDocument(invalidRequest);
+
+      // Assert
+      expect(result.success).toBe(false);
+      expect(result.statusCode).toBe(400);
+      expect(result.message).toBe('Filename is required');
     });
 
-    it('should throw error when job application does not exist', async () => {
+    it('should return error when job application does not exist', async () => {
       // Arrange
       repositories.jobApplication.findById = vi.fn().mockResolvedValue(null);
 
-      // Act & Assert
-      await expect(documentService.createDocument(validCreateRequest))
-        .rejects.toThrow('Job application not found');
+      // Act
+      const result = await documentService.createDocument(validCreateRequest);
+
+      // Assert
+      expect(result.success).toBe(false);
+      expect(result.statusCode).toBe(404);
+      expect(result.message).toBe('Job application not found');
     });
 
     it('should determine document type from MIME type', async () => {
@@ -147,19 +161,25 @@ describe('DocumentService', () => {
       const result = await documentService.getDocument(1, 1);
 
       // Assert
-      expect(result).toEqual(mockDoc);
+      expect(result.success).toBe(true);
+      expect(result.statusCode).toBe(200);
+      expect(result.document).toEqual(mockDoc);
     });
 
-    it('should throw error when document not found', async () => {
+    it('should return error when document not found', async () => {
       // Arrange
       repositories.document.findByIdWithRelations = vi.fn().mockResolvedValue(null);
 
-      // Act & Assert
-      await expect(documentService.getDocument(1))
-        .rejects.toThrow('Document not found');
+      // Act
+      const result = await documentService.getDocument(1);
+
+      // Assert
+      expect(result.success).toBe(false);
+      expect(result.statusCode).toBe(404);
+      expect(result.message).toBe('Document not found');
     });
 
-    it('should throw error when user does not own document', async () => {
+    it('should return error when user does not own document', async () => {
       // Arrange
       const mockDoc = {
         id: 1,
@@ -168,9 +188,13 @@ describe('DocumentService', () => {
       };
       repositories.document.findByIdWithRelations = vi.fn().mockResolvedValue(mockDoc);
 
-      // Act & Assert
-      await expect(documentService.getDocument(1, 1))
-        .rejects.toThrow('Document not found');
+      // Act
+      const result = await documentService.getDocument(1, 1);
+
+      // Assert
+      expect(result.success).toBe(false);
+      expect(result.statusCode).toBe(404);
+      expect(result.message).toBe('Document not found');
     });
   });
 
@@ -198,17 +222,23 @@ describe('DocumentService', () => {
 
       // Assert
       expect(repositories.document.update).toHaveBeenCalledWith(1, { filename: 'new-name.pdf' });
-      expect(result).toEqual(mockUpdatedDoc);
+      expect(result.success).toBe(true);
+      expect(result.statusCode).toBe(200);
+      expect(result.document).toEqual(mockUpdatedDoc);
     });
 
-    it('should throw error when filename is empty', async () => {
+    it('should return error when filename is empty', async () => {
       // Arrange
       const mockExistingDoc = { id: 1, jobApplication: { userId: 1 } };
       repositories.document.findByIdWithRelations = vi.fn().mockResolvedValue(mockExistingDoc);
 
-      // Act & Assert
-      await expect(documentService.updateDocument(1, { filename: '' }, 1))
-        .rejects.toThrow('Filename cannot be empty');
+      // Act
+      const result = await documentService.updateDocument(1, { filename: '' }, 1);
+
+      // Assert
+      expect(result.success).toBe(false);
+      expect(result.statusCode).toBe(400);
+      expect(result.message).toBe('Filename cannot be empty');
     });
   });
 
@@ -218,6 +248,7 @@ describe('DocumentService', () => {
       const mockDoc = {
         id: 1,
         filename: 'test.pdf',
+        originalName: 'test.pdf',
         jobApplication: { userId: 1 }
       };
       repositories.document.findByIdWithRelations = vi.fn().mockResolvedValue(mockDoc);
@@ -228,19 +259,22 @@ describe('DocumentService', () => {
 
       // Assert
       expect(repositories.document.delete).toHaveBeenCalledWith(1);
-      expect(result).toEqual({
-        success: true,
-        message: 'Document deleted successfully'
-      });
+      expect(result.success).toBe(true);
+      expect(result.statusCode).toBe(200);
+      expect(result.message).toBe('Document deleted successfully');
     });
 
-    it('should throw error when document not found', async () => {
+    it('should return error when document not found', async () => {
       // Arrange
       repositories.document.findByIdWithRelations = vi.fn().mockResolvedValue(null);
 
-      // Act & Assert
-      await expect(documentService.deleteDocument(1))
-        .rejects.toThrow('Document not found');
+      // Act
+      const result = await documentService.deleteDocument(1);
+
+      // Assert
+      expect(result.success).toBe(false);
+      expect(result.statusCode).toBe(404);
+      expect(result.message).toBe('Document not found');
     });
   });
 
@@ -270,6 +304,7 @@ describe('DocumentService', () => {
           orderBy: { createdAt: 'desc' }
         }
       );
+      expect(result.success).toBe(true);
       expect(result.documents).toEqual(mockDocs);
       expect(result.pagination).toBeDefined();
       expect(result.pagination.total).toBe(2);
@@ -292,14 +327,19 @@ describe('DocumentService', () => {
 
       // Assert
       expect(repositories.document.findByJobApplication).toHaveBeenCalledWith(1);
+      expect(result.success).toBe(true);
       expect(result.documents).toEqual(mockDocs);
       expect(result.pagination).toBeDefined();
     });
 
-    it('should throw error when neither userId nor jobApplicationId provided', async () => {
-      // Act & Assert
-      await expect(documentService.listDocuments({ page: 1, limit: 10 }))
-        .rejects.toThrow('Either userId or jobApplicationId is required for listing documents');
+    it('should return error when neither userId nor jobApplicationId provided', async () => {
+      // Act
+      const result = await documentService.listDocuments({ page: 1, limit: 10 });
+
+      // Assert
+      expect(result.success).toBe(false);
+      expect(result.statusCode).toBe(400);
+      expect(result.message).toBe('Either userId or jobApplicationId is required for listing documents');
     });
   });
 
@@ -318,13 +358,18 @@ describe('DocumentService', () => {
         1,
         { pagination: { page: 1, limit: 10 } }
       );
-      expect(result).toEqual(mockResults);
+      expect(result.success).toBe(true);
+      expect(result.documents).toEqual(mockResults);
     });
 
-    it('should throw error for empty query', async () => {
-      // Act & Assert
-      await expect(documentService.searchDocuments('', 1))
-        .rejects.toThrow('Search query is required');
+    it('should return error for empty query', async () => {
+      // Act
+      const result = await documentService.searchDocuments('', 1);
+
+      // Assert
+      expect(result.success).toBe(false);
+      expect(result.statusCode).toBe(400);
+      expect(result.message).toBe('Search query is required');
     });
   });
 
@@ -346,7 +391,8 @@ describe('DocumentService', () => {
 
       // Assert
       expect(repositories.document.getDocumentStats).toHaveBeenCalledWith(1);
-      expect(result).toEqual(mockStats);
+      expect(result.success).toBe(true);
+      expect(result.stats).toEqual(mockStats);
     });
   });
 

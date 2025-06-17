@@ -6,7 +6,7 @@
  */
 
 import jwt from 'jsonwebtoken';
-import { JwtPayload, TokenPair } from '../interfaces/jwt.interface.js';
+import { JWTPayload, TokenPair } from '../models/jwt.models.js';
 import { UserRole } from '../models/user.models.js';
 
 // Return type for refreshTokens function
@@ -33,14 +33,14 @@ class JwtService {
       throw new Error('JWT secrets not configured');
     }
 
-    const accessTokenPayload: JwtPayload = {
+    const accessTokenPayload: JWTPayload = {
       userId,
       email,
       type: 'access',
       role
     };
 
-    const refreshTokenPayload: JwtPayload = {
+    const refreshTokenPayload: JWTPayload = {
       userId,
       email,
       type: 'refresh',
@@ -66,7 +66,7 @@ class JwtService {
   /**
    * Verify and decode an access JWT token
    */
-  verifyAccessToken(token: string): JwtPayload {
+  verifyAccessToken(token: string): JWTPayload {
     if (!this.JWT_SECRET) {
       throw new Error('JWT secret not configured');
     }
@@ -74,7 +74,7 @@ class JwtService {
     try {
       const decoded = jwt.verify(token, this.JWT_SECRET, {
         algorithms: ['HS256']
-      }) as JwtPayload;
+      }) as JWTPayload;
 
       if (decoded.type !== 'access') {
         throw new Error('Invalid token type');
@@ -95,7 +95,7 @@ class JwtService {
   /**
    * Verify and decode a refresh JWT token
    */
-  verifyRefreshToken(token: string): JwtPayload {
+  verifyRefreshToken(token: string): JWTPayload {
     if (!this.JWT_REFRESH_SECRET) {
       throw new Error('JWT refresh secret not configured');
     }
@@ -103,7 +103,7 @@ class JwtService {
     try {
       const decoded = jwt.verify(token, this.JWT_REFRESH_SECRET, {
         algorithms: ['HS256']
-      }) as JwtPayload;
+      }) as JWTPayload;
 
       if (decoded.type !== 'refresh') {
         throw new Error('Invalid token type');

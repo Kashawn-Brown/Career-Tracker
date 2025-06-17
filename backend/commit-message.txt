@@ -1,0 +1,26 @@
+refactor: apply auth-style separation of concerns to documents + consolidate JWT types
+
+DOCUMENTS MODULE REFACTORING:
+• Refactored document service to follow auth pattern with standardized result objects
+• Moved business logic from controller to service layer for better maintainability  
+• Updated document models with consistent result interfaces (UploadDocumentResult, ListDocumentsResult, etc.)
+• Cleaned up controller to focus on request/response handling only
+• Fixed response structure alignment between service and controller
+• Updated all tests to work with new result pattern
+• Maintained full backward compatibility
+
+JWT TYPE CONSOLIDATION:
+• Created jwt.models.ts following established domain models pattern
+• Removed duplicate JWT types from auth.models.ts and jwt.interface.ts
+• Consolidated JWTPayload, TokenPair, and related types into single source
+• Updated all imports across codebase (jwt.service.ts, auth.middleware.ts, services/index.ts)
+• Added JWT types to centralized service exports for consistency
+• Eliminated interfaces/ directory pattern in favor of models/ consistency
+• Fixed UserRole import conflicts and type consistency issues
+
+BENEFITS:
+• Consistent separation of concerns across all modules
+• Single import point for all service types
+• Better maintainability and developer experience
+• Reduced code duplication and improved type safety
+• All tests passing (401 passed, same 2 pre-existing failures unrelated to changes) 

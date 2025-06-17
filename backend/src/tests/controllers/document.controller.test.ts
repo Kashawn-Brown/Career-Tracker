@@ -7,22 +7,15 @@
 
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { uploadDocument, listDocuments, getDocument, deleteDocument } from '../../controllers/document.controller.js';
-import { documentService, fileUploadService, jobApplicationService } from '../../services/index.js';
+import { documentService } from '../../services/index.js';
 
 // Mock the services
 vi.mock('../../services/index.js', () => ({
   documentService: {
-    createDocument: vi.fn(),
+    uploadDocument: vi.fn(),
     listDocuments: vi.fn(),
     getDocument: vi.fn(),
     deleteDocument: vi.fn()
-  },
-  fileUploadService: {
-    storeUploadedFile: vi.fn(),
-    deleteFile: vi.fn()
-  },
-  jobApplicationService: {
-    getJobApplication: vi.fn()
   }
 }));
 
@@ -67,19 +60,6 @@ describe('Document Controller', () => {
       });
       const mockReply = createMockReply();
 
-      // Mock job application validation
-      const mockJobApplication = {
-        id: 1,
-        userId: 1, // Matches the user in the request
-        title: 'Test Job'
-      };
-      vi.mocked(jobApplicationService.getJobApplication).mockResolvedValue(mockJobApplication as any);
-
-      const mockStoreResult = {
-        success: true,
-        filePath: '/uploads/stored-file.pdf'
-      };
-
       const mockDocument = {
         id: 1,
         filename: 'test-file.pdf',
@@ -87,21 +67,29 @@ describe('Document Controller', () => {
         jobApplicationId: 1
       };
 
-      vi.mocked(fileUploadService.storeUploadedFile).mockResolvedValue(mockStoreResult);
-      vi.mocked(documentService.createDocument).mockResolvedValue(mockDocument as any);
+      const mockResult = {
+        success: true,
+        statusCode: 201,
+        message: 'Document uploaded successfully',
+        document: mockDocument
+      };
+
+      vi.mocked(documentService.uploadDocument).mockResolvedValue(mockResult);
 
       await uploadDocument(mockRequest as any, mockReply as any);
 
-      expect(jobApplicationService.getJobApplication).toHaveBeenCalledWith(1);
-      expect(fileUploadService.storeUploadedFile).toHaveBeenCalledWith(mockRequest.uploadedFile);
-      expect(documentService.createDocument).toHaveBeenCalledWith({
-        jobApplicationId: 1,
-        filename: 'test-file.pdf',
-        originalName: 'resume.pdf',
-        path: '/uploads/stored-file.pdf',
-        fileSize: 1024,
-        mimeType: 'application/pdf'
-      });
+      expect(documentService.uploadDocument).toHaveBeenCalledWith(
+        1, // jobApplicationId
+        1, // userId
+        {
+          originalName: 'resume.pdf',
+          filename: 'test-file.pdf',
+          path: '/uploads/test-file.pdf',
+          size: 1024,
+          mimeType: 'application/pdf',
+          uploadDate: expect.any(Date)
+        }
+      );
       expect(mockReply.status).toHaveBeenCalledWith(201);
       expect(mockReply.send).toHaveBeenCalledWith(mockDocument);
     });
@@ -128,14 +116,6 @@ describe('Document Controller', () => {
       });
       const mockReply = createMockReply();
 
-      // Mock job application validation - must pass for code to reach file validation
-      const mockJobApplication = {
-        id: 1,
-        userId: 1,
-        title: 'Test Job'
-      };
-      vi.mocked(jobApplicationService.getJobApplication).mockResolvedValue(mockJobApplication as any);
-
       await uploadDocument(mockRequest as any, mockReply as any);
 
       expect(mockReply.status).toHaveBeenCalledWith(400);
@@ -145,7 +125,7 @@ describe('Document Controller', () => {
       });
     });
 
-    test('should return 500 when file storage fails', async () => {
+    test('should handle service error response', async () => {
       const mockRequest = createMockRequest({
         params: { id: '1' },
         uploadedFile: {
@@ -158,35 +138,31 @@ describe('Document Controller', () => {
       });
       const mockReply = createMockReply();
 
-      // Mock job application validation
-      const mockJobApplication = {
-        id: 1,
-        userId: 1,
-        title: 'Test Job'
-      };
-      vi.mocked(jobApplicationService.getJobApplication).mockResolvedValue(mockJobApplication as any);
-
-      const mockStoreResult = {
+      const mockResult = {
         success: false,
-        error: 'Storage failed'
+        statusCode: 404,
+        error: 'Resource Not Found',
+        message: 'The specified job application does not exist or you do not have access to it',
+        details: {
+          jobApplicationId: 1,
+          userId: 1,
+          operation: 'application_validation'
+        }
       };
 
-      vi.mocked(fileUploadService.storeUploadedFile).mockResolvedValue(mockStoreResult);
+      vi.mocked(documentService.uploadDocument).mockResolvedValue(mockResult);
 
       await uploadDocument(mockRequest as any, mockReply as any);
 
-      expect(mockReply.status).toHaveBeenCalledWith(500);
+      expect(mockReply.status).toHaveBeenCalledWith(404);
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'File Storage Error',
-        message: 'Failed to store uploaded file to storage system',
-        details: expect.objectContaining({
-          originalName: 'resume.pdf',
-          fileSize: 1024,
-          mimeType: 'application/pdf',
-          storageError: 'Storage failed',
-          timestamp: expect.any(String),
-          operation: 'file_storage'
-        })
+        error: 'Resource Not Found',
+        message: 'The specified job application does not exist or you do not have access to it',
+        details: {
+          jobApplicationId: 1,
+          userId: 1,
+          operation: 'application_validation'
+        }
       });
     });
   });
@@ -199,11 +175,25 @@ describe('Document Controller', () => {
       });
       const mockReply = createMockReply();
 
-      const mockResult = {
+      const mockData = {
         documents: [
-          { id: 1, filename: 'resume.pdf', jobApplicationId: 1 }
+          { id: 1, filename: 'doc1.pdf' },
+          { id: 2, filename: 'doc2.pdf' }
         ],
-        pagination: { total: 1, page: 1, limit: 10, pages: 1 }
+        pagination: {
+          total: 2,
+          page: 1,
+          limit: 10,
+          pages: 1
+        }
+      };
+
+      const mockResult = {
+        success: true,
+        statusCode: 200,
+        message: 'Documents retrieved successfully',
+        documents: mockData.documents,
+        pagination: mockData.pagination
       };
 
       vi.mocked(documentService.listDocuments).mockResolvedValue(mockResult);
@@ -217,7 +207,7 @@ describe('Document Controller', () => {
         userId: 1
       });
       expect(mockReply.status).toHaveBeenCalledWith(200);
-      expect(mockReply.send).toHaveBeenCalledWith(mockResult);
+      expect(mockReply.send).toHaveBeenCalledWith(mockData);
     });
 
     test('should return 400 for invalid job application ID', async () => {
@@ -234,6 +224,31 @@ describe('Document Controller', () => {
         message: 'Invalid job application ID'
       });
     });
+
+    test('should handle service error response', async () => {
+      const mockRequest = createMockRequest({
+        params: { id: '1' },
+        query: {}
+      });
+      const mockReply = createMockReply();
+
+      const mockResult = {
+        success: false,
+        statusCode: 500,
+        error: 'Internal Server Error',
+        message: 'Failed to retrieve documents'
+      };
+
+      vi.mocked(documentService.listDocuments).mockResolvedValue(mockResult);
+
+      await listDocuments(mockRequest as any, mockReply as any);
+
+      expect(mockReply.status).toHaveBeenCalledWith(500);
+      expect(mockReply.send).toHaveBeenCalledWith({
+        error: 'Internal Server Error',
+        message: 'Failed to retrieve documents'
+      });
+    });
   });
 
   describe('getDocument', () => {
@@ -245,11 +260,18 @@ describe('Document Controller', () => {
 
       const mockDocument = {
         id: 2,
-        filename: 'resume.pdf',
-        jobApplication: { id: 1, userId: 1 }
+        filename: 'doc.pdf',
+        jobApplication: { id: 1 }
       };
 
-      vi.mocked(documentService.getDocument).mockResolvedValue(mockDocument);
+      const mockResult = {
+        success: true,
+        statusCode: 200,
+        message: 'Document retrieved successfully',
+        document: mockDocument
+      };
+
+      vi.mocked(documentService.getDocument).mockResolvedValue(mockResult);
 
       await getDocument(mockRequest as any, mockReply as any);
 
@@ -281,11 +303,18 @@ describe('Document Controller', () => {
 
       const mockDocument = {
         id: 2,
-        filename: 'resume.pdf',
-        jobApplication: { id: 999, userId: 1 } // Different job application
+        filename: 'doc.pdf',
+        jobApplication: { id: 999 } // Different job application
       };
 
-      vi.mocked(documentService.getDocument).mockResolvedValue(mockDocument);
+      const mockResult = {
+        success: true,
+        statusCode: 200,
+        message: 'Document retrieved successfully',
+        document: mockDocument
+      };
+
+      vi.mocked(documentService.getDocument).mockResolvedValue(mockResult);
 
       await getDocument(mockRequest as any, mockReply as any);
 
@@ -293,6 +322,30 @@ describe('Document Controller', () => {
       expect(mockReply.send).toHaveBeenCalledWith({
         error: 'Not Found',
         message: 'Document not found for this job application'
+      });
+    });
+
+    test('should handle service error response', async () => {
+      const mockRequest = createMockRequest({
+        params: { id: '1', documentId: '2' }
+      });
+      const mockReply = createMockReply();
+
+      const mockResult = {
+        success: false,
+        statusCode: 404,
+        error: 'Not Found',
+        message: 'Document not found'
+      };
+
+      vi.mocked(documentService.getDocument).mockResolvedValue(mockResult);
+
+      await getDocument(mockRequest as any, mockReply as any);
+
+      expect(mockReply.status).toHaveBeenCalledWith(404);
+      expect(mockReply.send).toHaveBeenCalledWith({
+        error: 'Not Found',
+        message: 'Document not found'
       });
     });
   });
@@ -306,23 +359,35 @@ describe('Document Controller', () => {
 
       const mockDocument = {
         id: 2,
-        filename: 'test-file.pdf',
-        originalName: 'resume.pdf',
-        path: '/uploads/test-file.pdf',
-        jobApplication: { id: 1, userId: 1 }
+        filename: 'doc.pdf',
+        originalName: 'document.pdf',
+        jobApplication: { id: 1 }
       };
 
-      const mockDeleteFileResult = { success: true };
-      const mockDeleteResult = { success: true };
+      const mockGetResult = {
+        success: true,
+        statusCode: 200,
+        message: 'Document retrieved successfully',
+        document: mockDocument
+      };
 
-      vi.mocked(documentService.getDocument).mockResolvedValue(mockDocument);
-      vi.mocked(fileUploadService.deleteFile).mockResolvedValue(mockDeleteFileResult);
+      const mockDeleteResult = {
+        success: true,
+        statusCode: 200,
+        message: 'Document deleted successfully',
+        deletedDocument: {
+          id: 2,
+          filename: 'doc.pdf',
+          originalName: 'document.pdf'
+        }
+      };
+
+      vi.mocked(documentService.getDocument).mockResolvedValue(mockGetResult);
       vi.mocked(documentService.deleteDocument).mockResolvedValue(mockDeleteResult);
 
       await deleteDocument(mockRequest as any, mockReply as any);
 
       expect(documentService.getDocument).toHaveBeenCalledWith(2, 1);
-      expect(fileUploadService.deleteFile).toHaveBeenCalledWith('/uploads/test-file.pdf');
       expect(documentService.deleteDocument).toHaveBeenCalledWith(2, 1);
       expect(mockReply.status).toHaveBeenCalledWith(200);
       expect(mockReply.send).toHaveBeenCalledWith({
@@ -330,47 +395,41 @@ describe('Document Controller', () => {
         message: 'Document deleted successfully',
         deletedDocument: {
           id: 2,
-          filename: 'test-file.pdf',
-          originalName: 'resume.pdf'
+          filename: 'doc.pdf',
+          originalName: 'document.pdf'
         }
       });
     });
 
-    test('should continue deletion even if file deletion fails', async () => {
+    test('should return 400 for invalid IDs', async () => {
       const mockRequest = createMockRequest({
-        params: { id: '1', documentId: '2' }
+        params: { id: 'invalid', documentId: 'invalid' }
       });
       const mockReply = createMockReply();
-
-      const mockDocument = {
-        id: 2,
-        filename: 'test-file.pdf',
-        originalName: 'resume.pdf',
-        path: '/uploads/test-file.pdf',
-        jobApplication: { id: 1, userId: 1 }
-      };
-
-      const mockDeleteFileResult = { success: false, error: 'File not found' };
-      const mockDeleteResult = { success: true };
-
-      vi.mocked(documentService.getDocument).mockResolvedValue(mockDocument);
-      vi.mocked(fileUploadService.deleteFile).mockResolvedValue(mockDeleteFileResult);
-      vi.mocked(documentService.deleteDocument).mockResolvedValue(mockDeleteResult);
 
       await deleteDocument(mockRequest as any, mockReply as any);
 
-      expect(mockRequest.log.warn).toHaveBeenCalledWith('Failed to delete physical file:', 'File not found');
-      expect(documentService.deleteDocument).toHaveBeenCalledWith(2, 1);
-      expect(mockReply.status).toHaveBeenCalledWith(200);
+      expect(mockReply.status).toHaveBeenCalledWith(400);
+      expect(mockReply.send).toHaveBeenCalledWith({
+        error: 'Bad Request',
+        message: 'Invalid job application ID or document ID'
+      });
     });
 
-    test('should return 404 when document not found', async () => {
+    test('should handle get document error', async () => {
       const mockRequest = createMockRequest({
         params: { id: '1', documentId: '2' }
       });
       const mockReply = createMockReply();
 
-      vi.mocked(documentService.getDocument).mockRejectedValue(new Error('Document not found'));
+      const mockGetResult = {
+        success: false,
+        statusCode: 404,
+        error: 'Not Found',
+        message: 'Document not found'
+      };
+
+      vi.mocked(documentService.getDocument).mockResolvedValue(mockGetResult);
 
       await deleteDocument(mockRequest as any, mockReply as any);
 
@@ -378,6 +437,36 @@ describe('Document Controller', () => {
       expect(mockReply.send).toHaveBeenCalledWith({
         error: 'Not Found',
         message: 'Document not found'
+      });
+    });
+
+    test('should return 404 when document belongs to different job application', async () => {
+      const mockRequest = createMockRequest({
+        params: { id: '1', documentId: '2' }
+      });
+      const mockReply = createMockReply();
+
+      const mockDocument = {
+        id: 2,
+        filename: 'doc.pdf',
+        jobApplication: { id: 999 } // Different job application
+      };
+
+      const mockGetResult = {
+        success: true,
+        statusCode: 200,
+        message: 'Document retrieved successfully',
+        document: mockDocument
+      };
+
+      vi.mocked(documentService.getDocument).mockResolvedValue(mockGetResult);
+
+      await deleteDocument(mockRequest as any, mockReply as any);
+
+      expect(mockReply.status).toHaveBeenCalledWith(404);
+      expect(mockReply.send).toHaveBeenCalledWith({
+        error: 'Not Found',
+        message: 'Document not found for this job application'
       });
     });
   });

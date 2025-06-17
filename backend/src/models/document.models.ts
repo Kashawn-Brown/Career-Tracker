@@ -101,4 +101,87 @@ export interface DocumentListResponse {
     limit: number;
     pages: number;
   };
+}
+
+// ============================================================================
+// DOCUMENT SERVICE RESULT INTERFACES
+// ============================================================================
+
+/**
+ * Base result interface for document operations
+ */
+export interface DocumentOperationResult {
+  success: boolean;
+  statusCode: number;
+  message?: string;
+  error?: string;
+  details?: string | object;
+}
+
+/**
+ * Upload Document Result interface
+ */
+export interface UploadDocumentResult extends DocumentOperationResult {
+  document?: DocumentWithRelations;
+  storageError?: string;
+  cleanupAttempted?: boolean;
+}
+
+/**
+ * List Documents Result interface
+ */
+export interface ListDocumentsResult extends DocumentOperationResult {
+  documents?: DocumentWithRelations[];
+  pagination?: {
+    total: number;
+    page: number;
+    limit: number;
+    pages: number;
+  };
+}
+
+/**
+ * Get Document Result interface
+ */
+export interface GetDocumentResult extends DocumentOperationResult {
+  document?: DocumentWithRelations;
+}
+
+/**
+ * Update Document Result interface
+ */
+export interface UpdateDocumentResult extends DocumentOperationResult {
+  document?: DocumentWithRelations;
+}
+
+/**
+ * Delete Document Result interface
+ */
+export interface DeleteDocumentResult extends DocumentOperationResult {
+  deletedDocument?: {
+    id: number;
+    filename: string;
+    originalName: string;
+  };
+  fileCleanupSuccess?: boolean;
+}
+
+/**
+ * Search Documents Result interface
+ */
+export interface SearchDocumentsResult extends DocumentOperationResult {
+  documents?: DocumentWithRelations[];
+  pagination?: {
+    total: number;
+    page: number;
+    limit: number;
+    pages: number;
+  };
+}
+
+/**
+ * Document Stats Result interface
+ */
+export interface DocumentStatsResult extends DocumentOperationResult {
+  stats?: DocumentStats;
 } 

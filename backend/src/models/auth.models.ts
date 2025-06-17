@@ -6,24 +6,9 @@
  */
 
 import { UserRole } from './user.models.js';
+import { TokenPair } from './jwt.models.js';
 
-/**
- * JWT Payload interface for token content
- */
-export interface JWTPayload {
-  userId: number;
-  email: string;
-  type: 'access' | 'refresh';
-  role: UserRole;
-}
-
-/**
- * Token Pair interface for authentication responses
- */
-export interface TokenPair {
-  accessToken: string;
-  refreshToken: string;
-}
+// JWT types are now in jwt.models.ts to follow established patterns
 
 /**
  * Authentication Provider enum

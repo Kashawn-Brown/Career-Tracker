@@ -5,13 +5,13 @@
  */
 
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { JwtPayload } from '../interfaces/jwt.interface.js';
+import { JWTPayload } from '../models/jwt.models.js';
 import { jwtService } from '../services/jwt.service.js';
 
 // Extend FastifyRequest to include user information
 declare module 'fastify' {
   interface FastifyRequest {
-    user?: JwtPayload;
+    user?: JWTPayload;
   }
 }
 
