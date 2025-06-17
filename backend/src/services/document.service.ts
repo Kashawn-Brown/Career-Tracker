@@ -40,12 +40,12 @@ export class DocumentService {
   ): Promise<UploadDocumentResult> {
     try {
       // Validate job application exists and belongs to user
-      const jobApplication = await jobApplicationService.getJobApplication(jobApplicationId);
-      if (!jobApplication || jobApplication.userId !== userId) {
+      const jobApplicationResult = await jobApplicationService.getJobApplication(jobApplicationId, userId);
+      if (!jobApplicationResult.success) {
         return {
           success: false,
-          statusCode: 404,
-          error: 'Resource Not Found',
+          statusCode: jobApplicationResult.statusCode,
+          error: jobApplicationResult.error || 'Resource Not Found',
           message: 'The specified job application does not exist or you do not have access to it',
           details: {
             jobApplicationId,

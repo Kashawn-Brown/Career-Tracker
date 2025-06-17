@@ -94,4 +94,66 @@ export interface JobApplicationFilters {
   salaryMin?: number;
   salaryMax?: number;
   compatibilityScoreMin?: number;
+}
+
+// === SERVICE RESULT TYPES (Auth-style pattern) ===
+
+/**
+ * Base result interface for all job application service operations
+ */
+interface BaseJobApplicationResult {
+  success: boolean;
+  statusCode: number;
+  error?: string;
+  message?: string;
+}
+
+/**
+ * Result for listing job applications
+ */
+export interface ListJobApplicationsResult extends BaseJobApplicationResult {
+  data?: {
+    jobApplications: JobApplicationWithRelations[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  };
+}
+
+/**
+ * Result for getting a single job application
+ */
+export interface GetJobApplicationResult extends BaseJobApplicationResult {
+  jobApplication?: JobApplicationWithRelations;
+}
+
+/**
+ * Result for creating a job application
+ */
+export interface CreateJobApplicationResult extends BaseJobApplicationResult {
+  jobApplication?: JobApplicationWithRelations;
+}
+
+/**
+ * Result for updating a job application
+ */
+export interface UpdateJobApplicationResult extends BaseJobApplicationResult {
+  jobApplication?: JobApplicationWithRelations;
+}
+
+/**
+ * Result for deleting a job application
+ */
+export interface DeleteJobApplicationResult extends BaseJobApplicationResult {
+  deletedId?: number;
+}
+
+/**
+ * Result for authorization checks
+ */
+export interface AuthorizationResult extends BaseJobApplicationResult {
+  jobApplication?: JobApplicationWithRelations;
 } 

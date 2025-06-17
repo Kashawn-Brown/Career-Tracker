@@ -87,7 +87,7 @@ describe('Document Upload - Application Validation', () => {
         expect(response.statusCode).toBe(404);
         const responseBody = JSON.parse(response.body);
         console.log("RESPONSE BODY: " + responseBody)
-        expect(responseBody.error).toBe('Resource Not Found');
+        expect(responseBody.error).toBe('Job application not found');
         expect(responseBody.message).toBe('The specified job application does not exist or you do not have access to it');
       } finally {
         // Clean up test file
@@ -170,9 +170,9 @@ describe('Document Upload - Application Validation', () => {
           payload: form2.payload
         });
 
-        expect(response.statusCode).toBe(404);
+        expect(response.statusCode).toBe(403);
         const responseBody = JSON.parse(response.body);
-        expect(responseBody.error).toBe('Resource Not Found');
+        expect(responseBody.error).toBe('You can only access your own job applications');
         expect(responseBody.message).toBe('The specified job application does not exist or you do not have access to it');
       } finally {
         // Clean up test file
