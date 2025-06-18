@@ -3,7 +3,7 @@
  * 
  * Defines REST API routes for job connection CRUD operations.
  * Job connections are nested under job applications as they belong to specific applications.
- * Registers routes with Fastify including validation schemas and handlers.
+ * Registers routes with Fastify including validation schemas, rate limiting, and handlers.
  */
 
 import { FastifyInstance } from 'fastify';
@@ -25,117 +25,119 @@ import {
   errorResponseSchema
 } from '../schemas/job-connection.schema.js';
 import { requireAuth } from '../middleware/auth.middleware.js';
+import { securityMiddleware } from '../middleware/security.middleware.js';
+import { commonErrorResponses } from '../utils/errorSchemas.js';
+
+// Rate limiting configuration
+const connectionReadRateLimit = {
+  max: 60, // 60 connection reads per minute
+  timeWindow: 60 * 1000 // 1 minute
+};
+
+const connectionModificationRateLimit = {
+  max: 30, // 30 connection modifications per minute
+  timeWindow: 60 * 1000 // 1 minute
+};
 
 /**
  * Register job connection routes
  */
 export default async function jobConnectionRoutes(fastify: FastifyInstance) {
-  // Add common error response schemas to all routes
-  const commonErrorResponses = {
-    400: errorResponseSchema,
-    401: errorResponseSchema,
-    403: errorResponseSchema,
-    500: errorResponseSchema
-  };
+  // Register rate limiting plugin
+  await fastify.register(import('@fastify/rate-limit'));
 
-  // ROUTES - Nested under /applications/:id/connections
+  // Using shared error response schemas
 
-  /**
-   * GET /api/applications/:id/connections
-   * List job connections for a specific application (user's own applications)
-   */
+  // GET /applications/:id/connections - List job connections for a specific application
   fastify.get('/applications/:id/connections', {
-    preHandler: requireAuth,
+    config: {
+      rateLimit: connectionReadRateLimit
+    },
+    preHandler: [requireAuth, securityMiddleware.dataAccessRateLimit()],
     schema: {
       ...listJobConnectionsSchema,
       response: {
         ...listJobConnectionsSchema.response,
-        404: errorResponseSchema, // Job application not found
         ...commonErrorResponses
       }
     },
     handler: listJobConnections
   });
 
-  /**
-   * GET /api/applications/:id/connections/:connectionId
-   * Get a single job connection by ID (user's own applications)
-   */
+  // GET /applications/:id/connections/:connectionId - Get a single job connection by ID
   fastify.get('/applications/:id/connections/:connectionId', {
-    preHandler: requireAuth,
+    config: {
+      rateLimit: connectionReadRateLimit
+    },
+    preHandler: [requireAuth, securityMiddleware.dataAccessRateLimit()],
     schema: {
       ...getJobConnectionSchema,
       response: {
         ...getJobConnectionSchema.response,
-        404: errorResponseSchema,
         ...commonErrorResponses
       }
     },
     handler: getJobConnection
   });
 
-  /**
-   * POST /api/applications/:id/connections
-   * Create a new job connection for an application (user's own applications)
-   */
+  // POST /applications/:id/connections - Create a new job connection for an application
   fastify.post('/applications/:id/connections', {
-    preHandler: requireAuth,
+    config: {
+      rateLimit: connectionModificationRateLimit
+    },
+    preHandler: [requireAuth, securityMiddleware.dataModificationRateLimit()],
     schema: {
       ...createJobConnectionSchema,
       response: {
         ...createJobConnectionSchema.response,
-        404: errorResponseSchema, // Job application not found
         ...commonErrorResponses
       }
     },
     handler: createJobConnection
   });
 
-  /**
-   * PUT /api/applications/:id/connections/:connectionId
-   * Update an existing job connection (user's own applications)
-   */
+  // PUT /applications/:id/connections/:connectionId - Update an existing job connection
   fastify.put('/applications/:id/connections/:connectionId', {
-    preHandler: requireAuth,
+    config: {
+      rateLimit: connectionModificationRateLimit
+    },
+    preHandler: [requireAuth, securityMiddleware.dataModificationRateLimit()],
     schema: {
       ...updateJobConnectionSchema,
       response: {
         ...updateJobConnectionSchema.response,
-        404: errorResponseSchema,
         ...commonErrorResponses
       }
     },
     handler: updateJobConnection
   });
 
-  /**
-   * PATCH /api/applications/:id/connections/:connectionId/status
-   * Update job connection status only (convenience endpoint)
-   */
+  // PATCH /applications/:id/connections/:connectionId/status - Update job connection status only
   fastify.patch('/applications/:id/connections/:connectionId/status', {
-    preHandler: requireAuth,
+    config: {
+      rateLimit: connectionModificationRateLimit
+    },
+    preHandler: [requireAuth, securityMiddleware.dataModificationRateLimit()],
     schema: {
       ...updateJobConnectionStatusSchema,
       response: {
         ...updateJobConnectionStatusSchema.response,
-        404: errorResponseSchema,
         ...commonErrorResponses
       }
     },
     handler: updateJobConnectionStatus
   });
 
-  /**
-   * DELETE /api/applications/:id/connections/:connectionId
-   * Delete a job connection (user's own applications)
-   */
+  // DELETE /applications/:id/connections/:connectionId - Delete a job connection
   fastify.delete('/applications/:id/connections/:connectionId', {
-    preHandler: requireAuth,
+    config: {
+      rateLimit: connectionModificationRateLimit
+    },
+    preHandler: [requireAuth, securityMiddleware.dataModificationRateLimit()],
     schema: {
       ...deleteJobConnectionSchema,
       response: {
         ...deleteJobConnectionSchema.response,
-        404: errorResponseSchema,
         ...commonErrorResponses
       }
     },

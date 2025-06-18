@@ -3,9 +3,11 @@
  * 
  * Defines TypeScript interfaces and types for contact-related entities.
  * These models represent the structure of contact data used throughout the application.
+ * Updated to include standardized error response patterns.
  */
 
 import { Contact, JobConnection, JobApplication } from '@prisma/client';
+import { StandardErrorResponse, StandardSuccessResponse } from '../utils/errorResponse.js';
 
 /**
  * Contact with related entities
@@ -78,17 +80,26 @@ export interface ContactFilters {
 }
 
 // ====================
-// SERVICE RESULT TYPES
+// SERVICE RESULT TYPES - UPDATED FOR STANDARDIZATION
 // ====================
 
 /**
- * Base result interface for all contact operations
+ * Base result interface for all contact operations with standardized error fields
  */
 interface BaseContactResult {
   success: boolean;
   statusCode: number;
   message?: string;
   error?: string;
+  details?: string[] | Record<string, any>;
+  action?: string;
+  code?: string;
+  context?: {
+    operation: string;
+    resource?: string;
+    resourceId?: string | number;
+    userId?: number;
+  };
 }
 
 /**

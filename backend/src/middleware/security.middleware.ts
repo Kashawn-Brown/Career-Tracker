@@ -366,6 +366,57 @@ export class SecurityMiddleware {
   }
 
   /**
+   * Rate limiting for data access operations (GET requests for user data)
+   * Provides moderate protection for read operations
+   */
+  dataAccessRateLimit() {
+    return this.rateLimit({
+      windowMs: 60 * 1000, // 1 minute
+      maxAttempts: 60,      // 60 requests per minute
+      keyGenerator: (req) => `data_access:${req.user?.userId || req.ip}`,
+      skipSuccessfulRequests: true,
+      onLimitReached: (req, record) => {
+        // Log excessive data access attempts
+        console.warn(`Excessive data access attempts from user ${req.user?.userId || 'unknown'} (${req.ip}): ${record.attempts} attempts`);
+      }
+    });
+  }
+
+  /**
+   * Rate limiting for data modification operations (POST, PUT, DELETE)
+   * Provides stricter protection for write operations
+   */
+  dataModificationRateLimit() {
+    return this.rateLimit({
+      windowMs: 60 * 1000, // 1 minute
+      maxAttempts: 30,      // 30 requests per minute
+      keyGenerator: (req) => `data_mod:${req.user?.userId || req.ip}`,
+      skipSuccessfulRequests: true,
+      onLimitReached: (req, record) => {
+        // Log excessive modification attempts
+        console.warn(`Excessive data modification attempts from user ${req.user?.userId || 'unknown'} (${req.ip}): ${record.attempts} attempts`);
+      }
+    });
+  }
+
+  /**
+   * Rate limiting for file upload operations
+   * Provides strict protection for resource-intensive operations
+   */
+  fileUploadRateLimit() {
+    return this.rateLimit({
+      windowMs: 5 * 60 * 1000, // 5 minutes
+      maxAttempts: 10,          // 10 uploads per 5 minutes
+      keyGenerator: (req) => `file_upload:${req.user?.userId || req.ip}`,
+      skipSuccessfulRequests: true,
+      onLimitReached: (req, record) => {
+        // Log excessive upload attempts
+        console.warn(`Excessive file upload attempts from user ${req.user?.userId || 'unknown'} (${req.ip}): ${record.attempts} attempts`);
+      }
+    });
+  }
+
+  /**
    * Cleanup on service shutdown
    */
   destroy() {

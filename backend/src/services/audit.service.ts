@@ -622,6 +622,213 @@ export class AuditService {
       }))
     };
   }
+
+  // ============================================================================
+  // DATA OPERATION AUDIT LOGGING
+  // ============================================================================
+
+  /**
+   * Log data operation events (CREATE, READ, UPDATE, DELETE)
+   * For contacts, documents, job applications, etc.
+   */
+  async logDataOperation(entry: {
+    userId: number;
+    action: 'CREATE' | 'READ' | 'UPDATE' | 'DELETE';
+    resourceType: 'CONTACT' | 'DOCUMENT' | 'JOB_APPLICATION' | 'JOB_CONNECTION' | 'TAG';
+    resourceId?: string | number;
+    details?: Record<string, any>;
+    ipAddress?: string;
+    userAgent?: string;
+    successful?: boolean;
+  }): Promise<void> {
+    await this.logEvent({
+      userId: entry.userId,
+      event: AuditEventType.LOGIN_SUCCESS, // Generic event for data access operations
+      details: {
+        action: entry.action,
+        resourceType: entry.resourceType,
+        resourceId: entry.resourceId,
+        ...entry.details
+      },
+      ipAddress: entry.ipAddress,
+      userAgent: entry.userAgent,
+      successful: entry.successful ?? true,
+    });
+  }
+
+  /**
+   * Log contact operations
+   */
+  async logContactOperation(
+    userId: number, 
+    action: 'CREATE' | 'READ' | 'UPDATE' | 'DELETE',
+    contactId?: number,
+    details?: Record<string, any>,
+    ipAddress?: string, 
+    userAgent?: string
+  ): Promise<void> {
+    await this.logDataOperation({
+      userId,
+      action,
+      resourceType: 'CONTACT',
+      resourceId: contactId,
+      details: {
+        contactName: details?.name,
+        company: details?.company,
+        ...details
+      },
+      ipAddress,
+      userAgent
+    });
+  }
+
+  /**
+   * Log document operations
+   */
+  async logDocumentOperation(
+    userId: number,
+    action: 'CREATE' | 'READ' | 'UPDATE' | 'DELETE',
+    documentId?: number,
+    details?: Record<string, any>,
+    ipAddress?: string,
+    userAgent?: string
+  ): Promise<void> {
+    await this.logDataOperation({
+      userId,
+      action,
+      resourceType: 'DOCUMENT',
+      resourceId: documentId,
+      details: {
+        filename: details?.filename,
+        originalName: details?.originalName,
+        fileSize: details?.fileSize,
+        mimeType: details?.mimeType,
+        jobApplicationId: details?.jobApplicationId,
+        ...details
+      },
+      ipAddress,
+      userAgent
+    });
+  }
+
+  /**
+   * Log job application operations
+   */
+  async logJobApplicationOperation(
+    userId: number,
+    action: 'CREATE' | 'READ' | 'UPDATE' | 'DELETE',
+    jobApplicationId?: number,
+    details?: Record<string, any>,
+    ipAddress?: string,
+    userAgent?: string
+  ): Promise<void> {
+    await this.logDataOperation({
+      userId,
+      action,
+      resourceType: 'JOB_APPLICATION',
+      resourceId: jobApplicationId,
+      details: {
+        company: details?.company,
+        position: details?.position,
+        status: details?.status,
+        ...details
+      },
+      ipAddress,
+      userAgent
+    });
+  }
+
+  /**
+   * Log bulk operations
+   */
+  async logBulkOperation(
+    userId: number,
+    action: 'BULK_CREATE' | 'BULK_UPDATE' | 'BULK_DELETE',
+    resourceType: 'CONTACT' | 'DOCUMENT' | 'JOB_APPLICATION',
+    count: number,
+    details?: Record<string, any>,
+    ipAddress?: string,
+    userAgent?: string
+  ): Promise<void> {
+    await this.logEvent({
+      userId,
+      event: AuditEventType.LOGIN_SUCCESS, // Generic event for data operations
+      details: {
+        action,
+        resourceType,
+        count,
+        ...details
+      },
+      ipAddress,
+      userAgent,
+    });
+  }
+
+  /**
+   * Log suspicious data access patterns
+   */
+  async logSuspiciousDataAccess(
+    userId: number,
+    pattern: 'RAPID_ACCESS' | 'BULK_DOWNLOAD' | 'UNUSUAL_HOURS' | 'EXCESSIVE_QUERIES',
+    details: Record<string, any>,
+    ipAddress?: string,
+    userAgent?: string
+  ): Promise<void> {
+    await this.logSuspiciousActivity(
+      userId,
+      `SUSPICIOUS_DATA_ACCESS_${pattern}`,
+      details,
+      ipAddress,
+      userAgent
+    );
+  }
+
+  /**
+   * Get data operation statistics for a user
+   */
+  async getUserDataOperationStats(userId: number, hours: number = 24): Promise<{
+    totalOperations: number;
+    operationsByType: Record<string, number>;
+    operationsByResource: Record<string, number>;
+    recentOperations: any[];
+  }> {
+    const since = new Date(Date.now() - hours * 60 * 60 * 1000);
+    
+    const logs = await prisma.auditLog.findMany({
+      where: {
+        userId,
+        createdAt: { gte: since },
+        event: AuditEventType.LOGIN_SUCCESS // Generic event for data operations
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50
+    });
+
+    const operationsByType: Record<string, number> = {};
+    const operationsByResource: Record<string, number> = {};
+
+    logs.forEach(log => {
+      if (log.details) {
+        try {
+          const details = JSON.parse(log.details);
+          const action = details.action || 'UNKNOWN';
+          const resourceType = details.resourceType || 'UNKNOWN';
+          
+          operationsByType[action] = (operationsByType[action] || 0) + 1;
+          operationsByResource[resourceType] = (operationsByResource[resourceType] || 0) + 1;
+        } catch (e) {
+          // Skip invalid JSON
+        }
+      }
+    });
+
+    return {
+      totalOperations: logs.length,
+      operationsByType,
+      operationsByResource,
+      recentOperations: logs.slice(0, 10)
+    };
+  }
 }
 
 export const auditService = new AuditService(); 

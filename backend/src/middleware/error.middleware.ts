@@ -13,6 +13,7 @@ import { PrismaClientKnownRequestError, PrismaClientValidationError } from '@pri
  * Standard error response interface
  */
 export interface ErrorResponse {
+  success: false;
   error: string;
   message: string;
   statusCode: number;
@@ -71,6 +72,7 @@ export async function globalErrorHandler(
 
   // Prepare base error response
   const errorResponse: ErrorResponse = {
+    success: false,
     error: 'Internal Server Error',
     message: 'An unexpected error occurred',
     statusCode: 500,

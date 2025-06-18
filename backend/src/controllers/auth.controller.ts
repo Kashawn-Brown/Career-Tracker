@@ -10,6 +10,7 @@ import { authService } from '../services/index.js';
 import { userRepository } from '../repositories/index.js';
 import { queueService } from '../services/queue.service.js';
 import { jwtService } from '../services/jwt.service.js';
+import { CommonErrors, ErrorResponseBuilder } from '../utils/errorResponse.js';
 
 export class AuthController {
 
@@ -29,9 +30,18 @@ export class AuthController {
 
     // Validate input
     if (!email || !password || !name) {
-      return reply.status(400).send({
-        error: 'Missing required fields: email, password, name'
-      });
+      return reply.status(400).send(
+        ErrorResponseBuilder.create()
+          .status(400)
+          .error('Bad Request')
+          .message('Missing required fields: email, password, name')
+          .code('MISSING_FIELDS')
+          .context({
+            operation: 'register',
+            resource: 'user'
+          })
+          .build()
+      );
     }
 
     // Make the call to the auth service to register the user
@@ -70,9 +80,18 @@ export class AuthController {
 
     // Validate input
     if (!email || !password) {
-      return reply.status(400).send({
-        error: 'Email and password are required'
-      });
+      return reply.status(400).send(
+        ErrorResponseBuilder.create()
+          .status(400)
+          .error('Bad Request')
+          .message('Email and password are required')
+          .code('MISSING_CREDENTIALS')
+          .context({
+            operation: 'login',
+            resource: 'authentication'
+          })
+          .build()
+      );
     }
 
     // Make the call to the auth service to login the user
@@ -106,9 +125,18 @@ export class AuthController {
 
     // Validate input
     if (!token) {
-      return reply.status(400).send({
-        error: 'Verification token is required'
-      });
+      return reply.status(400).send(
+        ErrorResponseBuilder.create()
+          .status(400)
+          .error('Bad Request')
+          .message('Verification token is required')
+          .code('MISSING_TOKEN')
+          .context({
+            operation: 'email_verification',
+            resource: 'token'
+          })
+          .build()
+      );
     }
 
     // Make the call to the auth service to verify the email token
@@ -146,9 +174,18 @@ export class AuthController {
 
     // Validate input
     if (!email) {
-      return reply.status(400).send({
-        error: 'Email is required'
-      });
+      return reply.status(400).send(
+        ErrorResponseBuilder.create()
+          .status(400)
+          .error('Bad Request')
+          .message('Email is required')
+          .code('MISSING_EMAIL')
+          .context({
+            operation: 'resend_verification',
+            resource: 'email'
+          })
+          .build()
+      );
     }
 
     // Validate email format here as well as in the service to optimize for performance and UX
@@ -188,24 +225,42 @@ export class AuthController {
 
     // Validate input
     if (!email) {
-      return reply.status(400).send({
-        error: 'Email is required'
-      });
+      return reply.status(400).send(
+        ErrorResponseBuilder.create()
+          .status(400)
+          .error('Bad Request')
+          .message('Email is required')
+          .code('MISSING_EMAIL')
+          .context({
+            operation: 'forgot_password',
+            resource: 'email'
+          })
+          .build()
+      );
     }
 
     // Validate email format here as well as in the service to optimize for performance and UX
     if (!authService.isValidEmail(email)) {
-      return reply.status(400).send({
-        error: 'Invalid email format'
-      });
+      return reply.status(400).send(
+        ErrorResponseBuilder.create()
+          .status(400)
+          .error('Bad Request')
+          .message('Invalid email format')
+          .code('INVALID_EMAIL')
+          .context({
+            operation: 'forgot_password',
+            resource: 'email'
+          })
+          .build()
+      );
     }
 
     const result = await authService.requestPasswordReset(email);
 
     if (!result.success) {
-      return reply.status(500).send({
-        error: 'Internal server error during password reset request'
-      });
+      return reply.status(500).send(
+        CommonErrors.internalServerError('Internal server error during password reset request')
+      );
     }
 
     return reply.status(200).send({
@@ -223,9 +278,18 @@ export class AuthController {
       const { token } = request.params as { token: string };
 
       if (!token) {
-        return reply.status(400).send({
-          error: 'Password reset token is required'
-        });
+        return reply.status(400).send(
+          ErrorResponseBuilder.create()
+            .status(400)
+            .error('Bad Request')
+            .message('Password reset token is required')
+            .code('MISSING_TOKEN')
+            .context({
+              operation: 'verify_password_reset',
+              resource: 'token'
+            })
+            .build()
+        );
       }
 
       // Verify the token using the service
@@ -245,9 +309,9 @@ export class AuthController {
 
     } catch (error) {
       console.error('Password reset token verification error:', error);
-      return reply.status(500).send({
-        error: 'Internal server error during token verification'
-      });
+      return reply.status(500).send(
+        CommonErrors.internalServerError('Internal server error during token verification')
+      );
     }
   }
 
@@ -320,7 +384,9 @@ export class AuthController {
     // Check if request.user.id exists
     const user = (request as any).user;
     if (!user || !user.id) {
-      return reply.status(401).send({error: 'Authentication required'});
+      return reply.status(401).send(
+        CommonErrors.unauthorized('Authentication required')
+      );
     }
 
     // Call authService.setupSecurityQuestionsWithValidation

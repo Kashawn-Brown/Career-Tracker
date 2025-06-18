@@ -14,6 +14,7 @@ import type {
   CreateContactRequest, 
   UpdateContactRequest 
 } from '../models/contact.models.js';
+import { CommonErrors, ErrorResponseBuilder } from '../utils/errorResponse.js';
 
 export class ContactController {
 
@@ -33,14 +34,27 @@ export class ContactController {
       ...request.query,
       userId
     };
-    
-    const result = await contactService.listContacts(filtersWithUser);
 
-    // Handle service result
+    // Extract request context for audit logging
+    const requestContext = {
+      ipAddress: request.ip,
+      userAgent: request.headers['user-agent']
+    };
+    
+    const result = await contactService.listContacts(filtersWithUser, requestContext);
+
+    // Handle service result - now using standardized responses
     if (!result.success) {
-      return reply.status(result.statusCode).send({
-        error: result.error
-      });
+      const response: any = { 
+        error: result.error,
+        message: result.message 
+      };
+      if (result.details) response.details = result.details;
+      if (result.code) response.code = result.code;
+      if (result.context) response.context = result.context;
+      if (result.action) response.action = result.action;
+      
+      return reply.status(result.statusCode).send(response);
     }
 
     return reply.status(result.statusCode).send({
@@ -63,18 +77,41 @@ export class ContactController {
     
     // Basic validation handled in controller for HTTP concerns
     if (isNaN(id)) {
-      return reply.status(400).send({
-        error: 'Invalid contact ID format'
-      });
+      return reply.status(400).send(
+        ErrorResponseBuilder.create()
+          .status(400)
+          .error('Validation Error')
+          .message('Invalid contact ID format - must be a valid number')
+          .code('INVALID_ID_FORMAT')
+          .context({
+            operation: 'get_contact',
+            resource: 'contact',
+            resourceId: request.params.id
+          })
+          .build()
+      );
     }
 
-    const result = await contactService.getContact(id, userId);
+    // Extract request context for audit logging
+    const requestContext = {
+      ipAddress: request.ip,
+      userAgent: request.headers['user-agent']
+    };
 
-    // Handle service result
+    const result = await contactService.getContact(id, userId, requestContext);
+
+    // Handle service result - now using standardized responses
     if (!result.success) {
-      return reply.status(result.statusCode).send({
-        error: result.error
-      });
+      const response: any = { 
+        error: result.error,
+        message: result.message 
+      };
+      if (result.details) response.details = result.details;
+      if (result.code) response.code = result.code;
+      if (result.context) response.context = result.context;
+      if (result.action) response.action = result.action;
+      
+      return reply.status(result.statusCode).send(response);
     }
 
     return reply.status(result.statusCode).send({
@@ -97,14 +134,27 @@ export class ContactController {
       ...request.body,
       userId
     };
-    
-    const result = await contactService.createContact(createData);
 
-    // Handle service result
+    // Extract request context for audit logging
+    const requestContext = {
+      ipAddress: request.ip,
+      userAgent: request.headers['user-agent']
+    };
+    
+    const result = await contactService.createContact(createData, requestContext);
+
+    // Handle service result - now using standardized responses
     if (!result.success) {
-      return reply.status(result.statusCode).send({
-        error: result.error
-      });
+      const response: any = { 
+        error: result.error,
+        message: result.message 
+      };
+      if (result.details) response.details = result.details;
+      if (result.code) response.code = result.code;
+      if (result.context) response.context = result.context;
+      if (result.action) response.action = result.action;
+      
+      return reply.status(result.statusCode).send(response);
     }
 
     return reply.status(result.statusCode).send({
@@ -126,9 +176,19 @@ export class ContactController {
     
     // Basic validation handled in controller for HTTP concerns
     if (isNaN(id)) {
-      return reply.status(400).send({
-        error: 'Invalid contact ID format'
-      });
+      return reply.status(400).send(
+        ErrorResponseBuilder.create()
+          .status(400)
+          .error('Validation Error')
+          .message('Invalid contact ID format - must be a valid number')
+          .code('INVALID_ID_FORMAT')
+          .context({
+            operation: 'update_contact',
+            resource: 'contact',
+            resourceId: request.params.id
+          })
+          .build()
+      );
     }
 
     const result = await contactService.updateContact(id, userId, request.body);

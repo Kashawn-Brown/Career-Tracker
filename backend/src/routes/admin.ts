@@ -1,10 +1,60 @@
+/**
+ * Admin Routes
+ * 
+ * Defines REST API routes for administrative operations including:
+ * - User security management
+ * - Account lockout management
+ * - Audit log access
+ * - System monitoring
+ * 
+ * Registers routes with Fastify including validation schemas, rate limiting, and handlers.
+ * Requires ADMIN role for all endpoints.
+ */
+
 import { FastifyInstance } from 'fastify';
 import { userSecurityService } from '../services/userSecurity.service.js';
 import { auditService } from '../services/audit.service.js';
 import { emailService } from '../services/email.service.js';
 import { requireAuth, roleBasedAccess } from '../middleware/auth.middleware.js';
+import { securityMiddleware } from '../middleware/security.middleware.js';
+import { repositories } from '../repositories/index.js';
+import { commonErrorResponses } from '../utils/errorSchemas.js';
+
+// Rate limiting configuration
+const adminReadRateLimit = {
+  max: 100, // 100 admin reads per minute
+  timeWindow: 60 * 1000 // 1 minute
+};
+
+const adminModificationRateLimit = {
+  max: 30, // 30 admin modifications per minute
+  timeWindow: 60 * 1000 // 1 minute
+};
+
+const adminSensitiveRateLimit = {
+  max: 10, // 10 sensitive operations per minute
+  timeWindow: 60 * 1000 // 1 minute
+};
+
+const errorResponseSchema = {
+  type: 'object',
+  properties: {
+    success: { type: 'boolean' },
+    error: { type: 'string' },
+    message: { type: 'string' },
+    statusCode: { type: 'number' },
+    timestamp: { type: 'string' },
+    path: { type: 'string' }
+  },
+  required: ['success', 'error', 'message', 'statusCode', 'timestamp', 'path']
+};
 
 export async function adminRoutes(fastify: FastifyInstance) {
+  // Register rate limiting plugin
+  await fastify.register(import('@fastify/rate-limit'));
+
+  // Using shared error response schemas
+
   // Admin middleware - ensure user is authenticated and has admin role
   fastify.addHook('preHandler', async (request, reply) => {
     await requireAuth(request, reply);
@@ -12,8 +62,12 @@ export async function adminRoutes(fastify: FastifyInstance) {
     await roleBasedAccess(['ADMIN'])(request, reply);
   });
 
-  // Get all locked accounts with pagination
+  // GET /security/locked-accounts - Get all locked accounts with pagination
   fastify.get('/security/locked-accounts', {
+    config: {
+      rateLimit: adminReadRateLimit
+    },
+    preHandler: [securityMiddleware.dataAccessRateLimit()],
     schema: {
       querystring: {
         type: 'object',
@@ -63,7 +117,8 @@ export async function adminRoutes(fastify: FastifyInstance) {
               }
             }
           }
-        }
+        },
+        ...commonErrorResponses
       }
     }
   }, async (request, reply) => {
@@ -95,8 +150,12 @@ export async function adminRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Get specific user's security status
+  // GET /security/user/:userId - Get specific user's security status
   fastify.get('/security/user/:userId', {
+    config: {
+      rateLimit: adminReadRateLimit
+    },
+    preHandler: [securityMiddleware.dataAccessRateLimit()],
     schema: {
       params: {
         type: 'object',
@@ -124,7 +183,8 @@ export async function adminRoutes(fastify: FastifyInstance) {
               }
             }
           }
-        }
+        },
+        ...commonErrorResponses
       }
     }
   }, async (request, reply) => {
@@ -156,8 +216,12 @@ export async function adminRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Manually unlock a user account
+  // POST /security/unlock-account/:userId - Manually unlock a user account
   fastify.post('/security/unlock-account/:userId', {
+    config: {
+      rateLimit: adminSensitiveRateLimit
+    },
+    preHandler: [securityMiddleware.dataModificationRateLimit()],
     schema: {
       params: {
         type: 'object',
@@ -180,7 +244,8 @@ export async function adminRoutes(fastify: FastifyInstance) {
             success: { type: 'boolean' },
             message: { type: 'string' }
           }
-        }
+        },
+        ...commonErrorResponses
       }
     }
   }, async (request, reply) => {
@@ -199,19 +264,35 @@ export async function adminRoutes(fastify: FastifyInstance) {
       }
 
       // Unlock the account
-      await userSecurityService.unlockAccount(userId, reason, request.user!.userId);
-
-      // Log admin unlock action
-      await auditService.logAdminSecurityAction(
+      await userSecurityService.unlockAccount(userId, reason);
+      
+      // Log the admin action
+      await auditService.logAdminSecurityAccess(
         request.user!.userId,
         request.ip,
         request.headers['user-agent'] as string,
         `Manually unlocked account for user ${userId}. Reason: ${reason}`
       );
 
+      // Send notification to user
+      try {
+        const user = await repositories.user.findById(userId);
+        if (user) {
+          await emailService.sendSecurityNotificationEmail(
+            'account_unlocked',
+            user.email,
+            user.name || user.email,
+            { reason }
+          );
+        }
+      } catch (emailError) {
+        console.error('Failed to send unlock notification:', emailError);
+        // Don't fail the entire operation if email fails
+      }
+
       reply.send({
         success: true,
-        message: 'Account unlocked successfully'
+        message: 'Account successfully unlocked'
       });
     } catch (error) {
       reply.status(500).send({

@@ -2,7 +2,7 @@
  * User Profile Routes
  * 
  * Defines REST API routes for user profile operations.
- * Registers routes with Fastify including validation schemas and handlers.
+ * Registers routes with Fastify including validation schemas, rate limiting, and handlers.
  */
 
 import { FastifyInstance } from 'fastify';
@@ -16,50 +16,55 @@ import {
   ErrorResponseSchema
 } from '../schemas/user-profile.schema.js';
 import { requireAuth } from '../middleware/auth.middleware.js';
+import { securityMiddleware } from '../middleware/security.middleware.js';
+import { commonErrorResponses } from '../utils/errorSchemas.js';
+
+// Rate limiting configuration
+const profileReadRateLimit = {
+  max: 60, // 60 profile reads per minute
+  timeWindow: 60 * 1000 // 1 minute
+};
+
+const profileUpdateRateLimit = {
+  max: 10, // 10 profile updates per minute
+  timeWindow: 60 * 1000 // 1 minute
+};
 
 /**
  * Register user profile routes
  */
 export default async function userProfileRoutes(fastify: FastifyInstance) {
-  // Add common error response schemas to all routes
-  const commonErrorResponses = {
-    400: ErrorResponseSchema,
-    401: ErrorResponseSchema,
-    403: ErrorResponseSchema,
-    500: ErrorResponseSchema
-  };
+  // Register rate limiting plugin
+  await fastify.register(import('@fastify/rate-limit'));
 
-  // ROUTES
+  // Using shared error response schemas
 
-  /**
-   * GET /api/user
-   * Get the authenticated user's profile
-   */
+  // GET /user - Get the authenticated user's profile
   fastify.get('/user', {
-    preHandler: requireAuth,
+    config: {
+      rateLimit: profileReadRateLimit
+    },
+    preHandler: [requireAuth, securityMiddleware.dataAccessRateLimit()],
     schema: {
       ...getUserProfileSchema,
       response: {
         ...getUserProfileSchema.response,
-        404: ErrorResponseSchema,
         ...commonErrorResponses
       }
     },
     handler: getUserProfile
   });
 
-  /**
-   * PUT /api/user
-   * Update the authenticated user's profile
-   */
+  // PUT /user - Update the authenticated user's profile
   fastify.put('/user', {
-    preHandler: requireAuth,
+    config: {
+      rateLimit: profileUpdateRateLimit
+    },
+    preHandler: [requireAuth, securityMiddleware.dataModificationRateLimit()],
     schema: {
       ...updateUserProfileSchema,
       response: {
         ...updateUserProfileSchema.response,
-        404: ErrorResponseSchema,
-        409: ErrorResponseSchema, // For conflict when email is already in use
         ...commonErrorResponses
       }
     },

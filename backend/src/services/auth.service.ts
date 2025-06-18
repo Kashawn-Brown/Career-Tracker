@@ -10,6 +10,7 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 
 import crypto from 'crypto';
+import { ErrorResponseBuilder, CommonErrors } from '../utils/errorResponse.js';
 import {
   EmailVerificationResult,
   PasswordValidationResult,
@@ -51,20 +52,45 @@ export class AuthService {
     try {
       // Validate email format
       if (!this.isValidEmail(email)) {
+        const error = ErrorResponseBuilder.create()
+          .status(400)
+          .error('Validation Error')
+          .message('Invalid email format provided')
+          .code('INVALID_EMAIL_FORMAT')
+          .context({
+            operation: 'user_registration',
+            resource: 'user'
+          })
+          .build();
+        
         return {
           success: false,
           statusCode: 400,
-          error: 'Invalid email format'
+          error: error.error,
+          details: [error.message!]
         };
       }
 
       // Validate password strength
       const passwordValidation = this.isValidPassword(password);
       if (!passwordValidation.valid) {
+        const error = ErrorResponseBuilder.create()
+          .status(400)
+          .error('Password Validation Failed')
+          .message('Password does not meet security requirements')
+          .code('WEAK_PASSWORD')
+          .context({
+            operation: 'user_registration',
+            resource: 'user'
+          })
+          .details(passwordValidation.errors)
+          .action('Please choose a stronger password that meets all requirements')
+          .build();
+
         return {
           success: false,
           statusCode: 400,
-          error: 'Password validation failed',
+          error: error.error,
           details: passwordValidation.errors
         };
       }
@@ -74,19 +100,44 @@ export class AuthService {
       if (existingUser) {
         // If user exists but hasn't verified email, offer to resend verification
         if (!existingUser.emailVerified) {
+          const error = ErrorResponseBuilder.create()
+            .status(409)
+            .error('Account Exists But Unverified')
+            .message('You have already registered with this email but haven\'t verified it yet')
+            .code('ACCOUNT_UNVERIFIED')
+            .context({
+              operation: 'user_registration',
+              resource: 'user',
+              userId: existingUser.id
+            })
+            .action('resend_verification')
+            .build();
+
           return {
             success: false,
             statusCode: 409,
-            error: 'You have already registered with this email but haven\'t verified it yet.',
+            error: error.error,
             action: 'resend_verification',
             message: 'Would you like to resend the verification email?'
           };
         }
         
+        const error = ErrorResponseBuilder.create()
+          .status(409)
+          .error('Account Already Exists')
+          .message('An account with this email address already exists and is verified')
+          .code('ACCOUNT_EXISTS')
+          .context({
+            operation: 'user_registration',
+            resource: 'user'
+          })
+          .action('Try logging in instead, or use the forgot password feature if needed')
+          .build();
+
         return {
           success: false,
           statusCode: 409,
-          error: 'User with this email already exists and is verified'
+          error: error.error
         };
       }
 
@@ -141,10 +192,26 @@ export class AuthService {
 
     } catch (error) {
       console.error('Registration error:', error);
+      
+      const errorResponse = ErrorResponseBuilder.create()
+        .status(500)
+        .error('Internal Server Error')
+        .message('An unexpected error occurred during registration')
+        .code('REGISTRATION_ERROR')
+        .context({
+          operation: 'user_registration',
+          resource: 'user'
+        })
+        .details({
+          errorType: error instanceof Error ? error.constructor.name : 'Unknown',
+          timestamp: new Date().toISOString()
+        })
+        .build();
+
       return {
         success: false,
         statusCode: 500,
-        error: 'Internal server error during registration'
+        error: errorResponse.error
       };
     }
   }

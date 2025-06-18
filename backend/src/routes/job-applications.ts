@@ -2,7 +2,7 @@
  * Job Application Routes
  * 
  * Defines REST API routes for job application CRUD operations.
- * Registers routes with Fastify including validation schemas and handlers.
+ * Registers routes with Fastify including validation schemas, rate limiting, and handlers.
  */
 
 import { FastifyInstance } from 'fastify';
@@ -22,27 +22,35 @@ import {
   errorResponseSchema
 } from '../schemas/job-application.schema.js';
 import { requireAuth } from '../middleware/auth.middleware.js';
+import { securityMiddleware } from '../middleware/security.middleware.js';
+import { commonErrorResponses } from '../utils/errorSchemas.js';
+
+// Rate limiting configuration
+const applicationReadRateLimit = {
+  max: 60, // 60 application reads per minute
+  timeWindow: 60 * 1000 // 1 minute
+};
+
+const applicationModificationRateLimit = {
+  max: 30, // 30 application modifications per minute
+  timeWindow: 60 * 1000 // 1 minute
+};
 
 /**
  * Register job application routes
  */
 export default async function jobApplicationRoutes(fastify: FastifyInstance) {
-  // Add common error response schemas to all routes
-  const commonErrorResponses = {
-    400: errorResponseSchema,
-    401: errorResponseSchema,
-    403: errorResponseSchema,
-    500: errorResponseSchema
-  };
+  // Register rate limiting plugin
+  await fastify.register(import('@fastify/rate-limit'));
 
-  // ROUTES
+  // Using shared error response schemas
 
-  /**
-   * GET /api/applications
-   * List job applications with pagination and filtering (user's own applications)
-   */
+  // GET /applications - List job applications with pagination and filtering
   fastify.get('/applications', {
-    preHandler: requireAuth,
+    config: {
+      rateLimit: applicationReadRateLimit
+    },
+    preHandler: [requireAuth, securityMiddleware.dataAccessRateLimit()],
     schema: {
       ...listJobApplicationsSchema,
       response: {
@@ -53,29 +61,28 @@ export default async function jobApplicationRoutes(fastify: FastifyInstance) {
     handler: listJobApplications
   });
 
-  /**
-   * GET /api/applications/:id
-   * Get a single job application by ID (user's own application)
-   */
+  // GET /applications/:id - Get a single job application by ID
   fastify.get('/applications/:id', {
-    preHandler: requireAuth,
+    config: {
+      rateLimit: applicationReadRateLimit
+    },
+    preHandler: [requireAuth, securityMiddleware.dataAccessRateLimit()],
     schema: {
       ...getJobApplicationSchema,
       response: {
         ...getJobApplicationSchema.response,
-        404: errorResponseSchema,
         ...commonErrorResponses
       }
     },
     handler: getJobApplication
   });
 
-  /**
-   * POST /api/applications
-   * Create a new job application (authenticated user)
-   */
+  // POST /applications - Create a new job application
   fastify.post('/applications', {
-    preHandler: requireAuth,
+    config: {
+      rateLimit: applicationModificationRateLimit
+    },
+    preHandler: [requireAuth, securityMiddleware.dataModificationRateLimit()],
     schema: {
       ...createJobApplicationSchema,
       response: {
@@ -86,34 +93,32 @@ export default async function jobApplicationRoutes(fastify: FastifyInstance) {
     handler: createJobApplication
   });
 
-  /**
-   * PUT /api/applications/:id
-   * Update an existing job application (user's own application)
-   */
+  // PUT /applications/:id - Update an existing job application
   fastify.put('/applications/:id', {
-    preHandler: requireAuth,
+    config: {
+      rateLimit: applicationModificationRateLimit
+    },
+    preHandler: [requireAuth, securityMiddleware.dataModificationRateLimit()],
     schema: {
       ...updateJobApplicationSchema,
       response: {
         ...updateJobApplicationSchema.response,
-        404: errorResponseSchema,
         ...commonErrorResponses
       }
     },
     handler: updateJobApplication
   });
 
-  /**
-   * DELETE /api/applications/:id
-   * Delete a job application (user's own application)
-   */
+  // DELETE /applications/:id - Delete a job application
   fastify.delete('/applications/:id', {
-    preHandler: requireAuth,
+    config: {
+      rateLimit: applicationModificationRateLimit
+    },
+    preHandler: [requireAuth, securityMiddleware.dataModificationRateLimit()],
     schema: {
       ...deleteJobApplicationSchema,
       response: {
         ...deleteJobApplicationSchema.response,
-        404: errorResponseSchema,
         ...commonErrorResponses
       }
     },

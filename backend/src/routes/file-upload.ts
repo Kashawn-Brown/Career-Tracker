@@ -2,7 +2,7 @@
  * File Upload Routes
  * 
  * Defines REST API routes for standalone file upload operations.
- * Registers routes with Fastify including validation schemas, middleware, and handlers.
+ * Registers routes with Fastify including validation schemas, rate limiting, middleware, and handlers.
  * Uses the FileUploadController for business logic separation following auth patterns.
  */
 
@@ -10,6 +10,29 @@ import { FastifyInstance } from 'fastify';
 import { fileUploadController } from '../controllers/index.js';
 import { requireAuth } from '../middleware/auth.middleware.js';
 import { uploadSingle, uploadMultiple } from '../middleware/upload.middleware.js';
+import { securityMiddleware } from '../middleware/security.middleware.js';
+import { fileUploadErrorResponses } from '../utils/errorSchemas.js';
+
+// Rate limiting configuration
+const fileUploadRateLimit = {
+  max: 10, // 10 uploads per 5 minutes (resource-intensive)
+  timeWindow: 5 * 60 * 1000 // 5 minutes
+};
+
+const fileReadRateLimit = {
+  max: 60, // 60 file reads per minute
+  timeWindow: 60 * 1000 // 1 minute
+};
+
+const fileModificationRateLimit = {
+  max: 30, // 30 file modifications per minute
+  timeWindow: 60 * 1000 // 1 minute
+};
+
+const configRateLimit = {
+  max: 20, // 20 config requests per minute
+  timeWindow: 60 * 1000 // 1 minute
+};
 
 /**
  * File upload route schemas for validation and documentation
@@ -175,107 +198,102 @@ const uploadConfigSchema = {
  * Register file upload routes
  */
 export default async function fileUploadRoutes(fastify: FastifyInstance) {
-  // Add common error response schemas to all routes
-  const commonErrorResponses = {
-    400: errorResponseSchema,
-    401: errorResponseSchema,
-    403: errorResponseSchema,
-    404: errorResponseSchema,
-    500: errorResponseSchema
-  };
+  // Register rate limiting plugin
+  await fastify.register(import('@fastify/rate-limit'));
 
-  // ROUTES
+  // Using shared file upload error response schemas
 
-  /**
-   * POST /api/upload/single
-   * Upload a single file
-   */
+  // POST /upload/single - Upload a single file
   fastify.post('/upload/single', {
-    preHandler: [requireAuth, uploadSingle('file')],
+    config: {
+      rateLimit: fileUploadRateLimit
+    },
+    preHandler: [requireAuth, securityMiddleware.fileUploadRateLimit(), uploadSingle('file')],
     schema: {
       ...singleUploadSchema,
       response: {
         ...singleUploadSchema.response,
-        ...commonErrorResponses
+        ...fileUploadErrorResponses
       }
     },
     handler: fileUploadController.uploadSingle
   });
 
-  /**
-   * POST /api/upload/multiple
-   * Upload multiple files
-   */
+  // POST /upload/multiple - Upload multiple files
   fastify.post('/upload/multiple', {
-    preHandler: [requireAuth, uploadMultiple('files', 10)],
+    config: {
+      rateLimit: fileUploadRateLimit
+    },
+    preHandler: [requireAuth, securityMiddleware.fileUploadRateLimit(), uploadMultiple('files', 10)],
     schema: {
       ...multipleUploadSchema,
       response: {
         ...multipleUploadSchema.response,
-        ...commonErrorResponses
+        ...fileUploadErrorResponses
       }
     },
     handler: fileUploadController.uploadMultiple
   });
 
-  /**
-   * GET /api/upload/info/:filename
-   * Get file information
-   */
-  fastify.get('/upload/info/:filename', {
-    preHandler: requireAuth,
+  // GET /files/:filename - Get file information
+  fastify.get('/files/:filename', {
+    config: {
+      rateLimit: fileReadRateLimit
+    },
+    preHandler: [requireAuth, securityMiddleware.dataAccessRateLimit()],
     schema: {
       ...getFileInfoSchema,
       response: {
         ...getFileInfoSchema.response,
-        ...commonErrorResponses
+        ...fileUploadErrorResponses
       }
     },
     handler: fileUploadController.getFileInfo
   });
 
-  /**
-   * GET /api/upload/:filename
-   * Download a file
-   */
-  fastify.get('/upload/:filename', {
-    preHandler: requireAuth,
+  // GET /files/:filename/download - Download a file
+  fastify.get('/files/:filename/download', {
+    config: {
+      rateLimit: fileReadRateLimit
+    },
+    preHandler: [requireAuth, securityMiddleware.dataAccessRateLimit()],
     schema: {
       ...downloadFileSchema,
       response: {
         ...downloadFileSchema.response,
-        ...commonErrorResponses
+        ...fileUploadErrorResponses
       }
     },
     handler: fileUploadController.downloadFile
   });
 
-  /**
-   * DELETE /api/upload/:filename
-   * Delete a file
-   */
-  fastify.delete('/upload/:filename', {
-    preHandler: requireAuth,
+  // DELETE /files/:filename - Delete a file
+  fastify.delete('/files/:filename', {
+    config: {
+      rateLimit: fileModificationRateLimit
+    },
+    preHandler: [requireAuth, securityMiddleware.dataModificationRateLimit()],
     schema: {
       ...deleteFileSchema,
       response: {
         ...deleteFileSchema.response,
-        ...commonErrorResponses
+        ...fileUploadErrorResponses
       }
     },
     handler: fileUploadController.deleteFile
   });
 
-  /**
-   * GET /api/upload/config
-   * Get upload configuration (public endpoint)
-   */
+  // GET /upload/config - Get upload configuration
   fastify.get('/upload/config', {
+    config: {
+      rateLimit: configRateLimit
+    },
+    preHandler: [requireAuth],
     schema: {
       ...uploadConfigSchema,
       response: {
         ...uploadConfigSchema.response,
-        ...commonErrorResponses
+        ...fileUploadErrorResponses
       }
     },
     handler: fileUploadController.getUploadConfig

@@ -31,6 +31,7 @@ export async function requireAuth(
     
     if (!authHeader) {
       return reply.status(401).send({
+        success: false,
         error: 'Authentication required',
         message: 'No authorization header provided',
         statusCode: 401,
@@ -42,6 +43,7 @@ export async function requireAuth(
     // Check for Bearer token format
     if (!authHeader.startsWith('Bearer ')) {
       return reply.status(401).send({
+        success: false,
         error: 'Invalid authorization format',
         message: 'Authorization header must start with "Bearer "',
         statusCode: 401,
@@ -55,6 +57,7 @@ export async function requireAuth(
     
     if (!token) {
       return reply.status(401).send({
+        success: false,
         error: 'Authentication required',
         message: 'No token provided',
         statusCode: 401,
@@ -84,6 +87,7 @@ export async function requireAuth(
     }
     
     return reply.status(401).send({
+      success: false,
       error: 'Authentication failed',
       message,
       statusCode: 401,
@@ -163,6 +167,7 @@ export function roleBasedAccess(allowedRoles: string[]) {
     // Ensure user is authenticated (should be set by requireAuth middleware)
     if (!request.user) {
       return reply.status(401).send({
+        success: false,
         error: 'Authentication required',
         message: 'No user context found. Ensure requireAuth middleware runs before roleBasedAccess.',
         statusCode: 401,
@@ -174,6 +179,7 @@ export function roleBasedAccess(allowedRoles: string[]) {
     // Check if user's role is in the allowed roles
     if (!allowedRoles.includes(request.user.role)) {
       return reply.status(403).send({
+        success: false,
         error: 'Access forbidden',
         message: `This action requires one of the following roles: ${allowedRoles.join(', ')}. Your role: ${request.user.role}`,
         statusCode: 403,

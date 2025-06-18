@@ -34,14 +34,9 @@ import {
   verifySecondaryEmailSchema,
   forgotPasswordSecondarySchema
 } from '../schemas/auth.schema.js';
+import { authCommonErrorResponses } from '../utils/errorSchemas.js';
 
 // Rate limiting configuration
-/*
-per-IP address limit by default in Fastify's rate limiting plugin.
-Each unique IP address can make 5 requests per minute to endpoints using authRateLimit. 
-So if 100 different users hit the endpoint simultaneously, each can make 5 requests within their minute window 
-- it's not shared globally across all users.
-*/
 const authRateLimit = {
   max: 5, // 5 requests per minute
   timeWindow: 60 * 1000 // 1 minute
@@ -62,194 +57,279 @@ const resetPasswordRateLimit = {
   timeWindow: 15 * 60 * 1000 // 15 minutes
 };
 
+const csrfTokenRateLimit = {
+  max: 10, // 10 requests per minute for CSRF tokens
+  timeWindow: 60 * 1000 // 1 minute
+};
+
 export default async function authRoutes(fastify: FastifyInstance) {
   // Register rate limiting plugin
   await fastify.register(import('@fastify/rate-limit'));
 
-  // CSRF Token endpoint
+  // Using shared auth-specific error response schemas
+
+  // GET /csrf-token - Get CSRF token for secure requests
   fastify.get('/csrf-token', {
     config: {
-      rateLimit: {
-        max: 10, // 10 requests per minute for CSRF tokens
-        timeWindow: 60 * 1000
+      rateLimit: csrfTokenRateLimit
+    },
+    schema: {
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            csrfToken: { type: 'string' }
+          }
+        },
+        ...authCommonErrorResponses
       }
     }
   }, securityMiddleware.getCSRFToken());
 
-  /* ROUTES */
-
-  // User Registration
+  // POST /register - Create new user account
   fastify.post('/register', {
     config: {
       rateLimit: authRateLimit
     },
-    schema: registerSchema
-  }, authController.register.bind(authController));
+    schema: {
+      ...registerSchema,
+      response: {
+        ...registerSchema.response,
+        ...authCommonErrorResponses
+      }
+    }
+  }, authController.register);
 
-
-  // User Login
+  // POST /login - Authenticate user and return tokens
   fastify.post('/login', {
     config: {
       rateLimit: authRateLimit
     },
-    schema: loginSchema,
-    preHandler: [securityMiddleware.loginRateLimit()]
-  }, authController.login.bind(authController));
+    preHandler: [securityMiddleware.loginRateLimit()],
+    schema: {
+      ...loginSchema,
+              response: {
+          ...loginSchema.response,
+          ...authCommonErrorResponses
+        }
+    }
+  }, authController.login);
 
-
-  // Email Verification - user clicks link in verification email
+  // POST /verify-email - Verify user email with token
   fastify.post('/verify-email', {
     config: {
       rateLimit: authRateLimit
     },
-    schema: verifyEmailSchema
-  }, authController.handleEmailVerification.bind(authController));
+    schema: {
+      ...verifyEmailSchema,
+              response: {
+          ...verifyEmailSchema.response,
+          ...authCommonErrorResponses
+        }
+    }
+  }, authController.handleEmailVerification);
 
-
-  // Token Refresh - used when access token expires
+  // POST /refresh - Refresh access token
   fastify.post('/refresh', {
     config: {
       rateLimit: authRateLimit
     },
-    schema: refreshTokenSchema
-  }, authController.refreshToken.bind(authController));
+    schema: {
+      ...refreshTokenSchema,
+              response: {
+          ...refreshTokenSchema.response,
+          ...authCommonErrorResponses
+        }
+    }
+  }, authController.refreshToken);
 
-
-  // Resend Email Verification - used when user doesn't receive verification email
+  // POST /resend-verification - Resend email verification
   fastify.post('/resend-verification', {
     config: {
-      rateLimit: resendRateLimit // Stricter rate limit for resend
+      rateLimit: resendRateLimit
     },
-    schema: resendVerificationSchema
-  }, authController.resendVerification.bind(authController));
+    schema: {
+      ...resendVerificationSchema,
+      response: {
+        ...resendVerificationSchema.response,
+        ...authCommonErrorResponses
+      }
+    }
+  }, authController.resendVerification);
 
-
-  // Forgot Password
+  // POST /forgot-password - Request password reset
   fastify.post('/forgot-password', {
     config: {
-      rateLimit: forgotPasswordRateLimit // 3 requests per hour
+      rateLimit: forgotPasswordRateLimit
     },
-    schema: forgotPasswordSchema,
-    preHandler: [securityMiddleware.passwordResetRateLimit()]
-  }, authController.forgotPassword.bind(authController));
+    preHandler: [securityMiddleware.passwordResetRateLimit()],
+    schema: {
+      ...forgotPasswordSchema,
+      response: {
+        ...forgotPasswordSchema.response,
+        ...authCommonErrorResponses
+      }
+    }
+  }, authController.forgotPassword);
 
-
-  // Verify Password Reset Token - used when user clicks link in password reset email
+  // GET /reset-password/:token - Verify password reset token
   fastify.get('/reset-password/:token', {
     config: {
-      rateLimit: resetPasswordRateLimit // 10 attempts per 15 minutes
+      rateLimit: resetPasswordRateLimit
     },
-    schema: verifyResetTokenSchema
-  }, authController.verifyPasswordReset.bind(authController));
+    schema: {
+      ...verifyResetTokenSchema,
+      response: {
+        ...verifyResetTokenSchema.response,
+        ...authCommonErrorResponses
+      }
+    }
+  }, authController.verifyPasswordReset);
 
-
-  // Complete Password Reset - used when user enters new password
+  // POST /reset-password/:token - Complete password reset
   fastify.post('/reset-password/:token', {
     config: {
-      rateLimit: resetPasswordRateLimit // 10 attempts per 15 minutes
+      rateLimit: resetPasswordRateLimit
     },
-    schema: resetPasswordSchema
-  }, authController.resetPassword.bind(authController));
+    schema: {
+      ...resetPasswordSchema,
+      response: {
+        ...resetPasswordSchema.response,
+        ...authCommonErrorResponses
+      }
+    }
+  }, authController.resetPassword);
 
-
-  /* Security Questions Routes */
-  
-  // Set up security questions (authenticated)
+  // POST /security-questions - Setup security questions
   fastify.post('/security-questions', {
     config: {
-      rateLimit: authRateLimit // 5 requests per minute
+      rateLimit: authRateLimit
     },
-    schema: setupSecurityQuestionsSchema,
-    preHandler: requireAuth
-  }, authController.setupSecurityQuestions.bind(authController));
+    preHandler: [requireAuth],
+    schema: {
+      ...setupSecurityQuestionsSchema,
+      response: {
+        ...setupSecurityQuestionsSchema.response,
+        ...authCommonErrorResponses
+      }
+    }
+  }, authController.setupSecurityQuestions);
 
-  // Get user's security questions (authenticated)
+  // GET /security-questions - Get user's security questions
   fastify.get('/security-questions', {
     config: {
-      rateLimit: authRateLimit // 5 requests per minute
+      rateLimit: authRateLimit
     },
-    schema: getSecurityQuestionsSchema,
-    preHandler: requireAuth
-  }, authController.getSecurityQuestions.bind(authController));
+    preHandler: [requireAuth],
+    schema: {
+      ...getSecurityQuestionsSchema,
+      response: {
+        ...getSecurityQuestionsSchema.response,
+        ...authCommonErrorResponses
+      }
+    }
+  }, authController.getSecurityQuestions);
 
-  // Get recovery questions for email (public)
-  // when user clicks forgot password (chooses to answer security questions)
+  // POST /recovery-questions - Get recovery questions for email
   fastify.post('/recovery-questions', {
     config: {
-      rateLimit: forgotPasswordRateLimit // 3 requests per hour like forgot password
+      rateLimit: forgotPasswordRateLimit
     },
-    schema: getRecoveryQuestionsSchema
-  }, authController.getRecoveryQuestions.bind(authController));
+    schema: {
+      ...getRecoveryQuestionsSchema,
+      response: {
+        ...getRecoveryQuestionsSchema.response,
+        ...authCommonErrorResponses
+      }
+    }
+  }, authController.getRecoveryQuestions);
 
-  // Verify security questions for recovery (public)
+  // POST /verify-security-questions - Verify security questions for recovery
   fastify.post('/verify-security-questions', {
     config: {
-      rateLimit: resetPasswordRateLimit // 10 attempts per 15 minutes
+      rateLimit: resetPasswordRateLimit
     },
-    schema: verifySecurityQuestionsSchema,
-    preHandler: [securityMiddleware.securityQuestionRateLimit()]
-  }, authController.verifySecurityQuestions.bind(authController));
+    preHandler: [securityMiddleware.securityQuestionRateLimit()],
+    schema: {
+      ...verifySecurityQuestionsSchema,
+      response: {
+        ...verifySecurityQuestionsSchema.response,
+        ...authCommonErrorResponses
+      }
+    }
+  }, authController.verifySecurityQuestions);
 
-  // Get available security question types (public)
+  // GET /available-security-questions - Get available security question types
   fastify.get('/available-security-questions', {
     config: {
-      rateLimit: authRateLimit // 5 requests per minute (light rate limit for public endpoint)
+      rateLimit: authRateLimit
     },
-    schema: getAvailableSecurityQuestionsSchema
-  }, authController.getAvailableSecurityQuestions.bind(authController));
+    schema: {
+      ...getAvailableSecurityQuestionsSchema,
+      response: {
+        ...getAvailableSecurityQuestionsSchema.response,
+        ...authCommonErrorResponses
+      }
+    }
+  }, authController.getAvailableSecurityQuestions);
 
-
-  /* Secondary Email Management Routes */
-  
-  // Set up secondary email (authenticated)
+  // POST /secondary-email - Setup secondary email
   fastify.post('/secondary-email', {
     config: {
-      rateLimit: authRateLimit // 5 requests per minute
+      rateLimit: authRateLimit
     },
-    schema: setupSecondaryEmailSchema,
-    preHandler: requireAuth
-  }, authController.setupSecondaryEmail.bind(authController));
+    preHandler: [requireAuth],
+    schema: {
+      ...setupSecondaryEmailSchema,
+      response: {
+        ...setupSecondaryEmailSchema.response,
+        ...authCommonErrorResponses
+      }
+    }
+  }, authController.setupSecondaryEmail);
 
-  
-  // Verify secondary email token (public)
+  // POST /verify-secondary-email - Verify secondary email
   fastify.post('/verify-secondary-email', {
     config: {
-      rateLimit: authRateLimit // 5 requests per minute
+      rateLimit: authRateLimit
     },
-    schema: verifySecondaryEmailSchema
-  }, authController.verifySecondaryEmail.bind(authController));
+    schema: {
+      ...verifySecondaryEmailSchema,
+      response: {
+        ...verifySecondaryEmailSchema.response,
+        ...authCommonErrorResponses
+      }
+    }
+  }, authController.verifySecondaryEmail);
 
-
-  // Forgot password via secondary email (public)
+  // POST /forgot-password-secondary - Password reset via secondary email
   fastify.post('/forgot-password-secondary', {
     config: {
-      rateLimit: forgotPasswordRateLimit // 3 requests per hour like forgot password
+      rateLimit: forgotPasswordRateLimit
     },
-    schema: forgotPasswordSecondarySchema,
-    preHandler: [securityMiddleware.passwordResetRateLimit()]
-  }, authController.forgotPasswordSecondary.bind(authController));
+    preHandler: [securityMiddleware.passwordResetRateLimit()],
+    schema: {
+      ...forgotPasswordSecondarySchema,
+      response: {
+        ...forgotPasswordSecondarySchema.response,
+        ...authCommonErrorResponses
+      }
+    }
+  }, authController.forgotPasswordSecondary);
 
-  
-  /* OAuth Routes */
-  
-  // Google OAuth - Initiate
-  fastify.get('/google', oauthController.googleAuth.bind(oauthController));
-  
-
-  // Google OAuth - Callback
-  fastify.get('/callback/google', oauthController.googleCallback.bind(oauthController));
-  
-
-  // LinkedIn OAuth - Initiate
-  fastify.get('/linkedin', oauthController.linkedinAuth.bind(oauthController));
-  
-
-  // LinkedIn OAuth - Callback
-  fastify.get('/callback/linkedin', oauthController.linkedinCallback.bind(oauthController));
-  
-
-  // OAuth Provider Status
+  // GET /oauth/status - Get OAuth status
   fastify.get('/oauth/status', {
-    schema: oauthStatusSchema
-  }, oauthController.getOAuthStatus.bind(oauthController));
+    config: {
+      rateLimit: authRateLimit
+    },
+    preHandler: [requireAuth],
+    schema: {
+      ...oauthStatusSchema,
+      response: {
+        ...oauthStatusSchema.response,
+        ...authCommonErrorResponses
+      }
+    }
+  }, oauthController.getOAuthStatus);
 } 
