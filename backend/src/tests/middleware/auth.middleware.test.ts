@@ -82,6 +82,7 @@ describe('Authentication Middleware', () => {
       // Assert
       expect(mockReply.status).toHaveBeenCalledWith(401);
       expect(mockReply.send).toHaveBeenCalledWith({
+        success: false,
         error: 'Authentication required',
         message: 'No authorization header provided',
         statusCode: 401,
@@ -103,6 +104,7 @@ describe('Authentication Middleware', () => {
       // Assert
       expect(mockReply.status).toHaveBeenCalledWith(401);
       expect(mockReply.send).toHaveBeenCalledWith({
+        success: false,
         error: 'Invalid authorization format',
         message: 'Authorization header must start with "Bearer "',
         statusCode: 401,
@@ -124,6 +126,7 @@ describe('Authentication Middleware', () => {
       // Assert
       expect(mockReply.status).toHaveBeenCalledWith(401);
       expect(mockReply.send).toHaveBeenCalledWith({
+        success: false,
         error: 'Authentication required',
         message: 'No token provided',
         statusCode: 401,
@@ -150,6 +153,7 @@ describe('Authentication Middleware', () => {
       // Assert
       expect(mockReply.status).toHaveBeenCalledWith(401);
       expect(mockReply.send).toHaveBeenCalledWith({
+        success: false,
         error: 'Authentication failed',
         message: 'Token has expired',
         statusCode: 401,
@@ -175,6 +179,7 @@ describe('Authentication Middleware', () => {
       // Assert
       expect(mockReply.status).toHaveBeenCalledWith(401);
       expect(mockReply.send).toHaveBeenCalledWith({
+        success: false,
         error: 'Authentication failed',
         message: 'Invalid or malformed token',
         statusCode: 401,
@@ -200,6 +205,7 @@ describe('Authentication Middleware', () => {
       // Assert
       expect(mockReply.status).toHaveBeenCalledWith(401);
       expect(mockReply.send).toHaveBeenCalledWith({
+        success: false,
         error: 'Authentication failed',
         message: 'Wrong token type (refresh token used where access token expected)',
         statusCode: 401,
@@ -225,6 +231,7 @@ describe('Authentication Middleware', () => {
       // Assert
       expect(mockReply.status).toHaveBeenCalledWith(401);
       expect(mockReply.send).toHaveBeenCalledWith({
+        success: false,
         error: 'Authentication failed',
         message: 'Invalid token',
         statusCode: 401,
@@ -368,6 +375,7 @@ describe('Authentication Middleware', () => {
       // Assert
       expect(mockReply.status).toHaveBeenCalledWith(403);
       expect(mockReply.send).toHaveBeenCalledWith({
+        success: false,
         error: 'Access forbidden',
         message: 'This action requires one of the following roles: ADMIN. Your role: USER',
         statusCode: 403,
@@ -389,6 +397,7 @@ describe('Authentication Middleware', () => {
       // Assert
       expect(mockReply.status).toHaveBeenCalledWith(401);
       expect(mockReply.send).toHaveBeenCalledWith({
+        success: false,
         error: 'Authentication required',
         message: 'No user context found. Ensure requireAuth middleware runs before roleBasedAccess.',
         statusCode: 401,

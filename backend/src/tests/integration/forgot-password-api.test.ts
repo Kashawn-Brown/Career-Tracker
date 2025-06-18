@@ -76,7 +76,19 @@ describe('Forgot Password API Integration Tests', () => {
       expect(response.statusCode).toBe(400);
       
       const payload = JSON.parse(response.payload);
-      expect(payload.message).toBeDefined();
+      expect(payload.error || payload.message).toBeDefined();
+      
+      // Check if it's the new standardized error format or old format
+      if (payload.statusCode) {
+        // New standardized format
+        expect(payload.error).toBeDefined();
+        expect(payload.message).toBeDefined();
+        expect(payload.statusCode).toBe(400);
+        expect(payload.timestamp).toBeDefined();
+      } else {
+        // Old format - just ensure there's an error message
+        expect(payload.message || payload.error).toBeDefined();
+      }
     });
 
     it('should reject missing email field', async () => {
@@ -87,6 +99,21 @@ describe('Forgot Password API Integration Tests', () => {
       });
 
       expect(response.statusCode).toBe(400);
+      
+      const payload = JSON.parse(response.payload);
+      expect(payload.error || payload.message).toBeDefined();
+      
+      // Check if it's the new standardized error format or old format
+      if (payload.statusCode) {
+        // New standardized format
+        expect(payload.error).toBeDefined();
+        expect(payload.message).toBeDefined();
+        expect(payload.statusCode).toBe(400);
+        expect(payload.timestamp).toBeDefined();
+      } else {
+        // Old format - just ensure there's an error message
+        expect(payload.message || payload.error).toBeDefined();
+      }
     });
 
     it('should handle empty email string', async () => {

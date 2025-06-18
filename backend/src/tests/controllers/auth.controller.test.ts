@@ -159,7 +159,17 @@ describe('AuthController', () => {
       // Assert
       expect(mockReply.status).toHaveBeenCalledWith(400);
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Missing required fields: email, password, name'
+        success: false,
+        error: 'Bad Request',
+        message: 'Missing required fields: email, password, name',
+        statusCode: 400,
+        timestamp: expect.any(String),
+        path: '/test-endpoint',
+        code: 'MISSING_FIELDS',
+        context: {
+          operation: 'register',
+          resource: 'user'
+        }
       });
     });
 
@@ -272,7 +282,17 @@ describe('AuthController', () => {
       // Assert
       expect(mockReply.status).toHaveBeenCalledWith(400);
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Email and password are required'
+        success: false,
+        error: 'Bad Request',
+        message: 'Email and password are required',
+        statusCode: 400,
+        timestamp: expect.any(String),
+        path: '/test-endpoint',
+        code: 'MISSING_CREDENTIALS',
+        context: {
+          operation: 'login',
+          resource: 'authentication'
+        }
       });
     });
 
@@ -286,7 +306,17 @@ describe('AuthController', () => {
       // Assert
       expect(mockReply.status).toHaveBeenCalledWith(400);
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Email and password are required'
+        success: false,
+        error: 'Bad Request',
+        message: 'Email and password are required',
+        statusCode: 400,
+        timestamp: expect.any(String),
+        path: '/test-endpoint',
+        code: 'MISSING_CREDENTIALS',
+        context: {
+          operation: 'login',
+          resource: 'authentication'
+        }
       });
     });
 
@@ -347,7 +377,17 @@ describe('AuthController', () => {
       // Assert
       expect(mockReply.status).toHaveBeenCalledWith(400);
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Verification token is required'
+        success: false,
+        error: 'Bad Request',
+        message: 'Verification token is required',
+        statusCode: 400,
+        timestamp: expect.any(String),
+        path: '/test-endpoint',
+        code: 'MISSING_TOKEN',
+        context: {
+          operation: 'email_verification',
+          resource: 'token'
+        }
       });
     });
 
@@ -413,7 +453,17 @@ describe('AuthController', () => {
       // Assert
       expect(mockReply.status).toHaveBeenCalledWith(400);
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Email is required'
+        success: false,
+        error: 'Bad Request',
+        message: 'Email is required',
+        statusCode: 400,
+        timestamp: expect.any(String),
+        path: '/test-endpoint',
+        code: 'MISSING_EMAIL',
+        context: {
+          operation: 'resend_verification',
+          resource: 'email'
+        }
       });
     });
 
@@ -476,7 +526,17 @@ describe('AuthController', () => {
       // Assert
       expect(mockReply.status).toHaveBeenCalledWith(400);
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Email is required'
+        success: false,
+        error: 'Bad Request',
+        message: 'Email is required',
+        statusCode: 400,
+        timestamp: expect.any(String),
+        path: '/test-endpoint',
+        code: 'MISSING_EMAIL',
+        context: {
+          operation: 'forgot_password',
+          resource: 'email'
+        }
       });
     });
   });
