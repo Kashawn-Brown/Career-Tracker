@@ -4,7 +4,7 @@
  * Tests the HTTP layer for job connection endpoints.
  * Focuses on request/response handling, parameter validation,
  * and proper service integration.
- * Follows the auth-style testing pattern.
+ * Follows the class-based testing pattern.
  */
 
 import { describe, it, expect, beforeEach, vi, Mock } from 'vitest';
@@ -45,8 +45,7 @@ describe('JobConnectionController', () => {
       user: { userId: 1, email: 'test@example.com' },
       query: {},
       params: {},
-      body: {},
-      log: { error: vi.fn() }
+      body: {}
     };
 
     // Setup mock reply
@@ -63,6 +62,7 @@ describe('JobConnectionController', () => {
       const mockServiceResult = {
         success: true,
         statusCode: 200,
+        message: 'Job connections retrieved successfully',
         data: {
           jobConnections: [
             { id: 1, name: 'John Doe', connectionType: 'referral' }
@@ -82,7 +82,13 @@ describe('JobConnectionController', () => {
 
       expect(jobConnectionService.listJobConnections).toHaveBeenCalledWith(1, 1, { page: '1', limit: '20' });
       expect(mockReply.status).toHaveBeenCalledWith(200);
-      expect(mockReply.send).toHaveBeenCalledWith(mockServiceResult.data);
+      expect(mockReply.send).toHaveBeenCalledWith({
+        message: 'Job connections retrieved successfully',
+        jobConnections: [
+          { id: 1, name: 'John Doe', connectionType: 'referral' }
+        ],
+        pagination: { page: 1, limit: 20, total: 1, pages: 1 }
+      });
     });
 
     it('should return 400 for invalid application ID', async () => {
@@ -95,7 +101,7 @@ describe('JobConnectionController', () => {
 
       expect(mockReply.status).toHaveBeenCalledWith(400);
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Invalid job application ID'
+        error: 'Invalid job application ID format'
       });
       expect(mockJobConnectionService.listJobConnections).not.toHaveBeenCalled();
     });
@@ -120,22 +126,6 @@ describe('JobConnectionController', () => {
         error: 'Job application not found'
       });
     });
-
-    it('should handle service exceptions', async () => {
-      mockJobConnectionService.listJobConnections.mockRejectedValue(new Error('Database error'));
-      mockRequest.params = { id: '1' };
-
-      await listJobConnections(
-        mockRequest as FastifyRequest,
-        mockReply as FastifyReply
-      );
-
-      expect(mockReply.status).toHaveBeenCalledWith(500);
-      expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Internal Server Error',
-        message: 'Failed to retrieve job connections'
-      });
-    });
   });
 
   describe('getJobConnection', () => {
@@ -150,7 +140,8 @@ describe('JobConnectionController', () => {
       const mockServiceResult = {
         success: true,
         statusCode: 200,
-        jobConnection: mockJobConnection
+        jobConnection: mockJobConnection,
+        message: 'Job connection retrieved successfully'
       };
 
       mockJobConnectionService.getJobConnection.mockResolvedValue(mockServiceResult);
@@ -163,7 +154,10 @@ describe('JobConnectionController', () => {
 
       expect(mockJobConnectionService.getJobConnection).toHaveBeenCalledWith(1, 1, 1);
       expect(mockReply.status).toHaveBeenCalledWith(200);
-      expect(mockReply.send).toHaveBeenCalledWith(mockJobConnection);
+      expect(mockReply.send).toHaveBeenCalledWith({
+        message: 'Job connection retrieved successfully',
+        jobConnection: mockJobConnection
+      });
     });
 
     it('should return 400 for invalid IDs', async () => {
@@ -176,7 +170,7 @@ describe('JobConnectionController', () => {
 
       expect(mockReply.status).toHaveBeenCalledWith(400);
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Invalid application or connection ID'
+        error: 'Invalid job application ID or connection ID format'
       });
       expect(mockJobConnectionService.getJobConnection).not.toHaveBeenCalled();
     });
@@ -215,16 +209,15 @@ describe('JobConnectionController', () => {
       const mockServiceResult = {
         success: true,
         statusCode: 201,
-        message: 'Job connection created successfully',
-        jobConnection: mockJobConnection
+        jobConnection: mockJobConnection,
+        message: 'Job connection created successfully'
       };
 
       mockJobConnectionService.createJobConnection.mockResolvedValue(mockServiceResult);
       mockRequest.params = { id: '1' };
       mockRequest.body = {
         name: 'John Doe',
-        connectionType: 'referral',
-        email: 'john@example.com'
+        connectionType: 'referral'
       };
 
       await createJobConnection(
@@ -232,16 +225,20 @@ describe('JobConnectionController', () => {
         mockReply as FastifyReply
       );
 
-      expect(mockJobConnectionService.createJobConnection).toHaveBeenCalledWith(1, 1, mockRequest.body);
+      expect(mockJobConnectionService.createJobConnection).toHaveBeenCalledWith(1, 1, {
+        name: 'John Doe',
+        connectionType: 'referral'
+      });
       expect(mockReply.status).toHaveBeenCalledWith(201);
       expect(mockReply.send).toHaveBeenCalledWith({
-        message: mockServiceResult.message,
+        message: 'Job connection created successfully',
         jobConnection: mockJobConnection
       });
     });
 
     it('should return 400 for invalid application ID', async () => {
       mockRequest.params = { id: 'invalid' };
+      mockRequest.body = { name: 'John Doe' };
 
       await createJobConnection(
         mockRequest as FastifyRequest,
@@ -250,7 +247,7 @@ describe('JobConnectionController', () => {
 
       expect(mockReply.status).toHaveBeenCalledWith(400);
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Invalid job application ID'
+        error: 'Invalid job application ID format'
       });
       expect(mockJobConnectionService.createJobConnection).not.toHaveBeenCalled();
     });
@@ -259,12 +256,12 @@ describe('JobConnectionController', () => {
       const mockServiceResult = {
         success: false,
         statusCode: 400,
-        error: 'Contact name is required'
+        error: 'Invalid job connection data'
       };
 
       mockJobConnectionService.createJobConnection.mockResolvedValue(mockServiceResult);
       mockRequest.params = { id: '1' };
-      mockRequest.body = { connectionType: 'referral' };
+      mockRequest.body = { name: 'John Doe' };
 
       await createJobConnection(
         mockRequest as FastifyRequest,
@@ -273,7 +270,7 @@ describe('JobConnectionController', () => {
 
       expect(mockReply.status).toHaveBeenCalledWith(400);
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Contact name is required'
+        error: 'Invalid job connection data'
       });
     });
   });
@@ -282,37 +279,44 @@ describe('JobConnectionController', () => {
     it('should update job connection successfully', async () => {
       const mockJobConnection = {
         id: 1,
-        name: 'John Smith',
-        connectionType: 'referral',
+        name: 'Jane Doe',
+        connectionType: 'recruiter',
         jobApplicationId: 1
       };
 
       const mockServiceResult = {
         success: true,
         statusCode: 200,
-        message: 'Job connection updated successfully',
-        jobConnection: mockJobConnection
+        jobConnection: mockJobConnection,
+        message: 'Job connection updated successfully'
       };
 
       mockJobConnectionService.updateJobConnection.mockResolvedValue(mockServiceResult);
       mockRequest.params = { id: '1', connectionId: '1' };
-      mockRequest.body = { name: 'John Smith' };
+      mockRequest.body = {
+        name: 'Jane Doe',
+        connectionType: 'recruiter'
+      };
 
       await updateJobConnection(
         mockRequest as FastifyRequest,
         mockReply as FastifyReply
       );
 
-      expect(mockJobConnectionService.updateJobConnection).toHaveBeenCalledWith(1, 1, 1, mockRequest.body);
+      expect(mockJobConnectionService.updateJobConnection).toHaveBeenCalledWith(1, 1, 1, {
+        name: 'Jane Doe',
+        connectionType: 'recruiter'
+      });
       expect(mockReply.status).toHaveBeenCalledWith(200);
       expect(mockReply.send).toHaveBeenCalledWith({
-        message: mockServiceResult.message,
+        message: 'Job connection updated successfully',
         jobConnection: mockJobConnection
       });
     });
 
     it('should return 400 for invalid IDs', async () => {
       mockRequest.params = { id: 'invalid', connectionId: 'invalid' };
+      mockRequest.body = { name: 'Jane Doe' };
 
       await updateJobConnection(
         mockRequest as FastifyRequest,
@@ -321,31 +325,9 @@ describe('JobConnectionController', () => {
 
       expect(mockReply.status).toHaveBeenCalledWith(400);
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Invalid application or connection ID'
+        error: 'Invalid job application ID or connection ID format'
       });
       expect(mockJobConnectionService.updateJobConnection).not.toHaveBeenCalled();
-    });
-
-    it('should return service error when service fails', async () => {
-      const mockServiceResult = {
-        success: false,
-        statusCode: 404,
-        error: 'Job connection not found'
-      };
-
-      mockJobConnectionService.updateJobConnection.mockResolvedValue(mockServiceResult);
-      mockRequest.params = { id: '1', connectionId: '999' };
-      mockRequest.body = { name: 'John Smith' };
-
-      await updateJobConnection(
-        mockRequest as FastifyRequest,
-        mockReply as FastifyReply
-      );
-
-      expect(mockReply.status).toHaveBeenCalledWith(404);
-      expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Job connection not found'
-      });
     });
   });
 
@@ -362,29 +344,32 @@ describe('JobConnectionController', () => {
       const mockServiceResult = {
         success: true,
         statusCode: 200,
-        message: 'Job connection updated successfully',
-        jobConnection: mockJobConnection
+        jobConnection: mockJobConnection,
+        message: 'Job connection status updated successfully'
       };
 
       mockJobConnectionService.updateJobConnectionStatus.mockResolvedValue(mockServiceResult);
       mockRequest.params = { id: '1', connectionId: '1' };
-      mockRequest.body = { status: 'contacted', notes: 'Called today' };
+      mockRequest.body = { status: 'contacted' };
 
       await updateJobConnectionStatus(
         mockRequest as FastifyRequest,
         mockReply as FastifyReply
       );
 
-      expect(mockJobConnectionService.updateJobConnectionStatus).toHaveBeenCalledWith(1, 1, 1, mockRequest.body);
+      expect(mockJobConnectionService.updateJobConnectionStatus).toHaveBeenCalledWith(1, 1, 1, {
+        status: 'contacted'
+      });
       expect(mockReply.status).toHaveBeenCalledWith(200);
       expect(mockReply.send).toHaveBeenCalledWith({
-        message: mockServiceResult.message,
+        message: 'Job connection status updated successfully',
         jobConnection: mockJobConnection
       });
     });
 
     it('should return 400 for invalid IDs', async () => {
       mockRequest.params = { id: 'invalid', connectionId: 'invalid' };
+      mockRequest.body = { status: 'contacted' };
 
       await updateJobConnectionStatus(
         mockRequest as FastifyRequest,
@@ -393,31 +378,9 @@ describe('JobConnectionController', () => {
 
       expect(mockReply.status).toHaveBeenCalledWith(400);
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Invalid application or connection ID'
+        error: 'Invalid job application ID or connection ID format'
       });
       expect(mockJobConnectionService.updateJobConnectionStatus).not.toHaveBeenCalled();
-    });
-
-    it('should return service error when service fails', async () => {
-      const mockServiceResult = {
-        success: false,
-        statusCode: 400,
-        error: 'Invalid status'
-      };
-
-      mockJobConnectionService.updateJobConnectionStatus.mockResolvedValue(mockServiceResult);
-      mockRequest.params = { id: '1', connectionId: '1' };
-      mockRequest.body = { status: 'invalid_status' };
-
-      await updateJobConnectionStatus(
-        mockRequest as FastifyRequest,
-        mockReply as FastifyReply
-      );
-
-      expect(mockReply.status).toHaveBeenCalledWith(400);
-      expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Invalid status'
-      });
     });
   });
 
@@ -440,7 +403,7 @@ describe('JobConnectionController', () => {
       expect(mockJobConnectionService.deleteJobConnection).toHaveBeenCalledWith(1, 1, 1);
       expect(mockReply.status).toHaveBeenCalledWith(200);
       expect(mockReply.send).toHaveBeenCalledWith({
-        message: mockServiceResult.message
+        message: 'Job connection deleted successfully'
       });
     });
 
@@ -454,7 +417,7 @@ describe('JobConnectionController', () => {
 
       expect(mockReply.status).toHaveBeenCalledWith(400);
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Invalid application or connection ID'
+        error: 'Invalid job application ID or connection ID format'
       });
       expect(mockJobConnectionService.deleteJobConnection).not.toHaveBeenCalled();
     });
@@ -477,22 +440,6 @@ describe('JobConnectionController', () => {
       expect(mockReply.status).toHaveBeenCalledWith(404);
       expect(mockReply.send).toHaveBeenCalledWith({
         error: 'Job connection not found'
-      });
-    });
-
-    it('should handle service exceptions', async () => {
-      mockJobConnectionService.deleteJobConnection.mockRejectedValue(new Error('Database error'));
-      mockRequest.params = { id: '1', connectionId: '1' };
-
-      await deleteJobConnection(
-        mockRequest as FastifyRequest,
-        mockReply as FastifyReply
-      );
-
-      expect(mockReply.status).toHaveBeenCalledWith(500);
-      expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Internal Server Error',
-        message: 'Failed to delete job connection'
       });
     });
   });

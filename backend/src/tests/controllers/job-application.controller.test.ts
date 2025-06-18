@@ -4,7 +4,7 @@
  * Tests the HTTP layer for job application endpoints.
  * Focuses on request/response handling, parameter validation,
  * and proper service integration.
- * Follows the auth-style testing pattern.
+ * Follows the class-based testing pattern.
  */
 
 import { describe, it, expect, beforeEach, vi, Mock } from 'vitest';
@@ -17,6 +17,7 @@ import {
   deleteJobApplication
 } from '../../controllers/job-application.controller.js';
 import { jobApplicationService } from '../../services/index.js';
+import { UserRole } from '../../models/user.models.js';
 
 // Mock the job application service
 vi.mock('../../services/index.js', () => ({
@@ -36,7 +37,12 @@ describe('JobApplicationController', () => {
   beforeEach(() => {
     // Setup mock request with authenticated user
     mockRequest = {
-      user: { userId: 1, email: 'test@example.com' },
+      user: { 
+        userId: 1, 
+        email: 'test@example.com',
+        type: 'access' as const,
+        role: UserRole.USER
+      },
       query: {},
       params: {},
       body: {}
@@ -56,6 +62,7 @@ describe('JobApplicationController', () => {
       const mockServiceResult = {
         success: true,
         statusCode: 200,
+        message: 'Job applications retrieved successfully',
         data: {
           jobApplications: [
             { id: 1, company: 'Test Corp', position: 'Developer' }
@@ -79,7 +86,24 @@ describe('JobApplicationController', () => {
         userId: 1
       });
       expect(mockReply.status).toHaveBeenCalledWith(200);
-      expect(mockReply.send).toHaveBeenCalledWith(mockServiceResult.data);
+      expect(mockReply.send).toHaveBeenCalledWith({
+        message: 'Job applications retrieved successfully',
+        data: {
+          jobApplications: [
+            {
+              id: 1,
+              company: 'Test Corp',
+              position: 'Developer'
+            }
+          ],
+          pagination: {
+            page: 1,
+            limit: 10,
+            total: 1,
+            totalPages: 1
+          }
+        }
+      });
     });
 
     it('should return error when service fails', async () => {
@@ -130,7 +154,10 @@ describe('JobApplicationController', () => {
 
       expect(jobApplicationService.getJobApplication).toHaveBeenCalledWith(1, 1);
       expect(mockReply.status).toHaveBeenCalledWith(200);
-      expect(mockReply.send).toHaveBeenCalledWith(mockJobApplication);
+      expect(mockReply.send).toHaveBeenCalledWith({
+        message: 'Job application retrieved successfully',
+        data: mockJobApplication
+      });
     });
 
     it('should return 400 for invalid ID', async () => {
@@ -143,7 +170,7 @@ describe('JobApplicationController', () => {
 
       expect(mockReply.status).toHaveBeenCalledWith(400);
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Invalid job application ID'
+        error: 'Invalid job application ID format'
       });
       expect(jobApplicationService.getJobApplication).not.toHaveBeenCalled();
     });
@@ -227,21 +254,24 @@ describe('JobApplicationController', () => {
         userId: 1
       });
       expect(mockReply.status).toHaveBeenCalledWith(201);
-      expect(mockReply.send).toHaveBeenCalledWith(mockJobApplication);
+      expect(mockReply.send).toHaveBeenCalledWith({
+        message: 'Job application created successfully',
+        data: mockJobApplication
+      });
     });
 
-    it('should return validation error', async () => {
+    it('should return error when service fails', async () => {
       const mockServiceResult = {
         success: false,
         statusCode: 400,
-        error: 'Company name is required'
+        error: 'Invalid job application data'
       };
 
       (jobApplicationService.createJobApplication as Mock).mockResolvedValue(mockServiceResult);
 
       mockRequest.body = {
-        position: 'Developer'
-        // Missing company
+        company: 'Test Corp'
+        // Missing required position field
       };
 
       await createJobApplication(
@@ -251,7 +281,7 @@ describe('JobApplicationController', () => {
 
       expect(mockReply.status).toHaveBeenCalledWith(400);
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Company name is required'
+        error: 'Invalid job application data'
       });
     });
   });
@@ -285,13 +315,15 @@ describe('JobApplicationController', () => {
         mockReply as FastifyReply
       );
 
-      expect(jobApplicationService.updateJobApplication).toHaveBeenCalledWith(
-        1,
-        { company: 'Updated Corp', position: 'Senior Developer' },
-        1
-      );
+      expect(jobApplicationService.updateJobApplication).toHaveBeenCalledWith(1, {
+        company: 'Updated Corp',
+        position: 'Senior Developer'
+      }, 1);
       expect(mockReply.status).toHaveBeenCalledWith(200);
-      expect(mockReply.send).toHaveBeenCalledWith(mockJobApplication);
+      expect(mockReply.send).toHaveBeenCalledWith({
+        message: 'Job application updated successfully',
+        data: mockJobApplication
+      });
     });
 
     it('should return 400 for invalid ID', async () => {
@@ -305,7 +337,7 @@ describe('JobApplicationController', () => {
 
       expect(mockReply.status).toHaveBeenCalledWith(400);
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Invalid job application ID'
+        error: 'Invalid job application ID format'
       });
       expect(jobApplicationService.updateJobApplication).not.toHaveBeenCalled();
     });
@@ -339,8 +371,7 @@ describe('JobApplicationController', () => {
       const mockServiceResult = {
         success: true,
         statusCode: 200,
-        message: 'Job application deleted successfully',
-        deletedId: 1
+        message: 'Job application deleted successfully'
       };
 
       (jobApplicationService.deleteJobApplication as Mock).mockResolvedValue(mockServiceResult);
@@ -355,8 +386,7 @@ describe('JobApplicationController', () => {
       expect(jobApplicationService.deleteJobApplication).toHaveBeenCalledWith(1, 1);
       expect(mockReply.status).toHaveBeenCalledWith(200);
       expect(mockReply.send).toHaveBeenCalledWith({
-        message: 'Job application deleted successfully',
-        deletedId: 1
+        message: 'Job application deleted successfully'
       });
     });
 
@@ -370,30 +400,30 @@ describe('JobApplicationController', () => {
 
       expect(mockReply.status).toHaveBeenCalledWith(400);
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Invalid job application ID'
+        error: 'Invalid job application ID format'
       });
       expect(jobApplicationService.deleteJobApplication).not.toHaveBeenCalled();
     });
 
-    it('should return 403 for unauthorized deletion', async () => {
+    it('should return error when service fails', async () => {
       const mockServiceResult = {
         success: false,
-        statusCode: 403,
-        error: 'You can only delete your own job applications'
+        statusCode: 404,
+        error: 'Job application not found'
       };
 
       (jobApplicationService.deleteJobApplication as Mock).mockResolvedValue(mockServiceResult);
 
-      mockRequest.params = { id: '1' };
+      mockRequest.params = { id: '999' };
 
       await deleteJobApplication(
         mockRequest as FastifyRequest,
         mockReply as FastifyReply
       );
 
-      expect(mockReply.status).toHaveBeenCalledWith(403);
+      expect(mockReply.status).toHaveBeenCalledWith(404);
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'You can only delete your own job applications'
+        error: 'Job application not found'
       });
     });
   });

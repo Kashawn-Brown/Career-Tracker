@@ -48,24 +48,30 @@ export const createJobApplicationSchema = {
     201: {
       type: 'object',
       properties: {
-        id: { type: 'integer' },
-        userId: { type: 'integer' },
-        ...jobApplicationFields,
-        createdAt: { type: 'string', format: 'date-time' },
-        updatedAt: { type: 'string', format: 'date-time' },
-        tags: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              id: { type: 'integer' },
-              name: { type: 'string' },
-              createdAt: { type: 'string', format: 'date-time' }
-            }
+        message: { type: 'string' },
+        data: {
+          type: 'object',
+          properties: {
+            id: { type: 'integer' },
+            userId: { type: 'integer' },
+            ...jobApplicationFields,
+            createdAt: { type: 'string', format: 'date-time' },
+            updatedAt: { type: 'string', format: 'date-time' },
+            tags: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'integer' },
+                  name: { type: 'string' },
+                  createdAt: { type: 'string', format: 'date-time' }
+                }
+              }
+            },
+            documents: { type: 'array', items: { type: 'object' } },
+            jobConnections: { type: 'array', items: { type: 'object' } }
           }
-        },
-        documents: { type: 'array', items: { type: 'object' } },
-        jobConnections: { type: 'array', items: { type: 'object' } }
+        }
       }
     }
   }
@@ -96,24 +102,30 @@ export const updateJobApplicationSchema = {
     200: {
       type: 'object',
       properties: {
-        id: { type: 'integer' },
-        userId: { type: 'integer' },
-        ...jobApplicationFields,
-        createdAt: { type: 'string', format: 'date-time' },
-        updatedAt: { type: 'string', format: 'date-time' },
-        tags: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              id: { type: 'integer' },
-              name: { type: 'string' },
-              createdAt: { type: 'string', format: 'date-time' }
-            }
+        message: { type: 'string' },
+        data: {
+          type: 'object',
+          properties: {
+            id: { type: 'integer' },
+            userId: { type: 'integer' },
+            ...jobApplicationFields,
+            createdAt: { type: 'string', format: 'date-time' },
+            updatedAt: { type: 'string', format: 'date-time' },
+            tags: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'integer' },
+                  name: { type: 'string' },
+                  createdAt: { type: 'string', format: 'date-time' }
+                }
+              }
+            },
+            documents: { type: 'array', items: { type: 'object' } },
+            jobConnections: { type: 'array', items: { type: 'object' } }
           }
-        },
-        documents: { type: 'array', items: { type: 'object' } },
-        jobConnections: { type: 'array', items: { type: 'object' } }
+        }
       }
     }
   }
@@ -132,24 +144,30 @@ export const getJobApplicationSchema = {
     200: {
       type: 'object',
       properties: {
-        id: { type: 'integer' },
-        userId: { type: 'integer' },
-        ...jobApplicationFields,
-        createdAt: { type: 'string', format: 'date-time' },
-        updatedAt: { type: 'string', format: 'date-time' },
-        tags: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              id: { type: 'integer' },
-              name: { type: 'string' },
-              createdAt: { type: 'string', format: 'date-time' }
-            }
+        message: { type: 'string' },
+        data: {
+          type: 'object',
+          properties: {
+            id: { type: 'integer' },
+            userId: { type: 'integer' },
+            ...jobApplicationFields,
+            createdAt: { type: 'string', format: 'date-time' },
+            updatedAt: { type: 'string', format: 'date-time' },
+            tags: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'integer' },
+                  name: { type: 'string' },
+                  createdAt: { type: 'string', format: 'date-time' }
+                }
+              }
+            },
+            documents: { type: 'array', items: { type: 'object' } },
+            jobConnections: { type: 'array', items: { type: 'object' } }
           }
-        },
-        documents: { type: 'array', items: { type: 'object' } },
-        jobConnections: { type: 'array', items: { type: 'object' } }
+        }
       }
     }
   }
@@ -194,41 +212,47 @@ export const listJobApplicationsSchema = {
     200: {
       type: 'object',
       properties: {
+        message: { type: 'string' },
         data: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              id: { type: 'integer' },
-              userId: { type: 'integer' },
-              ...jobApplicationFields,
-              createdAt: { type: 'string', format: 'date-time' },
-              updatedAt: { type: 'string', format: 'date-time' },
-              tags: {
-                type: 'array',
-                items: {
-                  type: 'object',
-                  properties: {
-                    id: { type: 'integer' },
-                    name: { type: 'string' },
-                    createdAt: { type: 'string', format: 'date-time' }
-                  }
-                }
-              },
-              documents: { type: 'array', items: { type: 'object' } },
-              jobConnections: { type: 'array', items: { type: 'object' } }
-            }
-          }
-        },
-        pagination: {
           type: 'object',
           properties: {
-            page: { type: 'integer' },
-            limit: { type: 'integer' },
-            total: { type: 'integer' },
-            totalPages: { type: 'integer' },
-            hasNext: { type: 'boolean' },
-            hasPrev: { type: 'boolean' }
+            jobApplications: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'integer' },
+                  userId: { type: 'integer' },
+                  ...jobApplicationFields,
+                  createdAt: { type: 'string', format: 'date-time' },
+                  updatedAt: { type: 'string', format: 'date-time' },
+                  tags: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'integer' },
+                        name: { type: 'string' },
+                        createdAt: { type: 'string', format: 'date-time' }
+                      }
+                    }
+                  },
+                  documents: { type: 'array', items: { type: 'object' } },
+                  jobConnections: { type: 'array', items: { type: 'object' } }
+                }
+              }
+            },
+            pagination: {
+              type: 'object',
+              properties: {
+                page: { type: 'integer' },
+                limit: { type: 'integer' },
+                total: { type: 'integer' },
+                totalPages: { type: 'integer' },
+                hasNext: { type: 'boolean' },
+                hasPrev: { type: 'boolean' }
+              }
+            }
           }
         }
       }
