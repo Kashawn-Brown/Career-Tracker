@@ -18,6 +18,36 @@ export interface JobApplication {
   description?: string;
   createdAt: string;
   updatedAt: string;
+  // Relational fields (populated when included in queries)
+  tags?: Tag[];
+  jobConnections?: JobConnection[];
+  documents?: Document[];
+}
+
+// Related types for relational data
+export interface Tag {
+  id: number;
+  name: string;
+  userId: number;
+  createdAt: string;
+}
+
+export interface JobConnection {
+  id: number;
+  name: string;
+  role?: string;
+  company?: string;
+  connectionType: string;
+  email?: string;
+  contactId?: number;
+}
+
+export interface Document {
+  id: number;
+  originalName: string;
+  mimeType: string;
+  fileSize?: number;
+  type: string;
 }
 
 // Type unions for validation (replacing enums)
