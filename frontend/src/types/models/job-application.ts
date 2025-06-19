@@ -1,33 +1,28 @@
-// Job Application data structure (based on backend schema)
+// Job Application data structure (matching backend schema exactly)
 export interface JobApplication {
   id: number;
   userId: number;
   company: string;
   position: string;
-  status: JobApplicationStatus;
-  type: JobApplicationType;
-  salary?: number;
   dateApplied: string; // ISO date string
-  description?: string;
+  status: JobApplicationStatus;
+  type?: JobApplicationType;
+  salary?: number;
+  jobLink?: string;
+  compatibilityScore?: number;
   notes?: string;
+  isStarred: boolean;
+  followUpDate?: string; // ISO date string
+  deadline?: string; // ISO date string
+  workArrangement?: WorkArrangement;
+  description?: string;
   createdAt: string;
   updatedAt: string;
 }
 
-// Job application status enum
-export enum JobApplicationStatus {
-  APPLIED = 'APPLIED',
-  INTERVIEW = 'INTERVIEW',
-  OFFER = 'OFFER',
-  REJECTED = 'REJECTED',
-  WITHDRAWN = 'WITHDRAWN',
-}
+// Type unions for validation (replacing enums)
+export type JobApplicationStatus = 'applied' | 'interview' | 'offer' | 'rejected' | 'withdrawn' | 'accepted';
 
-// Job application type enum
-export enum JobApplicationType {
-  FULL_TIME = 'FULL_TIME',
-  PART_TIME = 'PART_TIME',
-  CONTRACT = 'CONTRACT',
-  INTERNSHIP = 'INTERNSHIP',
-  FREELANCE = 'FREELANCE',
-} 
+export type JobApplicationType = 'full-time' | 'part-time' | 'contract' | 'internship' | 'freelance';
+
+export type WorkArrangement = 'remote' | 'hybrid' | 'in_office' | 'flexible'; 

@@ -15,12 +15,12 @@ import { JobApplication, JobApplicationStatus } from "@/types/models/job-applica
 interface ColumnDef {
   key: keyof JobApplication
   header: string
-  type: 'text' | 'date' | 'enum' | 'currency'
+  type: 'text' | 'date' | 'enum' | 'currency' | 'score' | 'boolean'
   width?: string
   className?: string
 }
 
-// Column configurations for all required fields
+// Column configurations for all backend fields
 const columns: ColumnDef[] = [
   {
     key: 'company',
@@ -45,7 +45,13 @@ const columns: ColumnDef[] = [
     key: 'type',
     header: 'Type',
     type: 'enum',
-    width: 'w-32'
+    width: 'w-28'
+  },
+  {
+    key: 'workArrangement',
+    header: 'Work Arrangement',
+    type: 'enum',
+    width: 'w-36'
   },
   {
     key: 'salary',
@@ -54,10 +60,34 @@ const columns: ColumnDef[] = [
     width: 'w-28'
   },
   {
+    key: 'compatibilityScore',
+    header: 'Score',
+    type: 'score',
+    width: 'w-20'
+  },
+  {
     key: 'dateApplied',
     header: 'Date Applied',
     type: 'date',
     width: 'w-36'
+  },
+  {
+    key: 'followUpDate',
+    header: 'Follow Up',
+    type: 'date',
+    width: 'w-32'
+  },
+  {
+    key: 'deadline',
+    header: 'Deadline',
+    type: 'date',
+    width: 'w-32'
+  },
+  {
+    key: 'isStarred',
+    header: 'Starred',
+    type: 'boolean',
+    width: 'w-20'
   }
 ]
 
@@ -92,12 +122,14 @@ const renderCell = (value: unknown, type: ColumnDef['type']): React.ReactNode =>
       // Format enum values for display
       const formattedValue = String(value)
         .replace(/_/g, ' ')
+        .replace(/-/g, ' ')
         .toLowerCase()
         .replace(/\b\w/g, l => l.toUpperCase())
       
-      // Add status-specific styling
-      const isStatus = Object.values(JobApplicationStatus).includes(value as JobApplicationStatus)
-      const statusColorClass = isStatus ? getStatusColorClass(value as JobApplicationStatus) : ''
+      // Add status-specific styling for status field
+      const statusValues = ['applied', 'interview', 'offer', 'rejected', 'withdrawn', 'accepted']
+      const isStatus = statusValues.includes(String(value).toLowerCase())
+      const statusColorClass = isStatus ? getStatusColorClass(String(value).toLowerCase() as JobApplicationStatus) : ''
       
       return (
         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColorClass}`}>
@@ -119,23 +151,46 @@ const renderCell = (value: unknown, type: ColumnDef['type']): React.ReactNode =>
         </span>
       )
     
+    case 'score':
+      const scoreValue = Number(value)
+      if (isNaN(scoreValue)) {
+        return <span className="text-muted-foreground">—</span>
+      }
+      const scoreColor = scoreValue >= 8 ? 'text-green-600' : 
+                        scoreValue >= 6 ? 'text-yellow-600' : 
+                        scoreValue >= 4 ? 'text-orange-600' : 'text-red-600'
+      return (
+        <span className={`font-semibold ${scoreColor}`}>
+          {scoreValue}/10
+        </span>
+      )
+    
+    case 'boolean':
+      return value ? (
+        <span className="text-green-600">★</span>
+      ) : (
+        <span className="text-gray-400">☆</span>
+      )
+    
     default:
       return String(value)
   }
 }
 
 // Status color classes for better visual distinction
-const getStatusColorClass = (status: JobApplicationStatus): string => {
-  switch (status) {
-    case JobApplicationStatus.APPLIED:
+const getStatusColorClass = (status: string): string => {
+  switch (status.toLowerCase()) {
+    case 'applied':
       return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
-    case JobApplicationStatus.INTERVIEW:
+    case 'interview':
       return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
-    case JobApplicationStatus.OFFER:
+    case 'offer':
       return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
-    case JobApplicationStatus.REJECTED:
+    case 'accepted':
+      return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300'
+    case 'rejected':
       return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
-    case JobApplicationStatus.WITHDRAWN:
+    case 'withdrawn':
       return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
     default:
       return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
