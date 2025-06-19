@@ -25,7 +25,13 @@ const jobApplicationFields = {
   notes: { type: 'string', maxLength: 5000, nullable: true },
   isStarred: { type: 'boolean' },
   followUpDate: { type: 'string', format: 'date-time', nullable: true },
-  deadline: { type: 'string', format: 'date-time', nullable: true }
+  deadline: { type: 'string', format: 'date-time', nullable: true },
+  workArrangement: { 
+    type: 'string', 
+    enum: ['remote', 'hybrid', 'in_office', 'flexible'],
+    nullable: true 
+  },
+  description: { type: 'string', maxLength: 10000, nullable: true }
 };
 
 // Schema for creating a new job application

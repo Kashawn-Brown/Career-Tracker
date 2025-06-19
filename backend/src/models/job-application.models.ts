@@ -57,6 +57,8 @@ export interface CreateJobApplicationRequest {
   isStarred?: boolean;
   followUpDate?: string;
   deadline?: string;
+  workArrangement?: string;
+  description?: string;
   tags?: string[];
 }
 
@@ -76,6 +78,8 @@ export interface UpdateJobApplicationRequest {
   isStarred?: boolean;
   followUpDate?: string;
   deadline?: string;
+  workArrangement?: string;
+  description?: string;
   tags?: string[];
 }
 

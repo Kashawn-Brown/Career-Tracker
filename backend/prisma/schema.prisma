@@ -180,6 +180,8 @@ model JobApplication {
   isStarred          Boolean         @default(false)
   followUpDate       DateTime?
   deadline           DateTime?
+  workArrangement    String?                              // 'remote', 'hybrid', 'in_office', 'flexible'
+  description        String?                              // Job description/requirements
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
   documents          Document[]
