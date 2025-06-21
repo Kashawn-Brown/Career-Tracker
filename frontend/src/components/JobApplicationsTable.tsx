@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useState, useCallback, useMemo, useEffect } from 'react'
-import { ChevronUp, ChevronDown, ChevronRight, Star, Users, FileText } from "lucide-react"
+import { ChevronUp, ChevronDown, ChevronRight, Star, Users, FileText, AlertCircle } from "lucide-react"
 import {
   Table,
   TableBody,
@@ -11,6 +11,23 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { JobApplication } from "@/types/models/job-application"
 import { ThemeToggle } from "./theme-toggle"
 
@@ -79,13 +96,18 @@ const DEFAULT_VISIBLE_COLUMNS: ColumnKey[] = [
   'starred', 'company', 'position', 'status', 'type', 'salary', 'workArrangement', 'dateApplied'
 ]
 
-// Props interface - Enhanced for Task 4.4
+// Props interface - Enhanced for Task 4.4 and Task 4.5
 interface JobApplicationsTableProps {
   data: JobApplication[]
   className?: string
   showControls?: boolean // New: Option to show/hide column and size controls
   showDebugInfo?: boolean // New: Option to show debug information
   defaultTextSize?: TextSize // New: Default text size
+  // Task 4.5 - Pagination and error handling props
+  defaultPageSize?: number // New: Default items per page
+  pageSizeOptions?: number[] // New: Available page size options
+  onError?: (error: string) => void // New: Error callback
+  error?: string // New: Error message to display
 }
 
 export function JobApplicationsTable({ 
@@ -93,7 +115,12 @@ export function JobApplicationsTable({
   className,
   showControls = false,
   showDebugInfo = false,
-  defaultTextSize = 'normal'
+  defaultTextSize = 'normal',
+  // Task 4.5 - Pagination and error handling props
+  defaultPageSize = 10,
+  pageSizeOptions = [5, 10, 20, 50, 100],
+  onError,
+  error
 }: JobApplicationsTableProps) {
   
   // Task 4.4 - Enhanced state management (matching test-task4-4 defaults)
@@ -107,6 +134,11 @@ export function JobApplicationsTable({
   const [sortColumn, setSortColumn] = useState<SortableColumn | null>('dateApplied')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [isDefaultSort, setIsDefaultSort] = useState(true) // Track if we're in default state
+
+  // Task 4.5 - Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(defaultPageSize)
+  const [isDataError, setIsDataError] = useState(false)
 
   // Task 4.4 - Advanced sorting logic with type-specific handling
   const sortData = useCallback((data: JobApplication[], column: SortableColumn | null, direction: SortDirection) => {
@@ -171,6 +203,35 @@ export function JobApplicationsTable({
   const sortedData = useMemo(() => {
     return sortData(data, sortColumn, sortDirection)
   }, [data, sortColumn, sortDirection, sortData])
+
+  // Task 4.5 - Pagination logic
+  const totalPages = Math.ceil(sortedData.length / pageSize)
+  const startIndex = (currentPage - 1) * pageSize
+  const endIndex = startIndex + pageSize
+  const paginatedData = useMemo(() => {
+    return sortedData.slice(startIndex, endIndex)
+  }, [sortedData, startIndex, endIndex])
+
+  // Task 4.5 - Reset page when data changes or page size changes
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1)
+    }
+  }, [totalPages, currentPage])
+
+  // Task 4.5 - Handle page size change
+  const handlePageSizeChange = useCallback((newPageSize: string) => {
+    const size = parseInt(newPageSize)
+    setPageSize(size)
+    setCurrentPage(1) // Reset to first page when changing page size
+  }, [])
+
+  // Task 4.5 - Handle page change
+  const handlePageChange = useCallback((page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page)
+    }
+  }, [totalPages])
   
   // Task 4.4 - Navigation state for improved keyboard navigation
   const [focusedHeaderIndex, setFocusedHeaderIndex] = useState<number>(-1)
@@ -678,6 +739,15 @@ export function JobApplicationsTable({
             No job applications found.
           </div>
         </div>
+      ) : error ? (
+        <div className="border rounded-lg overflow-hidden">
+          <Alert className="m-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              {error}
+            </AlertDescription>
+          </Alert>
+        </div>
       ) : (
         <div className={`rounded-md border ${sizeClasses.table}`}>
           <Table>
@@ -711,7 +781,7 @@ export function JobApplicationsTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sortedData.length === 0 ? (
+            {paginatedData.length === 0 ? (
               <TableRow>
                 <TableCell 
                   colSpan={visibleColumns.length} 
@@ -721,7 +791,7 @@ export function JobApplicationsTable({
                 </TableCell>
               </TableRow>
             ) : (
-              sortedData.map((job, rowIndex) => {
+              paginatedData.map((job, rowIndex) => {
                 const isExpanded = expandedRows.has(job.id)
                 const isSelected = selectedRowIndex === rowIndex
                 
@@ -967,6 +1037,127 @@ export function JobApplicationsTable({
         </div>
       )}
 
+      {/* Task 4.5 - Pagination Controls */}
+      {!isLoading && !error && sortedData.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-2">
+          {/* Page Size Selector */}
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-muted-foreground">Rows per page:</span>
+            <Select value={pageSize.toString()} onValueChange={handlePageSizeChange}>
+              <SelectTrigger className="w-16 h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {pageSizeOptions.map((size) => (
+                  <SelectItem key={size} value={size.toString()}>
+                    {size}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Pagination Info and Controls */}
+          <div className="flex items-center gap-4">
+            {/* Results Info */}
+            <div className="text-sm text-muted-foreground">
+              Showing {startIndex + 1} to {Math.min(endIndex, sortedData.length)} of {sortedData.length} results
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                    />
+                  </PaginationItem>
+                  {/* Task 4.5 - Smart pagination with ellipsis */}
+                  {(() => {
+                    const pages = []
+                    const showEllipsis = totalPages > 7 // Only use ellipsis if more than 7 pages
+                    
+                    if (!showEllipsis) {
+                      // Simple case: Show all pages (1-7 pages)
+                      for (let i = 1; i <= totalPages; i++) {
+                        pages.push(
+                          <PaginationItem key={`page-${i}`}>
+                            <PaginationLink 
+                              onClick={() => handlePageChange(i)}
+                              isActive={i === currentPage}
+                              className="cursor-pointer"
+                            >
+                              {i}
+                            </PaginationLink>
+                          </PaginationItem>
+                        )
+                      }
+                    } else {
+                      // Complex case: Use ellipsis logic
+                      const startPages = [1, 2] // Always show first 2 pages
+                      const endPages = [totalPages - 1, totalPages] // Always show last 2 pages
+                      
+                      // Determine middle pages around current page
+                      let middlePages = []
+                      if (currentPage <= 4) {
+                        // Near beginning: show 1 2 3 4 5 ... 49 50
+                        middlePages = [3, 4, 5]
+                      } else if (currentPage >= totalPages - 3) {
+                        // Near end: show 1 2 ... 46 47 48 49 50
+                        middlePages = [totalPages - 4, totalPages - 3, totalPages - 2]
+                      } else {
+                        // In middle: show 1 2 ... 8 9 10 ... 49 50
+                        middlePages = [currentPage - 1, currentPage, currentPage + 1]
+                      }
+                      
+                      // Build the page sequence
+                      const allPages = [...startPages, ...middlePages, ...endPages]
+                      const uniquePages = [...new Set(allPages)].sort((a, b) => a - b)
+                      
+                      // Render pages with ellipsis
+                      uniquePages.forEach((pageNum, index) => {
+                        // Add ellipsis before this page if there's a gap
+                        if (index > 0 && pageNum > uniquePages[index - 1] + 1) {
+                          pages.push(
+                            <PaginationItem key={`ellipsis-${pageNum}`}>
+                              <PaginationEllipsis />
+                            </PaginationItem>
+                          )
+                        }
+                        
+                        // Add the page number
+                        pages.push(
+                          <PaginationItem key={`page-${pageNum}`}>
+                            <PaginationLink 
+                              onClick={() => handlePageChange(pageNum)}
+                              isActive={pageNum === currentPage}
+                              className="cursor-pointer"
+                            >
+                              {pageNum}
+                            </PaginationLink>
+                          </PaginationItem>
+                        )
+                      })
+                    }
+                    
+                    return pages
+                  })()}
+
+                  <PaginationItem>
+                    <PaginationNext 
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Task 4.4 - Keyboard Navigation Help */}
       {showControls && (
         <div className="text-xs text-muted-foreground p-2 bg-muted/20 rounded">
@@ -974,14 +1165,18 @@ export function JobApplicationsTable({
         </div>
       )}
 
-      {/* Task 4.4 - Debug Information */}
+      {/* Task 4.4 & 4.5 - Debug Information */}
       {showDebugInfo && (
         <div className="p-3 bg-muted/50 rounded border text-xs font-mono">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             <div><strong>Sort:</strong> {sortColumn || 'default'} {sortDirection || 'desc'}</div>
-            <div><strong>Rows:</strong> {sortedData.length}</div>
+            <div><strong>Total Rows:</strong> {sortedData.length}</div>
+            <div><strong>Displayed:</strong> {paginatedData.length}</div>
+            <div><strong>Page:</strong> {currentPage}/{totalPages}</div>
+            <div><strong>Page Size:</strong> {pageSize}</div>
             <div><strong>Expanded:</strong> {expandedRows.size}</div>
             <div><strong>Selected:</strong> {selectedRowIndex >= 0 ? selectedRowIndex + 1 : 'none'}</div>
+            <div><strong>Error:</strong> {error ? 'Yes' : 'No'}</div>
             <div><strong>Navigation:</strong> {navigationMode}</div>
             <div><strong>Header Focus:</strong> {focusedHeaderIndex >= 0 ? focusedHeaderIndex : 'none'}</div>
             <div><strong>Visible Cols:</strong> {visibleColumns.length}</div>
