@@ -59,21 +59,24 @@ describe('JobApplicationController', () => {
 
   describe('listJobApplications', () => {
     it('should return job applications successfully', async () => {
+      const mockJobApplications = [
+        { id: 1, company: 'Test Corp', position: 'Developer', userId: 1 },
+        { id: 2, company: 'Another Corp', position: 'Engineer', userId: 1 }
+      ];
+
       const mockServiceResult = {
         success: true,
         statusCode: 200,
-        message: 'Job applications retrieved successfully',
         data: {
-          jobApplications: [
-            { id: 1, company: 'Test Corp', position: 'Developer' }
-          ],
-          pagination: { page: 1, limit: 10, total: 1, totalPages: 1 }
-        }
+          jobApplications: mockJobApplications,
+          pagination: { page: 1, limit: 10, total: 2, totalPages: 1 }
+        },
+        message: 'Job applications retrieved successfully'
       };
 
       (jobApplicationService.listJobApplications as Mock).mockResolvedValue(mockServiceResult);
 
-      mockRequest.query = { page: '1', limit: '10' };
+      mockRequest.query = { page: 1, limit: 10 };
 
       await listJobApplications(
         mockRequest as FastifyRequest,
@@ -81,27 +84,16 @@ describe('JobApplicationController', () => {
       );
 
       expect(jobApplicationService.listJobApplications).toHaveBeenCalledWith({
-        page: '1',
-        limit: '10',
+        page: 1,
+        limit: 10,
         userId: 1
       });
       expect(mockReply.status).toHaveBeenCalledWith(200);
       expect(mockReply.send).toHaveBeenCalledWith({
         message: 'Job applications retrieved successfully',
         data: {
-          jobApplications: [
-            {
-              id: 1,
-              company: 'Test Corp',
-              position: 'Developer'
-            }
-          ],
-          pagination: {
-            page: 1,
-            limit: 10,
-            total: 1,
-            totalPages: 1
-          }
+          jobApplications: mockJobApplications,
+          pagination: { page: 1, limit: 10, total: 2, totalPages: 1 }
         }
       });
     });
@@ -115,6 +107,9 @@ describe('JobApplicationController', () => {
 
       (jobApplicationService.listJobApplications as Mock).mockResolvedValue(mockServiceResult);
 
+      mockRequest.query = {};
+      mockRequest.url = '/api/applications';
+
       await listJobApplications(
         mockRequest as FastifyRequest,
         mockReply as FastifyReply
@@ -122,7 +117,12 @@ describe('JobApplicationController', () => {
 
       expect(mockReply.status).toHaveBeenCalledWith(500);
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Internal server error while retrieving job applications'
+        success: false,
+        error: 'Internal server error while retrieving job applications',
+        message: 'Internal server error while retrieving job applications',
+        statusCode: 500,
+        timestamp: expect.any(String),
+        path: '/api/applications'
       });
     });
   });
@@ -162,6 +162,7 @@ describe('JobApplicationController', () => {
 
     it('should return 400 for invalid ID', async () => {
       mockRequest.params = { id: 'invalid' };
+      mockRequest.url = '/api/applications/invalid';
 
       await getJobApplication(
         mockRequest as FastifyRequest,
@@ -170,7 +171,12 @@ describe('JobApplicationController', () => {
 
       expect(mockReply.status).toHaveBeenCalledWith(400);
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Invalid job application ID format'
+        success: false,
+        error: 'Invalid job application ID format',
+        message: 'Invalid job application ID format',
+        statusCode: 400,
+        timestamp: expect.any(String),
+        path: '/api/applications/invalid'
       });
       expect(jobApplicationService.getJobApplication).not.toHaveBeenCalled();
     });
@@ -185,6 +191,7 @@ describe('JobApplicationController', () => {
       (jobApplicationService.getJobApplication as Mock).mockResolvedValue(mockServiceResult);
 
       mockRequest.params = { id: '999' };
+      mockRequest.url = '/api/applications/999';
 
       await getJobApplication(
         mockRequest as FastifyRequest,
@@ -193,7 +200,12 @@ describe('JobApplicationController', () => {
 
       expect(mockReply.status).toHaveBeenCalledWith(404);
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Job application not found'
+        success: false,
+        error: 'Job application not found',
+        message: 'Job application not found',
+        statusCode: 404,
+        timestamp: expect.any(String),
+        path: '/api/applications/999'
       });
     });
 
@@ -207,6 +219,7 @@ describe('JobApplicationController', () => {
       (jobApplicationService.getJobApplication as Mock).mockResolvedValue(mockServiceResult);
 
       mockRequest.params = { id: '1' };
+      mockRequest.url = '/api/applications/1';
 
       await getJobApplication(
         mockRequest as FastifyRequest,
@@ -215,7 +228,12 @@ describe('JobApplicationController', () => {
 
       expect(mockReply.status).toHaveBeenCalledWith(403);
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'You can only access your own job applications'
+        success: false,
+        error: 'You can only access your own job applications',
+        message: 'You can only access your own job applications',
+        statusCode: 403,
+        timestamp: expect.any(String),
+        path: '/api/applications/1'
       });
     });
   });
@@ -273,6 +291,7 @@ describe('JobApplicationController', () => {
         company: 'Test Corp'
         // Missing required position field
       };
+      mockRequest.url = '/api/applications';
 
       await createJobApplication(
         mockRequest as FastifyRequest,
@@ -281,7 +300,12 @@ describe('JobApplicationController', () => {
 
       expect(mockReply.status).toHaveBeenCalledWith(400);
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Invalid job application data'
+        success: false,
+        error: 'Invalid job application data',
+        message: 'Invalid job application data',
+        statusCode: 400,
+        timestamp: expect.any(String),
+        path: '/api/applications'
       });
     });
   });
@@ -328,7 +352,7 @@ describe('JobApplicationController', () => {
 
     it('should return 400 for invalid ID', async () => {
       mockRequest.params = { id: 'invalid' };
-      mockRequest.body = { company: 'Updated Corp' };
+      mockRequest.url = '/api/applications/invalid';
 
       await updateJobApplication(
         mockRequest as FastifyRequest,
@@ -337,7 +361,12 @@ describe('JobApplicationController', () => {
 
       expect(mockReply.status).toHaveBeenCalledWith(400);
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Invalid job application ID format'
+        success: false,
+        error: 'Invalid job application ID format',
+        message: 'Invalid job application ID format',
+        statusCode: 400,
+        timestamp: expect.any(String),
+        path: '/api/applications/invalid'
       });
       expect(jobApplicationService.updateJobApplication).not.toHaveBeenCalled();
     });
@@ -353,6 +382,7 @@ describe('JobApplicationController', () => {
 
       mockRequest.params = { id: '999' };
       mockRequest.body = { company: 'Updated Corp' };
+      mockRequest.url = '/api/applications/999';
 
       await updateJobApplication(
         mockRequest as FastifyRequest,
@@ -361,7 +391,12 @@ describe('JobApplicationController', () => {
 
       expect(mockReply.status).toHaveBeenCalledWith(404);
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Job application not found'
+        success: false,
+        error: 'Job application not found',
+        message: 'Job application not found',
+        statusCode: 404,
+        timestamp: expect.any(String),
+        path: '/api/applications/999'
       });
     });
   });
@@ -392,6 +427,7 @@ describe('JobApplicationController', () => {
 
     it('should return 400 for invalid ID', async () => {
       mockRequest.params = { id: 'invalid' };
+      mockRequest.url = '/api/applications/invalid';
 
       await deleteJobApplication(
         mockRequest as FastifyRequest,
@@ -400,7 +436,12 @@ describe('JobApplicationController', () => {
 
       expect(mockReply.status).toHaveBeenCalledWith(400);
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Invalid job application ID format'
+        success: false,
+        error: 'Invalid job application ID format',
+        message: 'Invalid job application ID format',
+        statusCode: 400,
+        timestamp: expect.any(String),
+        path: '/api/applications/invalid'
       });
       expect(jobApplicationService.deleteJobApplication).not.toHaveBeenCalled();
     });
@@ -415,6 +456,7 @@ describe('JobApplicationController', () => {
       (jobApplicationService.deleteJobApplication as Mock).mockResolvedValue(mockServiceResult);
 
       mockRequest.params = { id: '999' };
+      mockRequest.url = '/api/applications/999';
 
       await deleteJobApplication(
         mockRequest as FastifyRequest,
@@ -423,7 +465,12 @@ describe('JobApplicationController', () => {
 
       expect(mockReply.status).toHaveBeenCalledWith(404);
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Job application not found'
+        success: false,
+        error: 'Job application not found',
+        message: 'Job application not found',
+        statusCode: 404,
+        timestamp: expect.any(String),
+        path: '/api/applications/999'
       });
     });
   });

@@ -73,7 +73,8 @@ export class JobApplicationRepository extends BaseRepository<
     },
     tx?: Prisma.TransactionClient
   ): Promise<PaginatedResult<JobApplicationWithRelations>> {
-    // Build the where clause by combining userId filter with any additional filters
+    // Build the where clause by combining userId filter with processed filters
+    // The buildFiltersWhere method handles ALL filtering logic, including multi-select vs single-value precedence
     const where: Prisma.JobApplicationWhereInput = {
       userId,
       ...this.buildFiltersWhere(filters),
@@ -402,6 +403,7 @@ export class JobApplicationRepository extends BaseRepository<
    * Build filters for where clause
    * 
    * Builds a Prisma where clause based on the provided filters.
+   * Multi-select filters take priority over single-value filters when both are provided.
    * 
    * @param filters - The filters to apply to the query
    * @returns The Prisma where clause
@@ -409,20 +411,43 @@ export class JobApplicationRepository extends BaseRepository<
   private buildFiltersWhere(filters: JobApplicationFilters): Prisma.JobApplicationWhereInput {
     const where: Prisma.JobApplicationWhereInput = {};
 
-    // Filter by application status (e.g., APPLIED, INTERVIEW, REJECTED)
-    if (filters.status) {
+    // === STATUS FILTERING ===
+    // Multi-select statuses take priority over single status
+    if (filters.statuses?.length) {
+      where.status = { in: filters.statuses };
+    } else if (filters.status) {
       where.status = filters.status;
     }
 
-    // Filter by company name with case-insensitive partial matching
-    if (filters.company) {
+    // === COMPANY FILTERING ===
+    // Multi-select companies take priority over single company
+    if (filters.companies?.length) {
+      where.company = { in: filters.companies };
+    } else if (filters.company) {
       where.company = { contains: filters.company, mode: 'insensitive' };
     }
 
-    // Filter by position title with case-insensitive partial matching
-    if (filters.position) {
+    // === POSITION FILTERING ===
+    // Multi-select positions take priority over single position
+    if (filters.positions?.length) {
+      where.position = { in: filters.positions };
+    } else if (filters.position) {
       where.position = { contains: filters.position, mode: 'insensitive' };
     }
+
+    // === WORK ARRANGEMENT FILTERING ===
+    // Multi-select work arrangements
+    if (filters.workArrangements?.length) {
+      where.workArrangement = { in: filters.workArrangements };
+    }
+
+    // === JOB TYPE FILTERING ===
+    // Multi-select job types
+    if (filters.jobTypes?.length) {
+      where.type = { in: filters.jobTypes };
+    }
+
+    // === OTHER FILTERS ===
 
     // Filter by date range when application was submitted
     if (filters.dateFrom || filters.dateTo) {

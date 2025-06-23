@@ -32,9 +32,17 @@ export class JobApplicationService {
         page = 1,
         limit = 10,
         userId,
+        // Single-value filters (backward compatibility)
         status,
         company,
         position,
+        // Multi-select filters (new)
+        statuses,
+        companies,
+        positions,
+        workArrangements,
+        jobTypes,
+        // Other filters
         dateFrom,
         dateTo,
         isStarred,
@@ -55,12 +63,22 @@ export class JobApplicationService {
         };
       }
 
-      // Build repository filters
+      // Build repository filters (userId handled separately in findByUserWithFilters)
       const repositoryFilters: JobApplicationFilters = {};
-      if (userId) repositoryFilters.userId = userId;
+      
+      // Single-value filters (backward compatibility)
       if (status) repositoryFilters.status = status;
       if (company) repositoryFilters.company = company;
       if (position) repositoryFilters.position = position;
+      
+      // Multi-select filters (new) - only use if arrays have values
+      if (statuses?.length) repositoryFilters.statuses = statuses;
+      if (companies?.length) repositoryFilters.companies = companies;
+      if (positions?.length) repositoryFilters.positions = positions;
+      if (workArrangements?.length) repositoryFilters.workArrangements = workArrangements;
+      if (jobTypes?.length) repositoryFilters.jobTypes = jobTypes;
+      
+      // Other filters
       if (dateFrom) repositoryFilters.dateFrom = new Date(dateFrom);
       if (dateTo) repositoryFilters.dateTo = new Date(dateTo);
       if (isStarred !== undefined) repositoryFilters.isStarred = isStarred;
@@ -72,19 +90,11 @@ export class JobApplicationService {
       // Build order by
       const orderBy = { [sortBy]: sortOrder };
 
-      // Get paginated results
-      const result = await repositories.jobApplication.findManyWithPagination(
+      // Get paginated results using the specialized filter method
+      const result = await repositories.jobApplication.findByUserWithFilters(
+        userId,
         repositoryFilters,
         {
-          include: {
-            tags: true,
-            documents: true,
-            jobConnections: {
-              include: {
-                contact: true
-              }
-            }
-          },
           orderBy,
           pagination: { page, limit }
         }

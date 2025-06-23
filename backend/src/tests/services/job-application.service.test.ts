@@ -15,6 +15,7 @@ vi.mock('../../repositories/index.js', () => ({
   repositories: {
     jobApplication: {
       findManyWithPagination: vi.fn(),
+      findByUserWithFilters: vi.fn(),
       findById: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
@@ -56,7 +57,7 @@ describe('JobApplicationService', () => {
         totalPages: 1
       };
 
-      (repositories.jobApplication.findManyWithPagination as Mock).mockResolvedValue(mockResult);
+      (repositories.jobApplication.findByUserWithFilters as Mock).mockResolvedValue(mockResult);
 
       const result = await jobApplicationService.listJobApplications({
         userId: 1,
@@ -82,7 +83,7 @@ describe('JobApplicationService', () => {
     });
 
     it('should handle repository errors gracefully', async () => {
-      (repositories.jobApplication.findManyWithPagination as Mock).mockRejectedValue(
+      (repositories.jobApplication.findByUserWithFilters as Mock).mockRejectedValue(
         new Error('Database error')
       );
 

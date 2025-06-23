@@ -188,7 +188,7 @@ export const listJobApplicationsSchema = {
       page: { type: 'integer', minimum: 1, default: 1 },
       limit: { type: 'integer', minimum: 1, maximum: 100, default: 10 },
       
-      // Filters
+      // Single-value filters (backward compatibility)
       userId: { type: 'integer', minimum: 1 },
       status: { 
         type: 'string', 
@@ -196,6 +196,44 @@ export const listJobApplicationsSchema = {
       },
       company: { type: 'string', minLength: 1 },
       position: { type: 'string', minLength: 1 },
+      
+      // Multi-select filters (new)
+      statuses: { 
+        type: 'array', 
+        items: { 
+          type: 'string', 
+          enum: ['applied', 'interview', 'offer', 'rejected', 'withdrawn', 'accepted'] 
+        },
+        uniqueItems: true 
+      },
+      companies: { 
+        type: 'array', 
+        items: { type: 'string', minLength: 1 },
+        uniqueItems: true 
+      },
+      positions: { 
+        type: 'array', 
+        items: { type: 'string', minLength: 1 },
+        uniqueItems: true 
+      },
+      workArrangements: { 
+        type: 'array', 
+        items: { 
+          type: 'string', 
+          enum: ['remote', 'hybrid', 'in_office', 'flexible'] 
+        },
+        uniqueItems: true 
+      },
+      jobTypes: { 
+        type: 'array', 
+        items: { 
+          type: 'string', 
+          enum: ['full-time', 'part-time', 'contract', 'internship', 'freelance'] 
+        },
+        uniqueItems: true 
+      },
+      
+      // Other filters
       dateFrom: { type: 'string', format: 'date' },
       dateTo: { type: 'string', format: 'date' },
       isStarred: { type: 'boolean' },

@@ -26,9 +26,20 @@ export interface JobApplicationListFilters {
   page?: number;
   limit?: number;
   userId?: number;
+  
+  // Single-value filters (backward compatibility)
   status?: string;
   company?: string;
   position?: string;
+  
+  // Multi-select filters (new)
+  statuses?: string[];
+  companies?: string[];
+  positions?: string[];
+  workArrangements?: string[];
+  jobTypes?: string[];
+  
+  // Other filters
   dateFrom?: string;
   dateTo?: string;
   isStarred?: boolean;
@@ -88,9 +99,20 @@ export interface UpdateJobApplicationRequest {
  */
 export interface JobApplicationFilters {
   userId?: number;
+  
+  // Single-value filters (backward compatibility)
   status?: string;
   company?: string;
   position?: string;
+  
+  // Multi-select filters (new)
+  statuses?: string[];
+  companies?: string[];
+  positions?: string[];
+  workArrangements?: string[];
+  jobTypes?: string[];
+  
+  // Other filters
   dateFrom?: Date;
   dateTo?: Date;
   isStarred?: boolean;

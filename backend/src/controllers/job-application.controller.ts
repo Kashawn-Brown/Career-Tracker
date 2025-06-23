@@ -40,7 +40,12 @@ export class JobApplicationController {
     // Handle service result
     if (!result.success) {
       return reply.status(result.statusCode).send({
-        error: result.error
+        success: false,
+        error: result.error,
+        message: result.error,
+        statusCode: result.statusCode,
+        timestamp: new Date().toISOString(),
+        path: request.url
       });
     }
 
@@ -68,7 +73,12 @@ export class JobApplicationController {
     // Basic validation handled in controller for HTTP concerns
     if (isNaN(id)) {
       return reply.status(400).send({
-        error: 'Invalid job application ID format'
+        success: false,
+        error: 'Invalid job application ID format',
+        message: 'Invalid job application ID format',
+        statusCode: 400,
+        timestamp: new Date().toISOString(),
+        path: request.url
       });
     }
 
@@ -78,7 +88,12 @@ export class JobApplicationController {
     // Handle service result
     if (!result.success) {
       return reply.status(result.statusCode).send({
-        error: result.error
+        success: false,
+        error: result.error,
+        message: result.error,
+        statusCode: result.statusCode,
+        timestamp: new Date().toISOString(),
+        path: request.url
       });
     }
 
@@ -109,7 +124,12 @@ export class JobApplicationController {
     // Handle service result
     if (!result.success) {
       return reply.status(result.statusCode).send({
-        error: result.error
+        success: false,
+        error: result.error,
+        message: result.error,
+        statusCode: result.statusCode,
+        timestamp: new Date().toISOString(),
+        path: request.url
       });
     }
 
@@ -134,7 +154,12 @@ export class JobApplicationController {
     // Basic validation handled in controller for HTTP concerns
     if (isNaN(id)) {
       return reply.status(400).send({
-        error: 'Invalid job application ID format'
+        success: false,
+        error: 'Invalid job application ID format',
+        message: 'Invalid job application ID format',
+        statusCode: 400,
+        timestamp: new Date().toISOString(),
+        path: request.url
       });
     }
 
@@ -144,7 +169,12 @@ export class JobApplicationController {
     // Handle service result
     if (!result.success) {
       return reply.status(result.statusCode).send({
-        error: result.error
+        success: false,
+        error: result.error,
+        message: result.error,
+        statusCode: result.statusCode,
+        timestamp: new Date().toISOString(),
+        path: request.url
       });
     }
 
@@ -169,7 +199,12 @@ export class JobApplicationController {
     // Basic validation handled in controller for HTTP concerns
     if (isNaN(id)) {
       return reply.status(400).send({
-        error: 'Invalid job application ID format'
+        success: false,
+        error: 'Invalid job application ID format',
+        message: 'Invalid job application ID format',
+        statusCode: 400,
+        timestamp: new Date().toISOString(),
+        path: request.url
       });
     }
 
@@ -179,7 +214,12 @@ export class JobApplicationController {
     // Handle service result
     if (!result.success) {
       return reply.status(result.statusCode).send({
-        error: result.error
+        success: false,
+        error: result.error,
+        message: result.error,
+        statusCode: result.statusCode,
+        timestamp: new Date().toISOString(),
+        path: request.url
       });
     }
 
