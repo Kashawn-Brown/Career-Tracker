@@ -1,10 +1,10 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
-import { JobApplication } from "@/types/models/job-application"
+import { JobApplication, Tag, JobConnection, Document } from "@/types/models/job-application"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { Star, Users, FileText, Tag as TagIcon, Plus, Briefcase, ChevronDown, ChevronRight, ChevronUp } from "lucide-react"
+import { Star, Users, FileText, Plus, Briefcase, ChevronDown, ChevronRight, ChevronUp } from "lucide-react"
 
 // Sample data matching our updated schema - EXACT copy from test-columns
 const sampleData: JobApplication[] = [
@@ -154,7 +154,7 @@ export default function TestTask44Page() {
   const [isLoading, setIsLoading] = useState(false)
   const [selectedRowIndex, setSelectedRowIndex] = useState<number>(-1)
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set())
-  const [data, setData] = useState<JobApplication[]>(sampleData)
+  const [data] = useState<JobApplication[]>(sampleData)
 
   // Task 4.4 - NEW sorting state (default: dateApplied descending - newest first)
   const [sortColumn, setSortColumn] = useState<SortableColumn | null>('dateApplied')
@@ -169,8 +169,8 @@ export default function TestTask44Page() {
 
     return [...data].sort((a, b) => {
       // Get values for comparison
-      let aVal = a[column as keyof JobApplication]
-      let bVal = b[column as keyof JobApplication]
+      const aVal = a[column as keyof JobApplication]
+      const bVal = b[column as keyof JobApplication]
 
       // Handle null/undefined values (put them at the end)
       if (aVal == null && bVal == null) return 0
@@ -456,7 +456,8 @@ export default function TestTask44Page() {
   }
 
   // EXACT formatCellValue from test-columns
-  const formatCellValue = (value: any, columnKey: ColumnKey, sizeClasses: any) => {
+  type CellValue = string | number | boolean | Date | Tag[] | JobConnection[] | Document[] | undefined | null
+  const formatCellValue = (value: CellValue, columnKey: ColumnKey, sizeClasses: Record<string, string>) => {
     if (value === undefined || value === null) return '-'
     
     switch (columnKey) {
@@ -471,10 +472,10 @@ export default function TestTask44Page() {
       case 'dateApplied':
       case 'followUpDate':
       case 'deadline':
-        if (!value) return '-'
+        if (!value || typeof value !== 'string') return '-'
         return new Date(value).toLocaleDateString()
       case 'jobLink':
-        return value ? (
+        return value && typeof value === 'string' ? (
           <a href={value} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
             Link
           </a>
@@ -495,16 +496,16 @@ export default function TestTask44Page() {
               value === 'rejected' ? 'bg-red-600 dark:bg-red-400' :
               'bg-muted-foreground'
             }`} />
-            {value}
+            {String(value)}
           </span>
         )
       case 'type':
       case 'workArrangement':
-        return value?.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) || '-'
+        return (value as string)?.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) || '-'
       case 'tags':
-        return value && Array.isArray(value) && value.length > 0 ? (
+        return value && Array.isArray(value) && value.length > 0 && value.every((item): item is Tag => typeof item === 'object' && 'name' in item) ? (
           <div className="flex flex-wrap gap-1">
-            {value.slice(0, 2).map((tag: any) => (
+            {value.slice(0, 2).map((tag: Tag) => (
               <span key={tag.id} className={`${sizeClasses.badge} bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 rounded-full`}>
                 {tag.name}
               </span>
@@ -531,7 +532,7 @@ export default function TestTask44Page() {
           </div>
         ) : '-'
       case 'notes':
-        return value ? (
+        return value && typeof value === 'string' ? (
           <div className="max-w-xs">
             <span className="text-sm text-muted-foreground truncate">
               {value.length > 30 ? `${value.substring(0, 30)}...` : value}
@@ -550,17 +551,17 @@ export default function TestTask44Page() {
           </span>
         ) : '-'
       default:
-        return String(value)
+        return value !== null && value !== undefined ? String(value) : '-'
     }
   }
 
   // EXACT getValueFromJobApplication from test-columns
-  const getValueFromJobApplication = (job: JobApplication, columnKey: ColumnKey): any => {
+  const getValueFromJobApplication = (job: JobApplication, columnKey: ColumnKey): CellValue => {
     const column = ALL_COLUMNS[columnKey]
     const key = column.key
     
     if (key in job) {
-      return job[key as keyof JobApplication]
+      return job[key as keyof JobApplication] as CellValue
     }
     
     return undefined
@@ -719,7 +720,7 @@ export default function TestTask44Page() {
             <Table className={sizeClasses.table}>
               <TableHeader>
                 <TableRow className="border-b border-border/60">
-                                     {visibleColumns.map((columnKey, index) => {
+                                     {visibleColumns.map((columnKey) => {
                      const column = ALL_COLUMNS[columnKey]
                      const sortableColumns = visibleColumns.filter(col => ALL_COLUMNS[col].sortable)
                      const sortableIndex = sortableColumns.indexOf(columnKey)
@@ -745,15 +746,15 @@ export default function TestTask44Page() {
                 </TableRow>
               </TableHeader>
                              <TableBody>
-                 {sortedData.map((job, index) => (
+                 {sortedData.map((job, _) => (
                   <>
                     <TableRow 
                       key={job.id} 
                       className={`hover:bg-muted/50 transition-colors duration-150 cursor-pointer border-b border-border/50 ${
-                        selectedRowIndex === index ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                        selectedRowIndex === _ ? 'bg-blue-50 dark:bg-blue-900/20' : ''
                       }`}
                       onClick={() => {
-                        setSelectedRowIndex(index)
+                        setSelectedRowIndex(_)
                         toggleRowExpansion(job.id)
                       }}
                     >

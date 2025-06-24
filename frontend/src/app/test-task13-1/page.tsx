@@ -4,6 +4,7 @@ import { useState } from "react"
 import { JobApplication } from "@/types/models/job-application"
 import { JobApplicationsTable } from "@/components/JobApplicationsTable"
 import { JobApplicationFilterPanel } from "@/components/JobApplicationFilterPanel"
+import { FilterState, DEFAULT_FILTER_STATE } from "@/types/filters"
 
 // Sample data for testing filters - simplified version
 const sampleData: JobApplication[] = [
@@ -113,9 +114,9 @@ const sampleData: JobApplication[] = [
 export default function TestTask131Page() {
   const [filteredData, setFilteredData] = useState<JobApplication[]>(sampleData)
   const [isFilterPanelExpanded, setIsFilterPanelExpanded] = useState(true)
-  const [currentFilters, setCurrentFilters] = useState<any>({})
+  const [currentFilters, setCurrentFilters] = useState<FilterState>(DEFAULT_FILTER_STATE)
 
-  const handleFilterChange = (filters: any) => {
+  const handleFilterChange = (filters: FilterState) => {
     // For now, just log the filter changes
     console.log("Filters changed:", filters)
     
@@ -145,7 +146,7 @@ export default function TestTask131Page() {
             <li>✅ Date pickers (Date Applied)</li>
             <li>✅ Range slider (Compatibility Score)</li>
             <li>✅ Individual clear buttons for each filter</li>
-            <li>✅ Global "Clear All" button</li>
+            <li>✅ Global &quot;Clear All&quot; button</li>
             <li>✅ Starred jobs filter (All/Starred/Non-starred)</li>
             <li>✅ Responsive and accessible design</li>
           </ul>
@@ -173,48 +174,48 @@ export default function TestTask131Page() {
       <div className="mt-8 p-4 bg-muted/50 rounded-lg">
         <h3 className="text-lg font-semibold mb-2">🔍 Debug Info:</h3>
         <p className="text-sm">Total items: {filteredData.length}</p>
-        <p className="text-sm">Filter panel expanded: {isFilterPanelExpanded ? 'Yes' : 'No'}</p>
+        <p className="text-sm">Filter panel expanded: {isFilterPanelExpanded ? "Yes" : "No"}</p>
         
         <div className="mt-4">
           <h4 className="text-lg font-semibold mb-2">Current Applied Filter Values:</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
             <div className="space-y-2">
-              <div><strong>⭐ Starred:</strong> <span className="font-mono bg-background px-1 rounded">{currentFilters.starredFilter || 'all'}</span></div>
-              <div><strong>💰 Salary Min:</strong> <span className="font-mono bg-background px-1 rounded">{currentFilters.salaryMin || 'unset'}</span></div>
-              <div><strong>💰 Salary Max:</strong> <span className="font-mono bg-background px-1 rounded">{currentFilters.salaryMax || 'unset'}</span></div>
+              <div><strong>⭐ Starred:</strong> <span className="font-mono bg-background px-1 rounded">{currentFilters.starredFilter || "all"}</span></div>
+                              <div><strong>💰 Salary Min:</strong> <span className="font-mono bg-background px-1 rounded">{currentFilters.salaryMin || "unset"}</span></div>
+                              <div><strong>💰 Salary Max:</strong> <span className="font-mono bg-background px-1 rounded">{currentFilters.salaryMax || "unset"}</span></div>
               <div><strong>📈 Compatibility:</strong> <span className="font-mono bg-background px-1 rounded">{currentFilters.compatibilityScore?.[0] || 1} - {currentFilters.compatibilityScore?.[1] || 10}</span></div>
-              <div><strong>📅 Date From:</strong> <span className="font-mono bg-background px-1 rounded">{currentFilters.dateAppliedFrom ? new Date(currentFilters.dateAppliedFrom).toLocaleDateString() : 'unset'}</span></div>
-              <div><strong>📅 Date To:</strong> <span className="font-mono bg-background px-1 rounded">{currentFilters.dateAppliedTo ? new Date(currentFilters.dateAppliedTo).toLocaleDateString() : 'unset'}</span></div>
+              <div><strong>📅 Date From:</strong> <span className="font-mono bg-background px-1 rounded">{currentFilters.dateAppliedFrom ? new Date(currentFilters.dateAppliedFrom).toLocaleDateString() : "unset"}</span></div>
+              <div><strong>📅 Date To:</strong> <span className="font-mono bg-background px-1 rounded">{currentFilters.dateAppliedTo ? new Date(currentFilters.dateAppliedTo).toLocaleDateString() : "unset"}</span></div>
             </div>
             <div className="space-y-2">
               <div>
                 <div><strong>🏢 Companies ({currentFilters.companies?.length || 0}):</strong></div>
                 <div className="font-mono bg-background px-1 rounded text-xs max-w-full overflow-auto">
-                  {currentFilters.companies?.length > 0 ? `[${currentFilters.companies.join(', ')}]` : 'All companies'}
+                  {currentFilters.companies?.length > 0 ? `[${currentFilters.companies.join(", ")}]` : "All companies"}
                 </div>
               </div>
               <div>
                 <div><strong>💼 Positions ({currentFilters.positions?.length || 0}):</strong></div>
                 <div className="font-mono bg-background px-1 rounded text-xs max-w-full overflow-auto">
-                  {currentFilters.positions?.length > 0 ? `[${currentFilters.positions.join(', ')}]` : 'All positions'}
+                  {currentFilters.positions?.length > 0 ? `[${currentFilters.positions.join(", ")}]` : "All positions"}
                 </div>
               </div>
               <div>
                 <div><strong>📊 Statuses ({currentFilters.statuses?.length || 0}):</strong></div>
                 <div className="font-mono bg-background px-1 rounded text-xs max-w-full overflow-auto">
-                  {currentFilters.statuses?.length > 0 ? `[${currentFilters.statuses.join(', ')}]` : 'All statuses'}
+                  {currentFilters.statuses?.length > 0 ? `[${currentFilters.statuses.join(", ")}]` : "All statuses"}
                 </div>
               </div>
               <div>
                 <div><strong>🏠 Work Arrangements ({currentFilters.workArrangements?.length || 0}):</strong></div>
                 <div className="font-mono bg-background px-1 rounded text-xs max-w-full overflow-auto">
-                  {currentFilters.workArrangements?.length > 0 ? `[${currentFilters.workArrangements.join(', ')}]` : 'All arrangements'}
+                  {currentFilters.workArrangements?.length > 0 ? `[${currentFilters.workArrangements.join(", ")}]` : "All arrangements"}
                 </div>
               </div>
               <div>
                 <div><strong>📝 Job Types ({currentFilters.types?.length || 0}):</strong></div>
                 <div className="font-mono bg-background px-1 rounded text-xs max-w-full overflow-auto">
-                  {currentFilters.types?.length > 0 ? `[${currentFilters.types.join(', ')}]` : 'All types'}
+                  {currentFilters.types?.length > 0 ? `[${currentFilters.types.join(", ")}]` : "All types"}
                 </div>
               </div>
             </div>

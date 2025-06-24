@@ -1,10 +1,10 @@
 'use client';
 
-import React from 'react';
+import { ReactNode } from 'react';
 import { ThemeToggle } from './theme-toggle';
 
 interface LayoutProps {
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
 export function Layout({ children }: LayoutProps) {

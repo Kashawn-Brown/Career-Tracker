@@ -1,10 +1,10 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { JobApplication } from "@/types/models/job-application"
+import { JobApplication, Tag, JobConnection, Document } from "@/types/models/job-application"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { Star, Users, FileText, Tag as TagIcon, Plus, Briefcase, ChevronDown, ChevronRight } from "lucide-react"
+import { Star, Users, FileText, Plus, Briefcase, ChevronDown, ChevronRight } from "lucide-react"
 
 // Sample data matching our updated schema
 const sampleData: JobApplication[] = [
@@ -277,7 +277,8 @@ export default function TestColumnsPage() {
     }
   }
 
-  const formatCellValue = (value: any, columnKey: ColumnKey, sizeClasses: any) => {
+  type CellValue = string | number | boolean | Date | Tag[] | JobConnection[] | Document[] | undefined | null
+  const formatCellValue = (value: CellValue, columnKey: ColumnKey, sizeClasses: Record<string, string>) => {
     if (value === undefined || value === null) return '-'
     
     switch (columnKey) {
@@ -292,10 +293,10 @@ export default function TestColumnsPage() {
       case 'dateApplied':
       case 'followUpDate':
       case 'deadline':
-        if (!value) return '-'
+        if (!value || typeof value !== 'string') return '-'
         return new Date(value).toLocaleDateString()
       case 'jobLink':
-        return value ? (
+        return value && typeof value === 'string' ? (
           <a href={value} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
             Link
           </a>
@@ -316,23 +317,23 @@ export default function TestColumnsPage() {
               value === 'rejected' ? 'bg-red-600 dark:bg-red-400' :
               'bg-muted-foreground'
             }`} />
-            {value}
+            {String(value)}
           </span>
         )
       case 'type':
         return (
           <span className="capitalize">
-            {value?.replace('-', ' ')}
+            {(value as string)?.replace('-', ' ')}
           </span>
         )
       case 'workArrangement':
         return (
           <span className="capitalize">
-            {value?.replace('_', ' ')}
+            {(value as string)?.replace('_', ' ')}
           </span>
         )
       case 'compatibilityScore':
-        return value ? (
+        return typeof value === 'number' ? (
           <span className={`font-medium ${
             value >= 8 ? 'text-green-600' :
             value >= 6 ? 'text-yellow-600' :
@@ -342,9 +343,9 @@ export default function TestColumnsPage() {
           </span>
         ) : '-'
       case 'tags':
-        return value && value.length > 0 ? (
+        return value && Array.isArray(value) && value.length > 0 && value.every((item): item is Tag => typeof item === 'object' && 'name' in item) ? (
           <div className="flex flex-wrap gap-1">
-            {value.slice(0, 2).map((tag: any) => (
+            {value.slice(0, 2).map((tag: Tag) => (
               <span 
                 key={tag.id}
                 className={`${sizeClasses.badge} bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 rounded-full cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors`}
@@ -359,7 +360,7 @@ export default function TestColumnsPage() {
           </div>
         ) : '-'
       case 'jobConnections':
-        return value && value.length > 0 ? (
+        return value && Array.isArray(value) && value.length > 0 && value.every((item): item is JobConnection => typeof item === 'object' && 'name' in item) ? (
           <div className="flex items-center gap-1">
             <Users className={`${sizeClasses.icon} text-gray-500`} />
             <span className="cursor-pointer hover:text-blue-600" title="Click to view contacts">
@@ -369,7 +370,7 @@ export default function TestColumnsPage() {
           </div>
         ) : '-'
       case 'documents':
-        return value && value.length > 0 ? (
+        return value && Array.isArray(value) && value.length > 0 && value.every((item): item is Document => typeof item === 'object' && 'originalName' in item) ? (
           <div className="flex items-center gap-1">
             <FileText className={`${sizeClasses.icon} text-gray-500`} />
             <span className="cursor-pointer hover:text-blue-600" title="Click to view documents">
@@ -379,7 +380,7 @@ export default function TestColumnsPage() {
           </div>
         ) : '-'
       case 'description':
-        return value ? (
+        return value && typeof value === 'string' ? (
           <div className="max-w-40 overflow-hidden">
             <span className="text-gray-700 text-sm block truncate" title={value}>
               {value}
@@ -391,7 +392,7 @@ export default function TestColumnsPage() {
     }
   }
 
-  const getValueFromJobApplication = (job: JobApplication, columnKey: ColumnKey): any => {
+  const getValueFromJobApplication = (job: JobApplication, columnKey: ColumnKey): CellValue => {
     switch (columnKey) {
       case 'starred': return job.isStarred
       case 'company': return job.company
@@ -440,7 +441,7 @@ export default function TestColumnsPage() {
   // Loading Skeleton Component
   const LoadingSkeleton = () => (
     <div className="space-y-3">
-      {[...Array(5)].map((_, i) => (
+      {[...Array(5)].map((unused, i) => (
         <div key={i} className="flex gap-4 p-3 animate-pulse">
           {visibleColumns.map((col, colIndex) => (
             <div 
@@ -694,7 +695,7 @@ export default function TestColumnsPage() {
                           {column.label}
                           {column.label && (
                             <span className="text-muted-foreground text-xs opacity-0 group-hover:opacity-100 transition-opacity">
-                              ↕
+                              &updownarrow;
                             </span>
                           )}
                         </div>
@@ -751,7 +752,7 @@ export default function TestColumnsPage() {
       {/* Alternative: Starred as "Attached" to left side */}
       {!starredAsColumn && (
         <div className="mt-8">
-          <h2 className="text-xl font-semibold mb-4">Alternative: Starred "Attached" to Left Side</h2>
+          <h2 className="text-xl font-semibold mb-4">Alternative: Starred &quot;Attached&quot; to Left Side</h2>
           <div className="border rounded-lg overflow-hidden">
             <div className="overflow-x-auto">
               <Table className={sizeClasses.table}>
@@ -768,9 +769,9 @@ export default function TestColumnsPage() {
                           <div className="flex items-center gap-1">
                             {column.label}
                             {column.label && (
-                              <span className="text-muted-foreground text-xs opacity-0 group-hover:opacity-100 transition-opacity">
-                                ↕
-                              </span>
+                                                          <span className="text-muted-foreground text-xs opacity-0 group-hover:opacity-100 transition-opacity">
+                              &updownarrow;
+                            </span>
                             )}
                           </div>
                         </TableHead>
@@ -842,7 +843,7 @@ export default function TestColumnsPage() {
         <p className="text-sm text-foreground"><strong>Starred Display:</strong> {starredAsColumn ? 'As Column' : 'Attached to Left'}</p>
         <p className="text-sm text-foreground"><strong>Text Size:</strong> {textSize}</p>
         <p className="text-sm text-foreground"><strong>Total Columns Available:</strong> {Object.keys(ALL_COLUMNS).length}</p>
-        <p className="text-sm text-foreground"><strong>Required Columns:</strong> {Object.entries(ALL_COLUMNS).filter(([_, col]) => col.required).map(([key]) => ALL_COLUMNS[key as ColumnKey].displayName).join(', ')}</p>
+        <p className="text-sm text-foreground"><strong>Required Columns:</strong> {Object.entries(ALL_COLUMNS).filter(([, col]) => col.required).map(([key]) => ALL_COLUMNS[key as ColumnKey].displayName).join(', ')}</p>
       </div>
     </div>
   )

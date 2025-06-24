@@ -78,9 +78,9 @@ describe('API Client Tests', () => {
       try {
         await apiClient.get('/test')
         expect.fail('Should have thrown an error')
-      } catch (error: any) {
-        expect(error.status).toBe(400)
-        expect(error.data).toEqual(errorResponse)
+      } catch (error: unknown) {
+        expect((error as { status: number }).status).toBe(400)
+        expect((error as { data: typeof errorResponse }).data).toEqual(errorResponse)
       }
     })
 
@@ -90,8 +90,8 @@ describe('API Client Tests', () => {
       try {
         await apiClient.get('/test')
         expect.fail('Should have thrown an error')
-      } catch (error: any) {
-        expect(error.status).toBe(401)
+      } catch (error: unknown) {
+        expect((error as { status: number }).status).toBe(401)
         expect(tokenUtils.clearAuthToken).toHaveBeenCalled()
       }
     })
@@ -102,9 +102,9 @@ describe('API Client Tests', () => {
       try {
         await apiClient.get('/test')
         expect.fail('Should have thrown an error')
-      } catch (error: any) {
-        expect(error.status).toBe(403)
-        expect(error.data.message).toBe('Forbidden')
+      } catch (error: unknown) {
+        expect((error as { status: number }).status).toBe(403)
+        expect((error as { data: { message: string } }).data.message).toBe('Forbidden')
       }
     })
 
@@ -114,9 +114,9 @@ describe('API Client Tests', () => {
       try {
         await apiClient.get('/test')
         expect.fail('Should have thrown an error')
-      } catch (error: any) {
-        expect(error.status).toBe(404)
-        expect(error.data.message).toBe('Not Found')
+      } catch (error: unknown) {
+        expect((error as { status: number }).status).toBe(404)
+        expect((error as { data: { message: string } }).data.message).toBe('Not Found')
       }
     })
 
@@ -126,9 +126,9 @@ describe('API Client Tests', () => {
       try {
         await apiClient.get('/test')
         expect.fail('Should have thrown an error')
-      } catch (error: any) {
-        expect(error.status).toBe(500)
-        expect(error.data.message).toBe('Internal Server Error')
+      } catch (error: unknown) {
+        expect((error as { status: number }).status).toBe(500)
+        expect((error as { data: { message: string } }).data.message).toBe('Internal Server Error')
       }
     })
 
@@ -138,8 +138,8 @@ describe('API Client Tests', () => {
       try {
         await apiClient.get('/test')
         expect.fail('Should have thrown an error')
-      } catch (error: any) {
-        expect(error.message).toBe('Network Error')
+      } catch (error: unknown) {
+        expect((error as { message: string }).message).toBe('Network Error')
       }
     })
   })
@@ -151,9 +151,9 @@ describe('API Client Tests', () => {
       try {
         await apiClient.get('/test')
         expect.fail('Should have thrown an error')
-      } catch (error: any) {
-        expect(error.status).toBe(429)
-        expect(error.data.message).toBe('Too Many Requests')
+      } catch (error: unknown) {
+        expect((error as { status: number }).status).toBe(429)
+        expect((error as { data: { message: string } }).data.message).toBe('Too Many Requests')
       }
     })
   })
@@ -174,7 +174,7 @@ describe('API Client Tests', () => {
 
       try {
         await apiClient.get('/test')
-      } catch (error) {
+      } catch {
         expect(logApiEvent).toHaveBeenCalled()
       }
     })

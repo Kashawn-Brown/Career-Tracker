@@ -8,9 +8,9 @@ import { JobApplication } from '@/types/models/job-application'
 const generateMockJobApplications = (count: number): JobApplication[] => {
   const companies = ['Google', 'Microsoft', 'Apple', 'Amazon', 'Meta', 'Netflix', 'Tesla', 'SpaceX', 'Uber', 'Airbnb']
   const positions = ['Software Engineer', 'Senior Developer', 'Product Manager', 'Data Scientist', 'DevOps Engineer', 'Frontend Developer', 'Backend Developer', 'Full Stack Developer']
-  const statuses = ['pending', 'interview', 'rejected', 'offer', 'applied'] as const
-  const types = ['full_time', 'part_time', 'contract', 'internship'] as const
-  const workArrangements = ['remote', 'hybrid', 'on_site'] as const
+  const statuses = ['applied', 'interview', 'rejected', 'offer', 'withdrawn', 'accepted'] as const
+  const types = ['full-time', 'part-time', 'contract', 'internship'] as const
+  const workArrangements = ['remote', 'hybrid', 'in_office'] as const
 
   return Array.from({ length: count }, (_, i) => ({
     id: i + 1,
@@ -29,16 +29,18 @@ const generateMockJobApplications = (count: number): JobApplication[] => {
     followUpDate: Math.random() > 0.6 ? new Date(Date.now() + Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString() : undefined,
     deadline: Math.random() > 0.7 ? new Date(Date.now() + Math.random() * 14 * 24 * 60 * 60 * 1000).toISOString() : undefined,
     tags: Math.random() > 0.5 ? [
-      { id: 1, name: 'JavaScript', userId: 1 },
-      { id: 2, name: 'React', userId: 1 }
+      { id: 1, name: 'JavaScript', userId: 1, createdAt: new Date().toISOString() },
+      { id: 2, name: 'React', userId: 1, createdAt: new Date().toISOString() }
     ] : [],
     jobConnections: Math.random() > 0.8 ? [
-      { id: 1, name: 'John Doe', role: 'Recruiter', userId: 1, jobApplicationId: i + 1 }
+      { id: 1, name: 'John Doe', role: 'Recruiter', connectionType: 'professional' }
     ] : [],
     documents: Math.random() > 0.7 ? [
-      { id: 1, originalName: 'resume.pdf', type: 'resume', userId: 1, jobApplicationId: i + 1 }
+      { id: 1, originalName: 'resume.pdf', mimeType: 'application/pdf', type: 'resume' }
     ] : [],
-    userId: 1
+    userId: 1,
+    createdAt: new Date(Date.now() - Math.random() * 90 * 24 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString()
   }))
 }
 

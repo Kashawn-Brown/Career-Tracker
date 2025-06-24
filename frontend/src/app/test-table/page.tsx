@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState } from 'react'
 import { JobApplicationsTable } from "@/components/JobApplicationsTable"
 import { JobApplication } from "@/types/models/job-application"
 import { ChevronDown, ChevronRight } from 'lucide-react'
@@ -185,7 +185,7 @@ export default function TestTablePage() {
                 <li>✅ Default sort cycling bug fix for dateApplied column</li>
                 <li>✅ <strong>Task 4.5:</strong> Smart pagination with ellipsis logic</li>
                 <li>✅ <strong>Task 4.5:</strong> Page size selection (5, 10, 20, 50, 100)</li>
-                <li>✅ <strong>Task 4.5:</strong> Results info display ("Showing X to Y of Z")</li>
+                <li>✅ <strong>Task 4.5:</strong> Results info display (&quot;Showing X to Y of Z&quot;)</li>
                 <li>✅ <strong>Task 4.5:</strong> Error handling with Alert component</li>
                 <li>✅ <strong>Task 4.5:</strong> Pagination maintains table position during sorting</li>
               </ul>
@@ -289,7 +289,7 @@ export default function TestTablePage() {
                     <ul className="space-y-1 text-sm text-muted-foreground">
                       <li>• Intelligent ellipsis logic for large datasets</li>
                       <li>• Page size selection: 5, 10, 20, 50, 100 items</li>
-                      <li>• Results info: "Showing X to Y of Z results"</li>
+                      <li>• Results info: &quot;Showing X to Y of Z results&quot;</li>
                       <li>• Error handling with Alert component</li>
                       <li>• Maintains table position during sorting</li>
                       <li>• Previous/Next navigation with disabled states</li>

@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Calendar, ChevronDown, ChevronUp, Filter, X, Search, Calendar as CalendarIcon } from "lucide-react"
+import { useState, useEffect, useId } from "react"
+import { ChevronDown, ChevronUp, Filter, X, Search, Calendar as CalendarIcon } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -80,6 +80,17 @@ export function JobApplicationFilterPanel({
   availablePositions
 }: JobApplicationFilterPanelProps) {
   
+  // Generate unique IDs for form elements
+  const companyFilterId = useId()
+  const positionFilterId = useId()
+  const statusFilterId = useId()
+  const workArrangementFilterId = useId()
+  const typeFilterId = useId()
+  const salaryMinId = useId()
+  const salaryMaxId = useId()
+  const dateFromId = useId()
+  const dateToId = useId()
+  
   // Filter state
   const [filters, setFilters] = useState<FilterState>({
     companies: [],
@@ -107,6 +118,44 @@ export function JobApplicationFilterPanel({
   const filteredPositions = availablePositions.filter(position =>
     position.toLowerCase().includes(positionSearch.toLowerCase())
   )
+
+  // Utility function to format selected values with overflow
+  const formatSelectedValues = (selectedValues: string[], maxVisible: number = 2): string => {
+    if (selectedValues.length === 0) return ""
+    if (selectedValues.length <= maxVisible) {
+      return selectedValues.join(", ")
+    }
+    const visible = selectedValues.slice(0, maxVisible)
+    const remaining = selectedValues.length - maxVisible
+    return `${visible.join(", ")} (+${remaining} more)`
+  }
+
+  // Helper function to convert status values to labels
+  const formatStatusValues = (statusValues: string[], maxVisible: number = 2): string => {
+    if (statusValues.length === 0) return ""
+    const statusLabels = statusValues.map(value => 
+      STATUS_OPTIONS.find(option => option.value === value)?.label || value
+    )
+    return formatSelectedValues(statusLabels, maxVisible)
+  }
+
+  // Helper function to convert work arrangement values to labels
+  const formatWorkArrangementValues = (arrangementValues: string[], maxVisible: number = 2): string => {
+    if (arrangementValues.length === 0) return ""
+    const arrangementLabels = arrangementValues.map(value => 
+      WORK_ARRANGEMENT_OPTIONS.find(option => option.value === value)?.label || value
+    )
+    return formatSelectedValues(arrangementLabels, maxVisible)
+  }
+
+  // Helper function to convert type values to labels
+  const formatTypeValues = (typeValues: string[], maxVisible: number = 2): string => {
+    if (typeValues.length === 0) return ""
+    const typeLabels = typeValues.map(value => 
+      TYPE_OPTIONS.find(option => option.value === value)?.label || value
+    )
+    return formatSelectedValues(typeLabels, maxVisible)
+  }
 
   // Count of active filters
   const activeFilterCount = [
@@ -281,16 +330,16 @@ export function JobApplicationFilterPanel({
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>Starred Jobs</Label>
-                  {filters.starredFilter !== "all" && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={clearStarredFilter}
-                      className="h-auto p-1 text-muted-foreground hover:text-destructive"
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearStarredFilter}
+                    className={`h-auto p-1 text-muted-foreground hover:text-destructive ${
+                      filters.starredFilter === "all" ? "invisible" : ""
+                    }`}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
                 </div>
                 <Select
                   value={filters.starredFilter}
@@ -312,29 +361,29 @@ export function JobApplicationFilterPanel({
               {/* Company Filter - Multi-select Searchable */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="company-filter">Company</Label>
-                  {filters.companies.length > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={clearCompanies}
-                      className="h-auto p-1 text-muted-foreground hover:text-destructive"
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  )}
+                  <Label htmlFor={companyFilterId}>Company</Label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearCompanies}
+                    className={`h-auto p-1 text-muted-foreground hover:text-destructive ${
+                      filters.companies.length === 0 ? "invisible" : ""
+                    }`}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
                 </div>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
                       className="w-full justify-start text-left font-normal"
-                      id="company-filter"
+                      id={companyFilterId}
                     >
                       <Search className="h-4 w-4 mr-2" />
                       {filters.companies.length === 0
                         ? "Select companies..."
-                        : `${filters.companies.length} selected`}
+                        : formatSelectedValues(filters.companies)}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-80">
@@ -373,29 +422,29 @@ export function JobApplicationFilterPanel({
               {/* Position Filter - Multi-select Searchable */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="position-filter">Position</Label>
-                  {filters.positions.length > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={clearPositions}
-                      className="h-auto p-1 text-muted-foreground hover:text-destructive"
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  )}
+                  <Label htmlFor={positionFilterId}>Position</Label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearPositions}
+                    className={`h-auto p-1 text-muted-foreground hover:text-destructive ${
+                      filters.positions.length === 0 ? "invisible" : ""
+                    }`}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
                 </div>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
                       className="w-full justify-start text-left font-normal"
-                      id="position-filter"
+                      id={positionFilterId}
                     >
                       <Search className="h-4 w-4 mr-2" />
                       {filters.positions.length === 0
                         ? "Select positions..."
-                        : `${filters.positions.length} selected`}
+                        : formatSelectedValues(filters.positions)}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-80">
@@ -434,28 +483,28 @@ export function JobApplicationFilterPanel({
               {/* Status Filter - Checkbox Dropdown */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="status-filter">Status</Label>
-                  {filters.statuses.length > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={clearStatuses}
-                      className="h-auto p-1 text-muted-foreground hover:text-destructive"
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  )}
+                  <Label htmlFor={statusFilterId}>Status</Label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearStatuses}
+                    className={`h-auto p-1 text-muted-foreground hover:text-destructive ${
+                      filters.statuses.length === 0 ? "invisible" : ""
+                    }`}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
                 </div>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
                       className="w-full justify-start text-left font-normal"
-                      id="status-filter"
+                      id={statusFilterId}
                     >
                       {filters.statuses.length === 0
                         ? "Select status..."
-                        : `${filters.statuses.length} selected`}
+                        : formatStatusValues(filters.statuses)}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-64">
@@ -481,28 +530,28 @@ export function JobApplicationFilterPanel({
               {/* Work Arrangement Filter - Checkbox Dropdown */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="work-arrangement-filter">Work Arrangement</Label>
-                  {filters.workArrangements.length > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={clearWorkArrangements}
-                      className="h-auto p-1 text-muted-foreground hover:text-destructive"
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  )}
+                  <Label htmlFor={workArrangementFilterId}>Work Arrangement</Label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearWorkArrangements}
+                    className={`h-auto p-1 text-muted-foreground hover:text-destructive ${
+                      filters.workArrangements.length === 0 ? "invisible" : ""
+                    }`}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
                 </div>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
                       className="w-full justify-start text-left font-normal"
-                      id="work-arrangement-filter"
+                      id={workArrangementFilterId}
                     >
                       {filters.workArrangements.length === 0
                         ? "Select arrangement..."
-                        : `${filters.workArrangements.length} selected`}
+                        : formatWorkArrangementValues(filters.workArrangements)}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-64">
@@ -528,28 +577,28 @@ export function JobApplicationFilterPanel({
               {/* Type Filter - Checkbox Dropdown */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="type-filter">Job Type</Label>
-                  {filters.types.length > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={clearTypes}
-                      className="h-auto p-1 text-muted-foreground hover:text-destructive"
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  )}
+                  <Label htmlFor={typeFilterId}>Job Type</Label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearTypes}
+                    className={`h-auto p-1 text-muted-foreground hover:text-destructive ${
+                      filters.types.length === 0 ? "invisible" : ""
+                    }`}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
                 </div>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
                       className="w-full justify-start text-left font-normal"
-                      id="type-filter"
+                      id={typeFilterId}
                     >
                       {filters.types.length === 0
                         ? "Select type..."
-                        : `${filters.types.length} selected`}
+                        : formatTypeValues(filters.types)}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-64">
@@ -576,24 +625,24 @@ export function JobApplicationFilterPanel({
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>Salary Range</Label>
-                  {(filters.salaryMin !== undefined || filters.salaryMax !== undefined) && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={clearSalary}
-                      className="h-auto p-1 text-muted-foreground hover:text-destructive"
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearSalary}
+                    className={`h-auto p-1 text-muted-foreground hover:text-destructive ${
+                      filters.salaryMin === undefined && filters.salaryMax === undefined ? "invisible" : ""
+                    }`}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
                 </div>
                 <div className="flex gap-2">
                   <div className="flex-1">
-                    <Label htmlFor="salary-min" className="text-xs text-muted-foreground">
+                    <Label htmlFor={salaryMinId} className="text-xs text-muted-foreground">
                       Min
                     </Label>
                     <Input
-                      id="salary-min"
+                      id={salaryMinId}
                       type="number"
                       min="0"
                       placeholder="Min salary"
@@ -617,11 +666,11 @@ export function JobApplicationFilterPanel({
                     />
                   </div>
                   <div className="flex-1">
-                    <Label htmlFor="salary-max" className="text-xs text-muted-foreground">
+                    <Label htmlFor={salaryMaxId} className="text-xs text-muted-foreground">
                       Max
                     </Label>
                     <Input
-                      id="salary-max"
+                      id={salaryMaxId}
                       type="number"
                       min="0"
                       placeholder="Max salary"
@@ -651,16 +700,16 @@ export function JobApplicationFilterPanel({
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>Compatibility Score</Label>
-                  {(filters.compatibilityScore[0] !== 1 || filters.compatibilityScore[1] !== 10) && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={clearCompatibilityScore}
-                      className="h-auto p-1 text-muted-foreground hover:text-destructive"
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearCompatibilityScore}
+                    className={`h-auto p-1 text-muted-foreground hover:text-destructive ${
+                      filters.compatibilityScore[0] === 1 && filters.compatibilityScore[1] === 10 ? "invisible" : ""
+                    }`}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
                 </div>
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm text-muted-foreground">
@@ -689,20 +738,20 @@ export function JobApplicationFilterPanel({
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>Date Applied</Label>
-                  {(filters.dateAppliedFrom !== undefined || filters.dateAppliedTo !== undefined) && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={clearDates}
-                      className="h-auto p-1 text-muted-foreground hover:text-destructive"
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearDates}
+                    className={`h-auto p-1 text-muted-foreground hover:text-destructive ${
+                      filters.dateAppliedFrom === undefined && filters.dateAppliedTo === undefined ? "invisible" : ""
+                    }`}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
                 </div>
                 <div className="flex gap-2">
                   <div className="flex-1">
-                    <Label htmlFor="date-from" className="text-xs text-muted-foreground">
+                    <Label htmlFor={dateFromId} className="text-xs text-muted-foreground">
                       From
                     </Label>
                     <Popover>
@@ -713,7 +762,7 @@ export function JobApplicationFilterPanel({
                             "w-full justify-start text-left font-normal",
                             !filters.dateAppliedFrom && "text-muted-foreground"
                           )}
-                          id="date-from"
+                          id={dateFromId}
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
                           {filters.dateAppliedFrom ? (
@@ -737,7 +786,7 @@ export function JobApplicationFilterPanel({
                     </Popover>
                   </div>
                   <div className="flex-1">
-                    <Label htmlFor="date-to" className="text-xs text-muted-foreground">
+                    <Label htmlFor={dateToId} className="text-xs text-muted-foreground">
                       To
                     </Label>
                     <Popover>
@@ -748,7 +797,7 @@ export function JobApplicationFilterPanel({
                             "w-full justify-start text-left font-normal",
                             !filters.dateAppliedTo && "text-muted-foreground"
                           )}
-                          id="date-to"
+                          id={dateToId}
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
                           {filters.dateAppliedTo ? (

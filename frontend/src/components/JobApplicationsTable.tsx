@@ -28,7 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { JobApplication } from "@/types/models/job-application"
+import { JobApplication, Tag, JobConnection, Document } from "@/types/models/job-application"
 import { ThemeToggle } from "./theme-toggle"
 
 /*
@@ -106,7 +106,6 @@ interface JobApplicationsTableProps {
   // Task 4.5 - Pagination and error handling props
   defaultPageSize?: number // New: Default items per page
   pageSizeOptions?: number[] // New: Available page size options
-  onError?: (error: string) => void // New: Error callback
   error?: string // New: Error message to display
 }
 
@@ -119,7 +118,6 @@ export function JobApplicationsTable({
   // Task 4.5 - Pagination and error handling props
   defaultPageSize = 10,
   pageSizeOptions = [5, 10, 20, 50, 100],
-  onError,
   error
 }: JobApplicationsTableProps) {
   
@@ -138,7 +136,7 @@ export function JobApplicationsTable({
   // Task 4.5 - Pagination state
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(defaultPageSize)
-  const [isDataError, setIsDataError] = useState(false)
+
 
   // Task 4.4 - Advanced sorting logic with type-specific handling
   const sortData = useCallback((data: JobApplication[], column: SortableColumn | null, direction: SortDirection) => {
@@ -485,7 +483,8 @@ export function JobApplicationsTable({
   }
 
   // Task 4.4 - Enhanced cell value formatting
-  const formatCellValue = (value: any, columnKey: ColumnKey, sizeClasses: any) => {
+  type CellValue = string | number | boolean | Date | Tag[] | JobConnection[] | Document[] | undefined | null
+  const formatCellValue = (value: CellValue, columnKey: ColumnKey, sizeClasses: Record<string, string>) => {
     if (value === undefined || value === null) return '-'
     
     switch (columnKey) {
@@ -501,10 +500,10 @@ export function JobApplicationsTable({
       case 'followUpDate':
       case 'deadline':
         if (!value) return '-'
-        return new Date(value).toLocaleDateString()
+        return new Date(value as string).toLocaleDateString()
       case 'jobLink':
         return value ? (
-          <a href={value} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+          <a href={value as string} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
             Link
           </a>
         ) : '-'
@@ -524,16 +523,16 @@ export function JobApplicationsTable({
               value === 'rejected' ? 'bg-red-600 dark:bg-red-400' :
               'bg-muted-foreground'
             }`} />
-            {value}
+            {value as string}
           </span>
         )
       case 'type':
       case 'workArrangement':
-        return value?.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) || '-'
+        return (value as string)?.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) || '-'
       case 'tags':
-        return value && Array.isArray(value) && value.length > 0 ? (
+        return value && Array.isArray(value) && value.length > 0 && value.every((item): item is Tag => typeof item === 'object' && 'name' in item) ? (
           <div className="flex flex-wrap gap-1">
-            {value.slice(0, 2).map((tag: any) => (
+            {value.slice(0, 2).map((tag: Tag) => (
               <span key={tag.id} className={`${sizeClasses.badge} bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 rounded-full`}>
                 {tag.name}
               </span>
@@ -560,7 +559,7 @@ export function JobApplicationsTable({
           </div>
         ) : '-'
       case 'notes':
-        return value ? (
+        return value && typeof value === 'string' ? (
           <div className="max-w-xs">
             <span className="text-muted-foreground truncate">
               {value.length > 30 ? `${value.substring(0, 30)}...` : value}
@@ -568,7 +567,7 @@ export function JobApplicationsTable({
           </div>
         ) : '-'
       case 'description':
-        return value ? (
+        return value && typeof value === 'string' ? (
           <div className="max-w-xs">
             <span className="text-muted-foreground truncate">
               {value.length > 48 ? `${value.substring(0, 45)}...` : value}
@@ -592,9 +591,9 @@ export function JobApplicationsTable({
   }
 
   // Task 4.4 - Get value from job application for sorting/display
-  const getValueFromJobApplication = (job: JobApplication, columnKey: ColumnKey): any => {
+  const getValueFromJobApplication = (job: JobApplication, columnKey: ColumnKey): CellValue => {
     const column = ALL_COLUMNS[columnKey]
-    return job[column.key as keyof JobApplication]
+    return job[column.key as keyof JobApplication] as CellValue
   }
 
   return (
@@ -753,7 +752,7 @@ export function JobApplicationsTable({
           <Table>
           <TableHeader>
             <TableRow>
-              {visibleColumns.map((columnKey, index) => {
+              {visibleColumns.map((columnKey) => {
                 const column = ALL_COLUMNS[columnKey]
                 const isFocused = navigationMode === 'headers' && focusedHeaderIndex === visibleColumns.filter(col => ALL_COLUMNS[col].sortable).indexOf(columnKey)
                 
