@@ -11,13 +11,15 @@ import { prisma } from "../../lib/prisma.js";
  */
 
 
-export async function upsertBaseResume(userId: string, doc: {
+type upsertBaseResumeInput = {
   url: string;
   originalName: string;
   mimeType: string;
   size?: number;
   storageKey?: string;
-}) {
+};
+
+export async function upsertBaseResume(userId: string, input: upsertBaseResumeInput) {
   
   // Need to use transaction to do multiple db operations at once
   // 1. delete old base resume -> 2. create the new base resume -> 3. update users.baseResumeUrl
@@ -34,11 +36,11 @@ export async function upsertBaseResume(userId: string, doc: {
       data: {
         userId,
         kind: DocumentKind.BASE_RESUME,
-        url: doc.url,
-        originalName: doc.originalName,
-        mimeType: doc.mimeType,
-        size: doc.size,
-        storageKey: doc.storageKey ?? `base-resume/${userId}`,   // If not provided yet, just store something predictable for now.
+        url: input.url,
+        originalName: input.originalName,
+        mimeType: input.mimeType,
+        size: input.size,
+        storageKey: input.storageKey ?? `base-resume/${userId}`,   // If not provided yet, just store something predictable for now.
       },
       select: {
         id: true,
@@ -55,7 +57,7 @@ export async function upsertBaseResume(userId: string, doc: {
     // Keep a convenient pointer on the user row
     await db.user.update({
       where: { id: userId },
-      data: { baseResumeUrl: doc.url },
+      data: { baseResumeUrl: input.url },
     });
 
     return created;

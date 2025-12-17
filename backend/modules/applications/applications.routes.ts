@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { CreateApplicationBody, ListApplicationsQuery } from "./applications.schemas.js";
-import type { CreateApplicationBodyType, ListApplicationsQueryType, } from "./applications.schemas.js";
+import { CreateApplicationBody, ListApplicationsQuery, ApplicationIdParams, UpdateApplicationBody, } from "./applications.schemas.js";
+import type { CreateApplicationBodyType, ListApplicationsQueryType, ApplicationIdParamsType, UpdateApplicationBodyType, } from "./applications.schemas.js";
 import * as ApplicationsService from "./applications.service.js";
 import { requireAuth } from "../../middleware/auth.js";
 
@@ -58,4 +58,48 @@ export async function applicationsRoutes(app: FastifyInstance) {
       
     }
   );
+
+  /**
+   * Update an application
+   * Requires JWT
+   * Only updates the current user's application
+   */
+  app.patch(
+    "/:id",
+    { 
+      preHandler: [requireAuth], 
+      schema: { params: ApplicationIdParams, body: UpdateApplicationBody } 
+    },
+    async (req, reply) => {
+      const userId = req.user!.id;
+      
+      const params = req.params as ApplicationIdParamsType;
+      
+      const body = req.body as UpdateApplicationBodyType;
+
+      const updated = await ApplicationsService.updateApplication(userId, params.id, body);
+      
+      return reply.send({ application: updated });
+    }
+  );
+
+  /**
+   * Delete an application
+   * Requires JWT
+   * Only deletes the current user's application
+   */
+  app.delete(
+    "/:id",
+    { 
+      preHandler: [requireAuth], 
+      schema: { params: ApplicationIdParams } 
+    },
+    async (req) => {
+      const userId = req.user!.id;
+      const params = req.params as ApplicationIdParamsType;
+
+      return ApplicationsService.deleteApplication(userId, params.id);
+    }
+  );
+
 }

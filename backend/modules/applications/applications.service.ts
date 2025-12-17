@@ -1,5 +1,6 @@
 import { ApplicationStatus, Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
+import { AppError } from "../../errors/app-error.js";
 
 /**
  * Service layer:
@@ -64,4 +65,63 @@ export async function listApplications(params: {
     // Most recently updated first
     orderBy: { updatedAt: "desc" },
   });
+}
+
+
+type UpdateApplicationInput = {
+  company?: string;
+  position?: string;
+  status?: ApplicationStatus;
+  dateApplied?: string;
+  jobLink?: string;
+  description?: string;
+  notes?: string;
+};
+
+/**
+ * Partial update of an application that belongs to the current user.
+ * Uses updateMany to be able to filter by (id + userId) without requiring a compound unique constraint.
+ */
+export async function updateApplication(userId: string, id: string, input: UpdateApplicationInput) {
+  const data: any = {};
+
+  // Only apply fields that were actually provided by the client (PATCH semantics)
+  if (input.company !== undefined) data.company = input.company;
+  if (input.position !== undefined) data.position = input.position;
+  if (input.status !== undefined) data.status = input.status;
+  if (input.jobLink !== undefined) data.jobLink = input.jobLink;
+  if (input.description !== undefined) data.description = input.description;
+  if (input.notes !== undefined) data.notes = input.notes;
+
+  // Convert ISO string -> Date for Prisma
+  if (input.dateApplied !== undefined) {
+    data.dateApplied = input.dateApplied ? new Date(input.dateApplied) : null;
+  }
+
+  const result = await prisma.jobApplication.updateMany({
+    where: { id, userId },
+    data,
+  });
+
+  if (result.count === 0) {
+    throw new AppError("Application not found", 404);
+  }
+
+  // Return the updated application
+  return prisma.jobApplication.findFirst({ where: { id, userId } });
+
+}
+
+
+export async function deleteApplication(userId: string, id: string) {
+  // Use deleteMany to include userId in filter (prevents leaking)
+  const result = await prisma.jobApplication.deleteMany({
+    where: { id, userId },
+  });
+
+  if (result.count === 0) {
+    throw new AppError("Application not found", 404);
+  }
+
+  return { ok: true };
 }

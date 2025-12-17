@@ -1,4 +1,5 @@
 import { Type, Static } from "@sinclair/typebox";
+import { ApplicationStatus } from "@prisma/client";
 
 /**
  * Schemas for Fastify to validate incoming requests.
@@ -12,15 +13,8 @@ import { Type, Static } from "@sinclair/typebox";
  */
 
 
-// Model status as a strict union of allowed values. (aligns with Prisma enum)
-export const ApplicationStatusSchema = Type.Union([
-  Type.Literal("WISHLIST"),
-  Type.Literal("APPLIED"),
-  Type.Literal("INTERVIEW"),
-  Type.Literal("OFFER"),
-  Type.Literal("REJECTED"),
-  Type.Literal("WITHDRAWN"),
-]);
+// Application status schema derived from Prisma enum.
+export const ApplicationStatusSchema = Type.Enum(ApplicationStatus);
 
 
 // Request body for creating an application.
@@ -54,10 +48,37 @@ export const ListApplicationsQuery = Type.Object(
 );
 
 
+// Schema for the :id in the URL (route params) -> the :id in the URL (route params)
+export const ApplicationIdParams = Type.Object(
+  {
+    id: Type.String({ minLength: 1 }),
+  },
+  { additionalProperties: false }
+);
+
+
+// Request PATCH body for partial update on applications
+export const UpdateApplicationBody = Type.Object(
+  {
+    // Partial update so all fields are optional to be changed
+    company: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
+    position: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
+    status: Type.Optional(ApplicationStatusSchema),
+    dateApplied: Type.Optional(Type.String({ format: "date-time" })), // ISO string
+    jobLink: Type.Optional(Type.String({ minLength: 1, maxLength: 2048 })),
+    description: Type.Optional(Type.String({ maxLength: 20000 })),
+    notes: Type.Optional(Type.String({ maxLength: 20000 })),
+  },
+  { additionalProperties: false }
+);
+
+
 // TS types derived from the schemas (keeps TS and validation in sync)
 // Gives real TS types that matches the schema exactly
 export type CreateApplicationBodyType = Static<typeof CreateApplicationBody>;
 export type ListApplicationsQueryType = Static<typeof ListApplicationsQuery>;
+export type ApplicationIdParamsType = Static<typeof ApplicationIdParams>;
+export type UpdateApplicationBodyType = Static<typeof UpdateApplicationBody>;
 export type ApplicationStatusType = Static<typeof ApplicationStatusSchema>;
 
 
