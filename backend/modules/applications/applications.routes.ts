@@ -48,13 +48,17 @@ export async function applicationsRoutes(app: FastifyInstance) {
 
       const query = req.query as ListApplicationsQueryType;
 
-      const rows = await ApplicationsService.listApplications({
+      const result = await ApplicationsService.listApplications({
         userId,
         status: query.status,
         q: query.q,
+        page: query.page,
+        pageSize: query.pageSize,
+        sortBy: query.sortBy,
+        sortDir: query.sortDir,
       });
 
-      return { items: rows };
+      return { result };
       
     }
   );

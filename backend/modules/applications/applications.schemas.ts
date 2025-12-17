@@ -43,6 +43,17 @@ export const ListApplicationsQuery = Type.Object(
   {
     status: Type.Optional(ApplicationStatusSchema),
     q: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
+
+    // Pagination
+    page: Type.Optional(Type.Integer({ minimum: 1 })),          // default in route/service
+    pageSize: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })), // cap to prevent abuse
+
+    // Sorting
+    sortBy: Type.Optional(
+      Type.Union([Type.Literal("updatedAt"), Type.Literal("createdAt"), Type.Literal("company")])
+    ),
+    sortDir: Type.Optional(Type.Union([Type.Literal("asc"), Type.Literal("desc")])),
+
   },
   { additionalProperties: false }  // stops random extra fields from sneaking in
 );

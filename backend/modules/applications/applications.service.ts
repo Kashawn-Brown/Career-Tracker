@@ -41,11 +41,26 @@ export async function createApplication(input: CreateApplicationInput) {
   });
 }
 
-export async function listApplications(params: {
+type ListApplicationsParams = {
   userId: string;
   status?: ApplicationStatus;
   q?: string;
-}) {
+
+  page?: number;
+  pageSize?: number;
+  sortBy?: "updatedAt" | "createdAt" | "company";
+  sortDir?: "asc" | "desc";
+}
+
+export async function listApplications(params: ListApplicationsParams) {
+
+  // Build Pagination
+  const page = params.page ?? 1;
+  const pageSize = params.pageSize ?? 20;
+
+  const sortBy = params.sortBy ?? "updatedAt";
+  const sortDir = params.sortDir ?? "desc";
+
   // Build a typed Prisma where-clause so TS can validate our query shape.
   const where: Prisma.JobApplicationWhereInput = { userId: params.userId };
 
@@ -60,11 +75,28 @@ export async function listApplications(params: {
     ];
   }
 
-  return prisma.jobApplication.findMany({
-    where,
-    // Most recently updated first
-    orderBy: { updatedAt: "desc" },
-  });
+  // how many rows to ignore/skip (page 1, size 20 = skip 0; page 2, size 20 = skip 20; etc.)
+  const skip = (page - 1) * pageSize;
+
+  // Run both queries in a transaction so count + items are consistent
+  const [total, items] = await prisma.$transaction([
+    prisma.jobApplication.count({ where }),  // total count of the matching rows
+    
+    prisma.jobApplication.findMany({  // items for the current page
+      where,
+      orderBy: { [sortBy]: sortDir },
+      skip,
+      take: pageSize,  // how many rows to take/return
+    }),
+  ]);
+
+  return {
+    items,
+    page,
+    pageSize,
+    total,
+    totalPages: Math.ceil(total / pageSize),
+  };
 }
 
 
