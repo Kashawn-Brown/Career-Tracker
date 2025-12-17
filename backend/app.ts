@@ -1,4 +1,5 @@
 import Fastify from "fastify";
+import rateLimit from "@fastify/rate-limit";
 import { registerErrorHandlers } from "./middleware/error-handler.js";
 import { debugRoutes } from "./modules/debug/debug.routes.js";
 import { applicationsRoutes } from "./modules/applications/applications.routes.js";
@@ -8,6 +9,9 @@ import { documentsRoutes } from "./modules/documents/documents.routes.js";
 
 export function buildApp() {
   const app = Fastify({ logger: true });
+
+  // keep it disabled globally and enable per-route on auth endpoints only.
+  app.register(rateLimit, { global: false });
 
   // Health endpoint for local checks + Cloud Run later
   app.get("/health", async () => ({ ok: true }));

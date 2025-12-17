@@ -8,7 +8,10 @@ export async function authRoutes(app: FastifyInstance) {
   // Register
   app.post(
     "/register",
-    { schema: { body: RegisterBody } },
+    { 
+      schema: { body: RegisterBody }, 
+      config: { rateLimit: { max: 5, timeWindow: "1 minute" } } 
+    },
     async (req, reply) => {
 
       // Map request body to schema
@@ -23,7 +26,10 @@ export async function authRoutes(app: FastifyInstance) {
   // Login
   app.post(
     "/login",
-    { schema: { body: LoginBody } },
+    { 
+      schema: { body: LoginBody }, 
+      config: { rateLimit: { max: 10, timeWindow: "1 minute" } } 
+    },
     async (req, reply) => {
 
       const body = req.body as LoginBodyType;

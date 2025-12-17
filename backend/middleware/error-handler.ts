@@ -19,7 +19,7 @@ export function registerErrorHandlers(app: FastifyInstance) {
   // If any route/middleware/service throws an error (or rejects a promise) and it’s not handled, Fastify funnels it here
   app.setErrorHandler((err, req, reply) => {
     
-    // Expected errors (4xx etc.)
+    // Expected errors (4xx etc.) - known, intentional app errors
     if (err instanceof AppError) {
       // Log as warn (not a server bug, usually user input / state)
       req.log?.warn({ err }, "AppError");
@@ -27,7 +27,15 @@ export function registerErrorHandlers(app: FastifyInstance) {
       return;
     }
 
-    // Unexpected errors (server bugs, infra, etc.)
+    // Known framework/plugin errors (rate-limit 429, validation 400, etc.)
+    const statusCode = typeof err?.statusCode === "number" ? err.statusCode : 500;
+
+    if (statusCode >= 400 && statusCode < 500) {
+      req.log?.warn({ err }, "Client error");
+      return reply.status(statusCode).send({ message: err.message ?? "Bad Request" });
+    }
+
+    // Unexpected errors (server bugs, etc.)
     req.log?.error({ err }, "Unhandled error");
     reply.status(500).send({ message: "Internal Server Error" });
   });
