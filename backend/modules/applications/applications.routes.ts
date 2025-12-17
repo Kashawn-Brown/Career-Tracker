@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import { CreateApplicationBody, ListApplicationsQuery } from "./applications.schemas.js";
 import type { CreateApplicationBodyType, ListApplicationsQueryType, } from "./applications.schemas.js";
 import * as ApplicationsService from "./applications.service.js";
+import { requireAuth } from "../../middleware/auth.js";
 
 
 /**
@@ -27,19 +28,20 @@ export async function applicationsRoutes(app: FastifyInstance) {
    */
   app.post(
     "/",
-    { schema: { body: CreateApplicationBody } },
+    { 
+      preHandler: [requireAuth],
+      schema: { body: CreateApplicationBody } 
+    },
     async (req, reply) => {
       
-      const userId = getUserId(req);
-      
-      // user not found
-      if (!userId) return reply.status(401).send({ message: "Unauthorized (missing user)" });
+      const userId = req.user!.id;
 
       // req.body is validated by Fastify against the schema,
       // and cast to a matching TS type for strong typing.
       const body = req.body as CreateApplicationBodyType;
       
       const created = await ApplicationsService.createApplication({ userId, ...body });
+
       return reply.status(201).send(created);
 
     }
@@ -51,13 +53,13 @@ export async function applicationsRoutes(app: FastifyInstance) {
    */
   app.get(
     "/",
-    { schema: { querystring: ListApplicationsQuery } },
+    { 
+      preHandler: [requireAuth],
+      schema: { querystring: ListApplicationsQuery } 
+    },
     async (req, reply) => {
 
-      const userId = getUserId(req);
-
-      // user not found
-      if (!userId) return reply.status(401).send({ message: "Unauthorized (missing user)" });
+      const userId = req.user!.id;
 
       const query = req.query as ListApplicationsQueryType;
 
