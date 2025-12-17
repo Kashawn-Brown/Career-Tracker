@@ -10,18 +10,13 @@ export async function authRoutes(app: FastifyInstance) {
     "/register",
     { schema: { body: RegisterBody } },
     async (req, reply) => {
-      try {
 
-        // Map request body to schema
-        const body = req.body as RegisterBodyType;
+      // Map request body to schema
+      const body = req.body as RegisterBodyType;
 
-        // Retrieve token and return token from successful register
-        const result = await AuthService.register(body.email, body.password, body.name);
-        return reply.status(201).send(result);
-
-      } catch (e: any) {
-        return reply.status(400).send({ message: e.message ?? "Register failed" });
-      }
+      // Retrieve token and return token from successful register
+      const result = await AuthService.register(body.email, body.password, body.name);
+      return reply.status(201).send(result);
     }
   );
 
@@ -30,16 +25,12 @@ export async function authRoutes(app: FastifyInstance) {
     "/login",
     { schema: { body: LoginBody } },
     async (req, reply) => {
-      try {
-        const body = req.body as LoginBodyType;
 
-        // Retrieve token and return token from successful login
-        const result = await AuthService.login(body.email, body.password);
-        return reply.send(result);
+      const body = req.body as LoginBodyType;
 
-      } catch (e: any) {
-        return reply.status(401).send({ message: e.message ?? "Login failed" });
-      }
+      // Retrieve token and return token from successful login
+      const result = await AuthService.login(body.email, body.password);
+      return reply.send(result);
     }
   );
 

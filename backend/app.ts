@@ -1,4 +1,5 @@
 import Fastify from "fastify";
+import { registerErrorHandlers } from "./middleware/error-handler.js";
 import { debugRoutes } from "./modules/debug/debug.routes.js";
 import { applicationsRoutes } from "./modules/applications/applications.routes.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
@@ -10,6 +11,9 @@ export function buildApp() {
 
   // Health endpoint for local checks + Cloud Run later
   app.get("/health", async () => ({ ok: true }));
+
+  // Register global error + 404 handlers (consistent API errors)
+  registerErrorHandlers(app);
 
   // Mount Applications routes under /api/v1/applications
   app.register(applicationsRoutes, { prefix: "/api/v1/applications" });
@@ -24,7 +28,7 @@ export function buildApp() {
   app.register(documentsRoutes, { prefix: "/api/v1/documents" });
 
 
-  // Protected behind an env flag so it is not always enabled
+  // Debug route protected behind an env flag so it is not always enabled
   if (process.env.ENABLE_DEBUG_ROUTES === "true") {
     app.register(debugRoutes, { prefix: "/api/debug" });
   }

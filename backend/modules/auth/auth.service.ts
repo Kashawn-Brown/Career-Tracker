@@ -1,6 +1,7 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { prisma } from "../../lib/prisma.js";
+import { AppError } from "../../errors/app-error.js";
 
 /**
  * Service layer
@@ -23,7 +24,7 @@ function signToken(user: { id: string; email: string }) {
 export async function register(email: string, password: string, name: string) {
 
   const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) throw new Error("Email already in use");
+  if (existing) throw new AppError("Email already in use", 409);
 
   // Hash the password
   const passwordHash = await bcrypt.hash(password, 12);
@@ -43,10 +44,10 @@ export async function register(email: string, password: string, name: string) {
 export async function login(email: string, password: string) {
 
   const userRecord = await prisma.user.findUnique({ where: { email } });
-  if (!userRecord) throw new Error("Invalid credentials");
+  if (!userRecord) throw new AppError("Invalid credentials", 401);
 
   const ok = await bcrypt.compare(password, userRecord.passwordHash);
-  if (!ok) throw new Error("Invalid credentials");
+  if (!ok) throw new AppError("Invalid credentials", 401);
 
   const user = {
     id: userRecord.id,

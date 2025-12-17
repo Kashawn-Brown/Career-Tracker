@@ -5,21 +5,6 @@ import * as ApplicationsService from "./applications.service.js";
 import { requireAuth } from "../../middleware/auth.js";
 
 
-/**
- * TEMP (dev-only): get a "current user" without real auth.
- * 
- * - In production, userId will come from req.user (JWT middleware).
- * - For now, allow a header ONLY when debug routes are enabled. (ENABLE_DEBUG_ROUTES=true)
- */
-function getUserId(req: FastifyRequest): string {
-  // For now (dev only), allow X-Debug-User-Id when ENABLE_DEBUG_ROUTES=true.
-  if (process.env.ENABLE_DEBUG_ROUTES === "true") {
-    const id = req.headers["x-debug-user-id"];
-    if (typeof id === "string" && id.trim().length > 0) return id.trim();
-  }
-  return "";
-}
-
 export async function applicationsRoutes(app: FastifyInstance) {
   
   /**

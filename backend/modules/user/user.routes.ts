@@ -3,6 +3,8 @@ import { requireAuth } from "../../middleware/auth.js";
 import { UpdateMeBody } from "./user.schemas.js";
 import type { UpdateMeBodyType } from "./user.schemas.js";
 import * as UserService from "./user.service.js";
+import { AppError } from "../../errors/app-error.js";
+
 
 export async function userRoutes(app: FastifyInstance) {
   
@@ -11,7 +13,7 @@ export async function userRoutes(app: FastifyInstance) {
     const userId = req.user!.id;
 
     const me = await UserService.getMe(userId);
-    if (!me) return reply.status(404).send({ message: "User not found" });
+    if (!me) throw new AppError("User not found", 404);
 
     return { user: me };
   });
