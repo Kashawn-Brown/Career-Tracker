@@ -60,6 +60,26 @@ export async function applicationsRoutes(app: FastifyInstance) {
   );
 
   /**
+   * Get one application
+   * Requires JWT
+   * Returns a specific application record for the current user
+   */
+app.get(
+  "/:id",
+  {
+    preHandler: [requireAuth],
+    schema: { params: ApplicationIdParams },
+  },
+  async (req) => {
+    const userId = req.user!.id;
+    const { id } = req.params as ApplicationIdParamsType;
+
+    const application = await ApplicationsService.getApplicationById(userId, id);
+    return { application };
+  }
+);
+
+  /**
    * Update an application
    * Requires JWT
    * Only updates the current user's application

@@ -68,6 +68,20 @@ export async function listApplications(params: {
 }
 
 
+/**
+ * Fetch one application for the current user.
+ * Include userId in the filter so users can't access someone else's data.
+ */
+export async function getApplicationById(userId: string, id: string) {
+  const app = await prisma.jobApplication.findFirst({
+    where: { id, userId },
+  });
+
+  if (!app) throw new AppError("Application not found", 404);
+  return app;
+}
+
+
 type UpdateApplicationInput = {
   company?: string;
   position?: string;
