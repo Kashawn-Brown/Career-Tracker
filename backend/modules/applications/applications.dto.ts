@@ -5,7 +5,7 @@ import type { ApplicationStatus, Prisma } from "@prisma/client";
 // Keeps Prisma selects consistent and prevents leaking future fields.
 export const applicationSelect = {
   id: true,
-  userId: true,
+  userId: false,
   company: true,
   position: true,
   status: true,

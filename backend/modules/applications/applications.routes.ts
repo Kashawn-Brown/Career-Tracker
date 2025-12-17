@@ -27,7 +27,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
       
       const created = await ApplicationsService.createApplication({ userId, ...body });
 
-      return reply.status(201).send(created);
+      return reply.status(201).send({ application: created });
 
     }
   );
@@ -48,17 +48,9 @@ export async function applicationsRoutes(app: FastifyInstance) {
 
       const query = req.query as ListApplicationsQueryType;
 
-      const result = await ApplicationsService.listApplications({
-        userId,
-        status: query.status,
-        q: query.q,
-        page: query.page,
-        pageSize: query.pageSize,
-        sortBy: query.sortBy,
-        sortDir: query.sortDir,
-      });
+      const result = await ApplicationsService.listApplications({ userId, ...query });
 
-      return { result };
+      return reply.send(result);
       
     }
   );
@@ -79,6 +71,7 @@ app.get(
     const { id } = req.params as ApplicationIdParamsType;
 
     const application = await ApplicationsService.getApplicationById(userId, id);
+    
     return { application };
   }
 );
