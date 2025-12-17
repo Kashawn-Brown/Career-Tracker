@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import { prisma } from "../../lib/prisma.js";
 
 /**
- * Service layer:
+ * Service layer
  */
 
 
