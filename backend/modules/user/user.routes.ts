@@ -6,7 +6,7 @@ import * as UserService from "./user.service.js";
 
 export async function userRoutes(app: FastifyInstance) {
   
-    // Get current user profile (requires Bearer token)
+  // Get current user profile (requires Bearer token)
   app.get("/me", { preHandler: [requireAuth] }, async (req, reply) => {
     const userId = req.user!.id;
 

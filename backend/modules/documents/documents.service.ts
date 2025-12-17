@@ -1,0 +1,98 @@
+import { DocumentKind, Prisma } from "@prisma/client";
+import { prisma } from "../../lib/prisma.js";
+
+/**
+ * Service Layer
+ * 
+ * Base resume rule:
+ * - One BASE_RESUME document per user.
+ * - If a new one is added, replace the previous.
+ * - Keep User.baseResumeUrl in sync for quick access.
+ */
+
+
+export async function upsertBaseResume(userId: string, doc: {
+  url: string;
+  originalName: string;
+  mimeType: string;
+  size?: number;
+  storageKey?: string;
+}) {
+  
+  // Need to use transaction to do multiple db operations at once
+  // 1. delete old base resume -> 2. create the new base resume -> 3. update users.baseResumeUrl
+  return prisma.$transaction(async (db) => {
+    
+    // Delete existing base resume doc
+    await db.document.deleteMany({
+      where: { userId, kind: DocumentKind.BASE_RESUME },
+    });
+
+
+    // Create the new document 
+    const created = await db.document.create({
+      data: {
+        userId,
+        kind: DocumentKind.BASE_RESUME,
+        url: doc.url,
+        originalName: doc.originalName,
+        mimeType: doc.mimeType,
+        size: doc.size,
+        storageKey: doc.storageKey ?? `base-resume/${userId}`,   // If not provided yet, just store something predictable for now.
+      },
+      select: {
+        id: true,
+        kind: true,
+        url: true,
+        originalName: true,
+        mimeType: true,
+        size: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    // Keep a convenient pointer on the user row
+    await db.user.update({
+      where: { id: userId },
+      data: { baseResumeUrl: doc.url },
+    });
+
+    return created;
+  });
+}
+
+// Returns the the base resume document for the user, or null if none
+export async function getBaseResume(userId: string) {
+  return prisma.document.findFirst({
+    where: { userId, kind: DocumentKind.BASE_RESUME },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      kind: true,
+      url: true,
+      originalName: true,
+      mimeType: true,
+      size: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+}
+
+// Removes and base resume documents
+export async function deleteBaseResume(userId: string) {
+  return prisma.$transaction(async (db) => {
+    await db.document.deleteMany({
+      where: { userId, kind: DocumentKind.BASE_RESUME },
+    });
+
+    // remove the users pointer to the base resume as there is now none
+    await db.user.update({
+      where: { id: userId },
+      data: { baseResumeUrl: null },
+    });
+
+    return { ok: true };
+  });
+}

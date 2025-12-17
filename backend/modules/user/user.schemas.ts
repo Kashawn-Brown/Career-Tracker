@@ -5,7 +5,7 @@ import { Type, Static } from "@sinclair/typebox";
  */
 
 // Minimal editable profile fields for MVP
-// Defines the shape of the request body for
+// Defines the shape of the request body for updating profile
 export const UpdateMeBody = Type.Object(
   {
     name: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
