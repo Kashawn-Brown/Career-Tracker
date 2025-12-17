@@ -1,5 +1,8 @@
 import { DocumentKind, Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
+import { documentSelect } from "./documents.dto.js";
+import type { upsertBaseResumeInput } from "./documents.dto.js";
+
 
 /**
  * Service Layer
@@ -11,14 +14,10 @@ import { prisma } from "../../lib/prisma.js";
  */
 
 
-type upsertBaseResumeInput = {
-  url: string;
-  originalName: string;
-  mimeType: string;
-  size?: number;
-  storageKey?: string;
-};
-
+/**
+ * Creates/Updates the base resume for the current user.
+ * Requires JWT.
+ */
 export async function upsertBaseResume(userId: string, input: upsertBaseResumeInput) {
   
   // Need to use transaction to do multiple db operations at once
@@ -42,16 +41,7 @@ export async function upsertBaseResume(userId: string, input: upsertBaseResumeIn
         size: input.size,
         storageKey: input.storageKey ?? `base-resume/${userId}`,   // If not provided yet, just store something predictable for now.
       },
-      select: {
-        id: true,
-        kind: true,
-        url: true,
-        originalName: true,
-        mimeType: true,
-        size: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      select: documentSelect,
     });
 
     // Keep a convenient pointer on the user row
@@ -64,25 +54,23 @@ export async function upsertBaseResume(userId: string, input: upsertBaseResumeIn
   });
 }
 
-// Returns the the base resume document for the user, or null if none
+/**
+ * Gets the base resume document for the current user.
+ * Null if none.
+ * Requires JWT.
+ */
 export async function getBaseResume(userId: string) {
   return prisma.document.findFirst({
     where: { userId, kind: DocumentKind.BASE_RESUME },
     orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      kind: true,
-      url: true,
-      originalName: true,
-      mimeType: true,
-      size: true,
-      createdAt: true,
-      updatedAt: true,
-    },
+    select: documentSelect,
   });
 }
 
-// Removes and base resume documents
+/**
+ * Removes the base resume document for the current user.
+ * Requires JWT.
+ */
 export async function deleteBaseResume(userId: string) {
   return prisma.$transaction(async (db) => {
     await db.document.deleteMany({

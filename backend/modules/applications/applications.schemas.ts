@@ -17,7 +17,9 @@ import { ApplicationStatus } from "@prisma/client";
 export const ApplicationStatusSchema = Type.Enum(ApplicationStatus);
 
 
-// Request body for creating an application.
+/**
+ * Request body for creating an application.
+ */
 export const CreateApplicationBody = Type.Object(
   {
     company: Type.String({ minLength: 1, maxLength: 200 }),
@@ -37,8 +39,12 @@ export const CreateApplicationBody = Type.Object(
 );
 
 
-// Query params for listing applications.
-// Basic filtering only (status + text search)
+
+/**
+ * Query params for listing applications.
+ * Pagination and Sorting for listing applications.
+ * Basic filtering only (status + text search)
+ */
 export const ListApplicationsQuery = Type.Object(
   {
     status: Type.Optional(ApplicationStatusSchema),
@@ -59,7 +65,9 @@ export const ListApplicationsQuery = Type.Object(
 );
 
 
-// Schema for the :id in the URL (route params) -> the :id in the URL (route params)
+/**
+ * Schema for the :id in the URL (route params) -> the :id in the URL (route params)
+ */
 export const ApplicationIdParams = Type.Object(
   {
     id: Type.String({ minLength: 1 }),
@@ -68,7 +76,9 @@ export const ApplicationIdParams = Type.Object(
 );
 
 
-// Request PATCH body for partial update on applications
+/**
+ * Request PATCH body for partial update on applications
+ */
 export const UpdateApplicationBody = Type.Object(
   {
     // Partial update so all fields are optional to be changed

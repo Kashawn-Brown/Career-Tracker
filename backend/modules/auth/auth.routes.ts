@@ -5,7 +5,10 @@ import * as AuthService from "./auth.service.js";
 import { requireAuth } from "../../middleware/auth.js";
 
 export async function authRoutes(app: FastifyInstance) {
-  // Register
+
+  /**
+   * User Register.
+   */
   app.post(
     "/register",
     { 
@@ -23,7 +26,9 @@ export async function authRoutes(app: FastifyInstance) {
     }
   );
 
-  // Login
+  /**
+   * User Login.
+   */
   app.post(
     "/login",
     { 
@@ -40,7 +45,10 @@ export async function authRoutes(app: FastifyInstance) {
     }
   );
 
-  // Me (Protected by middleware; proves JWT works)
+  // 
+  /**
+   * User Me route (Protected by middleware; proves JWT works).
+   */
   app.get("/me", { preHandler: [requireAuth] }, async (req) => {
     return { user: req.user };
   });

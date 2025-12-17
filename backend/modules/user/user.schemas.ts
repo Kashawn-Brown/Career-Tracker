@@ -4,8 +4,10 @@ import { Type, Static } from "@sinclair/typebox";
  * Schemas for Fastify to validate incoming profile requests.
  */
 
-// Minimal editable profile fields for MVP
-// Defines the shape of the request body for updating profile
+
+/**
+ * Defines the shape of the request body for updating profile
+ */
 export const UpdateMeBody = Type.Object(
   {
     name: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),

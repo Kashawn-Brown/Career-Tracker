@@ -6,14 +6,20 @@ import * as DocumentsService from "./documents.service.js";
 
 export async function documentsRoutes(app: FastifyInstance) {
 
-  // Get current base resume metadata
+  /**
+   * Gets the current base resume metadata for the current user.
+   * Requires JWT.
+   */
   app.get("/base-resume", { preHandler: [requireAuth] }, async (req) => {
     const userId = req.user!.id;
     const doc = await DocumentsService.getBaseResume(userId);
     return { document: doc };
   });
 
-  // Create/replace base resume metadata
+  /**
+   * Create/replace base resume metadata for the current user.
+   * Requires JWT.
+   */
   app.post(
     "/base-resume",
     { preHandler: [requireAuth], schema: { body: UpsertBaseResumeBody } },
@@ -26,7 +32,10 @@ export async function documentsRoutes(app: FastifyInstance) {
     }
   );
 
-  // Delete base resume
+  /**
+   * Delete base resume for the current user.
+   * Requires JWT.
+   */
   app.delete("/base-resume", { preHandler: [requireAuth] }, async (req) => {
     const userId = req.user!.id;
     return DocumentsService.deleteBaseResume(userId);

@@ -8,7 +8,9 @@ import { Type, Static } from "@sinclair/typebox";
  */
 
 
-// Defines the shape of the request body for upserting base resume
+/**
+ * Defines the shape of the request body for upserting base resume.
+ */
 export const UpsertBaseResumeBody = Type.Object(
   {
     url: Type.String({ maxLength: 4096 }),      // Where the file is accessible from

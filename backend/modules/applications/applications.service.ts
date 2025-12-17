@@ -1,6 +1,9 @@
 import { ApplicationStatus, Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { AppError } from "../../errors/app-error.js";
+import { applicationSelect } from "./applications.dto.js";
+import type { CreateApplicationInput, UpdateApplicationInput, ListApplicationsParams } from "./applications.dto.js";
+
 
 /**
  * Service layer:
@@ -10,17 +13,10 @@ import { AppError } from "../../errors/app-error.js";
  */
 
 
-type CreateApplicationInput = {
-  userId: string;
-  company: string;
-  position: string;
-  status?: ApplicationStatus;
-  dateApplied?: string;
-  jobLink?: string;
-  description?: string;
-  notes?: string;
-};
-
+/**
+ * Creates a new Application for the current user.
+ * Requires JWT.
+ */
 export async function createApplication(input: CreateApplicationInput) {
   return prisma.jobApplication.create({
     data: {
@@ -38,20 +34,16 @@ export async function createApplication(input: CreateApplicationInput) {
       description: input.description,
       notes: input.notes,
     },
+    select: applicationSelect,
   });
 }
 
-type ListApplicationsParams = {
-  userId: string;
-  status?: ApplicationStatus;
-  q?: string;
 
-  page?: number;
-  pageSize?: number;
-  sortBy?: "updatedAt" | "createdAt" | "company";
-  sortDir?: "asc" | "desc";
-}
-
+/**
+ * Lists the current users applications. 
+ * Supports pagination + sorting + filtering.
+ * Requires JWT.
+ */
 export async function listApplications(params: ListApplicationsParams) {
 
   // Build Pagination
@@ -87,6 +79,7 @@ export async function listApplications(params: ListApplicationsParams) {
       orderBy: { [sortBy]: sortDir },
       skip,
       take: pageSize,  // how many rows to take/return
+      select: applicationSelect,
     }),
   ]);
 
@@ -103,10 +96,12 @@ export async function listApplications(params: ListApplicationsParams) {
 /**
  * Fetch one application for the current user.
  * Include userId in the filter so users can't access someone else's data.
+ * Requires JWT.
  */
 export async function getApplicationById(userId: string, id: string) {
   const app = await prisma.jobApplication.findFirst({
     where: { id, userId },
+    select: applicationSelect,
   });
 
   if (!app) throw new AppError("Application not found", 404);
@@ -114,19 +109,11 @@ export async function getApplicationById(userId: string, id: string) {
 }
 
 
-type UpdateApplicationInput = {
-  company?: string;
-  position?: string;
-  status?: ApplicationStatus;
-  dateApplied?: string;
-  jobLink?: string;
-  description?: string;
-  notes?: string;
-};
 
 /**
  * Partial update of an application that belongs to the current user.
  * Uses updateMany to be able to filter by (id + userId) without requiring a compound unique constraint.
+ * Requires JWT.
  */
 export async function updateApplication(userId: string, id: string, input: UpdateApplicationInput) {
   const data: any = {};
@@ -144,21 +131,30 @@ export async function updateApplication(userId: string, id: string, input: Updat
     data.dateApplied = input.dateApplied ? new Date(input.dateApplied) : null;
   }
 
-  const result = await prisma.jobApplication.updateMany({
-    where: { id, userId },
-    data,
+  // Wrap in transaction to group the db operations into one
+  return prisma.$transaction(async (db) => {
+    const result = await db.jobApplication.updateMany({
+      where: { id, userId },
+      data,
+    });
+
+    if (result.count === 0) {
+      throw new AppError("Application not found", 404);
+    }
+
+    // Return the updated application
+    return db.jobApplication.findFirst({
+      where: { id, userId },
+      select: applicationSelect,
+    });
   });
-
-  if (result.count === 0) {
-    throw new AppError("Application not found", 404);
-  }
-
-  // Return the updated application
-  return prisma.jobApplication.findFirst({ where: { id, userId } });
 
 }
 
-
+/**
+ * Delete an application that belongs to the current user.
+ * Requires JWT.
+ */
 export async function deleteApplication(userId: string, id: string) {
   // Use deleteMany to include userId in filter (prevents leaking)
   const result = await prisma.jobApplication.deleteMany({

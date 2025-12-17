@@ -8,7 +8,10 @@ import { AppError } from "../../errors/app-error.js";
 
 export async function userRoutes(app: FastifyInstance) {
   
-  // Get current user profile (requires Bearer token)
+  /**
+   * Gets the current user profile.
+   * Requires JWT (Bearer token).
+   */
   app.get("/me", { preHandler: [requireAuth] }, async (req, reply) => {
     const userId = req.user!.id;
 
@@ -18,7 +21,10 @@ export async function userRoutes(app: FastifyInstance) {
     return { user: me };
   });
 
-  // Update current user profile (MVP: name only)
+  /**
+   * Update current user profile (MVP: name only)
+   * Requires JWT (Bearer token)
+   */
   app.patch(
     "/me",
     { preHandler: [requireAuth], schema: { body: UpdateMeBody } },

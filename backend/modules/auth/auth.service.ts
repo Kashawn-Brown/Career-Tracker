@@ -8,7 +8,9 @@ import { AppError } from "../../errors/app-error.js";
  */
 
 
-// Keep token signing centralized so claims/ttl can be changed later.
+/**
+ * Centralizing token signing (claims/ttl can be changed later).
+ */
 function signToken(user: { id: string; email: string }) {
   const secret = process.env.JWT_SECRET;
   if (!secret) throw new Error("Missing JWT_SECRET");
@@ -20,7 +22,9 @@ function signToken(user: { id: string; email: string }) {
   );
 }
 
-
+/**
+ * llow a user to register.
+ */
 export async function register(email: string, password: string, name: string) {
 
   const existing = await prisma.user.findUnique({ where: { email } });
@@ -41,6 +45,9 @@ export async function register(email: string, password: string, name: string) {
 }
 
 
+/**
+ * Allow a user to login.
+ */
 export async function login(email: string, password: string) {
 
   const userRecord = await prisma.user.findUnique({ where: { email } });

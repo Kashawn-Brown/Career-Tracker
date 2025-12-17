@@ -4,7 +4,9 @@ import { Type, Static } from "@sinclair/typebox";
  * Schemas for Fastify to validate incoming auth requests.
  */
 
-
+/**
+ * Request body for registering a user.
+ */
 export const RegisterBody = Type.Object(
   {
     email: Type.String({ format: "email" }),
@@ -14,6 +16,9 @@ export const RegisterBody = Type.Object(
   { additionalProperties: false }
 );
 
+/**
+ * Request body for user login.
+ */
 export const LoginBody = Type.Object(
   {
     email: Type.String({ format: "email" }),
