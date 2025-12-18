@@ -158,6 +158,54 @@ Productionizing / polish:
 * Add deeper observability (request tracing, structured error codes, metrics export)
 * Expand test coverage (integration tests for core endpoints)
 
-Frontend work can start now — the backend surface is stable enough.
+## TODO / Next (Backend)
+
+* **Deploy + prod parity**
+
+  * Deploy API (Cloud Run/Render/Fly) + managed Postgres; re-run k6 against prod-like infra and record results.
+  * Add DB migrations workflow + environment config checklist.
+
+* **Auth & security**
+
+  * Refresh tokens + token rotation (optional), logout/invalidate, “remember me”.
+  * Password reset flow + email verification (optional).
+  * Tighten rate-limit strategy (separate limits for login/register/reset; key by IP + email).
+
+* **Validation & errors**
+
+  * Standardize error shape for all failures (validation, auth, not found, rate limit).
+  * Improve 429 messaging/headers for client UX (Retry-After, consistent response body).
+
+* **Data model / querying**
+
+  * Add indexes based on real queries (e.g., `(userId, updatedAt)`, `(userId, status)`).
+  * Add more filters (date ranges, status multi-select, company/position exact match).
+  * Cursor-based pagination (optional) for large datasets.
+
+* **Testing & quality**
+
+  * Add unit tests for services + route tests (happy path + auth + validation).
+  * CI checks (lint, typecheck, tests) + simple coverage reporting.
+
+* **Observability**
+
+  * Structured logging (requestId/userId), request timing, and error alerts.
+  * Basic health checks + metrics endpoint (optional).
+
+* **API polish**
+
+  * OpenAPI/Swagger docs (Fastify plugin) generated from schemas.
+  * Response DTO consistency across all routes (select-only, no leaks).
+
+* **Nice-to-haves**
+
+  * Bulk operations (bulk status update, bulk delete).
+  * Export endpoints (CSV/JSON), import, and “archive” instead of delete.
+
+
+---
+
+_Frontend work can start now — the backend surface is stable enough.  
+Last updated: 2025-12-18_
 
 

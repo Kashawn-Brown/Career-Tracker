@@ -105,4 +105,6 @@ Latency numbers are in **milliseconds (ms)**.
 - These are **local** results; Cloud Run/Cloud SQL will add real network + cold start effects.
 - The **max** column is usually less important than **p95/p99** (max is often one-off noise).
 
+---
+
 _Last updated: 2025-12-18 09:05 UTC_

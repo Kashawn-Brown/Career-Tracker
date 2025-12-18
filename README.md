@@ -9,3 +9,5 @@
   - **0% request failures** across runs  
 - Next: deploy to Cloud Run + Cloud SQL and repeat benchmarks for production-like metrics
 
+---
+_Last updated: 2025-12-18_
