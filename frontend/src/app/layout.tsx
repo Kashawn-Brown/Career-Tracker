@@ -1,4 +1,5 @@
 // RootLayout: required by Next.js App Router; must include <html> and <body>.
+
 import type { Metadata } from "next";
 import "./globals.css";
 
