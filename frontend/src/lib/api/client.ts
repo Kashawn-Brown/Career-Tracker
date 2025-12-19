@@ -9,6 +9,18 @@ type ApiFetchOptions = Omit<RequestInit, "body"> & {
   auth?: boolean;     // default true; set false for login/register (asking "should we attach the Bearer token?")
 };
 
+// Unauthorized handler: lets auth layer decide what to do on 401 (logout, redirect, etc.).
+let onUnauthorized: (() => void) | null = null;
+
+/**
+ * Registers a global handler for unauthorized responses (HTTP 401).
+ *
+ * @param handler - Called when apiFetch receives a 401 response.
+ */
+export function setUnauthorizedHandler(handler: (() => void) | null) {
+  onUnauthorized = handler;
+}
+
 // Consistent error object
 export class ApiError extends Error {
   status: number;
@@ -25,10 +37,7 @@ export class ApiError extends Error {
 // Chooses the API base URL
 function getBaseUrl(): string {
   // NEXT_PUBLIC_* is exposed to the browser (needed for frontend -> backend calls).
-  return (
-    process.env.NEXT_PUBLIC_API_BASE_URL ??
-    "http://localhost:3002/api/v1" // MVP default
-  );
+  return process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3002/api/v1";
 }
 
 
@@ -74,6 +83,12 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
 
   // Handle non-2xx responses (errors)
   if (!response.ok) {
+
+    // Auto-logout hook: token is invalid/expired.
+    if (response.status === 401 && onUnauthorized) {
+      onUnauthorized();
+    }
+
     const message =
       (data && typeof data === "object" && "message" in data && String((data as any).message)) ||
       `Request failed (${response.status})`;

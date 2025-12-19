@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useEffect, useMemo, useState } from "react";
-import { apiFetch } from "@/lib/api/client";
+import { apiFetch, setUnauthorizedHandler  } from "@/lib/api/client";
 import { routes } from "@/lib/api/routes";
 import { clearToken, getToken, setToken } from "@/lib/auth/token";
 import type { MeResponse, AuthResponse, AuthUser, LoginRequest, RegisterRequest } from "@/types/api";
@@ -60,6 +60,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsHydrated(true);
     
     })()
+  }, []);
+
+  // Registers what "unauthorized" means for the app: clear auth + return to login.
+  useEffect(() => {
+    
+    // When unauthorized, logout
+    setUnauthorizedHandler(() => {
+      logout();
+    });
+
+    // Cleanup: avoid stale handlers if provider ever unmounts (rare, but good hygiene).
+    return () => setUnauthorizedHandler(null);
   }, []);
 
 
