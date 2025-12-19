@@ -1,5 +1,8 @@
 // api.ts: shared API DTO types (keeps frontend aligned with backend response shapes).
 
+
+// --- Auth + User DTOs: matches backend ---
+
 export type AuthUser = {
   id: string;
   email: string;
@@ -25,3 +28,39 @@ export type RegisterRequest = {
   password: string;
   name: string;
 };
+
+
+// --- Applications DTOs: matches backend applicationSelect + list contract ---
+
+export type ApplicationStatus =
+  | "WISHLIST"
+  | "APPLIED"
+  | "INTERVIEW"
+  | "OFFER"
+  | "REJECTED"
+  | "WITHDRAWN";
+
+export type Application = {
+  id: string;
+  company: string;
+  position: string;
+  status: ApplicationStatus;
+
+  dateApplied: string | null; // backend returns JSON date strings
+  jobLink: string | null;
+  description: string | null;
+  notes: string | null;
+
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Paginated<T> = {
+  items: T[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
+
+export type ApplicationsListResponse = Paginated<Application>;
