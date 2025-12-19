@@ -24,19 +24,44 @@ type AuthContextValue = {
 // Creates the context - AuthContext: provides auth state/actions to the whole app.
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+/**
+ * React component function
+ * Wraps part of app and supplies shared authentication state and actions (user/token/login/logout) to every component inside it via React Context
+ */
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [token, setTokenState] = useState<string | null>(null);
-  const [isHydrated, setIsHydrated] = useState(false);
+  const [user, setUser] = useState<AuthUser | null>(null);        // current user in memory
+  const [token, setTokenState] = useState<string | null>(null);   // token in memory
+  const [isHydrated, setIsHydrated] = useState(false);            // starts false, becomes true after reading localStorage + attempting /users/me
 
-  // Hydrate token from localStorage on first client render.
-  useEffect(() => {
-    // Runs once on mount
-    // does not fetch /users/me or validate the token. It just loads it
-    const existing = getToken();
-    setTokenState(existing);
-    setIsHydrated(true);
+  // Hydrate token from localStorage and (if present) loads the current user via GET /users/me.
+  useEffect(() => {   // Runs once on mount
+    
+    (async () => {
+
+      // Load token
+      const existingToken = getToken();
+      setTokenState(existingToken);
+
+      // If theres a token, attempt to load user
+      if (existingToken) {
+        try{
+          // Send request to backend to get user info
+          const me = await apiFetch<AuthUser>(routes.users.me(), { method: "GET" })
+          setUser(me)
+
+        } catch (err) {
+          // If token is invalid/expired, clear it so not stuck in a broken state.
+          clearToken();
+          setTokenState(null);
+          setUser(null);
+        }
+      }
+      // Token read & attempt to retrieve user = Hydrated
+      setIsHydrated(true);
+    
+    })()
   }, []);
+
 
   // Calls Backend API endpoint "/auth/login" using apiFetch helper
   async function login(input: LoginRequest) {
@@ -52,6 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(res.user);
   }
 
+
   // Calls Backend API endpoint "/auth/register" using apiFetch helper
   async function register(input: RegisterRequest) {
     
@@ -66,6 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(res.user);
   }
 
+
   // Clears local + in-memory auth state.
   function logout() {
     clearToken();
@@ -73,7 +100,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   }
 
-  // Creates the object passed to the provider
+
+  // Creates the object passed to the provider (object all the consumers will get)
   const value = useMemo<AuthContextValue>(() => {   // useMemo prevents creating a new object on every render unless relevant state changes
     return {
       user,
@@ -84,9 +112,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       register,
       logout,
     };
-  }, [user, token, isHydrated]);
+  }, [user, token, isHydrated]);  // Only rebuild the value object if user/token/isHydrated changes
 
-  // Anything under <AuthProvider> in the tree can read auth state/actions via useContext(AuthContext)
+  // Anything under <AuthProvider> in the tree can read auth state/ do actions via useContext(AuthContext)
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
