@@ -8,6 +8,8 @@ export type AuthUser = {
   createdAt: string; // JSON-serialized Date from backend
 };
 
+export type MeResponse = { user: AuthUser };
+
 export type AuthResponse = {
   user: AuthUser;
   token: string;

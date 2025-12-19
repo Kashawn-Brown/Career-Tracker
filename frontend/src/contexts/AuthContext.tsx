@@ -4,7 +4,7 @@ import React, { createContext, useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api/client";
 import { routes } from "@/lib/api/routes";
 import { clearToken, getToken, setToken } from "@/lib/auth/token";
-import type { AuthResponse, AuthUser, LoginRequest, RegisterRequest } from "@/types/api";
+import type { MeResponse, AuthResponse, AuthUser, LoginRequest, RegisterRequest } from "@/types/api";
 
 // Defines what the context will provide
 type AuthContextValue = {
@@ -46,8 +46,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (existingToken) {
         try{
           // Send request to backend to get user info
-          const me = await apiFetch<AuthUser>(routes.users.me(), { method: "GET" })
-          setUser(me)
+          const res = await apiFetch<MeResponse>(routes.users.me(), { method: "GET" })
+          setUser(res.user)
 
         } catch (err) {
           // If token is invalid/expired, clear it so not stuck in a broken state.
