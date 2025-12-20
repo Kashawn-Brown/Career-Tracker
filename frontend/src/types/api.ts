@@ -1,5 +1,6 @@
 // api.ts: shared API DTO types (keeps frontend aligned with backend response shapes).
 
+export type OkResponse = { ok: true };
 
 // --- Auth + User DTOs: matches backend ---
 
@@ -39,7 +40,7 @@ export type RegisterRequest = {
 
 
 
-// --- Applications DTOs: matches backend applicationSelect + list contract ---
+// --- Applications DTOs: matches backend ---
 
 export type ApplicationStatus =
   | "WISHLIST"
@@ -84,4 +85,39 @@ export type CreateApplicationRequest = {
 // UpdateApplicationRequest: MVP update payload (status only for now).
 export type UpdateApplicationRequest = {
   status: ApplicationStatus;
+};
+
+
+
+// --- Document DTOs: matches backend ---
+
+// Document: minimal document shape returned by backend (BASE_RESUME only for MVP).
+export type Document = {
+  id: string;
+  kind: "BASE_RESUME";
+  url: string;
+  originalName: string;
+  mimeType: string;
+  size: number | null;
+  createdAt: string; // ISO string from API
+  updatedAt: string; // ISO string from API
+};
+
+// GetBaseResumeResponse: backend returns { document: Document | null }.
+export type GetBaseResumeResponse = {
+  document: Document | null;
+};
+
+// UpsertBaseResumeRequest: matches backend schema for POST /documents/base-resume.
+export type UpsertBaseResumeRequest = {
+  url: string;
+  originalName: string;
+  mimeType: string;
+  size?: number;
+  storageKey?: string; // future: GCS key (optional in MVP)
+};
+
+// UpsertBaseResumeResponse: backend returns { document: Document }.
+export type UpsertBaseResumeResponse = {
+  document: Document;
 };

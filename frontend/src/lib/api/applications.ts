@@ -1,6 +1,6 @@
 import { apiFetch } from "@/lib/api/client";
 import { routes } from "@/lib/api/routes";
-import type { UpdateApplicationRequest } from "@/types/api";
+import type { OkResponse, UpdateApplicationRequest } from "@/types/api";
 
 /**
  * Mini client with small helpers for application endpoints.
@@ -19,6 +19,6 @@ export const applicationsApi = {
   },
 
   remove(id: string) {
-    return apiFetch(routes.applications.byId(id), { method: "DELETE" });
+    return apiFetch<OkResponse>(routes.applications.byId(id), { method: "DELETE" });
   },
 };

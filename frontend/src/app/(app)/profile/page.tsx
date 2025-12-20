@@ -12,6 +12,8 @@ import { Label } from "@/components/ui/label";
 
 // ProfilePage: view + edit minimal profile fields via GET/PATCH /users/me.
 export default function ProfilePage() {
+
+  // Pulling from auth context
   const { user, setCurrentUser } = useAuth();
 
   const [name, setName] = useState(user?.name ?? "");
@@ -21,6 +23,7 @@ export default function ProfilePage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  // Loading the profile on mount (& depending on setCurrentUser)
   useEffect(() => {
     async function load() {
       setErrorMessage(null);
@@ -42,6 +45,7 @@ export default function ProfilePage() {
     load();
   }, [setCurrentUser]);
 
+  // Saving profile changes
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setErrorMessage(null);
@@ -74,6 +78,13 @@ export default function ProfilePage() {
     }
   }
 
+  // Resets the form to the currently loaded user profile values.
+  function onReset() {
+    setName(user?.name ?? "");
+    setErrorMessage(null);
+    setSuccessMessage(null);
+  }
+
   if (isLoading) return <div className="text-sm">Loading profile...</div>;
 
   return (
@@ -98,6 +109,11 @@ export default function ProfilePage() {
 
           <Button type="submit" disabled={isSaving}>
             {isSaving ? "Saving..." : "Save"}
+          </Button>
+          
+          {/* Reset Button */}
+          <Button variant="outline" onClick={onReset}>
+            Reset
           </Button>
         </form>
       </CardContent>
