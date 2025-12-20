@@ -64,3 +64,10 @@ export type Paginated<T> = {
 };
 
 export type ApplicationsListResponse = Paginated<Application>;
+
+// CreateApplicationRequest: MVP create payload (expand later with optional fields).
+export type CreateApplicationRequest = {
+  company: string;
+  position: string;
+  status?: ApplicationStatus;
+};

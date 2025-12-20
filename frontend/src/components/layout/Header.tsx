@@ -29,7 +29,7 @@ export function Header() {
             Profile
           </Link>
 
-          <span className="text-muted-foreground">{user?.name ? `Hey ${user?.name}` : ""}</span>
+          <span className="text-muted-foreground">{user?.name ? `Hey, ${user?.name}` : ""}</span>
 
           <Button variant="outline" size="sm" onClick={handleLogout}>
             Log out

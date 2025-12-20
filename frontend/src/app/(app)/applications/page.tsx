@@ -7,6 +7,7 @@ import { apiFetch, ApiError } from "@/lib/api/client";
 import { routes } from "@/lib/api/routes";
 import type { ApplicationsListResponse } from "@/types/api";
 import { ApplicationsTable } from "@/components/applications/ApplicationsTable";
+import { CreateApplicationForm } from "@/components/applications/CreateApplicationForm";
 import { Button } from "@/components/ui/button";
 
 // ApplicationsPage: fetches and displays the user's applications (GET /applications) with pagination.
@@ -18,6 +19,8 @@ export default function ApplicationsPage() {
   const [data, setData] = useState<ApplicationsListResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const [reloadKey, setReloadKey] = useState(0);
 
   // Fetching applications when the page first mounts (& again whenever page or pageSize changes)
   useEffect(() => {
@@ -51,7 +54,7 @@ export default function ApplicationsPage() {
     }
 
     load();
-  }, [page, pageSize]);
+  }, [page, pageSize, reloadKey]);
 
   return (
     <div className="space-y-4">
@@ -67,7 +70,15 @@ export default function ApplicationsPage() {
       {isLoading && !data ? (
         <div className="text-sm">Loading applications...</div>
       ) : (
-        <ApplicationsTable items={data?.items ?? []} />
+        <>
+          <CreateApplicationForm
+            onCreated={() => {
+              setPage(1); // MVP: jump back to first page to see the newest item
+              setReloadKey((k) => k + 1);
+            }}
+          />
+          <ApplicationsTable items={data?.items ?? []} />
+        </>
       )}
 
       <div className="flex items-center gap-2">
