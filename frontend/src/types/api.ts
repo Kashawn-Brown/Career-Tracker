@@ -71,3 +71,8 @@ export type CreateApplicationRequest = {
   position: string;
   status?: ApplicationStatus;
 };
+
+// UpdateApplicationRequest: MVP update payload (status only for now).
+export type UpdateApplicationRequest = {
+  status: ApplicationStatus;
+};

@@ -77,7 +77,10 @@ export default function ApplicationsPage() {
               setReloadKey((k) => k + 1);
             }}
           />
-          <ApplicationsTable items={data?.items ?? []} />
+          <ApplicationsTable 
+            items={data?.items ?? []} 
+            onChanged={() => setReloadKey((k) => k + 1)}
+          />
         </>
       )}
 
