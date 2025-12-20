@@ -11,7 +11,14 @@ export type AuthUser = {
   createdAt: string; // JSON-serialized Date from backend
 };
 
-export type MeResponse = { user: AuthUser };
+// UpdateMeRequest: MVP profile edits (expand later).
+export type UpdateMeRequest = {
+  name: string;
+};
+
+export type MeResponse = { 
+  user: AuthUser 
+};
 
 export type AuthResponse = {
   user: AuthUser;
@@ -28,6 +35,8 @@ export type RegisterRequest = {
   password: string;
   name: string;
 };
+
+
 
 
 // --- Applications DTOs: matches backend applicationSelect + list contract ---

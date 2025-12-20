@@ -115,6 +115,8 @@ export default function ApplicationsPage() {
       {/* Controls (MVP) */}
       <div className="grid gap-4 md:grid-cols-4">
         <div className="space-y-1 md:col-span-2">
+
+          {/* Query/Search filter */}
           <Label htmlFor="q">Search</Label>
           <Input
             id="q"
@@ -127,6 +129,7 @@ export default function ApplicationsPage() {
           />
         </div>
 
+        {/* Status Filter */}
         <div className="space-y-1">
           <Label htmlFor="status">Status</Label>
           <select
@@ -146,6 +149,7 @@ export default function ApplicationsPage() {
           </select>
         </div>
 
+        {/* Sorting Options */}
         <div className="space-y-1">
           <Label>Sort</Label>
           <div className="flex gap-2">
@@ -175,6 +179,8 @@ export default function ApplicationsPage() {
             </select>
           </div>
         </div>
+
+        {/* Reset Button */}
         <Button variant="outline" onClick={resetControls}>
           Reset
         </Button>

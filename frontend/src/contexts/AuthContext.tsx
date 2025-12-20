@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useEffect, useMemo, useState, useCallback } from "react";
 import { apiFetch, setUnauthorizedHandler  } from "@/lib/api/client";
 import { routes } from "@/lib/api/routes";
 import { clearToken, getToken, setToken } from "@/lib/auth/token";
@@ -19,6 +19,8 @@ type AuthContextValue = {
   login: (input: LoginRequest) => Promise<void>;
   register: (input: RegisterRequest) => Promise<void>;
   logout: () => void;
+  setCurrentUser: (user: AuthUser | null) => void;
+  
 };
 
 // Creates the context - AuthContext: provides auth state/actions to the whole app.
@@ -113,6 +115,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
 
+  // setCurrentUser: stable action wrapper so components can depend on it safely.
+  const setCurrentUser = useCallback((next: AuthUser | null) => {
+    setUser(next);
+  }, []);
+
+
   // Creates the object passed to the provider (object all the consumers will get)
   const value = useMemo<AuthContextValue>(() => {   // useMemo prevents creating a new object on every render unless relevant state changes
     return {
@@ -123,8 +131,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       login,
       register,
       logout,
+      setCurrentUser,
     };
-  }, [user, token, isHydrated]);  // Only rebuild the value object if user/token/isHydrated changes
+  }, [user, token, isHydrated, setCurrentUser]);  // Only rebuild the value object if user/token/isHydrated changes
 
   // Anything under <AuthProvider> in the tree can read auth state/ do actions via useContext(AuthContext)
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
