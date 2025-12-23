@@ -192,156 +192,115 @@ export default function ProfilePage() {
 
 
 
-  if (isLoading) {
-    return (
-      <Card className="max-w-2xl">
-        <CardContent className="space-y-4 py-6 text-sm">
-          <div className="h-4 w-32 animate-pulse rounded bg-muted" />
-          <div className="h-6 w-48 animate-pulse rounded bg-muted" />
-          <div className="h-10 w-full animate-pulse rounded bg-muted" />
-          <div className="h-10 w-36 animate-pulse rounded bg-muted" />
-        </CardContent>
-      </Card>
-    );
-  }
+  if (isLoading) return <div className="text-sm">Loading profile...</div>;
 
   return (
-    <div className="grid max-w-5xl gap-6 lg:grid-cols-3">
-      <Card className="lg:col-span-2 shadow-sm">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-xl">Profile</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Update your account name and resume metadata.
-          </p>
-        </CardHeader>
+    <Card className="max-w-xl">
+      <CardHeader>
+        <CardTitle>Profile</CardTitle>
+      </CardHeader>
 
-        {/* Profile Update Section: name only (MVP). */}
-        <CardContent className="space-y-5">
-          {errorMessage ? (
-            <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-              {errorMessage}
-            </div>
-          ) : null}
-          {resumeErrorMessage ? (
-            <div className="rounded-md border border-orange-500/30 bg-orange-500/5 px-3 py-2 text-sm text-orange-700">
-              {resumeErrorMessage}
-            </div>
-          ) : null}
-          {successMessage ? (
-            <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-sm text-emerald-700">
-              {successMessage}
-            </div>
-          ) : null}
+      {/* Profile Update Section: name only (MVP). */}
+      <CardContent className="space-y-4">
+        {errorMessage ? <div className="text-sm text-red-600">{errorMessage}</div> : null}
+        {resumeErrorMessage ? <div className="text-sm text-orange-600">{resumeErrorMessage}</div> : null}
+        {successMessage ? <div className="text-sm text-green-600">{successMessage}</div> : null}
 
-          <div className="text-sm text-muted-foreground">
-            Signed in as <span className="font-medium">{user?.email}</span>
+        <div className="text-sm text-muted-foreground">
+          Signed in as <span className="font-medium">{user?.email}</span>
+        </div>
+
+        <form className="space-y-4" onSubmit={handleSave}>
+          <div className="space-y-1">
+            <Label htmlFor="name">Name</Label>
+            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
 
-          <form className="space-y-4" onSubmit={handleSave}>
-            <div className="space-y-1.5">
-              <Label htmlFor="name">Name</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Your name"
-              />
-            </div>
+          <Button type="submit" disabled={isSaving}>
+            {isSaving ? "Saving..." : "Save"}
+          </Button>
+        </form>
+        {/* Reset Button */}
+        <Button variant="outline" onClick={onReset}>
+          Reset
+        </Button>
+      </CardContent>
 
-            <div className="flex gap-3">
-              <Button type="submit" disabled={isSaving}>
-                {isSaving ? "Saving..." : "Save"}
-              </Button>
-              <Button variant="outline" type="button" onClick={onReset}>
-                Reset
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
 
       {/* BaseResumeSection: metadata-only resume record (upload comes later). */}
-      <Card className="shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Base Resume</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Store a single base resume URL and metadata.
-          </p>
-        </CardHeader>
+      <div className="pt-6 border-t space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-semibold">Base Resume</h3>
 
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">
-              {baseResume ? (
-                <>
-                  Current:{" "}
-                  <a className="underline" href={baseResume.url} target="_blank" rel="noreferrer">
-                    {baseResume.originalName}
-                  </a>
-                </>
-              ) : (
-                "No base resume saved yet."
-              )}
-            </div>
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={handleResumeDelete}
+            disabled={!baseResume || isResumeDeleting}
+          >
+            {isResumeDeleting ? "Deleting..." : "Delete"}
+          </Button>
+        </div>
 
-            <Button
-              type="button"
-              variant="destructive"
-              size="sm"
-              onClick={handleResumeDelete}
-              disabled={!baseResume || isResumeDeleting}
-            >
-              {isResumeDeleting ? "Deleting..." : "Delete"}
-            </Button>
+        <div className="text-sm text-muted-foreground">
+          {baseResume ? (
+            <>
+              Current:{" "}
+              <a className="underline" href={baseResume.url} target="_blank" rel="noreferrer">
+                {baseResume.originalName}
+              </a>
+            </>
+          ) : (
+            "No base resume saved yet."
+          )}
+        </div>
+
+        <form className="space-y-4" onSubmit={handleResumeSave}>
+          <div className="space-y-1">
+            <Label htmlFor="resumeUrl">Resume URL</Label>
+            <Input
+              id="resumeUrl"
+              value={resumeUrl}
+              onChange={(e) => setResumeUrl(e.target.value)}
+              placeholder="https://... or https://storage.googleapis.com/..."
+            />
           </div>
 
-          <form className="space-y-3" onSubmit={handleResumeSave}>
-            <div className="space-y-1.5">
-              <Label htmlFor="resumeUrl">Resume URL</Label>
-              <Input
-                id="resumeUrl"
-                value={resumeUrl}
-                onChange={(e) => setResumeUrl(e.target.value)}
-                placeholder="https://..."
-              />
-            </div>
+          <div className="space-y-1">
+            <Label htmlFor="resumeName">File name</Label>
+            <Input
+              id="resumeName"
+              value={resumeName}
+              onChange={(e) => setResumeName(e.target.value)}
+              placeholder="Kashawn_Brown_Resume.pdf"
+            />
+          </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="resumeName">File name</Label>
-              <Input
-                id="resumeName"
-                value={resumeName}
-                onChange={(e) => setResumeName(e.target.value)}
-                placeholder="Resume.pdf"
-              />
-            </div>
+          <div className="space-y-1">
+            <Label htmlFor="resumeMime">MIME type</Label>
+            <Input
+              id="resumeMime"
+              value={resumeMime}
+              onChange={(e) => setResumeMime(e.target.value)}
+              placeholder="application/pdf"
+            />
+          </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="resumeMime">MIME type</Label>
-              <Input
-                id="resumeMime"
-                value={resumeMime}
-                onChange={(e) => setResumeMime(e.target.value)}
-                placeholder="application/pdf"
-              />
-            </div>
+          <div className="space-y-1">
+            <Label htmlFor="resumeSize">Size (bytes) (optional)</Label>
+            <Input
+              id="resumeSize"
+              value={resumeSize}
+              onChange={(e) => setResumeSize(e.target.value)}
+              placeholder="123456"
+            />
+          </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="resumeSize">Size (bytes) (optional)</Label>
-              <Input
-                id="resumeSize"
-                value={resumeSize}
-                onChange={(e) => setResumeSize(e.target.value)}
-                placeholder="123456"
-              />
-            </div>
-
-            <Button type="submit" disabled={isResumeSaving}>
-              {isResumeSaving ? "Saving..." : baseResume ? "Replace base resume" : "Save base resume"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+          <Button type="submit" disabled={isResumeSaving}>
+            {isResumeSaving ? "Saving..." : baseResume ? "Replace base resume" : "Save base resume"}
+          </Button>
+        </form>
+      </div>
+    </Card>
   );
 }

@@ -63,45 +63,38 @@ export function ApplicationsTable({
   ];
 
   return (
-    <div className="space-y-3">
-      {rowError ? (
-        <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-          {rowError}
-        </div>
-      ) : null}
+    <div className="space-y-2">
+      {rowError ? <div className="text-sm text-red-600">{rowError}</div> : null}
 
-      <div className="overflow-x-auto rounded-lg border bg-white shadow-sm">
+      <div className="overflow-x-auto border rounded-md">
         <table className="w-full text-sm">
-          <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
+          <thead className="bg-muted/50">
             <tr className="text-left">
-              <th className="px-4 py-3 font-semibold">Company</th>
-              <th className="px-4 py-3 font-semibold">Position</th>
-              <th className="px-4 py-3 font-semibold">Status</th>
-              <th className="px-4 py-3 font-semibold">Updated</th>
-              <th className="px-4 py-3 font-semibold">Actions</th>
+              <th className="p-3">Company</th>
+              <th className="p-3">Position</th>
+              <th className="p-3">Status</th>
+              <th className="p-3">Updated</th>
+              <th className="p-3">Actions</th>
             </tr>
           </thead>
 
           <tbody>
             {items.length === 0 ? (
               <tr>
-                <td className="px-4 py-6 text-center text-muted-foreground" colSpan={5}>
+                <td className="p-3 text-muted-foreground" colSpan={5}>
                   No applications yet.
                 </td>
               </tr>
             ) : (
-              items.map((app, idx) => (
-                <tr
-                  key={app.id}
-                  className={`border-t ${idx % 2 === 0 ? "bg-white" : "bg-muted/30"} transition-colors hover:bg-muted/50`}
-                >
-                  <td className="px-4 py-3 font-semibold text-foreground">{app.company}</td>
-                  <td className="px-4 py-3 font-medium text-foreground">{app.position}</td>
+              items.map((app) => (
+                <tr key={app.id} className="border-t">
+                  <td className="p-3">{app.company}</td>
+                  <td className="p-3">{app.position}</td>
 
-                  <td className="px-4 py-3">
+                  <td className="p-3">
                     {/* Status select: MVP inline update */}
                     <select
-                      className="h-9 w-36 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                      className="border rounded px-2 py-1"
                       value={app.status}
                       disabled={busyId === app.id}
                       onChange={(e) => handleStatusChange(app.id, e.target.value as ApplicationStatus)}
@@ -114,15 +107,14 @@ export function ApplicationsTable({
                     </select>
                   </td>
 
-                  <td className="px-4 py-3 text-muted-foreground">
+                  <td className="p-3 text-muted-foreground">
                     {new Date(app.updatedAt).toLocaleDateString()}
                   </td>
 
-                  <td className="px-4 py-3">
+                  <td className="p-3">
                     <Button
                       variant="outline"
                       size="sm"
-                      className="border-destructive/40 text-destructive hover:bg-destructive/5"
                       disabled={busyId === app.id}
                       onClick={() => handleDelete(app.id)}
                     >
