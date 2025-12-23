@@ -1,13 +1,19 @@
-"use client";
-
+import type { ReactNode } from "react";
 import { Header } from "@/components/layout/Header";
 
-// AppShell: shared layout wrapper for all protected pages.
-export function AppShell({ children }: { children: React.ReactNode }) {
+// AppShell.tsx: shared layout wrapper for authenticated pages (header + centered content).
+export function AppShell({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen">
+    // Page-level wrapper for consistent spacing + background
+    <div className="min-h-screen bg-muted/30">
       <Header />
-      <main className="mx-auto max-w-5xl px-6 py-6">{children}</main>
+
+      {/* Main content area */}
+      <main className="mx-auto w-full max-w-5xl px-4 py-8">
+        <div className="space-y-6">
+          {children}
+        </div>
+      </main>
     </div>
   );
 }
