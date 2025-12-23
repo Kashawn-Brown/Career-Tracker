@@ -6,7 +6,14 @@ import { useRouter } from "next/navigation";
 import { ApiError } from "@/lib/api/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -58,13 +65,16 @@ export default function RegisterPage() {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="border-b">
         <CardTitle>Create account</CardTitle>
+        <CardDescription>Get started in less than a minute.</CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-4">
         {errorMessage ? (
-          <div className="text-sm text-red-600">{errorMessage}</div>
+          <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {errorMessage}
+          </div>
         ) : null}
 
         <form className="space-y-4" onSubmit={handleSubmit}>
@@ -75,7 +85,7 @@ export default function RegisterPage() {
               autoComplete="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Kashawn Brown"
+              placeholder="User Name"
             />
           </div>
 
@@ -107,14 +117,16 @@ export default function RegisterPage() {
             {isSubmitting ? "Creating..." : "Create account"}
           </Button>
         </form>
+      </CardContent>
 
-        <div className="text-sm">
+      <CardFooter className="border-t justify-center">
+        <div className="text-sm text-muted-foreground">
           Already have an account?{" "}
-          <Link className="underline" href="/login">
+          <Link className="font-medium underline underline-offset-4" href="/login">
             Log in
           </Link>
         </div>
-      </CardContent>
+      </CardFooter>
     </Card>
   );
 }

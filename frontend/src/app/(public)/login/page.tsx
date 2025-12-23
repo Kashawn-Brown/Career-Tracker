@@ -6,7 +6,14 @@ import { useRouter } from "next/navigation";
 import { ApiError } from "@/lib/api/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -59,13 +66,16 @@ export default function LoginPage() {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="border-b">
         <CardTitle>Log in</CardTitle>
+        <CardDescription>Sign in to continue.</CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-4">
         {errorMessage ? (
-          <div className="text-sm text-red-600">{errorMessage}</div>
+          <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {errorMessage}
+          </div>
         ) : null}
 
         <form className="space-y-4" onSubmit={handleSubmit}>
@@ -97,14 +107,16 @@ export default function LoginPage() {
             {isSubmitting ? "Signing in..." : "Sign in"}
           </Button>
         </form>
-
-        <div className="text-sm">
+      </CardContent>
+      
+      <CardFooter className="border-t justify-center">
+        <div className="text-sm text-muted-foreground">
           No account?{" "}
-          <Link className="underline" href="/register">
+          <Link className="font-medium underline underline-offset-4" href="/register">
             Create one
           </Link>
         </div>
-      </CardContent>
+      </CardFooter>
     </Card>
   );
 }
