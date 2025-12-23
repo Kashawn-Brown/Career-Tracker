@@ -2,9 +2,9 @@
 
 Career-Tracker is a full-stack **job application manager** built to replace messy spreadsheets, scattered notes, and lost job links with a single, focused workspace. It centralizes applications, statuses, documents, contacts, and analytics so job seekers can see exactly where they stand and what to do next.
 
-Under the hood it uses a typed Fastify + Postgres API and a React/Next.js frontend with secure auth, robust validation, and fast, filterable tables. AI assistance powers key workflows: parsing job descriptions into structured fields, summarizing postings, assessing resume fit, and generating tailored cover-letter drafts. 
+Under the hood it uses a typed Fastify + Postgres API and a React/Next.js frontend with secure auth, robust validation, and fast, filterable tables. 
 
-Deployed on GCP (Cloud Run, Cloud SQL, GCS) with CI/CD and runtime metrics, Career-Tracker is designed as a **production-style product** that I actively use and iterate on, not just a demo—making a sustained job search more **trackable, repeatable, and data-driven**.
+AI assistance and full GCP deployment (Cloud Run, Cloud SQL, GCS) are part of the planned roadmap: parsing job descriptions into structured fields, summarizing postings, assessing resume fit, and generating tailored cover-letter drafts, all backed by CI/CD and runtime metrics.
 
 ---
 
@@ -56,7 +56,7 @@ Deployed on GCP (Cloud Run, Cloud SQL, GCS) with CI/CD and runtime metrics, Care
 - A PostgreSQL instance (Docker + Docker Compose)
 
 ### Quickstart
-1) Install:
+1. Install:
 ```bash
 npm install
 ````
