@@ -7,6 +7,7 @@ import { ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { Alert } from "../ui/alert";
 
 // ApplicationsTable: read-only list + MVP row actions (update status + delete).
 export function ApplicationsTable({
@@ -65,7 +66,7 @@ export function ApplicationsTable({
 
   return (
     <div className="space-y-2">
-      {rowError ? <div className="text-sm text-red-600">{rowError}</div> : null}
+      {rowError ? ( <Alert variant="destructive" className="py-2">{rowError}</Alert> ) : null}
 
       <div className="overflow-x-auto rounded-md border">
         <table className="w-full text-sm">

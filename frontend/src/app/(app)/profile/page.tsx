@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { documentsApi } from "@/lib/api/documents";
+import { Alert } from "@/components/ui/alert";
 import type { Document, UpsertBaseResumeRequest } from "@/types/api";
 
 // ProfilePage: view + edit minimal profile fields via GET/PATCH /users/me.
@@ -259,14 +260,10 @@ const [isEditingResume, setIsEditingResume] = useState(false);
   return (
     <div className="mx-auto max-w-xl space-y-6">
       {hasMessages ? (
-        <div className="space-y-1">
-          {errorMessage ? <div className="text-sm text-red-600">{errorMessage}</div> : null}
-          {resumeErrorMessage ? (
-            <div className="text-sm text-orange-600">{resumeErrorMessage}</div>
-          ) : null}
-          {successMessage ? (
-            <div className="text-sm text-green-600">{successMessage}</div>
-          ) : null}
+        <div className="space-y-2">
+          {errorMessage ? <Alert variant="destructive">{errorMessage}</Alert> : null}
+          {resumeErrorMessage ? <Alert variant="warning">{resumeErrorMessage}</Alert> : null}
+          {successMessage ? <Alert variant="success">{successMessage}</Alert> : null}
         </div>
       ) : null}
 

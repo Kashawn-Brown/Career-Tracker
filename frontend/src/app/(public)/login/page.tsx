@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Alert } from "@/components/ui/alert";
 
 // LoginPage: collects credentials and exchanges them for a JWT via AuthContext.
 export default function LoginPage() {
@@ -72,11 +73,7 @@ export default function LoginPage() {
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {errorMessage ? (
-          <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-            {errorMessage}
-          </div>
-        ) : null}
+        {errorMessage ? <Alert variant="destructive">{errorMessage}</Alert> : null}
 
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-2">

@@ -18,6 +18,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
+import { Alert } from "@/components/ui/alert";
 
 // ApplicationsPage: fetches and displays the user's applications (GET /applications) with pagination.
 export default function ApplicationsPage() {
@@ -213,7 +214,7 @@ export default function ApplicationsPage() {
             </div>
           </div>
 
-          {errorMessage ? <div className="text-sm text-red-600">{errorMessage}</div> : null}
+          {errorMessage ? <Alert variant="destructive">{errorMessage}</Alert> : null}
 
           {isLoading && !data ? (
             <div className="text-sm">Loading applications...</div>
