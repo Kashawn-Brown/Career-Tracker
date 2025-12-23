@@ -9,6 +9,15 @@ import { CreateApplicationForm } from "@/components/applications/CreateApplicati
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Select } from "@/components/ui/select";
 
 // ApplicationsPage: fetches and displays the user's applications (GET /applications) with pagination.
 export default function ApplicationsPage() {
@@ -96,7 +105,7 @@ export default function ApplicationsPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div>
         <h1 className="text-xl font-semibold">Applications</h1>
         <p className="text-sm text-muted-foreground">
@@ -104,119 +113,137 @@ export default function ApplicationsPage() {
         </p>
       </div>
 
-      {/* Create (MVP) */}
-      <CreateApplicationForm
-        onCreated={() => {
-          setPage(1);
-          refreshList();
-        }}
-      />
-
-      {/* Controls (MVP) */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <div className="space-y-1 md:col-span-2">
-
-          {/* Query/Search filter */}
-          <Label htmlFor="q">Search</Label>
-          <Input
-            id="q"
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              resetToFirstPage();
+      {/* Add application */}
+      <Card>
+        <CardHeader className="border-b">
+          <CardTitle>Add application</CardTitle>
+          <CardDescription>Create a new job application record.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <CreateApplicationForm
+            onCreated={() => {
+              setPage(1);
+              refreshList();
             }}
-            placeholder="Search company or position..."
           />
-        </div>
+        </CardContent>
+      </Card>
 
-        {/* Status Filter */}
-        <div className="space-y-1">
-          <Label htmlFor="status">Status</Label>
-          <select
-            id="status"
-            className="border rounded px-2 py-2 w-full"
-            value={status}
-            onChange={(e) => {
-              setStatus(e.target.value as any);
-              resetToFirstPage();
-            }}
-          >
-            {statusOptions.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </div>
+      {/* List + controls */}
+      <Card>
+        <CardHeader className="border-b">
+          <CardTitle>Your applications</CardTitle>
+          <CardDescription>
+            Search, filter, and update statuses. Changes save instantly.
+          </CardDescription>
+        </CardHeader>
 
-        {/* Sorting Options */}
-        <div className="space-y-1">
-          <Label>Sort</Label>
-          <div className="flex gap-2">
-            <select
-              className="border rounded px-2 py-2 w-full"
-              value={sortBy}
-              onChange={(e) => {
-                setSortBy(e.target.value as any);
-                resetToFirstPage();
-              }}
-            >
-              <option value="updatedAt">Updated</option>
-              <option value="createdAt">Created</option>
-              <option value="company">Company</option>
-            </select>
+        <CardContent className="space-y-4">
+          {/* Controls (MVP) */}
+          <div className="grid gap-4 md:grid-cols-4">
+            {/* Query/Search filter */}
+            <div className="space-y-1 md:col-span-2">
+              <Label htmlFor="q">Search</Label>
+              <Input
+                id="q"
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  resetToFirstPage();
+                }}
+                placeholder="Search company or position..."
+              />
+            </div>
 
-            <select
-              className="border rounded px-2 py-2"
-              value={sortDir}
-              onChange={(e) => {
-                setSortDir(e.target.value as any);
-                resetToFirstPage();
-              }}
-            >
-              <option value="desc">↓</option>
-              <option value="asc">↑</option>
-            </select>
+            {/* Status Filter */}
+            <div className="space-y-1">
+              <Label htmlFor="status">Status</Label>
+              <Select
+                id="status"
+                value={status}
+                onChange={(e) => {
+                  setStatus(e.target.value as any);
+                  resetToFirstPage();
+                }}
+              >
+                {statusOptions.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </Select>
+            </div>
+
+            {/* Sorting Options */}
+            <div className="space-y-1">
+              <Label>Sort</Label>
+              <div className="flex gap-2">
+                <Select
+                  value={sortBy}
+                  onChange={(e) => {
+                    setSortBy(e.target.value as any);
+                    resetToFirstPage();
+                  }}
+                >
+                  <option value="updatedAt">Updated</option>
+                  <option value="createdAt">Created</option>
+                  <option value="company">Company</option>
+                  <option value="position">Position</option>
+                </Select>
+
+                <Select
+                  className="w-[72px]"
+                  value={sortDir}
+                  onChange={(e) => {
+                    setSortDir(e.target.value as any);
+                    resetToFirstPage();
+                  }}
+                >
+                  <option value="desc">↓</option>
+                  <option value="asc">↑</option>
+                </Select>
+              </div>
+            </div>
+
+            {/* Reset Button */}
+            <div className="flex items-end">
+              <Button variant="outline" className="w-full" onClick={resetControls}>
+                Reset
+              </Button>
+            </div>
           </div>
-        </div>
 
-        {/* Reset Button */}
-        <Button variant="outline" onClick={resetControls}>
-          Reset
-        </Button>
-      </div>
+          {errorMessage ? <div className="text-sm text-red-600">{errorMessage}</div> : null}
 
+          {isLoading && !data ? (
+            <div className="text-sm">Loading applications...</div>
+          ) : (
+            <ApplicationsTable
+              items={data?.items ?? []}
+              onChanged={() => setReloadKey((k) => k + 1)}
+            />
+          )}
+        </CardContent>
 
-      {errorMessage ? <div className="text-sm text-red-600">{errorMessage}</div> : null}
+        {/* Pagination */}
+        <CardFooter className="border-t justify-end gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={!data || page <= 1 || isLoading}
+          >
+            Prev
+          </Button>
 
-      {isLoading && !data ? (
-        <div className="text-sm">Loading applications...</div>
-      ) : (
-        <ApplicationsTable 
-          items={data?.items ?? []} 
-          onChanged={() => setReloadKey((k) => k + 1)}
-        />
-      )}
-
-
-      {/* Pagination */}
-      <div className="flex items-center gap-2">
-        <Button
-          variant="outline"
-          onClick={() => setPage((p) => Math.max(1, p - 1))}
-          disabled={!data || page <= 1 || isLoading}
-        >
-          Prev
-        </Button>
-
-        <Button
-          variant="outline"
-          onClick={() => setPage((p) => (data ? Math.min(data.totalPages, p + 1) : p + 1))}
-          disabled={!data || page >= data.totalPages || isLoading}
-        >
-          Next
-        </Button>
-      </div>
+          <Button
+            variant="outline"
+            onClick={() => setPage((p) => (data ? Math.min(data.totalPages, p + 1) : p + 1))}
+            disabled={!data || page >= data.totalPages || isLoading}
+          >
+            Next
+          </Button>
+        </CardFooter>
+      </Card>
     </div>
   );
 }

@@ -4,7 +4,9 @@ import { useState } from "react";
 import type { Application, ApplicationStatus } from "@/types/api";
 import { applicationsApi } from "@/lib/api/applications";
 import { ApiError } from "@/lib/api/client";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 
 // ApplicationsTable: read-only list + MVP row actions (update status + delete).
 export function ApplicationsTable({
@@ -54,7 +56,6 @@ export function ApplicationsTable({
 
   // Status options list
   const statusOptions: ApplicationStatus[] = [
-    "WISHLIST",
     "APPLIED",
     "INTERVIEW",
     "OFFER",
@@ -66,7 +67,7 @@ export function ApplicationsTable({
     <div className="space-y-2">
       {rowError ? <div className="text-sm text-red-600">{rowError}</div> : null}
 
-      <div className="overflow-x-auto border rounded-md">
+      <div className="overflow-x-auto rounded-md border">
         <table className="w-full text-sm">
           <thead className="bg-muted/50">
             <tr className="text-left">
@@ -87,24 +88,32 @@ export function ApplicationsTable({
               </tr>
             ) : (
               items.map((app) => (
-                <tr key={app.id} className="border-t">
+                <tr
+                  key={app.id}
+                  className={cn(
+                    "border-t transition-colors hover:bg-muted/40 even:bg-muted/20",
+                    busyId === app.id && "opacity-60"
+                  )}
+                >
                   <td className="p-3">{app.company}</td>
                   <td className="p-3">{app.position}</td>
 
                   <td className="p-3">
                     {/* Status select: MVP inline update */}
-                    <select
-                      className="border rounded px-2 py-1"
+                    <Select
+                      className="h-8 w-[140px] px-2"
                       value={app.status}
                       disabled={busyId === app.id}
-                      onChange={(e) => handleStatusChange(app.id, e.target.value as ApplicationStatus)}
+                      onChange={(e) =>
+                        handleStatusChange(app.id, e.target.value as ApplicationStatus)
+                      }
                     >
                       {statusOptions.map((s) => (
                         <option key={s} value={s}>
                           {s}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </td>
 
                   <td className="p-3 text-muted-foreground">
