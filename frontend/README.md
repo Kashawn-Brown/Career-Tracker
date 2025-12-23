@@ -1,36 +1,126 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Career-Tracker — Frontend (Next.js)
 
-## Getting Started
+The Career-Tracker frontend is a **Next.js App Router** web app that connects to the existing Fastify backend API.
+It includes authentication, protected routes, an Applications dashboard, and a Profile page with Base Resume metadata (MVP: URL/metadata only).
 
-First, run the development server:
+## Tech stack
+- Next.js (App Router) + TypeScript
+- Tailwind CSS
+- shadcn/ui primitives (Button/Input/Card/Label + small custom Select/Alert)
+- JWT auth (MVP) stored in `localStorage`
+
+## Features (MVP)
+- Auth: Register / Login / Logout
+- Refresh-safe auth: rehydrates user via `GET /users/me`
+- Protected routes: `(public)` vs `(app)` route groups
+- Applications: list + create + update status + delete + basic search/filter/sort/reset
+- Profile: view/edit name + Base Resume metadata CRUD (safe edit mode)
+
+---
+
+## Getting started (local dev)
+
+### Prereqs
+- Node.js 18+ recommended
+- Backend running locally (default API base: `http://localhost:3002/api/v1`)
+
+### 1) Install deps (from repo root)
+```bash
+npm install
+````
+
+### 2) Configure environment variables
+
+Create `frontend/.env.local` (or copy from `frontend/.env.example`):
+
+```env
+NEXT_PUBLIC_API_BASE_URL=http://localhost:3002/api/v1
+```
+
+> Note: `NEXT_PUBLIC_*` variables are exposed to the browser (required for frontend → backend calls).
+
+### 3) Run frontend
+
+From repo root (recommended):
+
+```bash
+npm run dev:frontend
+```
+
+Or from inside `frontend/`:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The app runs at:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+* [http://localhost:3000](http://localhost:3000)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## Running with the backend
 
-To learn more about Next.js, take a look at the following resources:
+From repo root, you can run both services together:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run dev
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+If you see CORS issues, make sure the backend allows the frontend origin:
 
-## Deploy on Vercel
+* `CORS_ORIGIN=http://localhost:3000` (see `backend/.env.example`)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Project structure (important bits)
+
+### Routing
+
+* `src/app/(public)/login` and `src/app/(public)/register`
+* `src/app/(app)/applications` and `src/app/(app)/profile`
+* `(app)/layout.tsx` wraps protected routes with `RequireAuth` + `AppShell/Header`
+
+### API layer
+
+* `src/lib/api/client.ts` — typed `apiFetch` wrapper (adds Bearer token + consistent `ApiError`)
+* `src/lib/api/routes.ts` — endpoint builders (avoid hardcoding paths)
+* `src/lib/api/applications.ts` / `src/lib/api/documents.ts` — feature API helpers
+
+### Auth
+
+* `src/contexts/AuthContext.tsx` — login/register/logout + rehydration
+* `src/lib/auth/token.ts` — token helpers (localStorage)
+* `apiFetch` has a global 401 handler to auto-logout and redirect cleanly
+
+---
+
+## Scripts
+
+From `frontend/`:
+
+```bash
+npm run dev     # start dev server
+npm run build   # production build
+npm run start   # run production server
+npm run lint    # eslint
+```
+
+From repo root:
+
+```bash
+npm run dev:frontend
+npm run build:frontend
+npm run start:frontend
+```
+
+---
+
+## Deployment notes
+
+* Set `NEXT_PUBLIC_API_BASE_URL` to your deployed backend base URL (example: `https://<api-host>/api/v1`)
+* Then build/deploy as a standard Next.js app (Vercel recommended)
+
+
+---
+_Last updated: 2025-12-23_

@@ -390,7 +390,7 @@ const [isEditingResume, setIsEditingResume] = useState(false);
                 id="resumeName"
                 value={resumeName}
                 onChange={(e) => setResumeName(e.target.value)}
-                placeholder="Kashawn_Brown_Resume.pdf"
+                placeholder="Base_Resume.pdf"
                 readOnly={!isEditingResume}
                 className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
               />
