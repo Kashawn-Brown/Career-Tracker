@@ -37,6 +37,9 @@ export default function ProfilePage() {
   const [isResumeSaving, setIsResumeSaving] = useState(false);
   const [isResumeDeleting, setIsResumeDeleting] = useState(false);
 
+  // Profile edit mode: prevents accidental edits
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+
   // Local component state
   const [name, setName] = useState(user?.name ?? "");
   const [isLoading, setIsLoading] = useState(true);
@@ -91,6 +94,22 @@ export default function ProfilePage() {
 
     load();
   }, [setCurrentUser]);
+
+  // Starts the profile edit mode.
+  function startProfileEdit() {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setIsEditingProfile(true);
+  }
+
+  // Cancels the profile edit mode.
+  function cancelProfileEdit() {
+    // Cancel = revert local form state back to last saved user values
+    setName(user?.name ?? "");
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setIsEditingProfile(false);
+  }
 
   // Saving profile changes
   async function handleSave(e: React.FormEvent) {
@@ -204,6 +223,8 @@ export default function ProfilePage() {
 
   const hasMessages = !!(errorMessage || resumeErrorMessage || successMessage);
 
+  // TODO: If base resume exists, switch to 2-col layout and render first-page preview thumbnail.
+
   return (
     <div className="mx-auto max-w-xl space-y-6">
       {hasMessages ? (
@@ -225,24 +246,41 @@ export default function ProfilePage() {
           <CardDescription>
             Signed in as <span className="font-medium">{user?.email}</span>
           </CardDescription>
-        </CardHeader>
+
+          {/* Profile edit mode: show edit button */}
+          {!isEditingProfile ? (
+              <CardAction>
+                <Button type="button" variant="outline" size="sm" onClick={startProfileEdit}>
+                  Edit
+                </Button>
+              </CardAction>
+            ) : null}
+          </CardHeader>
 
         <CardContent className="space-y-4">
           <form className="space-y-4" onSubmit={handleSave}>
             <div className="space-y-1">
               <Label htmlFor="name">Name</Label>
-              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+              <Input 
+                id="name" 
+                value={name} 
+                onChange={(e) => setName(e.target.value)} 
+                readOnly={!isEditingProfile}
+                className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+                 />
             </div>
 
-            <div className="flex gap-2">
-              <Button type="submit" disabled={isSaving}>
-                {isSaving ? "Saving..." : "Save"}
-              </Button>
+            {isEditingProfile ? (
+              <div className="flex gap-2">
+                <Button type="submit" disabled={isSaving}>
+                  {isSaving ? "Saving..." : "Save"}
+                </Button>
 
-              <Button type="button" variant="outline" onClick={onReset} disabled={isSaving}>
-                Reset
-              </Button>
-            </div>
+                <Button type="button" variant="outline" onClick={cancelProfileEdit} disabled={isSaving}>
+                  Cancel
+                </Button>
+              </div>
+            ) : null}
           </form>
         </CardContent>
       </Card>
@@ -259,6 +297,7 @@ export default function ProfilePage() {
             <Button
               type="button"
               variant="destructive"
+              size="sm"
               onClick={handleResumeDelete}
               disabled={!baseResume || isResumeDeleting}
             >
@@ -332,4 +371,3 @@ export default function ProfilePage() {
   );
 }
 
-// TODO: If base resume exists, switch to 2-col layout and render first-page preview thumbnail.
