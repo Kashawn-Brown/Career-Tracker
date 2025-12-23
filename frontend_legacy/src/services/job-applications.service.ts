@@ -7,19 +7,56 @@ import {
   CreateJobApplicationRequest,
   UpdateJobApplicationRequest,
 } from '@/types';
+import { FilterState } from '@/types/filters';
+import { convertFiltersToApiParams } from '@/lib/utils/filter-converter';
 
 export class JobApplicationsService {
-  private static readonly ENDPOINT = '/job-applications';
+  private static readonly ENDPOINT = '/applications';
 
   /**
    * Fetch all job applications with optional filtering and pagination
+   * @param params - Direct API parameters
    */
   static async getJobApplications(
-    params: GetJobApplicationsRequest = {}
+    params?: GetJobApplicationsRequest
+  ): Promise<GetJobApplicationsResponse>;
+
+  /**
+   * Fetch all job applications using FilterState with optional pagination
+   * @param filters - Filter state from FilterContext
+   * @param page - Current page (optional)
+   * @param limit - Items per page (optional)
+   */
+  static async getJobApplications(
+    filters: FilterState,
+    page?: number,
+    limit?: number
+  ): Promise<GetJobApplicationsResponse>;
+
+  // Implementation
+  static async getJobApplications(
+    paramsOrFilters?: GetJobApplicationsRequest | FilterState,
+    page?: number,
+    limit?: number
   ): Promise<GetJobApplicationsResponse> {
+    let apiParams: GetJobApplicationsRequest;
+
+    // Default to empty object if no parameters provided
+    const params = paramsOrFilters || {};
+
+    // Check if first parameter is FilterState by checking for FilterState-specific properties
+    if ('companies' in params && Array.isArray(params.companies)) {
+      // It's FilterState, convert it to API parameters
+      apiParams = convertFiltersToApiParams(params as FilterState, page, limit);
+    } else {
+      // It's already GetJobApplicationsRequest
+      apiParams = params as GetJobApplicationsRequest;
+    }
+
     const response = await apiClientWithRetry.get<
       ApiResponse<GetJobApplicationsResponse>
-    >(this.ENDPOINT, { params });
+    >(this.ENDPOINT, { params: apiParams });
+    
     return response.data.data;
   }
 

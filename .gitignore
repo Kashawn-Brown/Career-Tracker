@@ -11,6 +11,7 @@ node_modules/
 
 # Environment variables
 .env
+.env.local
 
 # Editor directories and files
 .idea
@@ -33,3 +34,7 @@ uploads/
 
 # place for future features
 z-possible_future_features/
+
+# k6 benchmark outputs
+k6/benchmarks/results/
+k6/benchmarks/results_original/

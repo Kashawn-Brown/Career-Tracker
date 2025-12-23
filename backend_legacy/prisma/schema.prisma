@@ -1,0 +1,327 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                      Int                      @id @default(autoincrement())
+  email                   String                   @unique
+  name                    String
+  role                    UserRole                 @default(USER)
+  phone                   String?
+  bio                     String?
+  skills                  Json?                    // Array of strings stored as JSON
+  location                String?
+  currentJobTitle         String?
+  resumeLink              String?
+  githubLink              String?
+  linkedinLink            String?
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  emailVerified           Boolean                  @default(false)
+  secondaryEmail          String?
+  secondaryEmailVerified  Boolean                  @default(false)
+  password                String?
+  provider                AuthProvider             @default(LOCAL)
+  providerId              String?
+  auditLogs               AuditLog[]
+  contacts                Contact[]
+  emailVerificationTokens EmailVerificationToken[]
+  secondaryEmailVerificationTokens SecondaryEmailVerificationToken[]
+  jobApplications         JobApplication[]
+  passwordResetTokens     PasswordResetToken[]
+  passwordHistory         PasswordHistory[]
+  securityQuestions       SecurityQuestion[]
+  sessions                Session[]
+  tags                    Tag[]
+  userSecurity            UserSecurity?
+
+  @@index([email])
+  @@index([secondaryEmail])
+  @@index([provider, providerId])
+  @@map("users")
+}
+
+model Session {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model EmailVerificationToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+  @@map("email_verification_tokens")
+}
+
+model SecondaryEmailVerificationToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  token     String   @unique
+  email     String   // Store the secondary email being verified
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+  @@map("secondary_email_verification_tokens")
+}
+
+model PasswordResetToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
+
+model PasswordHistory {
+  id              Int      @id @default(autoincrement())
+  userId          Int
+  passwordHash    String
+  createdAt       DateTime @default(now())
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("password_history")
+}
+
+model SecurityQuestion {
+  id         Int                    @id @default(autoincrement())
+  userId     Int
+  question   SecurityQuestionType
+  answerHash String
+  createdAt  DateTime               @default(now())
+  user       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, question])
+  @@index([userId])
+  @@map("security_questions")
+}
+
+model AuditLog {
+  id          Int             @id @default(autoincrement())
+  userId      Int?
+  event       AuditEventType
+  details     String?         // JSON string for additional event details
+  ipAddress   String?
+  userAgent   String?
+  successful  Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  user        User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([event])
+  @@index([createdAt])
+  @@index([ipAddress])
+  @@map("audit_logs")
+}
+
+model UserSecurity {
+  id                      String    @id @default(cuid())
+  userId                  Int       @unique
+  user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isLocked                Boolean   @default(false)
+  lockoutCount            Int       @default(0)
+  lockoutUntil            DateTime?
+  lastLockoutReason       String?
+  forcePasswordReset      Boolean   @default(false)
+  forcePasswordResetReason String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([isLocked])
+  @@index([lockoutUntil])
+  @@map("user_security")
+}
+
+model JobApplication {
+  id                 Int             @id @default(autoincrement())
+  userId             Int
+  company            String
+  position           String
+  dateApplied        DateTime        @default(now())
+  status             String          @default("applied")
+  type               String?
+  salary             Int?
+  jobLink            String?
+  compatibilityScore Int?            @default(0)
+  notes              String?
+  isStarred          Boolean         @default(false)
+  followUpDate       DateTime?
+  deadline           DateTime?
+  workArrangement    String?                              // 'remote', 'hybrid', 'in_office', 'flexible'
+  description        String?                              // Job description/requirements
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  documents          Document[]
+  user               User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobConnections     JobConnection[]
+  tags               Tag[]           @relation("JobApplicationToTag")
+
+  @@index([userId])
+  @@index([status])
+  @@index([dateApplied])
+  @@map("job_applications")
+}
+
+model Tag {
+  id              Int              @id @default(autoincrement())
+  userId          Int
+  createdAt       DateTime         @default(now())
+  name            String
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobApplications JobApplication[] @relation("JobApplicationToTag")
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@index([name])
+  @@map("tags")
+}
+
+model Contact {
+  id             Int             @id @default(autoincrement())
+  userId         Int
+  name           String
+  email          String?
+  phone          String?
+  company        String?
+  role           String?
+  linkedinUrl    String?
+  connectionType String?
+  notes          String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobConnections JobConnection[]
+
+  @@index([userId])
+  @@map("contacts")
+}
+
+model JobConnection {
+  id               Int            @id @default(autoincrement())
+  jobApplicationId Int
+  contactId        Int?
+  name             String
+  email            String?
+  phone            String?
+  company          String?
+  role             String?
+  connectionType   String
+  status           String         @default("not_contacted")
+  notes            String?
+  contactedAt      DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  contact          Contact?       @relation(fields: [contactId], references: [id])
+  jobApplication   JobApplication @relation(fields: [jobApplicationId], references: [id], onDelete: Cascade)
+
+  @@index([jobApplicationId])
+  @@index([contactId])
+  @@map("job_connections")
+}
+
+model Document {
+  id               Int            @id @default(autoincrement())
+  filename         String         // Internal filename used for storage
+  originalName     String         // Original filename from user
+  path             String         // Full file path for local storage
+  fileUrl          String         // URL for accessing the file (keeping for backward compatibility)
+  fileSize         Int?           // File size in bytes
+  mimeType         String         // MIME type (e.g., 'application/pdf')
+  type             String         // Document type (e.g., 'resume', 'cover_letter') - keeping for backward compatibility
+  uploadDate       DateTime       @default(now()) // When the file was uploaded
+  jobApplicationId Int
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  jobApplication   JobApplication @relation(fields: [jobApplicationId], references: [id], onDelete: Cascade)
+
+  @@index([jobApplicationId])
+  @@index([type])
+  @@index([mimeType])
+  @@index([uploadDate])
+  @@map("documents")
+}
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+  LINKEDIN
+  GITHUB
+}
+
+enum UserRole {
+  USER
+  PREMIUM
+  ADMIN
+  MODERATOR
+}
+
+enum SecurityQuestionType {
+  FIRST_PET_NAME
+  MOTHER_MAIDEN_NAME
+  FIRST_SCHOOL
+  CHILDHOOD_FRIEND
+  BIRTH_CITY
+  FIRST_CAR
+  FAVORITE_TEACHER
+  FIRST_JOB
+  CHILDHOOD_STREET
+  FATHER_MIDDLE_NAME
+}
+
+enum AuditEventType {
+  LOGIN_SUCCESS
+  LOGIN_FAILURE
+  LOGOUT
+  PASSWORD_CHANGE
+  PASSWORD_RESET_REQUEST
+  PASSWORD_RESET_SUCCESS
+  PASSWORD_RESET_FORCED
+  EMAIL_VERIFICATION
+  SECURITY_QUESTIONS_SETUP
+  SECURITY_QUESTIONS_CHANGE
+  SECURITY_QUESTION_VERIFICATION_SUCCESS
+  SECURITY_QUESTION_VERIFICATION_FAILURE
+  SECONDARY_EMAIL_ADDED
+  SECONDARY_EMAIL_CHANGED
+  SECONDARY_EMAIL_VERIFICATION
+  SECONDARY_EMAIL_RECOVERY
+  ACCOUNT_LOCKED
+  ACCOUNT_UNLOCKED
+  SUSPICIOUS_ACTIVITY
+  MULTIPLE_FAILED_ATTEMPTS
+  SESSION_EXPIRED
+  ADMIN_LOGIN
+}
