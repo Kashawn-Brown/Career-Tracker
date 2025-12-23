@@ -217,7 +217,9 @@ export default function ApplicationsPage() {
           {errorMessage ? <Alert variant="destructive">{errorMessage}</Alert> : null}
 
           {isLoading && !data ? (
-            <div className="text-sm">Loading applications...</div>
+            <div className="rounded-md border bg-muted/20 p-4 text-sm text-muted-foreground">
+              Loading applications...
+            </div>
           ) : (
             <ApplicationsTable
               items={data?.items ?? []}

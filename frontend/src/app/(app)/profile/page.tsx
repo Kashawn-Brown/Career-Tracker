@@ -248,14 +248,21 @@ const [isEditingResume, setIsEditingResume] = useState(false);
       setIsResumeDeleting(false);
     }
   }
-
-
-
-  if (isLoading) return <div className="text-sm">Loading profile...</div>;
-
+  
   const hasMessages = !!(errorMessage || resumeErrorMessage || successMessage);
 
   // TODO: If base resume exists, switch to 2-col layout and render first-page preview thumbnail.
+
+
+  if (isLoading) {
+    return (
+      <div className="mx-auto max-w-3xl">
+        <div className="rounded-md border bg-muted/20 p-4 text-sm text-muted-foreground">
+          Loading profile...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-xl space-y-6">

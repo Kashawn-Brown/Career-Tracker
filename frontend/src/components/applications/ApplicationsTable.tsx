@@ -83,8 +83,13 @@ export function ApplicationsTable({
           <tbody>
             {items.length === 0 ? (
               <tr>
-                <td className="p-3 text-muted-foreground" colSpan={5}>
-                  No applications yet.
+                <td className="p-8 text-center text-muted-foreground" colSpan={5}>
+                  <div className="space-y-1">
+                    <div className="font-medium text-foreground">No applications yet</div>
+                    <div className="text-sm text-muted-foreground">
+                      Add your first application above to get started.
+                    </div>
+                  </div>
                 </td>
               </tr>
             ) : (
