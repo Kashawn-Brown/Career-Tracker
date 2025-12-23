@@ -40,6 +40,9 @@ export default function ProfilePage() {
   // Profile edit mode: prevents accidental edits
   const [isEditingProfile, setIsEditingProfile] = useState(false);
 
+  // Base resume edit mode: avoids accidental edits
+const [isEditingResume, setIsEditingResume] = useState(false);
+
   // Local component state
   const [name, setName] = useState(user?.name ?? "");
   const [isLoading, setIsLoading] = useState(true);
@@ -68,6 +71,7 @@ export default function ProfilePage() {
         try { // It's own try/catch block so it does not block profile load even if resume load fails 
           const resumeRes = await documentsApi.getBaseResume();
           setBaseResume(resumeRes.document);
+          setIsEditingResume(!resumeRes.document); // if none exists, go straight to edit mode
 
           if (resumeRes.document) {
             setResumeUrl(resumeRes.document.url);
@@ -80,6 +84,8 @@ export default function ProfilePage() {
           
           // Resume load failed: keep profile usable, show resume-only error message
           setBaseResume(null);
+          setIsEditingResume(true); // if we can't load, allow user to enter a resume anyway
+
           if (err instanceof ApiError) setResumeErrorMessage(err.message);
           else setResumeErrorMessage("Failed to load base resume.")
         }
@@ -112,7 +118,7 @@ export default function ProfilePage() {
   }
 
   // Saving profile changes
-  async function handleSave(e: React.FormEvent) {
+  async function handleProfileSave(e: React.FormEvent) {
     e.preventDefault();
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -150,9 +156,30 @@ export default function ProfilePage() {
   }
 
 
-  // Resets the form to the currently loaded user profile values.
-  function onReset() {
-    setName(user?.name ?? "");
+  // Starts the base resume edit mode.
+  function startResumeEdit() {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setIsEditingResume(true);
+  }
+  
+  // Cancels the base resume edit mode.
+  function cancelResumeEdit() {
+    // Cancel = revert back to last saved resume values (or clear if none)
+    if (baseResume) {
+      setResumeUrl(baseResume.url);
+      setResumeName(baseResume.originalName);
+      setResumeMime(baseResume.mimeType);
+      setResumeSize(baseResume.size ? String(baseResume.size) : "");
+      setIsEditingResume(false);
+    } else {
+      setResumeUrl("");
+      setResumeName("");
+      setResumeMime("");
+      setResumeSize("");
+      setIsEditingResume(false);
+    }
+  
     setErrorMessage(null);
     setSuccessMessage(null);
   }
@@ -179,8 +206,11 @@ export default function ProfilePage() {
     try {
       setIsResumeSaving(true);
 
+
       const res = await documentsApi.upsertBaseResume(payload);
+
       setBaseResume(res.document);
+      setIsEditingResume(false); // exit edit mode on success
       setSuccessMessage("Base resume saved.");
     } catch (err) {
       if (err instanceof ApiError) setErrorMessage(err.message);
@@ -208,6 +238,7 @@ export default function ProfilePage() {
       setResumeMime("");
       setResumeSize("");
 
+      setIsEditingResume(true); // encourage re-adding after deletion
       setSuccessMessage("Base resume deleted.");
     } catch (err) {
       if (err instanceof ApiError) setErrorMessage(err.message);
@@ -239,6 +270,7 @@ export default function ProfilePage() {
         </div>
       ) : null}
 
+
       {/* Profile section */}
       <Card>
         <CardHeader>
@@ -258,7 +290,7 @@ export default function ProfilePage() {
           </CardHeader>
 
         <CardContent className="space-y-4">
-          <form className="space-y-4" onSubmit={handleSave}>
+          <form className="space-y-4" onSubmit={handleProfileSave}>
             <div className="space-y-1">
               <Label htmlFor="name">Name</Label>
               <Input 
@@ -285,24 +317,39 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
 
+
       {/* Base resume section */}
       <Card>
         <CardHeader className="border-b">
           <CardTitle>Base Resume</CardTitle>
           <CardDescription>
-            Store a link to your current resume (metadata-only for MVP).
+            Store a link to your current resume <br/>(metadata-only for MVP).
           </CardDescription>
 
           <CardAction>
-            <Button
-              type="button"
-              variant="destructive"
-              size="sm"
-              onClick={handleResumeDelete}
-              disabled={!baseResume || isResumeDeleting}
-            >
-              {isResumeDeleting ? "Deleting..." : "Delete"}
-            </Button>
+            <div className="flex gap-2">
+              {!isEditingResume ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={startResumeEdit}
+                  disabled={!baseResume}
+                >
+                  Edit
+                </Button>
+              ) : null}
+
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                onClick={handleResumeDelete}
+                disabled={!baseResume || isResumeDeleting}
+              >
+                {isResumeDeleting ? "Deleting..." : "Delete"}
+              </Button>
+            </div>
           </CardAction>
         </CardHeader>
 
@@ -328,6 +375,8 @@ export default function ProfilePage() {
                 value={resumeUrl}
                 onChange={(e) => setResumeUrl(e.target.value)}
                 placeholder="https://... or https://storage.googleapis.com/..."
+                readOnly={!isEditingResume}
+                className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
               />
             </div>
 
@@ -338,6 +387,8 @@ export default function ProfilePage() {
                 value={resumeName}
                 onChange={(e) => setResumeName(e.target.value)}
                 placeholder="Kashawn_Brown_Resume.pdf"
+                readOnly={!isEditingResume}
+                className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
               />
             </div>
 
@@ -348,6 +399,8 @@ export default function ProfilePage() {
                 value={resumeMime}
                 onChange={(e) => setResumeMime(e.target.value)}
                 placeholder="application/pdf"
+                readOnly={!isEditingResume}
+                className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
               />
             </div>
 
@@ -358,12 +411,26 @@ export default function ProfilePage() {
                 value={resumeSize}
                 onChange={(e) => setResumeSize(e.target.value)}
                 placeholder="123456"
+                readOnly={!isEditingResume}
+                className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
               />
             </div>
 
-            <Button type="submit" disabled={isResumeSaving}>
-              {isResumeSaving ? "Saving..." : baseResume ? "Replace base resume" : "Save base resume"}
-            </Button>
+            {isEditingResume ? (
+              <div className="flex gap-2">
+                <Button type="submit" disabled={isResumeSaving}>
+                  {isResumeSaving
+                    ? "Saving..."
+                    : baseResume
+                    ? "Replace base resume"
+                    : "Save base resume"}
+                </Button>
+
+                <Button type="button" variant="outline" onClick={cancelResumeEdit} disabled={isResumeSaving}>
+                  Cancel
+                </Button>
+              </div>
+            ) : null}
           </form>
         </CardContent>
       </Card>
