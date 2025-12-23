@@ -6,7 +6,14 @@ import { routes } from "@/lib/api/routes";
 import type { MeResponse, UpdateMeRequest } from "@/types/api";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { documentsApi } from "@/lib/api/documents";
@@ -123,6 +130,7 @@ export default function ProfilePage() {
     }
   }
 
+
   // Resets the form to the currently loaded user profile values.
   function onReset() {
     setName(user?.name ?? "");
@@ -194,113 +202,134 @@ export default function ProfilePage() {
 
   if (isLoading) return <div className="text-sm">Loading profile...</div>;
 
+  const hasMessages = !!(errorMessage || resumeErrorMessage || successMessage);
+
   return (
-    <Card className="max-w-xl">
-      <CardHeader>
-        <CardTitle>Profile</CardTitle>
-      </CardHeader>
-
-      {/* Profile Update Section: name only (MVP). */}
-      <CardContent className="space-y-4">
-        {errorMessage ? <div className="text-sm text-red-600">{errorMessage}</div> : null}
-        {resumeErrorMessage ? <div className="text-sm text-orange-600">{resumeErrorMessage}</div> : null}
-        {successMessage ? <div className="text-sm text-green-600">{successMessage}</div> : null}
-
-        <div className="text-sm text-muted-foreground">
-          Signed in as <span className="font-medium">{user?.email}</span>
+    <div className="mx-auto max-w-xl space-y-6">
+      {hasMessages ? (
+        <div className="space-y-1">
+          {errorMessage ? <div className="text-sm text-red-600">{errorMessage}</div> : null}
+          {resumeErrorMessage ? (
+            <div className="text-sm text-orange-600">{resumeErrorMessage}</div>
+          ) : null}
+          {successMessage ? (
+            <div className="text-sm text-green-600">{successMessage}</div>
+          ) : null}
         </div>
+      ) : null}
 
-        <form className="space-y-4" onSubmit={handleSave}>
-          <div className="space-y-1">
-            <Label htmlFor="name">Name</Label>
-            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+      {/* Profile section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Profile</CardTitle>
+          <CardDescription>
+            Signed in as <span className="font-medium">{user?.email}</span>
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+          <form className="space-y-4" onSubmit={handleSave}>
+            <div className="space-y-1">
+              <Label htmlFor="name">Name</Label>
+              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+
+            <div className="flex gap-2">
+              <Button type="submit" disabled={isSaving}>
+                {isSaving ? "Saving..." : "Save"}
+              </Button>
+
+              <Button type="button" variant="outline" onClick={onReset} disabled={isSaving}>
+                Reset
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Base resume section */}
+      <Card>
+        <CardHeader className="border-b">
+          <CardTitle>Base Resume</CardTitle>
+          <CardDescription>
+            Store a link to your current resume (metadata-only for MVP).
+          </CardDescription>
+
+          <CardAction>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleResumeDelete}
+              disabled={!baseResume || isResumeDeleting}
+            >
+              {isResumeDeleting ? "Deleting..." : "Delete"}
+            </Button>
+          </CardAction>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+          <div className="text-sm text-muted-foreground">
+            {baseResume ? (
+              <>
+                Current:{" "}
+                <a className="underline" href={baseResume.url} target="_blank" rel="noreferrer">
+                  {baseResume.originalName}
+                </a>
+              </>
+            ) : (
+              "No base resume saved yet."
+            )}
           </div>
 
-          <Button type="submit" disabled={isSaving}>
-            {isSaving ? "Saving..." : "Save"}
-          </Button>
-        </form>
-        {/* Reset Button */}
-        <Button variant="outline" onClick={onReset}>
-          Reset
-        </Button>
-      </CardContent>
+          <form className="space-y-4" onSubmit={handleResumeSave}>
+            <div className="space-y-1">
+              <Label htmlFor="resumeUrl">Resume URL</Label>
+              <Input
+                id="resumeUrl"
+                value={resumeUrl}
+                onChange={(e) => setResumeUrl(e.target.value)}
+                placeholder="https://... or https://storage.googleapis.com/..."
+              />
+            </div>
 
+            <div className="space-y-1">
+              <Label htmlFor="resumeName">File name</Label>
+              <Input
+                id="resumeName"
+                value={resumeName}
+                onChange={(e) => setResumeName(e.target.value)}
+                placeholder="Kashawn_Brown_Resume.pdf"
+              />
+            </div>
 
-      {/* BaseResumeSection: metadata-only resume record (upload comes later). */}
-      <div className="pt-6 border-t space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-base font-semibold">Base Resume</h3>
+            <div className="space-y-1">
+              <Label htmlFor="resumeMime">MIME type</Label>
+              <Input
+                id="resumeMime"
+                value={resumeMime}
+                onChange={(e) => setResumeMime(e.target.value)}
+                placeholder="application/pdf"
+              />
+            </div>
 
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={handleResumeDelete}
-            disabled={!baseResume || isResumeDeleting}
-          >
-            {isResumeDeleting ? "Deleting..." : "Delete"}
-          </Button>
-        </div>
+            <div className="space-y-1">
+              <Label htmlFor="resumeSize">Size (bytes) (optional)</Label>
+              <Input
+                id="resumeSize"
+                value={resumeSize}
+                onChange={(e) => setResumeSize(e.target.value)}
+                placeholder="123456"
+              />
+            </div>
 
-        <div className="text-sm text-muted-foreground">
-          {baseResume ? (
-            <>
-              Current:{" "}
-              <a className="underline" href={baseResume.url} target="_blank" rel="noreferrer">
-                {baseResume.originalName}
-              </a>
-            </>
-          ) : (
-            "No base resume saved yet."
-          )}
-        </div>
-
-        <form className="space-y-4" onSubmit={handleResumeSave}>
-          <div className="space-y-1">
-            <Label htmlFor="resumeUrl">Resume URL</Label>
-            <Input
-              id="resumeUrl"
-              value={resumeUrl}
-              onChange={(e) => setResumeUrl(e.target.value)}
-              placeholder="https://... or https://storage.googleapis.com/..."
-            />
-          </div>
-
-          <div className="space-y-1">
-            <Label htmlFor="resumeName">File name</Label>
-            <Input
-              id="resumeName"
-              value={resumeName}
-              onChange={(e) => setResumeName(e.target.value)}
-              placeholder="Kashawn_Brown_Resume.pdf"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <Label htmlFor="resumeMime">MIME type</Label>
-            <Input
-              id="resumeMime"
-              value={resumeMime}
-              onChange={(e) => setResumeMime(e.target.value)}
-              placeholder="application/pdf"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <Label htmlFor="resumeSize">Size (bytes) (optional)</Label>
-            <Input
-              id="resumeSize"
-              value={resumeSize}
-              onChange={(e) => setResumeSize(e.target.value)}
-              placeholder="123456"
-            />
-          </div>
-
-          <Button type="submit" disabled={isResumeSaving}>
-            {isResumeSaving ? "Saving..." : baseResume ? "Replace base resume" : "Save base resume"}
-          </Button>
-        </form>
-      </div>
-    </Card>
+            <Button type="submit" disabled={isResumeSaving}>
+              {isResumeSaving ? "Saving..." : baseResume ? "Replace base resume" : "Save base resume"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
+
+// TODO: If base resume exists, switch to 2-col layout and render first-page preview thumbnail.
