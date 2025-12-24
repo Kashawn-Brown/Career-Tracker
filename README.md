@@ -1,4 +1,10 @@
+<p align="center">
+  <img src="./CareerTrackerLogo.png" alt="Career-Tracker Logo" width="240" />
+</p>
+
 # Career-Tracker
+
+
 
 Career-Tracker is a full-stack **job application manager** built to replace messy spreadsheets, scattered notes, and lost job links with a single, focused workspace. It centralizes applications, statuses, documents, contacts, and analytics so job seekers can see exactly where they stand and what to do next.
 
@@ -6,6 +12,7 @@ Under the hood it uses a typed Fastify + Postgres API and a React/Next.js fronte
 
 AI assistance and full GCP deployment (Cloud Run, Cloud SQL, GCS) are part of the planned roadmap: parsing job descriptions into structured fields, summarizing postings, assessing resume fit, and generating tailored cover-letter drafts, all backed by CI/CD and runtime metrics.
 
+<!-- ![Career-Tracker Screenshot](./CareerTracker.png) -->
 ---
 
 ## Architecture overview
@@ -94,5 +101,12 @@ API: [http://localhost:3002/api/v1](http://localhost:3002/api/v1)
 
 ---
 
+## Quick links
+
+- Frontend docs: `frontend/README.md`
+- Backend docs: `backend/README.md`
+- Benchmarks: `k6/benchmarks/README.md`
+
+---
 
 _Last updated: 2025-12-23_
