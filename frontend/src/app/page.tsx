@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
+import { Header } from "@/components/layout/Header";
 
 const PREVIEW_ROWS = [
   {
@@ -59,33 +60,37 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-background">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
-          <div className="text-base font-semibold tracking-tight">Career-Tracker</div>
+      {showAuthedActions ? (
+        <Header />
+      ) : (
+        <header className="border-b bg-background">
+          <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
+            <div className="text-base font-semibold tracking-tight">Career-Tracker</div>
 
-          <div className="flex items-center gap-2">
-            {showAuthedActions ? (
-              <>
-                <Button asChild variant="outline">
-                  <Link href="/profile">Profile</Link>
-                </Button>
-                <Button asChild>
-                  <Link href="/applications">Applications</Link>
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button asChild variant="ghost">
-                  <Link href="/login">Log in</Link>
-                </Button>
-                <Button asChild>
-                  <Link href="/register">Sign up</Link>
-                </Button>
-              </>
-            )}
+            <div className="flex items-center gap-2">
+              {showAuthedActions ? (
+                <>
+                  <Button asChild variant="outline">
+                    <Link href="/profile">Profile</Link>
+                  </Button>
+                  <Button asChild>
+                    <Link href="/applications">Applications</Link>
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button asChild variant="ghost">
+                    <Link href="/login">Log in</Link>
+                  </Button>
+                  <Button asChild>
+                    <Link href="/register">Sign up</Link>
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
 
       <main className="mx-auto w-full max-w-5xl px-4 py-10">
         <section className="mx-auto max-w-2xl space-y-4 text-center">
@@ -110,12 +115,18 @@ export default function HomePage() {
               </>
             ) : (
               <>
-                <Button asChild size="lg">
-                  <Link href="/register">Get started</Link>
-                </Button>
-                <Button asChild variant="outline" size="lg">
-                  <Link href="/login">Log in</Link>
-                </Button>
+                <div className="flex flex-col items-center gap-2">
+                  <Button asChild size="lg">
+                    <Link href="/register">Get started</Link>
+                  </Button>
+
+                  <div className="text-sm text-muted-foreground">
+                    Have an account?{" "}
+                    <Link href="/login" className="underline underline-offset-4">
+                      Log in
+                    </Link>
+                  </div>
+                </div>
               </>
             )}
           </div>
@@ -199,22 +210,24 @@ export default function HomePage() {
           </Card>
         </section>
 
-        <section className="mt-10 rounded-lg border bg-muted/20 p-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <div className="font-semibold">Ready to organize your search?</div>
-              <div className="text-sm text-muted-foreground">
-                Create an account and start tracking in under a minute.
+        {!showAuthedActions && (
+          <section className="mt-10 rounded-lg border bg-muted/20 p-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="font-semibold">Ready to organize your search?</div>
+                <div className="text-sm text-muted-foreground">
+                  Create an account and start tracking in under a minute.
+                </div>
               </div>
-            </div>
 
-            <Button asChild>
-              <Link href={showAuthedActions ? "/applications" : "/register"}>
-                {showAuthedActions ? "Go to applications" : "Create account"}
-              </Link>
-            </Button>
-          </div>
-        </section>
+              <Button asChild>
+                <Link href={showAuthedActions ? "/applications" : "/register"}>
+                  {showAuthedActions ? "Go to applications" : "Create account"}
+                </Link>
+              </Button>
+            </div>
+          </section>
+        )}
       </main>
 
       <footer className="border-t">
