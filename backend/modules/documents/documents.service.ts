@@ -22,7 +22,7 @@ export async function upsertBaseResume(userId: string, input: upsertBaseResumeIn
   
   // Need to use transaction to do multiple db operations at once
   // 1. delete old base resume -> 2. create the new base resume -> 3. update users.baseResumeUrl
-  return prisma.$transaction(async (db) => {
+  return prisma.$transaction(async (db: Prisma.TransactionClient) => {
     
     // Delete existing base resume doc
     await db.document.deleteMany({

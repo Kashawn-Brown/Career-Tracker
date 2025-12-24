@@ -132,7 +132,7 @@ export async function updateApplication(userId: string, id: string, input: Updat
   }
 
   // Wrap in transaction to group the db operations into one
-  return prisma.$transaction(async (db) => {
+  return prisma.$transaction(async (db: Prisma.TransactionClient) => {
     const result = await db.jobApplication.updateMany({
       where: { id, userId },
       data,

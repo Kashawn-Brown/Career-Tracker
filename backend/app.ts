@@ -11,9 +11,16 @@ import { documentsRoutes } from "./modules/documents/documents.routes.js";
 export function buildApp() {
   const app = Fastify({ logger: true });
 
+  // CORS: controlled by env so local + deployed frontends can call the API.
+  // Set CORS_ORIGIN as a comma-separated list, ex: CORS_ORIGIN="http://localhost:3000,https://your-app.vercel.app"
+  const corsOrigin = (process.env.CORS_ORIGIN ?? "http://localhost:3000")
+                      .split(",")
+                      .map((s) => s.trim())
+                      .filter(Boolean);
+
   // CORS: allow the Next.js dev server to call the API during local development.
   app.register(cors, {
-    origin: ["http://localhost:3000"],
+    origin: corsOrigin,
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   });
