@@ -62,6 +62,7 @@ export function ApplicationsTable({
     "OFFER",
     "REJECTED",
     "WITHDRAWN",
+    "WISHLIST"
   ];
 
   return (
