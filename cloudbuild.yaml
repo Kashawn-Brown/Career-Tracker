@@ -13,10 +13,12 @@ steps:
 images:
   - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA"
 
-options:
-  defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET
-
+# Custom variables used in the tag
 substitutions:
   _REGION: "us-central1"
   _REPO: "career-tracker"
   _IMAGE: "career-tracker-api"
+
+# Tell Cloud Build to send logs to Cloud Logging only
+options:
+  logging: CLOUD_LOGGING_ONLY
