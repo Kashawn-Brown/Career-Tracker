@@ -1,0 +1,22 @@
+# Tells Cloud Build: how to build the Docker image -> where to push it (Artifact Registry) -> how to tag it
+steps:
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "build",
+        "-f", "backend/Dockerfile",
+        "-t", "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA",
+        ".",
+      ]
+
+# tells Cloud Build “push this image after build”
+images:
+  - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA"
+
+substitutions:
+  _REGION: "us-central1"
+  _REPO: "career-tracker"
+  _IMAGE: "career-tracker-api"
+
+options:
+  logging: CLOUD_LOGGING_ONLY
