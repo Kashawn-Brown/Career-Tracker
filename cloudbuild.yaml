@@ -36,7 +36,7 @@ steps:
         "--add-cloudsql-instances", "${_CLOUDSQL_CONNECTION_NAME}",
 
         # Inject secret as env var (sets env var DATABASE_URL from Secret Manager)
-        "--set-secrets", "DATABASE_URL=DATABASE_URL:latest",
+        "--set-secrets", "DATABASE_URL=DATABASE_URL:latest","JWT_SECRET=JWT_SECRET:latest"
 
         # Quiet mode
         "--quiet"
