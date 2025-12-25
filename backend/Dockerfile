@@ -10,9 +10,6 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY backend/package.json backend/package.json
 
-# For shared packages:
-COPY packages ./packages
-
 # Install all dependencies
 RUN npm ci
 
