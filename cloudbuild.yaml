@@ -13,6 +13,7 @@ steps:
 images:
   - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA"
 
+# Custom variables used in the tag
 substitutions:
   _REGION: "us-central1"
   _REPO: "career-tracker"
