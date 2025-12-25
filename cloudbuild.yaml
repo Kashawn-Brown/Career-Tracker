@@ -4,10 +4,8 @@ steps:
     args:
       [
         "build",
-        "-f",
-        "backend/Dockerfile",
-        "-t",
-        "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA",
+        "-f", "backend/Dockerfile",
+        "-t", "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA",
         ".",
       ]
 
@@ -19,3 +17,6 @@ substitutions:
   _REGION: "us-central1"
   _REPO: "career-tracker"
   _IMAGE: "career-tracker-api"
+
+options:
+  logging: CLOUD_LOGGING_ONLY
