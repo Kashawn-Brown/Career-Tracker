@@ -57,10 +57,10 @@ substitutions:
   _SERVICE: "career-tracker-api"
 
   # Cloud Run runtime service account
-  _RUNTIME_SA: "career-tracker-api@$PROJECT_ID.iam.gserviceaccount.com"
+  _RUNTIME_SA: "career-tracker-api@${PROJECT_ID}.iam.gserviceaccount.com"
 
   # Cloud SQL connection name
-  _CLOUDSQL_CONNECTION_NAME: "$PROJECT_ID:${_REGION}:career-tracker-db"
+  _CLOUDSQL_CONNECTION_NAME: "${PROJECT_ID}:${_REGION}:career-tracker-db"
 
 # Tell Cloud Build to send logs to Cloud Logging only (don’t store build logs in Cloud Storage bucket by default)
 options:
