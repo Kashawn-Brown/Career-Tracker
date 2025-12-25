@@ -1,5 +1,6 @@
-# Tells Cloud Build: how to build the Docker image -> where to push it (Artifact Registry) -> how to tag it
+# Tells Cloud Build: how to build the Docker image -> where to push it (Artifact Registry) -> to deploy on Cloud Run
 steps:
+  # Build image
   - name: "gcr.io/cloud-builders/docker"
     args:
       [
@@ -9,16 +10,58 @@ steps:
         ".",
       ]
 
-# tells Cloud Build “push this image after build”
+  # Push image (so Cloud Run can pull it immediately)
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "push",
+        "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA",
+      ]
+
+  # Deploy to Cloud Run + attach Cloud SQL + inject Secret
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: gcloud
+    args:
+      [
+        "run", "deploy", "${_SERVICE}",
+        "--image", "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA",
+        "--region", "${_REGION}",
+        "--platform", "managed",
+        "--allow-unauthenticated",
+
+        # Runtime service account
+        "--service-account", "${_RUNTIME_SA}",
+
+        # Attach cloud PostgreSQL instance
+        "--add-cloudsql-instances", "${_CLOUDSQL_CONNECTION_NAME}",
+
+        # Inject secret as env var (sets env var DATABASE_URL from Secret Manager)
+        "--set-secrets", "DATABASE_URL=DATABASE_URL:latest",
+
+        # Quiet mode
+        "--quiet"
+      ]
+
+# Kept for build metadata visibility in Cloud Build UI (tells Cloud Build: This build produced this image)
 images:
   - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA"
 
-# Custom variables used in the tag
+# Custom variables
 substitutions:
+  # Registry info
   _REGION: "us-central1"
   _REPO: "career-tracker"
   _IMAGE: "career-tracker-api"
 
-# Tell Cloud Build to send logs to Cloud Logging only
+  # Cloud Run service name
+  _SERVICE: "career-tracker-api"
+
+  # Cloud Run runtime service account
+  _RUNTIME_SA: "career-tracker-api@$PROJECT_ID.iam.gserviceaccount.com"
+
+  # Cloud SQL connection name
+  _CLOUDSQL_CONNECTION_NAME: "$PROJECT_ID:${_REGION}:career-tracker-db"
+
+# Tell Cloud Build to send logs to Cloud Logging only (don’t store build logs in Cloud Storage bucket by default)
 options:
   logging: CLOUD_LOGGING_ONLY
