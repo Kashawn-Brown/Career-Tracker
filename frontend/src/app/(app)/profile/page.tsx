@@ -429,10 +429,13 @@ const [isEditingResume, setIsEditingResume] = useState(false);
                     ? "Replace base resume"
                     : "Save base resume"}
                 </Button>
-
-                <Button type="button" variant="outline" onClick={cancelResumeEdit} disabled={isResumeSaving}>
+                
+                {baseResume ? (
+                  <Button type="button" variant="outline" onClick={cancelResumeEdit} disabled={isResumeSaving}>
                   Cancel
                 </Button>
+                ): null}
+
               </div>
             ) : null}
           </form>
