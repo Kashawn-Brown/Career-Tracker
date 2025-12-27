@@ -10,9 +10,8 @@ Career-Tracker is a full-stack **job application manager** built to replace mess
 
 Under the hood it uses a typed Fastify + Postgres API and a React/Next.js frontend with secure auth, robust validation, and fast, filterable tables. 
 
-AI assistance and full GCP deployment (Cloud Run, Cloud SQL, GCS) are part of the planned roadmap: parsing job descriptions into structured fields, summarizing postings, assessing resume fit, and generating tailored cover-letter drafts, all backed by CI/CD and runtime metrics.
+AI assistance is part of the planned roadmap: parsing job descriptions into structured fields, summarizing postings, assessing resume fit, and generating tailored cover-letter drafts, all backed by CI/CD and runtime metrics.
 
-<!-- ![Career-Tracker Screenshot](./CareerTracker.png) -->
 ---
 
 ## Architecture overview
@@ -45,7 +44,6 @@ AI assistance and full GCP deployment (Cloud Run, Cloud SQL, GCS) are part of th
   - `POST /applications` p95 **~18-22ms**  
   - `PATCH /applications/:id` p95 **~28-30ms**  
   - **0% request failures** across runs  
-- Future: deploy to Cloud Run + Cloud SQL and repeat benchmarks for production-like metrics
 
 ## Frontend (Web)
 - Built a **Next.js (App Router) + TypeScript** frontend with **Tailwind** and light shadcn/ui usage
@@ -98,6 +96,40 @@ Default ports: frontend `3000`, backend `3002`.
 
 Frontend: [http://localhost:3000](http://localhost:3000)
 API: [http://localhost:3002/api/v1](http://localhost:3002/api/v1)
+
+---
+
+# Deployment
+
+## Backend (GCP) - Production
+
+### What’s deployed
+- Backend runs on **Cloud Run**
+- Database is **Cloud SQL (Postgres)**
+- Deploy pipeline: **Cloud Build trigger** -> Docker build -> Artifact Registry -> Cloud Run deploy
+
+### Required secrets (Secret Manager -> injected into Cloud Run)
+- `DATABASE_URL`
+- `JWT_SECRET`
+
+### Required non-secret env vars (Cloud Run)
+- `NODE_ENV=production`
+- `ENABLE_DEBUG_ROUTES=false`
+- `CORS_ORIGIN`
+
+### Quick verification tests (Postman)
+Base URL: `https://<CLOUD_RUN_URL>`
+
+1) `GET /health` -> `200 { "ok": true }`
+2) `POST /api/v1/auth/login` -> `200 { user, token }`
+3) `GET /api/v1/auth/me` (Authorization: Bearer <token>) -> `200`
+4) `POST /api/v1/applications` (Authorization header) -> `201`
+
+### Where to debug in GCP (UI)
+- Cloud Run -> Service -> **Logs** (runtime errors)
+- Cloud Run -> Service -> **Revisions / Variables & Secrets** (env + secrets)
+- Cloud SQL -> Instance -> **Databases** (DB status)
+- Secret Manager -> **Secrets** (DATABASE_URL / JWT_SECRET)
 
 ---
 
