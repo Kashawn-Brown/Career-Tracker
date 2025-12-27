@@ -35,8 +35,11 @@ steps:
         # Attach cloud PostgreSQL instance
         "--add-cloudsql-instances", "${_CLOUDSQL_CONNECTION_NAME}",
 
-        # Inject secret as env var (sets env var DATABASE_URL from Secret Manager)
+        # Inject secret as env var (sets env vars DATABASE_URL + JWT_SECRET)
         "--set-secrets", "DATABASE_URL=DATABASE_URL:latest,JWT_SECRET=JWT_SECRET:latest",
+
+        # Non-secret runtime env (keeps production consistent across deploys)
+        "--set-env-vars", "NODE_ENV=production,ENABLE_DEBUG_ROUTES=false",
 
         # Quiet mode
         "--quiet"
