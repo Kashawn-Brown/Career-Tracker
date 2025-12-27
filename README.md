@@ -131,6 +131,34 @@ Base URL: `https://<CLOUD_RUN_URL>`
 - Cloud SQL -> Instance -> **Databases** (DB status)
 - Secret Manager -> **Secrets** (DATABASE_URL / JWT_SECRET)
 
+## Frontend (Vercel) - Production
+
+### What’s deployed
+- Frontend is deployed on **Vercel** from the `frontend/` directory (monorepo)
+- Production URL: https://career-tracker-frontend-ten.vercel.app
+
+### Required environment variables (Vercel)
+Set in: Vercel Project → Settings → Environment Variables
+
+- `NEXT_PUBLIC_API_BASE_URL`
+  - Value: `https://<CLOUD_RUN_BACKEND_URL>/api/v1`
+  - Applied to: **Production + Preview** (All Environments)
+
+### CI/CD behavior
+- Pushes to `main` → Vercel **Production** deployment
+- Pull Requests → Vercel **Preview** deployments (auto)
+
+### Quick verification
+1) Open the deployed site
+2) Sign up / log in
+3) Confirm Applications page loads and CRUD works
+
+### CORS note (backend requirement)
+Browser requests require the backend to allow the frontend origin:
+- Cloud Run env var `CORS_ORIGIN` must include:
+  - `http://localhost:3000`
+  - `https://career-tracker-frontend-ten.vercel.app`
+
 ---
 
 ## Quick links
@@ -141,4 +169,4 @@ Base URL: `https://<CLOUD_RUN_URL>`
 
 ---
 
-_Last updated: 2025-12-23_
+_Last updated: 2025-12-27_
