@@ -163,7 +163,7 @@ export default function ApplicationsPage() {
                 id="status"
                 value={status}
                 onChange={(e) => {
-                  setStatus(e.target.value as any);
+                  setStatus(e.target.value as "ALL" | ApplicationStatus);
                   resetToFirstPage();
                 }}
               >
@@ -182,7 +182,7 @@ export default function ApplicationsPage() {
                 <Select
                   value={sortBy}
                   onChange={(e) => {
-                    setSortBy(e.target.value as any);
+                    setSortBy(e.target.value as "updatedAt" | "createdAt" | "company" | "position");
                     resetToFirstPage();
                   }}
                 >
@@ -196,7 +196,7 @@ export default function ApplicationsPage() {
                   className="w-[72px]"
                   value={sortDir}
                   onChange={(e) => {
-                    setSortDir(e.target.value as any);
+                    setSortDir(e.target.value as "desc" | "asc");
                     resetToFirstPage();
                   }}
                 >
