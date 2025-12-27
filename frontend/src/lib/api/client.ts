@@ -89,13 +89,22 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
       onUnauthorized();
     }
 
-    const message =
-      (data && typeof data === "object" && "message" in data && String((data as any).message)) ||
-      `Request failed (${response.status})`;
+    // Prefer a server-provided error message (if present); otherwise fall back to a generic message
+    const message = (hasMessage(data) && String(data.message)) || `Request failed (${response.status})`;
     
     throw new ApiError(message, response.status, data);
   }
 
   // Return the data as whatever we parsed, typed as T
   return data as T;
+}
+
+/**
+ * Type guard: checks whether an unknown value is an object that contains a "message" field. 
+ * If this returns true, TypeScript will allow `x.message` safely.
+ */
+function hasMessage(x: unknown): x is { message: unknown } {
+  
+  //
+  return typeof x === "object" && x !== null && "message" in x;
 }

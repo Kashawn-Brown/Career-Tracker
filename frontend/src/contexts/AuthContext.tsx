@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const res = await apiFetch<MeResponse>(routes.users.me(), { method: "GET" })
           setUser(res.user)
 
-        } catch (err) {
+        } catch {
           // If token is invalid/expired, clear it so not stuck in a broken state.
           clearToken();
           setTokenState(null);
@@ -63,6 +63,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     })()
   }, []);
+
+  // Clears local + in-memory auth state.
+  function logout() {
+    clearToken();
+    setTokenState(null);
+    setUser(null);
+  }
 
   // Registers what "unauthorized" means for the app: clear auth + return to login.
   useEffect(() => {
@@ -104,14 +111,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setToken(res.token);
     setTokenState(res.token);
     setUser(res.user);
-  }
-
-
-  // Clears local + in-memory auth state.
-  function logout() {
-    clearToken();
-    setTokenState(null);
-    setUser(null);
   }
 
 
