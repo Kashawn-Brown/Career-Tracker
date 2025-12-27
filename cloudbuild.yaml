@@ -39,7 +39,7 @@ steps:
         "--set-secrets", "DATABASE_URL=DATABASE_URL:latest,JWT_SECRET=JWT_SECRET:latest",
 
         # Non-secret runtime env (keeps production consistent across deploys)
-        "--set-env-vars", "NODE_ENV=production,ENABLE_DEBUG_ROUTES=false",
+        "--set-env-vars", "NODE_ENV=production,ENABLE_DEBUG_ROUTES=false,CORS_ORIGIN=https://career-tracker-frontend-ten.vercel.app",
 
         # Quiet mode
         "--quiet"

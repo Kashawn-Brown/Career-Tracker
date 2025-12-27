@@ -160,7 +160,18 @@ Browser requests require the backend to allow the frontend origin:
   - `https://career-tracker-frontend-ten.vercel.app`
 
 ---
+  
+## Monitoring / Health
 
+### Backend uptime check
+- `/health` endpoint is monitored with an uptime check
+- If `/health` fails, investigate:
+  - Cloud Run logs
+  - Cloud SQL instance health
+  - Secret Manager env injection (DATABASE_URL/JWT_SECRET)
+  
+---
+  
 ## Quick links
 
 - Frontend docs: `frontend/README.md`
