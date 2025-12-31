@@ -56,7 +56,7 @@ export const ListApplicationsQuery = Type.Object(
 
     // Sorting
     sortBy: Type.Optional(
-      Type.Union([Type.Literal("updatedAt"), Type.Literal("createdAt"), Type.Literal("company")])
+      Type.Union([Type.Literal("updatedAt"), Type.Literal("createdAt"), Type.Literal("company"), Type.Literal("position")])
     ),
     sortDir: Type.Optional(Type.Union([Type.Literal("asc"), Type.Literal("desc")])),
 
