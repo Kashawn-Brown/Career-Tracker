@@ -49,7 +49,7 @@ export type ListApplicationsParams = {
 
   page?: number;
   pageSize?: number;
-  sortBy?: "updatedAt" | "createdAt" | "company";
+  sortBy?: "updatedAt" | "createdAt" | "company" | "position";
   sortDir?: "asc" | "desc";
 }
 
