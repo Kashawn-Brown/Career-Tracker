@@ -42,16 +42,43 @@ export default function ProfilePage() {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
 
   // Base resume edit mode: avoids accidental edits
-const [isEditingResume, setIsEditingResume] = useState(false);
+  const [isEditingResume, setIsEditingResume] = useState(false);
 
-  // Local component state
+  // Local component state (profile fields)
   const [name, setName] = useState(user?.name ?? "");
+  const [location, setLocation] = useState(user?.location ?? "");
+  const [currentRole, setCurrentRole] = useState(user?.currentRole ?? "");
+  const [skillsInput, setSkillsInput] = useState((user?.skills ?? []).join(", "));
+  const [linkedInUrl, setLinkedInUrl] = useState(user?.linkedInUrl ?? "");
+  const [githubUrl, setGithubUrl] = useState(user?.githubUrl ?? "");
+  const [portfolioUrl, setPortfolioUrl] = useState(user?.portfolioUrl ?? "");
+
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [resumeErrorMessage, setResumeErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Helpers
+  function toDisplayString(x: string | null | undefined) {
+    return x ?? "";
+  }
+
+  function parseSkills(input: string): string[] {
+    // Comma-separated list → trimmed array; drops empties; de-dupes.
+    const items = input
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    return Array.from(new Set(items));
+  }
+
+  function arraysEqual(a: string[], b: string[]) {
+    if (a.length !== b.length) return false;
+    return a.every((v, i) => v === b[i]);
+  }
 
   // Loading the profile on mount (& depending on setCurrentUser)
   useEffect(() => {
@@ -64,8 +91,17 @@ const [isEditingResume, setIsEditingResume] = useState(false);
         
         // Fetch freshest user data for profile screen.
         const res = await apiFetch<MeResponse>(routes.users.me(), { method: "GET" });
+        
         setCurrentUser(res.user);
+        
+        // Hydrate local form state from API response (source of truth).
         setName(res.user.name ?? "");
+        setLocation(toDisplayString(res.user.location));
+        setCurrentRole(toDisplayString(res.user.currentRole));
+        setSkillsInput((res.user.skills ?? []).join(", "));
+        setLinkedInUrl(toDisplayString(res.user.linkedInUrl));
+        setGithubUrl(toDisplayString(res.user.githubUrl));
+        setPortfolioUrl(toDisplayString(res.user.portfolioUrl));
 
         
         // Load base resume metadata for the logged-in user.
@@ -113,6 +149,13 @@ const [isEditingResume, setIsEditingResume] = useState(false);
   function cancelProfileEdit() {
     // Cancel = revert local form state back to last saved user values
     setName(user?.name ?? "");
+    setLocation(toDisplayString(user?.location));
+    setCurrentRole(toDisplayString(user?.currentRole));
+    setSkillsInput((user?.skills ?? []).join(", "));
+    setLinkedInUrl(toDisplayString(user?.linkedInUrl));
+    setGithubUrl(toDisplayString(user?.githubUrl));
+    setPortfolioUrl(toDisplayString(user?.portfolioUrl));
+    
     setErrorMessage(null);
     setSuccessMessage(null);
     setIsEditingProfile(false);
@@ -124,17 +167,32 @@ const [isEditingResume, setIsEditingResume] = useState(false);
     setErrorMessage(null);
     setSuccessMessage(null);
 
-    if (!name.trim()) {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
       setErrorMessage("Name is required.");
       return;
     }
 
-    if (name.trim() === user?.name) {
-      setErrorMessage("Name is the same.");
+    const payload: UpdateMeRequest = {};
+
+    // Only send fields that changed (keeps updates intentional)
+    if (trimmedName !== (user?.name ?? "")) payload.name = trimmedName;
+
+    if (location !== toDisplayString(user?.location)) payload.location = location;
+    if (currentRole !== toDisplayString(user?.currentRole)) payload.currentRole = currentRole;
+
+    const nextSkills = parseSkills(skillsInput);
+    const currentSkills = user?.skills ?? [];
+    if (!arraysEqual(nextSkills, currentSkills)) payload.skills = nextSkills;
+
+    if (linkedInUrl !== toDisplayString(user?.linkedInUrl)) payload.linkedInUrl = linkedInUrl;
+    if (githubUrl !== toDisplayString(user?.githubUrl)) payload.githubUrl = githubUrl;
+    if (portfolioUrl !== toDisplayString(user?.portfolioUrl)) payload.portfolioUrl = portfolioUrl;
+
+    if (Object.keys(payload).length === 0) {
+      setErrorMessage("No changes.");
       return;
     }
-
-    const payload: UpdateMeRequest = { name: name.trim() };
 
     try {
       setIsSaving(true);
@@ -147,6 +205,17 @@ const [isEditingResume, setIsEditingResume] = useState(false);
 
       // Sync auth state so header updates immediately.
       setCurrentUser(res.user);
+
+      // Update local form state to match the saved result.
+      setName(res.user.name ?? "");
+      setLocation(toDisplayString(res.user.location));
+      setCurrentRole(toDisplayString(res.user.currentRole));
+      setSkillsInput((res.user.skills ?? []).join(", "));
+      setLinkedInUrl(toDisplayString(res.user.linkedInUrl));
+      setGithubUrl(toDisplayString(res.user.githubUrl));
+      setPortfolioUrl(toDisplayString(res.user.portfolioUrl));
+
+      setIsEditingProfile(false);
       setSuccessMessage("Saved.");
     } catch (err) {
       if (err instanceof ApiError) setErrorMessage(err.message);
@@ -293,17 +362,89 @@ const [isEditingResume, setIsEditingResume] = useState(false);
             ) : null}
           </CardHeader>
 
-        <CardContent className="space-y-4">
+          <CardContent className="space-y-4">
           <form className="space-y-4" onSubmit={handleProfileSave}>
             <div className="space-y-1">
               <Label htmlFor="name">Name</Label>
-              <Input 
-                id="name" 
-                value={name} 
-                onChange={(e) => setName(e.target.value)} 
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
                 readOnly={!isEditingProfile}
                 className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-                 />
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="location">Location</Label>
+              <Input
+                id="location"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="..."
+                readOnly={!isEditingProfile}
+                className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="currentRole">Current role</Label>
+              <Input
+                id="currentRole"
+                value={currentRole}
+                onChange={(e) => setCurrentRole(e.target.value)}
+                placeholder="..."
+                readOnly={!isEditingProfile}
+                className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="skills">Skills (comma-separated)</Label>
+              <Input
+                id="skills"
+                value={skillsInput}
+                onChange={(e) => setSkillsInput(e.target.value)}
+                placeholder="..."
+                readOnly={!isEditingProfile}
+                className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="linkedInUrl">LinkedIn URL</Label>
+              <Input
+                id="linkedInUrl"
+                value={linkedInUrl}
+                onChange={(e) => setLinkedInUrl(e.target.value)}
+                placeholder="..."
+                readOnly={!isEditingProfile}
+                className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="githubUrl">GitHub URL</Label>
+              <Input
+                id="githubUrl"
+                value={githubUrl}
+                onChange={(e) => setGithubUrl(e.target.value)}
+                placeholder="..."
+                readOnly={!isEditingProfile}
+                className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="portfolioUrl">Portfolio URL</Label>
+              <Input
+                id="portfolioUrl"
+                value={portfolioUrl}
+                onChange={(e) => setPortfolioUrl(e.target.value)}
+                placeholder="..."
+                readOnly={!isEditingProfile}
+                className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+              />
             </div>
 
             {isEditingProfile ? (

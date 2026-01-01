@@ -8,13 +8,30 @@ export type AuthUser = {
   id: string;
   email: string;
   name: string;
+  
   baseResumeUrl: string | null;
+
+  // Profile fields (post-MVP foundation)
+  location: string | null;
+  currentRole: string | null;
+  skills: string[];
+  linkedInUrl: string | null;
+  githubUrl: string | null;
+  portfolioUrl: string | null;
+
   createdAt: string; // JSON-serialized Date from backend
+  updatedAt: string; // JSON-serialized Date from backend
 };
 
 // UpdateMeRequest: MVP profile edits (expand later).
 export type UpdateMeRequest = {
-  name: string;
+  name?: string;
+  location?: string;
+  currentRole?: string;
+  skills?: string[];
+  linkedInUrl?: string;
+  githubUrl?: string;
+  portfolioUrl?: string;
 };
 
 export type MeResponse = { 
