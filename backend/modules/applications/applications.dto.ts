@@ -1,4 +1,4 @@
-import type { ApplicationStatus, Prisma } from "@prisma/client";
+import type { ApplicationStatus, JobType, WorkMode, Prisma } from "@prisma/client";
 
 
 // Centralized “public” shapes returned to API clients.
@@ -10,11 +10,20 @@ export const applicationSelect = {
   position: true,
   status: true,
   dateApplied: true,
+  
+  jobType: true,
+  jobTypeDetails: true,
+  workMode: true,
+  workModeDetails: true,
+  salaryText: true,
+  isFavorite: true,
+  
   jobLink: true,
   description: true,
   notes: true,
   createdAt: true,
   updatedAt: true,
+  
 } as const;
 
 
@@ -25,6 +34,11 @@ export type CreateApplicationInput = {
   position: string;
   status?: ApplicationStatus;
   dateApplied?: string;
+  jobType?: JobType;
+  jobTypeDetails?: string;
+  workMode?: WorkMode;
+  workModeDetails?: string;
+  salaryText?: string;
   jobLink?: string;
   description?: string;
   notes?: string;
@@ -36,6 +50,12 @@ export type UpdateApplicationInput = {
   position?: string;
   status?: ApplicationStatus;
   dateApplied?: string;
+  jobType?: JobType;
+  jobTypeDetails?: string;
+  workMode?: WorkMode;
+  workModeDetails?: string;
+  salaryText?: string;
+  isFavorite?: boolean;
   jobLink?: string;
   description?: string;
   notes?: string;
@@ -49,7 +69,7 @@ export type ListApplicationsParams = {
 
   page?: number;
   pageSize?: number;
-  sortBy?: "updatedAt" | "createdAt" | "company" | "position";
+  sortBy?: "updatedAt" | "createdAt" | "company" | "position" | "status" | "dateApplied" | "jobType" | "workMode" | "salaryText" | "isFavorite";
   sortDir?: "asc" | "desc";
 }
 

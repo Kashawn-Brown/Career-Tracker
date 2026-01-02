@@ -41,6 +41,15 @@ model JobApplication {
   status      ApplicationStatus @default(APPLIED)
   dateApplied DateTime?
 
+  jobType JobType @default(UNKNOWN)
+  jobTypeDetails String?
+
+  workMode   WorkMode @default(UNKNOWN)
+  workModeDetails String?
+  
+  salaryText String?
+  isFavorite Boolean  @default(false)
+
   jobLink      String?
   description  String?
   notes        String?
@@ -64,6 +73,22 @@ enum ApplicationStatus {
   REJECTED
   WITHDRAWN
 }
+
+enum JobType {
+  UNKNOWN
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERNSHIP
+}
+
+enum WorkMode {
+  UNKNOWN
+  REMOTE
+  HYBRID
+  ONSITE
+}
+
 
 model Document {
   id               Int          @id @default(autoincrement())
