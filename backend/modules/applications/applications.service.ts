@@ -65,6 +65,10 @@ export async function listApplications(params: ListApplicationsParams) {
   // Optional filters
   if (params.status) where.status = params.status;
 
+  if (params.jobType) where.jobType = params.jobType;
+  if (params.workMode) where.workMode = params.workMode;
+  if (params.isFavorite !== undefined) where.isFavorite = params.isFavorite;
+
   // Basic text search across company and position
   if (params.q) {
     where.OR = [

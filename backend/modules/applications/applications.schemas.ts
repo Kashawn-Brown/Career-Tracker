@@ -60,13 +60,19 @@ export const CreateApplicationBody = Type.Object(
  */
 export const ListApplicationsQuery = Type.Object(
   {
-    status: Type.Optional(ApplicationStatusSchema),
-    q: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
+    status: Type.Optional(ApplicationStatusSchema),  // status filter
+    q: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),  // text search filter (company or position)
+
+    jobType: Type.Optional(JobTypeSchema),  // job type filter
+    workMode: Type.Optional(WorkModeSchema),  // work mode filter
+
+    // Querystrings arrive as strings, so accept "true"/"false" and parse to boolean in the route.
+    isFavorite: Type.Optional(Type.Union([Type.Literal("true"), Type.Literal("false")])),  // starred filter
 
     // Pagination
     page: Type.Optional(Type.Integer({ minimum: 1 })),          // default in route/service
     pageSize: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })), // cap to prevent abuse
-
+    
     // Sorting
     sortBy: Type.Optional(
       Type.Union([

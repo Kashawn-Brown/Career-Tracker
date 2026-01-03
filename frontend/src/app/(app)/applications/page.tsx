@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiFetch, ApiError } from "@/lib/api/client";
-import { routes } from "@/lib/api/routes";
-import type { ApplicationsListResponse, ApplicationStatus, ApplicationSortBy, ApplicationSortDir } from "@/types/api";
+import { ApiError } from "@/lib/api/client";
+import { applicationsApi } from "@/lib/api/applications";
+import type { ApplicationsListResponse, ApplicationStatus, ApplicationSortBy, ApplicationSortDir, JobType, WorkMode, ListApplicationsParams } from "@/types/api";
 import { ApplicationsTable } from "@/components/applications/ApplicationsTable";
 import { CreateApplicationForm } from "@/components/applications/CreateApplicationForm";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,34 @@ import {
 } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { Alert } from "@/components/ui/alert";
+
+// Helper functions to format job type and work mode
+function formatJobType(v: JobType) {
+  switch (v) {
+    case "FULL_TIME":
+      return "Full-time";
+    case "PART_TIME":
+      return "Part-time";
+    case "CONTRACT":
+      return "Contract";
+    case "INTERNSHIP":
+      return "Internship";
+    default:
+      return "—";
+  }
+}
+function formatWorkMode(v: WorkMode) {
+  switch (v) {
+    case "REMOTE":
+      return "Remote";
+    case "HYBRID":
+      return "Hybrid";
+    case "ONSITE":
+      return "On-site";
+    default:
+      return "—";
+  }
+}
 
 // ApplicationsPage: fetches and displays the user's applications (GET /applications) with pagination.
 export default function ApplicationsPage() {
@@ -36,10 +64,15 @@ export default function ApplicationsPage() {
   const DEFAULT_SORT_BY: ApplicationSortBy = "updatedAt";
   const DEFAULT_SORT_DIR: ApplicationSortDir = "desc";
 
-  const [query, setQuery] = useState("");
-  const [status, setStatus] = useState<"ALL" | ApplicationStatus>("ALL");
   const [sortBy, setSortBy] = useState<ApplicationSortBy>(DEFAULT_SORT_BY);
   const [sortDir, setSortDir] = useState<ApplicationSortDir>(DEFAULT_SORT_DIR);
+
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState<"ALL" | ApplicationStatus>("ALL");
+  const [jobType, setJobType] = useState<"ALL" | JobType>("ALL");
+  const [workMode, setWorkMode] = useState<"ALL" | WorkMode>("ALL");
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+
 
   const isDefaultSort = sortBy === DEFAULT_SORT_BY && sortDir === DEFAULT_SORT_DIR;
 
@@ -49,6 +82,13 @@ export default function ApplicationsPage() {
 
   // Status options list
   const statusOptions: Array<"ALL" | ApplicationStatus> = ["ALL", "WISHLIST", "APPLIED", "INTERVIEW", "OFFER", "REJECTED", "WITHDRAWN"];
+  
+  // Job type options list
+  const jobTypeOptions: Array<"ALL" | JobType> = ["ALL", "FULL_TIME", "PART_TIME", "CONTRACT", "INTERNSHIP"];
+  
+  // Work mode options list
+  const workModeOptions: Array<"ALL" | WorkMode> = ["ALL", "REMOTE", "HYBRID", "ONSITE"];
+
 
   /**
    * Legacy-style sort cycle:
@@ -91,22 +131,20 @@ export default function ApplicationsPage() {
 
       try {
         // Build query string for backend params.
-        const params = new URLSearchParams({
-          page: String(page),
-          pageSize: String(pageSize),
+        const params = {
+          page,
+          pageSize,
+          q: query,
+          status,
           sortBy,
           sortDir,
-        });
+          jobType,
+          workMode,
+          favoritesOnly,
+        } satisfies ListApplicationsParams;
 
-        // only includes filters when they’re set
-        if (query) params.set("q", query.trim());
-        if (status !== "ALL") params.set("status", status);
-
-        // Make call to backend for users applications
-        const res = await apiFetch<ApplicationsListResponse>(
-          `${routes.applications.list()}?${params.toString()}`,
-          { method: "GET" }
-        );
+        // Call the backend API to get the paginated applications.
+        const res = await applicationsApi.list(params);
 
         setData(res);
 
@@ -120,7 +158,7 @@ export default function ApplicationsPage() {
     }
 
     load();
-  }, [page, pageSize, query, status, sortBy, sortDir, reloadKey]);
+  }, [page, pageSize, query, status, sortBy, sortDir, jobType, workMode, favoritesOnly, reloadKey]);
 
   // refreshList: forces a refetch without changing filter state.
   function refreshList() {
@@ -138,6 +176,9 @@ export default function ApplicationsPage() {
     setStatus("ALL");
     setSortBy("updatedAt");
     setSortDir("desc");
+    setJobType("ALL");
+    setWorkMode("ALL");
+    setFavoritesOnly(false);
     setPage(1);
   }
 
@@ -174,12 +215,12 @@ export default function ApplicationsPage() {
             Search, filter, and update statuses. Changes save instantly.
           </CardDescription>
         </CardHeader>
-
+      
+        {/* Table controls (MVP) */}
         <CardContent className="space-y-4">
-          {/* Controls (MVP) */}
-          <div className="grid gap-4 md:grid-cols-4">
-            {/* Query/Search filter */}
-            <div className="space-y-1 md:col-span-2">
+          <div className="grid gap-4 md:grid-cols-12">
+            {/* Search */}
+            <div className="space-y-1 md:col-span-6">
               <Label htmlFor="q">Search</Label>
               <Input
                 id="q"
@@ -192,8 +233,8 @@ export default function ApplicationsPage() {
               />
             </div>
 
-            {/* Status Filter */}
-            <div className="space-y-1">
+            {/* Status */}
+            <div className="space-y-1 md:col-span-6">
               <Label htmlFor="status">Status</Label>
               <Select
                 id="status"
@@ -211,8 +252,65 @@ export default function ApplicationsPage() {
               </Select>
             </div>
 
-            {/* Reset Button */}
-            <div className="flex items-end">
+
+            {/* Job type */}
+            <div className="space-y-1 md:col-span-4">
+              <Label htmlFor="jobType">Job type</Label>
+              <Select
+                id="jobType"
+                value={jobType}
+                onChange={(e) => {
+                  setJobType(e.target.value as "ALL" | JobType);
+                  resetToFirstPage();
+                }}
+              >
+                {jobTypeOptions.map((v) => (
+                  <option key={v} value={v}>
+                    {v === "ALL" ? "All types" : formatJobType(v)}
+                  </option>
+                ))}
+              </Select>
+            </div>
+
+            {/* Work mode */}
+            <div className="space-y-1 md:col-span-4">
+              <Label htmlFor="workMode">Work mode</Label>
+              <Select
+                id="workMode"
+                value={workMode}
+                onChange={(e) => {
+                  setWorkMode(e.target.value as "ALL" | WorkMode);
+                  resetToFirstPage();
+                }}
+              >
+                {workModeOptions.map((v) => (
+                  <option key={v} value={v}>
+                    {v === "ALL" ? "All modes" : formatWorkMode(v)}
+                  </option>
+                ))}
+              </Select>
+            </div>
+
+            {/* Favorites */}
+            <div className="space-y-1 md:col-span-4">
+              <Label htmlFor="favoritesOnly">Favorites</Label>
+              <label className="flex h-10 items-center gap-2 rounded-md border px-3 text-sm">
+                <input
+                  id="favoritesOnly"
+                  type="checkbox"
+                  checked={favoritesOnly}
+                  onChange={(e) => {
+                    setFavoritesOnly(e.target.checked);
+                    resetToFirstPage();
+                  }}
+                  className="h-4 w-4"
+                />
+                <span>⭐ Favorites only</span>
+              </label>
+            </div>
+
+            {/* Reset */}
+            <div className="flex justify-end md:col-span-12">
               <Button variant="outline" className="w-full" onClick={resetControls}>
                 Reset
               </Button>

@@ -16,6 +16,7 @@ export const routes = {
   },
   applications: {
     list: () => "/applications",
+    create: () => "/applications",
     byId: (id: string) => `/applications/${id}`,
   },
   documents: {
