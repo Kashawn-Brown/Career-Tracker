@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { apiFetch, ApiError } from "@/lib/api/client";
 import { routes } from "@/lib/api/routes";
-import type { ApplicationsListResponse, ApplicationStatus  } from "@/types/api";
+import type { ApplicationsListResponse, ApplicationStatus, ApplicationSortBy, ApplicationSortDir } from "@/types/api";
 import { ApplicationsTable } from "@/components/applications/ApplicationsTable";
 import { CreateApplicationForm } from "@/components/applications/CreateApplicationForm";
 import { Button } from "@/components/ui/button";
@@ -32,19 +32,55 @@ export default function ApplicationsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Filters / sorting (MVP).
+  // Filters / sorting.
+  const DEFAULT_SORT_BY: ApplicationSortBy = "updatedAt";
+  const DEFAULT_SORT_DIR: ApplicationSortDir = "desc";
+
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<"ALL" | ApplicationStatus>("ALL");
-  const [sortBy, setSortBy] = useState<"updatedAt" | "createdAt" | "company" | "position">("updatedAt");
-  const [sortDir, setSortDir] = useState<"desc" | "asc">("desc");
+  const [sortBy, setSortBy] = useState<ApplicationSortBy>(DEFAULT_SORT_BY);
+  const [sortDir, setSortDir] = useState<ApplicationSortDir>(DEFAULT_SORT_DIR);
+
+  const isDefaultSort = sortBy === DEFAULT_SORT_BY && sortDir === DEFAULT_SORT_DIR;
+
 
   // State to force re-fetch
   const [reloadKey, setReloadKey] = useState(0);
 
-  const statusOptions: Array<"ALL" | ApplicationStatus> = useMemo(
-    () => ["ALL", "WISHLIST", "APPLIED", "INTERVIEW", "OFFER", "REJECTED", "WITHDRAWN"],
-    []
-  );
+  // Status options list
+  const statusOptions: Array<"ALL" | ApplicationStatus> = ["ALL", "WISHLIST", "APPLIED", "INTERVIEW", "OFFER", "REJECTED", "WITHDRAWN"];
+
+  /**
+   * Legacy-style sort cycle:
+   * - new column click: asc
+   * - 2nd click: desc
+   * - 3rd click: reset to default (updatedAt desc)
+   */
+  function handleHeaderSortClick(nextSortBy: ApplicationSortBy) {
+    // Any sort change should bring us back to page 1.
+    setPage(1);
+
+    // Special case: if we're on the default sort and clicking the same column, toggle the sort direction.
+    if (isDefaultSort && nextSortBy === DEFAULT_SORT_BY) {
+      setSortDir("asc");
+      return;
+    }
+
+    if (sortBy !== nextSortBy) {
+      setSortBy(nextSortBy);
+      setSortDir("asc");
+      return;
+    }
+
+    if (sortDir === "asc") {
+      setSortDir("desc");
+      return;
+    }
+
+    // Third click resets to the default sort.
+    setSortBy(DEFAULT_SORT_BY);
+    setSortDir(DEFAULT_SORT_DIR);
+  }
 
   // Fetching applications when the page first mounts (& again whenever page or pageSize changes or reloadKey is changed)
   useEffect(() => {
@@ -175,37 +211,6 @@ export default function ApplicationsPage() {
               </Select>
             </div>
 
-            {/* Sorting Options */}
-            <div className="space-y-1">
-              <Label>Sort</Label>
-              <div className="flex gap-2">
-                <Select
-                  value={sortBy}
-                  onChange={(e) => {
-                    setSortBy(e.target.value as "updatedAt" | "createdAt" | "company" | "position");
-                    resetToFirstPage();
-                  }}
-                >
-                  <option value="updatedAt">Updated</option>
-                  <option value="createdAt">Created</option>
-                  <option value="company">Company</option>
-                  <option value="position">Position</option>
-                </Select>
-
-                <Select
-                  className="w-[72px]"
-                  value={sortDir}
-                  onChange={(e) => {
-                    setSortDir(e.target.value as "desc" | "asc");
-                    resetToFirstPage();
-                  }}
-                >
-                  <option value="desc">↓</option>
-                  <option value="asc">↑</option>
-                </Select>
-              </div>
-            </div>
-
             {/* Reset Button */}
             <div className="flex items-end">
               <Button variant="outline" className="w-full" onClick={resetControls}>
@@ -223,6 +228,10 @@ export default function ApplicationsPage() {
           ) : (
             <ApplicationsTable
               items={data?.items ?? []}
+              sortBy={sortBy}
+              sortDir={sortDir}
+              isDefaultSort={isDefaultSort}
+              onSort={handleHeaderSortClick}
               onChanged={() => setReloadKey((k) => k + 1)}
             />
           )}

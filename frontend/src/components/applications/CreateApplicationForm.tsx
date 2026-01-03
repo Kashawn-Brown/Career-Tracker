@@ -44,12 +44,6 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
     return trimmed;
   }
 
-  // Helper function to convert "YYYY-MM-DD" to an ISO date-time string for the API schema (date-time).
-  function dateToIsoDateTime(value: string) {
-    // Uses UTC midnight to avoid local timezone shifting the date.
-    return new Date(`${value}T00:00:00.000Z`).toISOString();
-  }
-
   // Submitting Form (Add new application record)
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();   // Prevent page refresh
