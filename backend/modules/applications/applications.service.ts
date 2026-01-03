@@ -82,7 +82,7 @@ export async function listApplications(params: ListApplicationsParams) {
     
     prisma.jobApplication.findMany({  // items for the current page
       where,
-      orderBy: { [sortBy]: sortDir },
+      orderBy: [{ [sortBy]: sortDir }, { updatedAt: "desc" }],
       skip,
       take: pageSize,  // how many rows to take/return
       select: applicationSelect,

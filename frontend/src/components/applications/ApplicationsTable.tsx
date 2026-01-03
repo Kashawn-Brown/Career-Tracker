@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import type { Application, ApplicationStatus, JobType, WorkMode } from "@/types/api";
+import type { Application, ApplicationStatus, JobType, WorkMode, ApplicationSortBy, ApplicationSortDir } from "@/types/api";
 import { applicationsApi } from "@/lib/api/applications";
 import { ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Alert } from "../ui/alert";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 // Helper functions to format job type and work mode
 function formatJobType(v: JobType) {
@@ -37,12 +38,71 @@ function formatWorkMode(v: WorkMode) {
   }
 }
 
+// Helper to display a sortable header in the table
+function SortableHeader({
+  label,
+  col,
+  sortBy,
+  sortDir,
+  isDefaultSort,
+  onSort,
+  className,
+}: {
+  label: string;
+  col: ApplicationSortBy;
+  sortBy: ApplicationSortBy;
+  sortDir: ApplicationSortDir;
+  isDefaultSort: boolean;
+  onSort: (col: ApplicationSortBy) => void;
+  className?: string;
+}) {
+  const isActive = sortBy === col;
+  const showArrow = isActive && !isDefaultSort;
+
+  return (
+    <th
+      className={cn("p-3 select-none", className)}
+      aria-sort={
+        isActive ? (sortDir === "asc" ? "ascending" : "descending") : "none"
+      }
+    >
+      <button
+        type="button"
+        onClick={() => onSort(col)}
+        className={cn(
+          "w-full px-3 py-3 inline-flex items-center justify-start gap-1 text-left",
+          "cursor-pointer select-none ",
+          "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
+        )}
+      >
+        <span>{label}</span>
+
+        {showArrow ? (
+          sortDir === "asc" ? (
+            <ChevronUp className="h-3 w-3 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="h-3 w-3 text-muted-foreground" />
+          )
+        ) : null}
+      </button>
+    </th>
+  );
+}
+
 // ApplicationsTable: read-only list + MVP row actions (update status + delete).
 export function ApplicationsTable({
   items,      // the list of applications to display
+  sortBy,    // the column to sort by
+  sortDir,   // the direction to sort in
+  isDefaultSort, // whether the sort is the default sort
+  onSort,    // a callback to tell the parent: "Sort changed, refetch"
   onChanged,  // a callback to tell the parent: "Something changed, refetch" (update/delete)
 }: {
   items: Application[];
+  sortBy: ApplicationSortBy;
+  sortDir: ApplicationSortDir;
+  isDefaultSort: boolean;
+  onSort: (nextSortBy: ApplicationSortBy) => void;
   onChanged: () => void;
 }) {
   const [rowError, setRowError] = useState<string | null>(null);
@@ -93,6 +153,7 @@ export function ApplicationsTable({
     "WISHLIST"
   ];
 
+
   return (
     <div className="space-y-2">
       {rowError ? ( <Alert variant="destructive" className="py-2">{rowError}</Alert> ) : null}
@@ -100,15 +161,21 @@ export function ApplicationsTable({
       <div className="overflow-x-auto rounded-md border">
         <table className="w-full text-sm">
           <thead className="bg-muted/50">
-            <tr className="text-left">
-              <th className="p-3 w-[40px] text-center" title="Starred">★</th>
-              <th className="p-3">Company</th>
-              <th className="p-3">Position</th>
-              <th className="p-3">Type</th>
+            <tr className="text-center">
+              {/* <SortableHeader label="★" col="isFavorite" sortBy={sortBy} sortDir={sortDir} isDefaultSort={isDefaultSort} onSort={onSort} /> */}
+              <th className="p-3 w-[60px] text-center" title="Starred">★</th>
+              
+              <SortableHeader label="Company" col="company" sortBy={sortBy} sortDir={sortDir} isDefaultSort={isDefaultSort} onSort={onSort} />
+              <SortableHeader label="Position" col="position" sortBy={sortBy} sortDir={sortDir} isDefaultSort={isDefaultSort} onSort={onSort} />
+              <SortableHeader label="Type" col="jobType" sortBy={sortBy} sortDir={sortDir} isDefaultSort={isDefaultSort} onSort={onSort} />
+
               <th className="p-3">Salary</th>
-              <th className="p-3">Mode</th>
-              <th className="p-3">Status</th>
-              <th className="p-3">Updated</th>
+
+              <SortableHeader label="Arrangement" col="workMode" sortBy={sortBy} sortDir={sortDir} isDefaultSort={isDefaultSort} onSort={onSort} />
+              <SortableHeader label="Status" col="status" sortBy={sortBy} sortDir={sortDir} isDefaultSort={isDefaultSort} onSort={onSort} />
+              <SortableHeader label="Applied" col="dateApplied" sortBy={sortBy} sortDir={sortDir} isDefaultSort={isDefaultSort} onSort={onSort} />
+              <SortableHeader label="Updated" col="updatedAt" sortBy={sortBy} sortDir={sortDir} isDefaultSort={isDefaultSort} onSort={onSort} />
+
               <th className="p-3">Actions</th>
             </tr>
           </thead>
@@ -116,11 +183,11 @@ export function ApplicationsTable({
           <tbody>
             {items.length === 0 ? (
               <tr>
-                <td className="p-8 text-center text-muted-foreground" colSpan={9}>
+                <td className="p-8 text-center text-muted-foreground" colSpan={10}>
                   <div className="space-y-1">
-                    <div className="font-medium text-foreground">No applications yet</div>
+                    <div className="font-medium text-foreground">No applications to show</div>
                     <div className="text-sm text-muted-foreground">
-                      Add your first application above to get started.
+                      Add an application above to get started.
                     </div>
                   </div>
                 </td>
@@ -134,7 +201,7 @@ export function ApplicationsTable({
                     busyId === app.id && "opacity-60"
                   )}
                 >
-                  <td className="p-3">{app.isFavorite ? "★" : ""}</td>
+                  <td className="p-3 w-[40px] text-center">{app.isFavorite ? "★" : ""}</td>
                   <td className="p-3">{app.company}</td>
                   <td className="p-3">{app.position}</td>
                   <td className="p-3">{formatJobType(app.jobType)}</td>
@@ -157,6 +224,10 @@ export function ApplicationsTable({
                         </option>
                       ))}
                     </Select>
+                  </td>
+
+                  <td className="p-3 text-muted-foreground">
+                    {app.dateApplied ? new Date(app.dateApplied).toLocaleDateString() : "N/A"}
                   </td>
 
                   <td className="p-3 text-muted-foreground">

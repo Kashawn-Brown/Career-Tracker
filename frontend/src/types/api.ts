@@ -57,15 +57,12 @@ export type RegisterRequest = {
 
 
 
-// --- Applications DTOs: matches backend ---
+// --- Applications DTOs, enums and types: matches backend ---
+export type ApplicationSortBy = "company" | "position" | "status" | "jobType" | "workMode" | "dateApplied" | "updatedAt" | "isFavorite";
 
-export type ApplicationStatus =
-  | "WISHLIST"
-  | "APPLIED"
-  | "INTERVIEW"
-  | "OFFER"
-  | "REJECTED"
-  | "WITHDRAWN";
+export type ApplicationSortDir = "asc" | "desc";
+
+export type ApplicationStatus = "WISHLIST" | "APPLIED" | "INTERVIEW" | "OFFER" | "REJECTED" | "WITHDRAWN";
 
 export type JobType = "UNKNOWN" | "FULL_TIME" | "PART_TIME" | "CONTRACT" | "INTERNSHIP";
 
@@ -104,6 +101,7 @@ export type Paginated<T> = {
 };
 
 export type ApplicationsListResponse = Paginated<Application>;
+
 
 // CreateApplicationRequest: matches backend schema for POST /applications.
 export type CreateApplicationRequest = {
