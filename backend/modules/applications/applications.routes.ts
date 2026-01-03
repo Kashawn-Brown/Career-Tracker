@@ -48,7 +48,10 @@ export async function applicationsRoutes(app: FastifyInstance) {
 
       const query = req.query as ListApplicationsQueryType;
 
-      const result = await ApplicationsService.listApplications({ userId, ...query });
+      // Normalize querystring boolean safely ("true"/"false" -> boolean)
+      const isFavorite = query.isFavorite === "true" ? true : query.isFavorite === "false" ? false : undefined;
+
+      const result = await ApplicationsService.listApplications({ userId, ...query, isFavorite });
 
       return reply.send(result);
       

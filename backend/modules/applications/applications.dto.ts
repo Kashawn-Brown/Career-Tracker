@@ -66,6 +66,9 @@ export type ListApplicationsParams = {
   userId: string;
   status?: ApplicationStatus;
   q?: string;
+  jobType?: JobType;
+  workMode?: WorkMode;
+  isFavorite?: boolean;
 
   page?: number;
   pageSize?: number;
