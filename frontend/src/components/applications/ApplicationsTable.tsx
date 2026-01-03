@@ -1,13 +1,41 @@
 "use client";
 
 import { useState } from "react";
-import type { Application, ApplicationStatus } from "@/types/api";
+import type { Application, ApplicationStatus, JobType, WorkMode } from "@/types/api";
 import { applicationsApi } from "@/lib/api/applications";
 import { ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Alert } from "../ui/alert";
+
+// Helper functions to format job type and work mode
+function formatJobType(v: JobType) {
+  switch (v) {
+    case "FULL_TIME":
+      return "Full-time";
+    case "PART_TIME":
+      return "Part-time";
+    case "CONTRACT":
+      return "Contract";
+    case "INTERNSHIP":
+      return "Internship";
+    default:
+      return "—";
+  }
+}
+function formatWorkMode(v: WorkMode) {
+  switch (v) {
+    case "REMOTE":
+      return "Remote";
+    case "HYBRID":
+      return "Hybrid";
+    case "ONSITE":
+      return "On-site";
+    default:
+      return "—";
+  }
+}
 
 // ApplicationsTable: read-only list + MVP row actions (update status + delete).
 export function ApplicationsTable({
@@ -73,8 +101,12 @@ export function ApplicationsTable({
         <table className="w-full text-sm">
           <thead className="bg-muted/50">
             <tr className="text-left">
+              <th className="p-3 w-[40px] text-center" title="Starred">★</th>
               <th className="p-3">Company</th>
               <th className="p-3">Position</th>
+              <th className="p-3">Type</th>
+              <th className="p-3">Salary</th>
+              <th className="p-3">Mode</th>
               <th className="p-3">Status</th>
               <th className="p-3">Updated</th>
               <th className="p-3">Actions</th>
@@ -84,7 +116,7 @@ export function ApplicationsTable({
           <tbody>
             {items.length === 0 ? (
               <tr>
-                <td className="p-8 text-center text-muted-foreground" colSpan={5}>
+                <td className="p-8 text-center text-muted-foreground" colSpan={9}>
                   <div className="space-y-1">
                     <div className="font-medium text-foreground">No applications yet</div>
                     <div className="text-sm text-muted-foreground">
@@ -102,8 +134,12 @@ export function ApplicationsTable({
                     busyId === app.id && "opacity-60"
                   )}
                 >
+                  <td className="p-3">{app.isFavorite ? "★" : ""}</td>
                   <td className="p-3">{app.company}</td>
                   <td className="p-3">{app.position}</td>
+                  <td className="p-3">{formatJobType(app.jobType)}</td>
+                  <td className="p-3">{app.salaryText ?? "—"}</td>
+                  <td className="p-3">{formatWorkMode(app.workMode)}</td>
 
                   <td className="p-3">
                     {/* Status select: MVP inline update */}

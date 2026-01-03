@@ -23,7 +23,7 @@ export type AuthUser = {
   updatedAt: string; // JSON-serialized Date from backend
 };
 
-// UpdateMeRequest: MVP profile edits (expand later).
+// UpdateMeRequest: matches backend schema for PATCH /users/me.
 export type UpdateMeRequest = {
   name?: string;
   location?: string;
@@ -67,11 +67,24 @@ export type ApplicationStatus =
   | "REJECTED"
   | "WITHDRAWN";
 
+export type JobType = "UNKNOWN" | "FULL_TIME" | "PART_TIME" | "CONTRACT" | "INTERNSHIP";
+
+export type WorkMode = "UNKNOWN" | "REMOTE" | "HYBRID" | "ONSITE";
+
 export type Application = {
   id: string;
   company: string;
   position: string;
   status: ApplicationStatus;
+
+  jobType: JobType;
+  jobTypeDetails: string | null;
+
+  workMode: WorkMode;
+  workModeDetails: string | null;
+
+  salaryText: string | null;
+  isFavorite: boolean;
 
   dateApplied: string | null; // backend returns JSON date strings
   jobLink: string | null;
@@ -92,16 +105,42 @@ export type Paginated<T> = {
 
 export type ApplicationsListResponse = Paginated<Application>;
 
-// CreateApplicationRequest: MVP create payload (expand later with optional fields).
+// CreateApplicationRequest: matches backend schema for POST /applications.
 export type CreateApplicationRequest = {
   company: string;
   position: string;
   status?: ApplicationStatus;
+
+  dateApplied?: string;
+
+  jobType?: JobType;
+  jobTypeDetails?: string;
+
+  workMode?: WorkMode;
+  workModeDetails?: string;
+
+  salaryText?: string;
+
+  jobLink?: string;
+  description?: string;
+  notes?: string;
 };
 
-// UpdateApplicationRequest: MVP update payload (status only for now).
+// UpdateApplicationRequest: matches backend schema for PATCH /applications/{id}.
 export type UpdateApplicationRequest = {
-  status: ApplicationStatus;
+  company?: string;
+  position?: string;
+  status?: ApplicationStatus;
+  dateApplied?: string;
+  jobType?: JobType;
+  jobTypeDetails?: string;
+  workMode?: WorkMode;
+  workModeDetails?: string;
+  salaryText?: string;
+  isFavorite?: boolean;
+  jobLink?: string;
+  description?: string;
+  notes?: string;
 };
 
 
