@@ -1,4 +1,4 @@
-import { ApplicationStatus, Prisma } from "@prisma/client";
+import { ApplicationStatus, JobType, WorkMode, Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { AppError } from "../../errors/app-error.js";
 import { applicationSelect } from "./applications.dto.js";
@@ -23,6 +23,12 @@ export async function createApplication(input: CreateApplicationInput) {
       userId: input.userId,
       company: input.company,
       position: input.position,
+
+      jobType: input.jobType ?? JobType.UNKNOWN,
+      jobTypeDetails: normalizeNullableString(input.jobTypeDetails),
+      workMode: input.workMode ?? WorkMode.UNKNOWN,
+      workModeDetails: normalizeNullableString(input.workModeDetails),
+      salaryText: normalizeNullableString(input.salaryText),
 
       // Default status if not provided
       status: input.status ?? ApplicationStatus.APPLIED,
@@ -131,6 +137,18 @@ export async function updateApplication(userId: string, id: string, input: Updat
     data.dateApplied = input.dateApplied ? new Date(input.dateApplied) : null;
   }
 
+  if (input.jobType !== undefined) data.jobType = input.jobType;
+  if (input.jobTypeDetails !== undefined) data.jobTypeDetails = normalizeNullableString(input.jobTypeDetails);
+  
+  if (input.workMode !== undefined) data.workMode = input.workMode;
+  if (input.workModeDetails !== undefined) data.workModeDetails = normalizeNullableString(input.workModeDetails);
+
+  if (input.salaryText !== undefined) {
+    data.salaryText = normalizeNullableString(input.salaryText);
+  }
+
+  if (input.isFavorite !== undefined) data.isFavorite = input.isFavorite;
+
   // Wrap in transaction to group the db operations into one
   return prisma.$transaction(async (db: Prisma.TransactionClient) => {
     const result = await db.jobApplication.updateMany({
@@ -167,3 +185,11 @@ export async function deleteApplication(userId: string, id: string) {
 
   return { ok: true };
 }
+
+
+// Helper to normalize nullable string fields
+const normalizeNullableString = (value: string | undefined) => {
+  if (value === undefined) return undefined;
+  const trimmed = value.trim();
+  return trimmed.length === 0 ? null : trimmed;
+};

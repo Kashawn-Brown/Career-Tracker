@@ -1,5 +1,5 @@
 import { Type, Static } from "@sinclair/typebox";
-import { ApplicationStatus } from "@prisma/client";
+import { ApplicationStatus, JobType, WorkMode } from "@prisma/client";
 
 /**
  * Schemas for Fastify to validate incoming requests.
@@ -16,6 +16,11 @@ import { ApplicationStatus } from "@prisma/client";
 // Application status schema derived from Prisma enum.
 export const ApplicationStatusSchema = Type.Enum(ApplicationStatus);
 
+// Job type schema derived from Prisma enum.
+export const JobTypeSchema = Type.Enum(JobType);
+
+// Work mode schema derived from Prisma enum.
+export const WorkModeSchema = Type.Enum(WorkMode);
 
 /**
  * Request body for creating an application.
@@ -30,6 +35,14 @@ export const CreateApplicationBody = Type.Object(
 
     // Accept ISO date-time strings over the wire. (convert to Date in the service)
     dateApplied: Type.Optional(Type.String({ format: "date-time" })),
+
+    jobType: Type.Optional(JobTypeSchema),
+    jobTypeDetails: Type.Optional(Type.String({ maxLength: 200 })),
+
+    workMode: Type.Optional(WorkModeSchema),
+    workModeDetails: Type.Optional(Type.String({ maxLength: 200 })),
+
+    salaryText: Type.Optional(Type.String({ maxLength: 200 })),
 
     jobLink: Type.Optional(Type.String({ maxLength: 2048 })),
     description: Type.Optional(Type.String({ maxLength: 20000 })),
@@ -56,7 +69,18 @@ export const ListApplicationsQuery = Type.Object(
 
     // Sorting
     sortBy: Type.Optional(
-      Type.Union([Type.Literal("updatedAt"), Type.Literal("createdAt"), Type.Literal("company"), Type.Literal("position")])
+      Type.Union([
+        Type.Literal("updatedAt"), 
+        Type.Literal("createdAt"), 
+        Type.Literal("company"), 
+        Type.Literal("position"), 
+        Type.Literal("status"), 
+        Type.Literal("dateApplied"), 
+        Type.Literal("jobType"), 
+        Type.Literal("workMode"), 
+        Type.Literal("salaryText"), 
+        Type.Literal("isFavorite")
+      ])
     ),
     sortDir: Type.Optional(Type.Union([Type.Literal("asc"), Type.Literal("desc")])),
 
@@ -86,6 +110,12 @@ export const UpdateApplicationBody = Type.Object(
     position: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
     status: Type.Optional(ApplicationStatusSchema),
     dateApplied: Type.Optional(Type.String({ format: "date-time" })), // ISO string
+    jobType: Type.Optional(JobTypeSchema),
+    jobTypeDetails: Type.Optional(Type.String({ maxLength: 200 })),
+    workMode: Type.Optional(WorkModeSchema),
+    workModeDetails: Type.Optional(Type.String({ maxLength: 200 })),
+    salaryText: Type.Optional(Type.String({ maxLength: 200 })),
+    isFavorite: Type.Optional(Type.Boolean()),
     jobLink: Type.Optional(Type.String({ minLength: 1, maxLength: 2048 })),
     description: Type.Optional(Type.String({ maxLength: 20000 })),
     notes: Type.Optional(Type.String({ maxLength: 20000 })),
