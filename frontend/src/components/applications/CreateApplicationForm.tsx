@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ApiError, apiFetch } from "@/lib/api/client";
-import { routes } from "@/lib/api/routes";
+import { ApiError } from "@/lib/api/client";
+import { applicationsApi } from "@/lib/api/applications";
 import type { CreateApplicationRequest, ApplicationStatus, JobType, WorkMode } from "@/types/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -82,10 +82,7 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
       setIsSubmitting(true);
 
       // Create application for the current user.
-      await apiFetch(routes.applications.list(), {
-        method: "POST",
-        body: payload,
-      });
+      await applicationsApi.create(payload);
 
       // Reset form and refresh list.
       setCompany("");

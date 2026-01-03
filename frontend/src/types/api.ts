@@ -2,6 +2,14 @@
 
 export type OkResponse = { ok: true };
 
+export type Paginated<T> = {
+  items: T[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
+
 // --- Auth + User DTOs: matches backend ---
 
 export type AuthUser = {
@@ -92,16 +100,24 @@ export type Application = {
   updatedAt: string;
 };
 
-export type Paginated<T> = {
-  items: T[];
-  page: number;
-  pageSize: number;
-  total: number;
-  totalPages: number;
-};
 
 export type ApplicationsListResponse = Paginated<Application>;
 
+export type ListApplicationsParams = {
+  page: number;
+  pageSize: number;
+
+  q?: string;
+  status?: "ALL" | ApplicationStatus;
+
+  sortBy?: ApplicationSortBy;
+  sortDir?: ApplicationSortDir;
+
+  jobType?: "ALL" | JobType;
+  workMode?: "ALL" | WorkMode;
+
+  favoritesOnly?: boolean; // frontend-friendly name
+};
 
 // CreateApplicationRequest: matches backend schema for POST /applications.
 export type CreateApplicationRequest = {
