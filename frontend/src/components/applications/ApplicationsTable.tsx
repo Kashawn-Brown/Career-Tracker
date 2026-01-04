@@ -1,42 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import type { Application, ApplicationStatus, JobType, WorkMode, ApplicationSortBy, ApplicationSortDir } from "@/types/api";
+import type { Application, ApplicationStatus, ApplicationSortBy, ApplicationSortDir } from "@/types/api";
 import { applicationsApi } from "@/lib/api/applications";
 import { ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
+import { STATUS_OPTIONS, jobTypeLabel, workModeLabel } from "@/lib/applications/presentation";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Alert } from "../ui/alert";
 import { ChevronDown, ChevronUp } from "lucide-react";
-
-// Helper functions to format job type and work mode
-function formatJobType(v: JobType) {
-  switch (v) {
-    case "FULL_TIME":
-      return "Full-time";
-    case "PART_TIME":
-      return "Part-time";
-    case "CONTRACT":
-      return "Contract";
-    case "INTERNSHIP":
-      return "Internship";
-    default:
-      return "—";
-  }
-}
-function formatWorkMode(v: WorkMode) {
-  switch (v) {
-    case "REMOTE":
-      return "Remote";
-    case "HYBRID":
-      return "Hybrid";
-    case "ONSITE":
-      return "On-site";
-    default:
-      return "—";
-  }
-}
 
 // Helper to display a sortable header in the table
 function SortableHeader({
@@ -143,16 +116,6 @@ export function ApplicationsTable({
     }
   }
 
-  // Status options list
-  const statusOptions: ApplicationStatus[] = [
-    "APPLIED",
-    "INTERVIEW",
-    "OFFER",
-    "REJECTED",
-    "WITHDRAWN",
-    "WISHLIST"
-  ];
-
 
   return (
     <div className="space-y-2">
@@ -204,9 +167,9 @@ export function ApplicationsTable({
                   <td className="p-3 w-[40px] text-center">{app.isFavorite ? "★" : ""}</td>
                   <td className="p-3">{app.company}</td>
                   <td className="p-3">{app.position}</td>
-                  <td className="p-3">{formatJobType(app.jobType)}</td>
+                  <td className="p-3">{jobTypeLabel(app.jobType)}</td>
                   <td className="p-3">{app.salaryText ?? "—"}</td>
-                  <td className="p-3">{formatWorkMode(app.workMode)}</td>
+                  <td className="p-3">{workModeLabel(app.workMode)}</td>
 
                   <td className="p-3">
                     {/* Status select: MVP inline update */}
@@ -218,9 +181,9 @@ export function ApplicationsTable({
                         handleStatusChange(app.id, e.target.value as ApplicationStatus)
                       }
                     >
-                      {statusOptions.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
+                      {STATUS_OPTIONS.map((s) => (
+                        <option key={s.value} value={s.value}>
+                          {s.label}
                         </option>
                       ))}
                     </Select>

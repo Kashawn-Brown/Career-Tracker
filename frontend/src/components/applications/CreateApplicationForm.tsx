@@ -4,12 +4,13 @@ import { useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { applicationsApi } from "@/lib/api/applications";
 import type { CreateApplicationRequest, ApplicationStatus, JobType, WorkMode } from "@/types/api";
+import { STATUS_OPTIONS, JOB_TYPE_OPTIONS, WORK_MODE_OPTIONS } from "@/lib/applications/presentation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 
-// CreateApplicationForm: MVP form to create a new application (POST /applications).
+// CreateApplicationForm: Form to create a new application (POST /applications).
 export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) {
 
   // Form state
@@ -137,7 +138,6 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
           />
         </div>
 
-        {/* Keep these “table-foundation” fields visible but not overwhelming */}
         <div className="space-y-1">
           <Label htmlFor="jobType">Job type</Label>
           <Select
@@ -145,11 +145,11 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
             value={jobType}
             onChange={(e) => setJobType(e.target.value as JobType)}
           >
-            <option value="UNKNOWN">-</option>
-            <option value="FULL_TIME">Full-time</option>
-            <option value="PART_TIME">Part-time</option>
-            <option value="CONTRACT">Contract</option>
-            <option value="INTERNSHIP">Internship</option>
+            {JOB_TYPE_OPTIONS.map((j) => (
+              <option key={j.value} value={j.value}>
+                {j.label}
+              </option>
+            ))}
           </Select>
         </div>
 
@@ -170,10 +170,11 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
             value={workMode}
             onChange={(e) => setWorkMode(e.target.value as WorkMode)}
           >
-            <option value="UNKNOWN">-</option>
-            <option value="REMOTE">Remote</option>
-            <option value="HYBRID">Hybrid</option>
-            <option value="ONSITE">On-site</option>
+            {WORK_MODE_OPTIONS.map((w) => (
+              <option key={w.value} value={w.value}>
+                {w.label}
+              </option>
+            ))}
           </Select>
         </div>
 
@@ -184,12 +185,11 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
             value={applicationStatus}
             onChange={(e) => setApplicationStatus(e.target.value as ApplicationStatus)}
           >
-            <option value="WISHLIST">Wishlist</option>
-            <option value="APPLIED">Applied</option>
-            <option value="INTERVIEW">Interview</option>
-            <option value="OFFER">Offer</option>
-            <option value="REJECTED">Rejected</option>
-            <option value="WITHDRAWN">Withdrawn</option>
+            {STATUS_OPTIONS.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
           </Select>
         </div>
       </div>
