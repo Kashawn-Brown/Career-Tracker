@@ -1,42 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import type { Application, ApplicationStatus, JobType, WorkMode, ApplicationSortBy, ApplicationSortDir } from "@/types/api";
+import type { Application, ApplicationStatus, ApplicationSortBy, ApplicationSortDir } from "@/types/api";
 import { applicationsApi } from "@/lib/api/applications";
 import { ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
+import { STATUS_OPTIONS, jobTypeLabel, workModeLabel } from "@/lib/applications/presentation";
+import { APPLICATION_COLUMN_DEFS, type ApplicationColumnId } from "@/lib/applications/tableColumns";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Alert } from "../ui/alert";
 import { ChevronDown, ChevronUp } from "lucide-react";
-
-// Helper functions to format job type and work mode
-function formatJobType(v: JobType) {
-  switch (v) {
-    case "FULL_TIME":
-      return "Full-time";
-    case "PART_TIME":
-      return "Part-time";
-    case "CONTRACT":
-      return "Contract";
-    case "INTERNSHIP":
-      return "Internship";
-    default:
-      return "—";
-  }
-}
-function formatWorkMode(v: WorkMode) {
-  switch (v) {
-    case "REMOTE":
-      return "Remote";
-    case "HYBRID":
-      return "Hybrid";
-    case "ONSITE":
-      return "On-site";
-    default:
-      return "—";
-  }
-}
 
 // Helper to display a sortable header in the table
 function SortableHeader({
@@ -97,6 +71,7 @@ export function ApplicationsTable({
   isDefaultSort, // whether the sort is the default sort
   onSort,    // a callback to tell the parent: "Sort changed, refetch"
   onChanged,  // a callback to tell the parent: "Something changed, refetch" (update/delete)
+  visibleColumns, // the columns to display
 }: {
   items: Application[];
   sortBy: ApplicationSortBy;
@@ -104,9 +79,13 @@ export function ApplicationsTable({
   isDefaultSort: boolean;
   onSort: (nextSortBy: ApplicationSortBy) => void;
   onChanged: () => void;
+  visibleColumns: ApplicationColumnId[];
 }) {
   const [rowError, setRowError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);      // stores the ID of the row currently being updated/deleted
+
+  // Get the definitions for the visible columns
+  const visibleColumnsDefs = APPLICATION_COLUMN_DEFS.filter((c) => visibleColumns.includes(c.id));
 
   // Updating status
   async function handleStatusChange(id: string, next: ApplicationStatus) {
@@ -143,16 +122,6 @@ export function ApplicationsTable({
     }
   }
 
-  // Status options list
-  const statusOptions: ApplicationStatus[] = [
-    "APPLIED",
-    "INTERVIEW",
-    "OFFER",
-    "REJECTED",
-    "WITHDRAWN",
-    "WISHLIST"
-  ];
-
 
   return (
     <div className="space-y-2">
@@ -162,28 +131,46 @@ export function ApplicationsTable({
         <table className="w-full text-sm">
           <thead className="bg-muted/50">
             <tr className="text-center">
-              {/* <SortableHeader label="★" col="isFavorite" sortBy={sortBy} sortDir={sortDir} isDefaultSort={isDefaultSort} onSort={onSort} /> */}
-              <th className="p-3 w-[60px] text-center" title="Starred">★</th>
-              
-              <SortableHeader label="Company" col="company" sortBy={sortBy} sortDir={sortDir} isDefaultSort={isDefaultSort} onSort={onSort} />
-              <SortableHeader label="Position" col="position" sortBy={sortBy} sortDir={sortDir} isDefaultSort={isDefaultSort} onSort={onSort} />
-              <SortableHeader label="Type" col="jobType" sortBy={sortBy} sortDir={sortDir} isDefaultSort={isDefaultSort} onSort={onSort} />
+              {visibleColumnsDefs.map((col) => {
+                switch (col.id) {
+                  case "favorite":
+                    return <th key={col.id} className="p-3 w-[60px] text-center" title="Starred">{col.label}</th>;
+                    // return <SortableHeader key={col.id} label={col.label} col="isFavorite" sortBy={sortBy} sortDir={sortDir} isDefaultSort={isDefaultSort} onSort={onSort} />;
 
-              <th className="p-3">Salary</th>
+                  case "salaryText":
+                  case "actions":
+                    return <th key={col.id} className="p-3">{col.label}</th>;
 
-              <SortableHeader label="Arrangement" col="workMode" sortBy={sortBy} sortDir={sortDir} isDefaultSort={isDefaultSort} onSort={onSort} />
-              <SortableHeader label="Status" col="status" sortBy={sortBy} sortDir={sortDir} isDefaultSort={isDefaultSort} onSort={onSort} />
-              <SortableHeader label="Applied" col="dateApplied" sortBy={sortBy} sortDir={sortDir} isDefaultSort={isDefaultSort} onSort={onSort} />
-              <SortableHeader label="Updated" col="updatedAt" sortBy={sortBy} sortDir={sortDir} isDefaultSort={isDefaultSort} onSort={onSort} />
+                  case "company":
+                  case "position":
+                  case "jobType":
+                  case "workMode":
+                  case "status":
+                  case "dateApplied":
+                  case "updatedAt":
+                    return (
+                      <SortableHeader
+                        key={col.id}
+                        label={col.label}
+                        col={col.id as ApplicationSortBy}
+                        sortBy={sortBy}
+                        sortDir={sortDir}
+                        isDefaultSort={isDefaultSort}
+                        onSort={onSort}
+                      />
+                    );
 
-              <th className="p-3">Actions</th>
+                  default:
+                    return null;
+                }
+              })}
             </tr>
           </thead>
 
           <tbody>
             {items.length === 0 ? (
               <tr>
-                <td className="p-8 text-center text-muted-foreground" colSpan={10}>
+                <td className="p-8 text-center text-muted-foreground" colSpan={visibleColumnsDefs.length}>
                   <div className="space-y-1">
                     <div className="font-medium text-foreground">No applications to show</div>
                     <div className="text-sm text-muted-foreground">
@@ -193,57 +180,86 @@ export function ApplicationsTable({
                 </td>
               </tr>
             ) : (
-              items.map((app) => (
+              items.map((application) => (
                 <tr
-                  key={app.id}
+                  key={application.id}
                   className={cn(
                     "border-t transition-colors hover:bg-muted/40 even:bg-muted/20",
-                    busyId === app.id && "opacity-60"
+                    busyId === application.id && "opacity-60"
                   )}
                 >
-                  <td className="p-3 w-[40px] text-center">{app.isFavorite ? "★" : ""}</td>
-                  <td className="p-3">{app.company}</td>
-                  <td className="p-3">{app.position}</td>
-                  <td className="p-3">{formatJobType(app.jobType)}</td>
-                  <td className="p-3">{app.salaryText ?? "—"}</td>
-                  <td className="p-3">{formatWorkMode(app.workMode)}</td>
+                  {visibleColumnsDefs.map((col) => {
+                    switch (col.id) {
+                      case "favorite":
+                        return <td key={col.id} className="p-3 w-[60px] text-center">{application.isFavorite ? "★" : ""}</td>;
 
-                  <td className="p-3">
-                    {/* Status select: MVP inline update */}
-                    <Select
-                      className="h-8 w-[140px] px-2"
-                      value={app.status}
-                      disabled={busyId === app.id}
-                      onChange={(e) =>
-                        handleStatusChange(app.id, e.target.value as ApplicationStatus)
-                      }
-                    >
-                      {statusOptions.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </Select>
-                  </td>
+                      case "company":
+                        return <td key={col.id} className="p-3">{application.company}</td>;
 
-                  <td className="p-3 text-muted-foreground">
-                    {app.dateApplied ? new Date(app.dateApplied).toLocaleDateString() : "N/A"}
-                  </td>
+                      case "position":
+                        return <td key={col.id} className="p-3">{application.position}</td>;
 
-                  <td className="p-3 text-muted-foreground">
-                    {new Date(app.updatedAt).toLocaleDateString()}
-                  </td>
+                      case "jobType":
+                        return <td key={col.id} className="p-3">{jobTypeLabel(application.jobType)}</td>;
 
-                  <td className="p-3">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={busyId === app.id}
-                      onClick={() => handleDelete(app.id)}
-                    >
-                      Delete
-                    </Button>
-                  </td>
+                      case "salaryText":
+                        return <td key={col.id} className="p-3">{application.salaryText ?? "—"}</td>;
+
+                      case "workMode":
+                        return <td key={col.id} className="p-3">{workModeLabel(application.workMode)}</td>;
+
+                      case "status":
+                        return (
+                          <td key={col.id} className="p-3">
+                            <Select
+                              className="h-8 w-[140px] px-2"
+                              value={application.status}
+                              disabled={busyId === application.id}
+                              onChange={(e) =>
+                                handleStatusChange(application.id, e.target.value as ApplicationStatus)
+                              }
+                            >
+                              {STATUS_OPTIONS.map((s) => (
+                                <option key={s.value} value={s.value}>
+                                  {s.label}
+                                </option>
+                              ))}
+                            </Select>
+                          </td>
+                        );
+
+                      case "dateApplied":
+                        return (
+                          <td key={col.id} className="p-3 text-muted-foreground">
+                            {application.dateApplied ? new Date(application.dateApplied).toLocaleDateString() : "N/A"}
+                          </td>
+                        );
+
+                      case "updatedAt":
+                        return (
+                          <td key={col.id} className="p-3 text-muted-foreground">
+                            {new Date(application.updatedAt).toLocaleDateString()}
+                          </td>
+                        );
+
+                      case "actions":
+                        return (
+                          <td key={col.id} className="p-3">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={busyId === application.id}
+                              onClick={() => handleDelete(application.id)}
+                            >
+                              Delete
+                            </Button>
+                          </td>
+                        );
+
+                      default:
+                        return null;
+                    }
+                  })}
                 </tr>
               ))
             )}
