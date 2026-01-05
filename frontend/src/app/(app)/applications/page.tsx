@@ -7,6 +7,9 @@ import type { ApplicationsListResponse, ApplicationStatus, ApplicationSortBy, Ap
 import { STATUS_FILTER_OPTIONS, JOB_TYPE_FILTER_OPTIONS, WORK_MODE_FILTER_OPTIONS, statusLabel, jobTypeLabel, workModeLabel } from "@/lib/applications/presentation";
 import { ApplicationsTable } from "@/components/applications/ApplicationsTable";
 import { CreateApplicationForm } from "@/components/applications/CreateApplicationForm";
+import { useRef } from "react";
+import { ColumnsControl } from "@/components/applications/ColumnsControl";
+import { APPLICATION_COLUMNS_STORAGE_KEY, DEFAULT_VISIBLE_APPLICATION_COLUMNS, normalizeVisibleColumns, type ApplicationColumnId} from "@/lib/applications/tableColumns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,51 +44,24 @@ export default function ApplicationsPage() {
   const [sortBy, setSortBy] = useState<ApplicationSortBy>(DEFAULT_SORT_BY);
   const [sortDir, setSortDir] = useState<ApplicationSortDir>(DEFAULT_SORT_DIR);
 
+  const isDefaultSort = sortBy === DEFAULT_SORT_BY && sortDir === DEFAULT_SORT_DIR;
+
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<"ALL" | ApplicationStatus>("ALL");
   const [jobType, setJobType] = useState<"ALL" | JobType>("ALL");
   const [workMode, setWorkMode] = useState<"ALL" | WorkMode>("ALL");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
 
+  // Column visibility state
+  const [showColumns, setShowColumns] = useState(false);
+  const [visibleColumns, setVisibleColumns] = useState<ApplicationColumnId[]>(DEFAULT_VISIBLE_APPLICATION_COLUMNS);
 
-  const isDefaultSort = sortBy === DEFAULT_SORT_BY && sortDir === DEFAULT_SORT_DIR;
+  // Prevent overwriting saved settings on first render
+  const skipFirstColumnsSaveRef = useRef(true);
 
 
   // State to force re-fetch
   const [reloadKey, setReloadKey] = useState(0);
-
-
-  /**
-   * Legacy-style sort cycle:
-   * - new column click: asc
-   * - 2nd click: desc
-   * - 3rd click: reset to default (updatedAt desc)
-   */
-  function handleHeaderSortClick(nextSortBy: ApplicationSortBy) {
-    // Any sort change should bring us back to page 1.
-    setPage(1);
-
-    // Special case: if we're on the default sort and clicking the same column, toggle the sort direction.
-    if (isDefaultSort && nextSortBy === DEFAULT_SORT_BY) {
-      setSortDir("asc");
-      return;
-    }
-
-    if (sortBy !== nextSortBy) {
-      setSortBy(nextSortBy);
-      setSortDir("asc");
-      return;
-    }
-
-    if (sortDir === "asc") {
-      setSortDir("desc");
-      return;
-    }
-
-    // Third click resets to the default sort.
-    setSortBy(DEFAULT_SORT_BY);
-    setSortDir(DEFAULT_SORT_DIR);
-  }
 
   // Fetching applications when the page first mounts (& again whenever page or pageSize changes or reloadKey is changed)
   useEffect(() => {
@@ -124,6 +100,64 @@ export default function ApplicationsPage() {
 
     load();
   }, [page, pageSize, query, status, sortBy, sortDir, jobType, workMode, favoritesOnly, reloadKey]);
+
+  // Load column visibility settings from localStorage
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(APPLICATION_COLUMNS_STORAGE_KEY);
+      if (!raw) return;
+  
+      const savedColumns = JSON.parse(raw);
+      setVisibleColumns(normalizeVisibleColumns(savedColumns));
+    } catch {
+      // Ignore bad storage data; fall back to defaults
+    }
+  }, []);
+
+  // Save column visibility settings to localStorage
+  useEffect(() => {
+    if (skipFirstColumnsSaveRef.current) {
+      skipFirstColumnsSaveRef.current = false;
+      return;
+    }
+  
+    localStorage.setItem(
+      APPLICATION_COLUMNS_STORAGE_KEY,
+      JSON.stringify(visibleColumns)
+    );
+  }, [visibleColumns]);
+  
+  /**
+   * Sorting cycle:
+   * - new column click: asc
+   * - 2nd click: desc
+   * - 3rd click: reset to default (updatedAt desc)
+   */
+  function handleHeaderSortClick(nextSortBy: ApplicationSortBy) {
+    // Any sort change should bring us back to page 1.
+    setPage(1);
+
+    // Special case: if we're on the default sort and clicking the same column, toggle the sort direction.
+    if (isDefaultSort && nextSortBy === DEFAULT_SORT_BY) {
+      setSortDir("asc");
+      return;
+    }
+
+    if (sortBy !== nextSortBy) {
+      setSortBy(nextSortBy);
+      setSortDir("asc");
+      return;
+    }
+
+    if (sortDir === "asc") {
+      setSortDir("desc");
+      return;
+    }
+
+    // Third click resets to the default sort.
+    setSortBy(DEFAULT_SORT_BY);
+    setSortDir(DEFAULT_SORT_DIR);
+  }
 
   // refreshList: forces a refetch without changing filter state.
   function refreshList() {
@@ -183,6 +217,25 @@ export default function ApplicationsPage() {
       
         {/* Table controls (MVP) */}
         <CardContent className="space-y-4">
+          
+          {/* Columns control */}
+          <div className="flex items-center justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setShowColumns((v) => !v)}
+            >
+              Columns
+            </Button>
+          </div>
+
+          {showColumns ? (
+            <ColumnsControl
+              visibleColumns={visibleColumns}
+              onChange={setVisibleColumns}
+            />
+          ) : null}
+
+
           <div className="grid gap-4 md:grid-cols-12">
             {/* Search */}
             <div className="space-y-1 md:col-span-6">
@@ -296,6 +349,7 @@ export default function ApplicationsPage() {
               isDefaultSort={isDefaultSort}
               onSort={handleHeaderSortClick}
               onChanged={() => setReloadKey((k) => k + 1)}
+              visibleColumns={visibleColumns}
             />
           )}
         </CardContent>
