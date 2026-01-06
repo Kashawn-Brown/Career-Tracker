@@ -95,6 +95,7 @@ export type Application = {
   jobLink: string | null;
   description: string | null;
   notes: string | null;
+  tagsText: string | null;
 
   createdAt: string;
   updatedAt: string;
@@ -138,6 +139,7 @@ export type CreateApplicationRequest = {
   jobLink?: string;
   description?: string;
   notes?: string;
+  tagsText?: string;
 };
 
 // UpdateApplicationRequest: matches backend schema for PATCH /applications/{id}.
@@ -155,6 +157,7 @@ export type UpdateApplicationRequest = {
   jobLink?: string;
   description?: string;
   notes?: string;
+  tagsText?: string;
 };
 
 

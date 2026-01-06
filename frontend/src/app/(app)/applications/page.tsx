@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { ApiError } from "@/lib/api/client";
 import { applicationsApi } from "@/lib/api/applications";
-import type { ApplicationsListResponse, ApplicationStatus, ApplicationSortBy, ApplicationSortDir, JobType, WorkMode, ListApplicationsParams } from "@/types/api";
+import type { Application, ApplicationsListResponse, ApplicationStatus, ApplicationSortBy, ApplicationSortDir, JobType, WorkMode, ListApplicationsParams } from "@/types/api";
 import { STATUS_FILTER_OPTIONS, JOB_TYPE_FILTER_OPTIONS, WORK_MODE_FILTER_OPTIONS, statusLabel, jobTypeLabel, workModeLabel } from "@/lib/applications/presentation";
 import { ApplicationsTable } from "@/components/applications/ApplicationsTable";
 import { CreateApplicationForm } from "@/components/applications/CreateApplicationForm";
-import { useRef } from "react";
+import { ApplicationDetailsDrawer } from "@/components/applications/ApplicationDetailsDrawer";
 import { ColumnsControl } from "@/components/applications/ColumnsControl";
 import { APPLICATION_COLUMNS_STORAGE_KEY, DEFAULT_VISIBLE_APPLICATION_COLUMNS, normalizeVisibleColumns, type ApplicationColumnId} from "@/lib/applications/tableColumns";
 import { Button } from "@/components/ui/button";
@@ -65,6 +65,11 @@ export default function ApplicationsPage() {
   // Column visibility state
   const [showColumns, setShowColumns] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<ApplicationColumnId[]>(DEFAULT_VISIBLE_APPLICATION_COLUMNS);
+
+  // Application details drawer state
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
+
 
   // Prevent overwriting saved settings on first render
   const skipFirstColumnsSaveRef = useRef(true);
@@ -449,6 +454,10 @@ export default function ApplicationsPage() {
               onSort={handleHeaderSortClick}
               onChanged={() => setReloadKey((k) => k + 1)}
               visibleColumns={visibleColumns}
+              onRowClick={(application) => {
+                setSelectedApplication(application);
+                setDetailsOpen(true);
+              }}
             />
           )}
         </CardContent>
@@ -539,6 +548,13 @@ export default function ApplicationsPage() {
           </div>
         </CardFooter>
       </Card>
+      
+      {/* Application details drawer */}
+      <ApplicationDetailsDrawer
+        open={detailsOpen}
+        onOpenChange={setDetailsOpen}
+        application={selectedApplication}
+      />
     </div>
   );
 }
