@@ -47,6 +47,7 @@ export const CreateApplicationBody = Type.Object(
     jobLink: Type.Optional(Type.String({ maxLength: 2048 })),
     description: Type.Optional(Type.String({ maxLength: 20000 })),
     notes: Type.Optional(Type.String({ maxLength: 20000 })),
+    tagsText: Type.Optional(Type.String({ maxLength: 500 })),
   },
   { additionalProperties: false }
 );
@@ -122,7 +123,8 @@ export const UpdateApplicationBody = Type.Object(
     workModeDetails: Type.Optional(Type.String({ maxLength: 200 })),
     salaryText: Type.Optional(Type.String({ maxLength: 200 })),
     isFavorite: Type.Optional(Type.Boolean()),
-    jobLink: Type.Optional(Type.String({ minLength: 1, maxLength: 2048 })),
+    jobLink: Type.Optional(Type.String({ maxLength: 2048 })),
+    tagsText: Type.Optional(Type.String({ maxLength: 500 })),
     description: Type.Optional(Type.String({ maxLength: 20000 })),
     notes: Type.Optional(Type.String({ maxLength: 20000 })),
   },
