@@ -27,15 +27,23 @@ import { Alert } from "@/components/ui/alert";
 
 // ApplicationsPage: fetches and displays the user's applications (GET /applications) with pagination.
 export default function ApplicationsPage() {
-
-  // Page state
-  const [page, setPage] = useState(1);
-  const [pageSize] = useState(50); // MVP: fixed page size (will make it user-selectable later)
-
+  
   // Data + UI state
   const [data, setData] = useState<ApplicationsListResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Page state
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 250, 500] as const;
+  type PageSizeOption = (typeof PAGE_SIZE_OPTIONS)[number];
+
+  const [pageSize, setPageSize] = useState<PageSizeOption>(50); // default stays 50
+
+  const total = data?.total ?? 0;
+
+  const startIndex = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const endIndex = total === 0 ? 0 : Math.min(page * pageSize, total);
 
   // Filters / sorting.
   const DEFAULT_SORT_BY: ApplicationSortBy = "updatedAt";
@@ -59,6 +67,10 @@ export default function ApplicationsPage() {
   // Prevent overwriting saved settings on first render
   const skipFirstColumnsSaveRef = useRef(true);
 
+  // Page size storage key
+  const APPLICATION_PAGE_SIZE_STORAGE_KEY = "career-tracker:applications:pageSize";
+  // Prevent overwriting saved settings on first render
+  const skipFirstPageSizeSaveRef = useRef(true);
 
   // State to force re-fetch
   const [reloadKey, setReloadKey] = useState(0);
@@ -104,11 +116,17 @@ export default function ApplicationsPage() {
   // Load column visibility settings from localStorage
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(APPLICATION_COLUMNS_STORAGE_KEY);
-      if (!raw) return;
+      const rawCols = localStorage.getItem(APPLICATION_COLUMNS_STORAGE_KEY);
+      if (rawCols) {
+        const savedColumns = JSON.parse(rawCols);
+        setVisibleColumns(normalizeVisibleColumns(savedColumns));
+      };
   
-      const savedColumns = JSON.parse(raw);
-      setVisibleColumns(normalizeVisibleColumns(savedColumns));
+      const rawPageSize = localStorage.getItem(APPLICATION_PAGE_SIZE_STORAGE_KEY);
+      if (rawPageSize) {
+        const savedPageSize = Number(rawPageSize);
+        setPageSize(savedPageSize as PageSizeOption);
+      }
     } catch {
       // Ignore bad storage data; fall back to defaults
     }
@@ -126,6 +144,55 @@ export default function ApplicationsPage() {
       JSON.stringify(visibleColumns)
     );
   }, [visibleColumns]);
+
+  // Save page size settings to localStorage
+  useEffect(() => {
+    if (skipFirstPageSizeSaveRef.current) {
+      skipFirstPageSizeSaveRef.current = false;
+      return;
+    }
+  
+    localStorage.setItem(APPLICATION_PAGE_SIZE_STORAGE_KEY, String(pageSize));
+  }, [pageSize]);
+
+  // handlePageSizeChange: changes the page size.
+  function handlePageSizeChange(numberPerPage: string) {
+    const next = Number(numberPerPage);
+  
+    if (!Number.isFinite(next)) return;
+  
+    // Only allow supported sizes (guards against weird DOM values)
+    if (!PAGE_SIZE_OPTIONS.includes(next as PageSizeOption)) return;
+  
+    setPageSize(next as PageSizeOption);
+    setPage(1); // required: changing page size resets to page 1
+  }
+
+  // PageToken: a page token can be a number or an ellipsis.
+  type PageToken = number | "…";
+
+  // buildPageTokens: returns a compact pagination list like: 1 … 5 6 7 … 28
+  function buildPageTokens(current: number, totalPages: number): PageToken[] {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+
+    const tokens: PageToken[] = [];
+    const windowStart = Math.max(2, current - 1);
+    const windowEnd = Math.min(totalPages - 1, current + 1);
+
+    tokens.push(1);
+
+    if (windowStart > 2) tokens.push("…");
+
+    for (let p = windowStart; p <= windowEnd; p++) tokens.push(p);
+
+    if (windowEnd < totalPages - 1) tokens.push("…");
+
+    tokens.push(totalPages);
+
+    return tokens;
+  }
   
   /**
    * Sorting cycle:
@@ -337,6 +404,7 @@ export default function ApplicationsPage() {
 
           {errorMessage ? <Alert variant="destructive">{errorMessage}</Alert> : null}
 
+          {/* Loading State / Table */}
           {isLoading && !data ? (
             <div className="rounded-md border bg-muted/20 p-4 text-sm text-muted-foreground">
               Loading applications...
@@ -354,23 +422,90 @@ export default function ApplicationsPage() {
           )}
         </CardContent>
 
-        {/* Pagination */}
+        
         <CardFooter className="border-t justify-end gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={!data || page <= 1 || isLoading}
-          >
-            Prev
-          </Button>
+          <div className="w-full space-y-3"> 
+            
+            {/* Top row: Rows per page selector (left) + Showing range (right) */}
+            <div className="flex items-center justify-between">
+              
+              {/* Page size selector */}
+              <div className="flex items-center gap-1">
+                <Label htmlFor="pageSize" className="text-sm text-muted-foreground">
+                  Rows per page:
+                </Label>
 
-          <Button
-            variant="outline"
-            onClick={() => setPage((p) => (data ? Math.min(data.totalPages, p + 1) : p + 1))}
-            disabled={!data || page >= data.totalPages || isLoading}
-          >
-            Next
-          </Button>
+                <Select
+                  id="pageSize"
+                  className="h-9 w-[80px]"
+                  value={String(pageSize)}
+                  onChange={(e) => handlePageSizeChange(e.target.value)}
+                  disabled={isLoading}
+                >
+                  {PAGE_SIZE_OPTIONS.map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+
+              {/* Results info */}
+              <div className="text-sm text-muted-foreground">
+                {total === 0 ? "No results" : `Showing ${startIndex}–${endIndex} of ${total}`}
+              </div>
+            </div>
+            
+            {/* Bottom row: Pagination */}
+            <div className="flex items-center justify-center gap-1">
+              
+              {/* Previous page button */}
+              <Button
+                variant="outline"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={!data || page <= 1 || isLoading}
+              >
+                Prev
+              </Button>
+              
+              {/* Page numbers */}
+              <div className="flex items-center gap-1">
+                {buildPageTokens(page, Math.ceil(total/pageSize)).map((t, idx) => {
+                  if (t === "…") {
+                    return (
+                      <span key={`ellipsis-${idx}`} className="px-2 text-muted-foreground select-none">
+                        …
+                      </span>
+                    );
+                  }
+
+                  const isCurrent = t === page;
+
+                  return (
+                    <Button
+                      key={t}
+                      variant={isCurrent ? "secondary" : "ghost"}
+                      size="sm"
+                      disabled={isCurrent || isLoading}
+                      onClick={() => setPage(t)}
+                      className="h-9 min-w-9 px-2"
+                    >
+                      {t}
+                    </Button>
+                  );
+                })}
+              </div>
+
+              {/* Next page button */}
+              <Button
+                variant="outline"
+                onClick={() => setPage((p) => (data ? Math.min(data.totalPages, p + 1) : p + 1))}
+                disabled={!data || page >= data.totalPages || isLoading}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
         </CardFooter>
       </Card>
     </div>
