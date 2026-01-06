@@ -71,7 +71,7 @@ export const ListApplicationsQuery = Type.Object(
 
     // Pagination
     page: Type.Optional(Type.Integer({ minimum: 1 })),          // default in route/service
-    pageSize: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })), // cap to prevent abuse
+    pageSize: Type.Optional(Type.Integer({ minimum: 1, maximum: 500 })), // cap to prevent abuse
     
     // Sorting
     sortBy: Type.Optional(
