@@ -36,9 +36,11 @@ export async function createApplication(input: CreateApplicationInput) {
       // Convert ISO string -> Date for Postgres
       dateApplied: input.dateApplied ? new Date(input.dateApplied) : null,
 
-      jobLink: input.jobLink,
-      description: input.description,
-      notes: input.notes,
+      jobLink: normalizeNullableString(input.jobLink),
+      description: normalizeNullableString(input.description),
+      notes: normalizeNullableString(input.notes),
+      tagsText: normalizeNullableString(input.tagsText),
+
     },
     select: applicationSelect,
   });
@@ -132,9 +134,6 @@ export async function updateApplication(userId: string, id: string, input: Updat
   if (input.company !== undefined) data.company = input.company;
   if (input.position !== undefined) data.position = input.position;
   if (input.status !== undefined) data.status = input.status;
-  if (input.jobLink !== undefined) data.jobLink = input.jobLink;
-  if (input.description !== undefined) data.description = input.description;
-  if (input.notes !== undefined) data.notes = input.notes;
 
   // Convert ISO string -> Date for Prisma
   if (input.dateApplied !== undefined) {
@@ -152,6 +151,11 @@ export async function updateApplication(userId: string, id: string, input: Updat
   }
 
   if (input.isFavorite !== undefined) data.isFavorite = input.isFavorite;
+
+  if (input.jobLink !== undefined) data.jobLink = normalizeNullableString(input.jobLink);
+  if (input.description !== undefined) data.description = normalizeNullableString(input.description);
+  if (input.notes !== undefined) data.notes = normalizeNullableString(input.notes);
+  if (input.tagsText !== undefined) data.tagsText = normalizeNullableString(input.tagsText);
 
   // Wrap in transaction to group the db operations into one
   return prisma.$transaction(async (db: Prisma.TransactionClient) => {

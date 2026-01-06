@@ -21,6 +21,8 @@ export const applicationSelect = {
   jobLink: true,
   description: true,
   notes: true,
+  tagsText: true,
+
   createdAt: true,
   updatedAt: true,
   
@@ -42,6 +44,7 @@ export type CreateApplicationInput = {
   jobLink?: string;
   description?: string;
   notes?: string;
+  tagsText?: string;
 };
 
 
@@ -59,6 +62,7 @@ export type UpdateApplicationInput = {
   jobLink?: string;
   description?: string;
   notes?: string;
+  tagsText?: string;
 };
 
 
