@@ -72,6 +72,7 @@ export function ApplicationsTable({
   onSort,    // a callback to tell the parent: "Sort changed, refetch"
   onChanged,  // a callback to tell the parent: "Something changed, refetch" (update/delete)
   visibleColumns, // the columns to display
+  onRowClick,  // a callback to tell the parent: "Row clicked, open details drawer"
 }: {
   items: Application[];
   sortBy: ApplicationSortBy;
@@ -80,6 +81,7 @@ export function ApplicationsTable({
   onSort: (nextSortBy: ApplicationSortBy) => void;
   onChanged: () => void;
   visibleColumns: ApplicationColumnId[];
+  onRowClick?: (application: Application) => void;
 }) {
   const [rowError, setRowError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);      // stores the ID of the row currently being updated/deleted
@@ -183,8 +185,10 @@ export function ApplicationsTable({
               items.map((application) => (
                 <tr
                   key={application.id}
+                  onClick={() => onRowClick?.(application)}  // click application row to open its details drawer  
                   className={cn(
                     "border-t transition-colors hover:bg-muted/40 even:bg-muted/20",
+                    onRowClick && "cursor-pointer",
                     busyId === application.id && "opacity-60"
                   )}
                 >
@@ -215,6 +219,7 @@ export function ApplicationsTable({
                               className="h-8 w-[140px] px-2"
                               value={application.status}
                               disabled={busyId === application.id}
+                              onClick={(e) => e.stopPropagation()}
                               onChange={(e) =>
                                 handleStatusChange(application.id, e.target.value as ApplicationStatus)
                               }
@@ -249,7 +254,10 @@ export function ApplicationsTable({
                               variant="outline"
                               size="sm"
                               disabled={busyId === application.id}
-                              onClick={() => handleDelete(application.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDelete(application.id);
+                              }}
                             >
                               Delete
                             </Button>
