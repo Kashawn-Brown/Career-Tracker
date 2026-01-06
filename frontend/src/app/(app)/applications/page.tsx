@@ -54,7 +54,9 @@ export default function ApplicationsPage() {
 
   const isDefaultSort = sortBy === DEFAULT_SORT_BY && sortDir === DEFAULT_SORT_DIR;
 
-  const [query, setQuery] = useState("");
+  const DEBOUNCE_MS = 250;    // Debounce time for query input (to prevent excessive API calls)
+  const [query, setQuery] = useState("");       // what the user has searched for (committed query used by API)
+  const [queryInput, setQueryInput] = useState(""); // what the user is typing
   const [status, setStatus] = useState<"ALL" | ApplicationStatus>("ALL");
   const [jobType, setJobType] = useState<"ALL" | JobType>("ALL");
   const [workMode, setWorkMode] = useState<"ALL" | WorkMode>("ALL");
@@ -155,6 +157,37 @@ export default function ApplicationsPage() {
     localStorage.setItem(APPLICATION_PAGE_SIZE_STORAGE_KEY, String(pageSize));
   }, [pageSize]);
 
+  // Save query input to state
+  useEffect(() => {
+    setQueryInput(query);
+  }, [query]);
+
+  // Debounce query input to prevent excessive API calls
+  useEffect(() => {
+    const normalized = queryInput.trim();
+  
+    // If cleared, apply immediately (snappy UX)
+    if (normalized.length === 0) {
+      if (query !== "") {
+        setQuery("");
+        resetToFirstPage();
+      }
+      return;
+    }
+  
+    const handle = window.setTimeout(() => {
+      if (normalized !== query) {
+        setQuery(normalized);
+        resetToFirstPage();
+      }
+    }, DEBOUNCE_MS);
+  
+    return () => window.clearTimeout(handle);
+  }, [queryInput, query]);
+  
+
+  
+
   // handlePageSizeChange: changes the page size.
   function handlePageSizeChange(numberPerPage: string) {
     const next = Number(numberPerPage);
@@ -239,6 +272,7 @@ export default function ApplicationsPage() {
   // resetControls: returns filters/sort back to MVP defaults.
   function resetControls() {
     setQuery("");
+    setQueryInput("");
     setStatus("ALL");
     setSortBy("updatedAt");
     setSortDir("desc");
@@ -309,11 +343,8 @@ export default function ApplicationsPage() {
               <Label htmlFor="q">Search</Label>
               <Input
                 id="q"
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  resetToFirstPage();
-                }}
+                value={queryInput}
+                onChange={(e) => setQueryInput(e.target.value)}
                 placeholder="Search company or position..."
               />
             </div>
