@@ -53,7 +53,7 @@ export type UpdateApplicationInput = {
   company?: string;
   position?: string;
   status?: ApplicationStatus;
-  dateApplied?: string;
+  dateApplied?: string | null;
   jobType?: JobType;
   jobTypeDetails?: string;
   workMode?: WorkMode;
