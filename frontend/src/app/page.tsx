@@ -146,7 +146,7 @@ export default function HomePage() {
                     <tr className="[&>th]:px-4 [&>th]:py-3 [&>th]:font-medium">
                       <th>Company</th>
                       <th>Role</th>
-                      <th>Work mode</th>
+                      <th>Work arrangement</th>
                       <th>Status</th>
                       <th>Salary</th>
                       <th>Resume</th>

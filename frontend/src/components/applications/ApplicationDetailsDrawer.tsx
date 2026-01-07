@@ -421,7 +421,7 @@ export function ApplicationDetailsDrawer({
                       details={application.jobTypeDetails}
                     />
                     <Field
-                      label="Work mode"
+                      label="Work arrangement"
                       value={workModeLabel(application.workMode)}
                       details={application.workModeDetails}
                     />
@@ -513,7 +513,7 @@ export function ApplicationDetailsDrawer({
                     </EditRow>                    
 
                     {/* Work mode + details are connected (details is a sub-input) */}
-                    <EditRow label="Work mode">
+                    <EditRow label="Work arrangement">
                       <Select
                         value={draft.workMode}
                         onChange={(e) =>
@@ -532,7 +532,7 @@ export function ApplicationDetailsDrawer({
                     </EditRow>
 
                     {/* Work mode details (sub-row) */}
-                    <EditRow label="Work mode details" labelClassName="font-light">
+                    <EditRow label="Work arrangement details" labelClassName="font-light">
                       <Input
                         value={draft.workModeDetails}
                         onChange={(e) =>

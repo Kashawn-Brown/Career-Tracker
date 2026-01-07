@@ -31,9 +31,9 @@ export const APPLICATION_COLUMN_DEFS: readonly ApplicationColumnDef[] = [
   { id: "position",  label: "Position",   required: true,  defaultVisible: true },
   { id: "jobType",   label: "Type",       required: false, defaultVisible: true },
   { id: "salaryText",label: "Salary",     required: false, defaultVisible: true },
-  { id: "workMode",  label: "Arrangement",required: false, defaultVisible: true },
+  { id: "workMode",  label: "Work Arrangement",required: false, defaultVisible: true },
   { id: "status",    label: "Status",     required: true,  defaultVisible: true },
-  { id: "dateApplied",label:"Applied",    required: false, defaultVisible: true },
+  { id: "dateApplied",label:"Date Applied",    required: false, defaultVisible: true },
   { id: "updatedAt", label: "Updated",    required: false, defaultVisible: true },
   { id: "actions",   label: "Actions",    required: true,  defaultVisible: true },
 ] as const;

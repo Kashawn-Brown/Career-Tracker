@@ -164,7 +164,7 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
         </div>
 
         <div className="space-y-1">
-          <Label htmlFor="workMode">Work mode</Label>
+          <Label htmlFor="workMode">Work Arrangement</Label>
           <Select
             id="workMode"
             value={workMode}
@@ -217,7 +217,7 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
           </div>
 
           <div className="space-y-1 md:col-span-2">
-            <Label htmlFor="workModeDetails">Work Mode Details</Label>
+            <Label htmlFor="workModeDetails">Work Arrangement Details</Label>
             <Input
               id="workModeDetails"
               value={workModeDetails}
