@@ -5,10 +5,9 @@ import type { Application, ApplicationStatus, ApplicationSortBy, ApplicationSort
 import { applicationsApi } from "@/lib/api/applications";
 import { ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
-import { STATUS_OPTIONS, jobTypeLabel, workModeLabel } from "@/lib/applications/presentation";
+import { statusLabel, jobTypeLabel, workModeLabel } from "@/lib/applications/presentation";
 import { APPLICATION_COLUMN_DEFS, type ApplicationColumnId } from "@/lib/applications/tableColumns";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/select";
 import { Alert } from "../ui/alert";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
@@ -213,25 +212,7 @@ export function ApplicationsTable({
                         return <td key={col.id} className="p-3">{workModeLabel(application.workMode)}</td>;
 
                       case "status":
-                        return (
-                          <td key={col.id} className="p-3">
-                            <Select
-                              className="h-8 w-[140px] px-2"
-                              value={application.status}
-                              disabled={busyId === application.id}
-                              onClick={(e) => e.stopPropagation()}
-                              onChange={(e) =>
-                                handleStatusChange(application.id, e.target.value as ApplicationStatus)
-                              }
-                            >
-                              {STATUS_OPTIONS.map((s) => (
-                                <option key={s.value} value={s.value}>
-                                  {s.label}
-                                </option>
-                              ))}
-                            </Select>
-                          </td>
-                        );
+                        return <td key={col.id} className="p-3">{statusLabel(application.status)}</td>;
 
                       case "dateApplied":
                         return (

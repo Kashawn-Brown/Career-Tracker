@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { ApiError } from "@/lib/api/client";
 import { applicationsApi } from "@/lib/api/applications";
-import type { Application, ApplicationsListResponse, ApplicationStatus, ApplicationSortBy, ApplicationSortDir, JobType, WorkMode, ListApplicationsParams } from "@/types/api";
+import type { Application, ApplicationsListResponse, UpdateApplicationRequest, ApplicationStatus, ApplicationSortBy, ApplicationSortDir, JobType, WorkMode, ListApplicationsParams } from "@/types/api";
 import { STATUS_FILTER_OPTIONS, JOB_TYPE_FILTER_OPTIONS, WORK_MODE_FILTER_OPTIONS, statusLabel, jobTypeLabel, workModeLabel } from "@/lib/applications/presentation";
 import { ApplicationsTable } from "@/components/applications/ApplicationsTable";
 import { CreateApplicationForm } from "@/components/applications/CreateApplicationForm";
@@ -189,7 +189,22 @@ export default function ApplicationsPage() {
   
     return () => window.clearTimeout(handle);
   }, [queryInput, query]);
-  
+
+  // handleSaveDetails: handles the saving of the details of the application.
+  async function handleSaveDetails(
+    applicationId: string,
+    patch: UpdateApplicationRequest
+  ) {
+    const updated = await applicationsApi.update(applicationId, patch);
+
+    // Keep the drawer in sync immediately (with the updated application)
+    setSelectedApplication(updated);
+
+    // Refresh the table list (updatedAt ordering, etc.)
+    setReloadKey((k) => k + 1);
+
+    return updated;
+  }
 
   
 
@@ -232,12 +247,7 @@ export default function ApplicationsPage() {
     return tokens;
   }
   
-  /**
-   * Sorting cycle:
-   * - new column click: asc
-   * - 2nd click: desc
-   * - 3rd click: reset to default (updatedAt desc)
-   */
+  // handleHeaderSortClick: handles the sorting of the table (based on the column clicked).
   function handleHeaderSortClick(nextSortBy: ApplicationSortBy) {
     // Any sort change should bring us back to page 1.
     setPage(1);
@@ -552,8 +562,12 @@ export default function ApplicationsPage() {
       {/* Application details drawer */}
       <ApplicationDetailsDrawer
         open={detailsOpen}
-        onOpenChange={setDetailsOpen}
+        onOpenChange={(open) => {
+          setDetailsOpen(open);
+          if (!open) setSelectedApplication(null); // ✅ close clears selection
+        }}
         application={selectedApplication}
+        onSave={handleSaveDetails} // ✅ new
       />
     </div>
   );
