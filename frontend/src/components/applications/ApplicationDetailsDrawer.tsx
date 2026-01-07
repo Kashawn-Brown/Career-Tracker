@@ -94,6 +94,9 @@ type Draft = {
 
   salaryText: string;
 
+  location: string;
+  locationDetails: string;
+
   jobType: JobType;
   jobTypeDetails: string;
 
@@ -117,6 +120,9 @@ function toDraft(app: Application): Draft {
     status: app.status,
 
     salaryText: app.salaryText ?? "",
+
+    location: app.location ?? "",
+    locationDetails: app.locationDetails ?? "",
 
     jobType: app.jobType,
     jobTypeDetails: app.jobTypeDetails ?? "",
@@ -276,6 +282,8 @@ export function ApplicationDetailsDrawer({
       company,
       position,
       status: draft.status,
+      location: draft.location,
+      locationDetails: draft.locationDetails,
       jobType: draft.jobType,
       workMode: draft.workMode,
       isFavorite: draft.isFavorite,
@@ -410,6 +418,14 @@ export function ApplicationDetailsDrawer({
                   <>
                     <Field label="Company" value={application.company} />
                     <Field label="Position" value={application.position} />
+
+                    <Field 
+                      label="Location" 
+                      value={application.location} 
+                      details={application.locationDetails}
+                      emptyValue="N/A"
+                    />
+
                     <Field
                       label="Salary"
                       value={application.salaryText}
@@ -454,13 +470,33 @@ export function ApplicationDetailsDrawer({
                       />
                     </EditRow>
 
+                    <EditRow label="Location">
+                      <Input
+                        value={draft.location}
+                        onChange={(e) =>
+                          setDraft({ ...draft, location: e.target.value })
+                        }
+                        placeholder="e.g., Toronto, ON"
+                      />
+                    </EditRow>
+
+                    <EditRow label="Location details" labelClassName="font-light">
+                      <Input
+                        value={draft.locationDetails}
+                        onChange={(e) =>
+                          setDraft({ ...draft, locationDetails: e.target.value })
+                        }
+                        placeholder="e.g., 159 St. George St."
+                      />
+                    </EditRow>
+
                     <EditRow label="Salary">
                       <Input
                         value={draft.salaryText}
                         onChange={(e) =>
                           setDraft({ ...draft, salaryText: e.target.value })
                         }
-                        placeholder="e.g. $90k–110k CAD"
+                        placeholder="e.g., $90k–110k CAD"
                       />
                     </EditRow>
 
@@ -508,7 +544,7 @@ export function ApplicationDetailsDrawer({
                         onChange={(e) =>
                           setDraft({ ...draft, jobTypeDetails: e.target.value })
                         }
-                        placeholder="e.g. 6-month contract, potential for extension..."
+                        placeholder="e.g., 6-month contract, potential for extension..."
                       />
                     </EditRow>                    
 
@@ -538,7 +574,7 @@ export function ApplicationDetailsDrawer({
                         onChange={(e) =>
                           setDraft({ ...draft, workModeDetails: e.target.value })
                         }
-                        placeholder="e.g. 2 days in office, downtown Toronto, hybrid-flex"
+                        placeholder="e.g., 2 days in office, downtown Toronto, hybrid-flex"
                       />
                     </EditRow>
 

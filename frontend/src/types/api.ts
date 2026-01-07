@@ -66,7 +66,7 @@ export type RegisterRequest = {
 
 
 // --- Applications DTOs, enums and types: matches backend ---
-export type ApplicationSortBy = "company" | "position" | "status" | "jobType" | "workMode" | "dateApplied" | "updatedAt" | "isFavorite";
+export type ApplicationSortBy = "company" | "position" | "location" | "status" | "jobType" | "workMode" | "dateApplied" | "updatedAt" | "isFavorite";
 
 export type ApplicationSortDir = "asc" | "desc";
 
@@ -81,6 +81,9 @@ export type Application = {
   company: string;
   position: string;
   status: ApplicationStatus;
+
+  location: string | null;
+  locationDetails: string | null;
 
   jobType: JobType;
   jobTypeDetails: string | null;
@@ -126,6 +129,9 @@ export type CreateApplicationRequest = {
   position: string;
   status?: ApplicationStatus;
 
+  location?: string;
+  locationDetails?: string;
+
   dateApplied?: string;
 
   jobType?: JobType;
@@ -147,6 +153,8 @@ export type UpdateApplicationRequest = {
   company?: string;
   position?: string;
   status?: ApplicationStatus;
+  location?: string;
+  locationDetails?: string;
   dateApplied?: string | null; // ISO string or null to clear
   jobType?: JobType;
   jobTypeDetails?: string;

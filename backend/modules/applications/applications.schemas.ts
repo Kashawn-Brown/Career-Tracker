@@ -33,6 +33,9 @@ export const CreateApplicationBody = Type.Object(
     // Optional because it can default to server-side.
     status: Type.Optional(ApplicationStatusSchema),
 
+    location: Type.Optional(Type.String({ maxLength: 200 })),
+    locationDetails: Type.Optional(Type.String({ maxLength: 500 })),
+
     // Accept ISO date-time strings over the wire. (convert to Date in the service)
     dateApplied: Type.Optional(Type.String({ format: "date-time" })),
 
@@ -81,6 +84,7 @@ export const ListApplicationsQuery = Type.Object(
         Type.Literal("createdAt"), 
         Type.Literal("company"), 
         Type.Literal("position"), 
+        Type.Literal("location"), 
         Type.Literal("status"), 
         Type.Literal("dateApplied"), 
         Type.Literal("jobType"), 
@@ -116,6 +120,8 @@ export const UpdateApplicationBody = Type.Object(
     company: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
     position: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
     status: Type.Optional(ApplicationStatusSchema),
+    location: Type.Optional(Type.String({ maxLength: 200 })),
+    locationDetails: Type.Optional(Type.String({ maxLength: 500 })),
     dateApplied: Type.Optional(Type.Union([Type.String({ format: "date-time" }), Type.Null()])), // ISO string or null to clear
     jobType: Type.Optional(JobTypeSchema),
     jobTypeDetails: Type.Optional(Type.String({ maxLength: 200 })),

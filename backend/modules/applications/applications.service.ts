@@ -24,6 +24,9 @@ export async function createApplication(input: CreateApplicationInput) {
       company: input.company,
       position: input.position,
 
+      location: normalizeNullableString(input.location),
+      locationDetails: normalizeNullableString(input.locationDetails),
+
       jobType: input.jobType ?? JobType.UNKNOWN,
       jobTypeDetails: normalizeNullableString(input.jobTypeDetails),
       workMode: input.workMode ?? WorkMode.UNKNOWN,
@@ -139,6 +142,9 @@ export async function updateApplication(userId: string, id: string, input: Updat
   if (input.dateApplied !== undefined) {
     data.dateApplied = input.dateApplied ? new Date(input.dateApplied) : null;
   }
+
+  if (input.location !== undefined) data.location = normalizeNullableString(input.location);
+  if (input.locationDetails !== undefined) data.locationDetails = normalizeNullableString(input.locationDetails);
 
   if (input.jobType !== undefined) data.jobType = input.jobType;
   if (input.jobTypeDetails !== undefined) data.jobTypeDetails = normalizeNullableString(input.jobTypeDetails);
