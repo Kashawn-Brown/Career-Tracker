@@ -8,7 +8,8 @@ export const applicationSelect = {
   userId: false,
   company: true,
   position: true,
-  // location: true, // TODO: add location to the application
+  location: true,
+  locationDetails: true,
   status: true,
   dateApplied: true,
   
@@ -35,6 +36,8 @@ export type CreateApplicationInput = {
   userId: string;
   company: string;
   position: string;
+  location?: string;
+  locationDetails?: string;
   status?: ApplicationStatus;
   dateApplied?: string;
   jobType?: JobType;
@@ -52,6 +55,8 @@ export type CreateApplicationInput = {
 export type UpdateApplicationInput = {
   company?: string;
   position?: string;
+  location?: string;
+  locationDetails?: string;
   status?: ApplicationStatus;
   dateApplied?: string | null;
   jobType?: JobType;
@@ -77,7 +82,7 @@ export type ListApplicationsParams = {
 
   page?: number;
   pageSize?: number;
-  sortBy?: "updatedAt" | "createdAt" | "company" | "position" | "status" | "dateApplied" | "jobType" | "workMode" | "salaryText" | "isFavorite";
+  sortBy?: "updatedAt" | "createdAt" | "company" | "position" | "location" | "status" | "dateApplied" | "jobType" | "workMode" | "salaryText" | "isFavorite";
   sortDir?: "asc" | "desc";
 }
 

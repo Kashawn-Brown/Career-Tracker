@@ -405,7 +405,7 @@ export default function ApplicationsPage() {
 
             {/* Work mode */}
             <div className="space-y-1 md:col-span-4">
-              <Label htmlFor="workMode">Work mode</Label>
+              <Label htmlFor="workMode">Work Arrangement</Label>
               <Select
                 id="workMode"
                 value={workMode}
@@ -416,7 +416,7 @@ export default function ApplicationsPage() {
               >
                 {WORK_MODE_FILTER_OPTIONS.map((w) => (
                   <option key={w} value={w}>
-                    {w === "ALL" ? "All modes" : workModeLabel(w)}
+                    {w === "ALL" ? "All arrangements" : workModeLabel(w)}
                   </option>
                 ))}
               </Select>

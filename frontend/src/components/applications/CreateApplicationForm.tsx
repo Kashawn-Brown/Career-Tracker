@@ -24,6 +24,9 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
   const [workMode, setWorkMode] = useState<WorkMode>("UNKNOWN");
   const [salaryText, setSalaryText] = useState("");
 
+  const [location, setLocation] = useState("");
+  const [locationDetails, setLocationDetails] = useState("");
+
   // Optional extra info (kept behind “More fields”)
   const [showMore, setShowMore] = useState(false);
   const [jobTypeDetails, setJobTypeDetails] = useState("");
@@ -69,6 +72,9 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
       jobType: jobType === "UNKNOWN" ? undefined : jobType,
       workMode: workMode === "UNKNOWN" ? undefined : workMode,
 
+      location: toOptionalTrimmed(location),
+      locationDetails: toOptionalTrimmed(locationDetails),
+
       jobTypeDetails: toOptionalTrimmed(jobTypeDetails),
       workModeDetails: toOptionalTrimmed(workModeDetails),
 
@@ -88,6 +94,9 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
       // Reset form and refresh list.
       setCompany("");
       setPosition("");
+
+      setLocation("");
+      setLocationDetails("");
 
       setApplicationStatus("WISHLIST");
 
@@ -164,7 +173,7 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
         </div>
 
         <div className="space-y-1">
-          <Label htmlFor="workMode">Work mode</Label>
+          <Label htmlFor="workMode">Work Arrangement</Label>
           <Select
             id="workMode"
             value={workMode}
@@ -192,6 +201,26 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
             ))}
           </Select>
         </div>
+
+        <div className="space-y-1">
+          <Label htmlFor="location">Location</Label>
+          <Input
+            id="location"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            placeholder="e.g., Toronto, ON"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <Label htmlFor="locationDetails">Location Details</Label>
+          <Input
+            id="locationDetails"
+            value={locationDetails}
+            onChange={(e) => setLocationDetails(e.target.value)}
+            placeholder="e.g., 159 St. George St."
+          />
+        </div>
       </div>
 
       <Button
@@ -217,7 +246,7 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
           </div>
 
           <div className="space-y-1 md:col-span-2">
-            <Label htmlFor="workModeDetails">Work Mode Details</Label>
+            <Label htmlFor="workModeDetails">Work Arrangement Details</Label>
             <Input
               id="workModeDetails"
               value={workModeDetails}

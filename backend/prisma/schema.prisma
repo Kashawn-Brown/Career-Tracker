@@ -41,6 +41,9 @@ model JobApplication {
   status      ApplicationStatus @default(APPLIED)
   dateApplied DateTime?
 
+  location    String?
+  locationDetails   String?
+
   jobType JobType @default(UNKNOWN)
   jobTypeDetails String?
 

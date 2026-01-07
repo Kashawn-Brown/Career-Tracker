@@ -128,6 +128,7 @@ export function ApplicationsTable({
 
                   case "company":
                   case "position":
+                  case "location":
                   case "jobType":
                   case "workMode":
                   case "status":
@@ -185,6 +186,9 @@ export function ApplicationsTable({
 
                       case "position":
                         return <td key={col.id} className="p-3">{application.position}</td>;
+
+                      case "location":
+                        return <td key={col.id} className="p-3">{application.location ?? "—"}</td>;
 
                       case "jobType":
                         return <td key={col.id} className="p-3">{jobTypeLabel(application.jobType)}</td>;
