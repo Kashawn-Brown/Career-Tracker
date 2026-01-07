@@ -8,6 +8,7 @@ export const applicationSelect = {
   userId: false,
   company: true,
   position: true,
+  // location: true, // TODO: add location to the application
   status: true,
   dateApplied: true,
   

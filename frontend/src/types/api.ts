@@ -147,7 +147,7 @@ export type UpdateApplicationRequest = {
   company?: string;
   position?: string;
   status?: ApplicationStatus;
-  dateApplied?: string;
+  dateApplied?: string | null; // ISO string or null to clear
   jobType?: JobType;
   jobTypeDetails?: string;
   workMode?: WorkMode;
