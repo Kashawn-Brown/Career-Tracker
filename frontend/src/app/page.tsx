@@ -24,7 +24,7 @@ const PREVIEW_ROWS = [
     company: "Deloitte",
     role: "Junior Developer",
     workMode: "Hybrid",
-    status: "Interview",
+    status: "Interviewing",
     salary: "—",
     resume: "Tailored v2",
     coverLetter: "Drafted",
