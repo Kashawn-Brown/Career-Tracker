@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Application, UpdateApplicationRequest, ApplicationStatus, JobType, WorkMode } from "@/types/api";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { STATUS_OPTIONS, JOB_TYPE_OPTIONS, WORK_MODE_OPTIONS, statusLabel, jobTypeLabel, workModeLabel } from "@/lib/applications/presentation";
@@ -164,9 +164,19 @@ export function ApplicationDetailsDrawer({
   // The today's date in the <input type="date" /> format
   const todayString = todayInputValue();
 
-  // Reset draft when opening or switching applications
+  // A ref to the last application id that was opened
+  const lastAppIdRef = useRef<string | null>(null);
+
+  // keep the drawer’s draft in sync with the selected application.
   useEffect(() => {
-    if (!open) {
+
+    // The id of the currently selected application (null if none).
+    const nextId = application?.id ?? null;
+    // The id of the last application that was opened (stored in a ref so it persists between renders).
+    const prevId = lastAppIdRef.current;
+  
+    // If the drawer closes or there’s no selected application -> hard reset
+    if (!open || !application) {
       setIsEditing(false);
       setIsSaving(false);
       setError(null);
@@ -176,23 +186,25 @@ export function ApplicationDetailsDrawer({
       return;
     }
 
-    if (!application) {
+    // true only when you were on one app and are now on a different one
+    const switchedRows = prevId !== null && nextId !== null && prevId !== nextId;
+
+    // Rebuild the draft from the selected application when:
+    // - switching rows, or
+    // - not editing.
+    // if same row, don’t overwrite unsaved edits while editing.
+    if (switchedRows || !isEditing) {
+      setDraft(toDraft(application));
       setIsEditing(false);
       setIsSaving(false);
       setError(null);
-      setDraft(null);
       setTagInput("");
       setArmedTagIndex(null);
-      return;
     }
 
-    setDraft(toDraft(application));
-    setIsEditing(false);
-    setIsSaving(false);
-    setError(null);
-    setTagInput("");
-    setArmedTagIndex(null);
-  }, [open, application?.id]);
+    lastAppIdRef.current = nextId;
+
+  }, [open, application, isEditing]);
 
   
 

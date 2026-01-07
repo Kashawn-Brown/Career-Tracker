@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Application, ApplicationStatus, ApplicationSortBy, ApplicationSortDir } from "@/types/api";
+import type { Application, ApplicationSortBy, ApplicationSortDir } from "@/types/api";
 import { applicationsApi } from "@/lib/api/applications";
 import { ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
@@ -87,22 +87,6 @@ export function ApplicationsTable({
 
   // Get the definitions for the visible columns
   const visibleColumnsDefs = APPLICATION_COLUMN_DEFS.filter((c) => visibleColumns.includes(c.id));
-
-  // Updating status
-  async function handleStatusChange(id: string, next: ApplicationStatus) {
-    setRowError(null);
-    setBusyId(id);
-
-    try {
-      await applicationsApi.updateStatus(id, next);
-      onChanged();  // on success, call so parent refetches
-    } catch (err) {
-      if (err instanceof ApiError) setRowError(err.message);
-      else setRowError("Failed to update status.");
-    } finally {
-      setBusyId(null);
-    }
-  }
 
   // Deleting an Application
   async function handleDelete(id: string) {
