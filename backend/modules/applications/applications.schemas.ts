@@ -116,7 +116,7 @@ export const UpdateApplicationBody = Type.Object(
     company: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
     position: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
     status: Type.Optional(ApplicationStatusSchema),
-    dateApplied: Type.Optional(Type.String({ format: "date-time" })), // ISO string
+    dateApplied: Type.Optional(Type.Union([Type.String({ format: "date-time" }), Type.Null()])), // ISO string or null to clear
     jobType: Type.Optional(JobTypeSchema),
     jobTypeDetails: Type.Optional(Type.String({ maxLength: 200 })),
     workMode: Type.Optional(WorkModeSchema),

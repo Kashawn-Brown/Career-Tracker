@@ -2,6 +2,9 @@ import { apiFetch } from "@/lib/api/client";
 import { routes } from "@/lib/api/routes";
 import type { OkResponse, UpdateApplicationRequest, ListApplicationsParams, ApplicationsListResponse, Application, CreateApplicationRequest } from "@/types/api";
 
+//
+type ApplicationEnvelope = { application: Application };
+
 /**
  * Mini client with small helpers for application endpoints.
  * 
@@ -42,10 +45,10 @@ export const applicationsApi = {
    * Create a new application.
    */
   create(body: CreateApplicationRequest) {
-    return apiFetch<Application>(routes.applications.create(), {
+    return apiFetch<ApplicationEnvelope>(routes.applications.create(), {
       method: "POST",
       body,
-    });
+    }).then(response => response.application);
   
   },
 
@@ -54,10 +57,19 @@ export const applicationsApi = {
    * Returns the updated Application (assuming backend responds with it).
    */
   update(id: string, patch: Partial<UpdateApplicationRequest>) {
-    return apiFetch<Application>(routes.applications.byId(id), {
+    return apiFetch<ApplicationEnvelope>(routes.applications.byId(id), {
       method: "PATCH",
       body: patch,
-    });
+    }).then(response => response.application);
+  },
+
+  /**
+   * Get an application by id.
+   */
+  get(id: string) {
+    return apiFetch<ApplicationEnvelope>(routes.applications.byId(id), {
+      method: "GET",
+    }).then(response => response.application);
   },
 
   /**

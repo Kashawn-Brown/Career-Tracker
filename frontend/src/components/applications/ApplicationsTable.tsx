@@ -1,14 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import type { Application, ApplicationStatus, ApplicationSortBy, ApplicationSortDir } from "@/types/api";
+import type { Application, ApplicationSortBy, ApplicationSortDir } from "@/types/api";
 import { applicationsApi } from "@/lib/api/applications";
 import { ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
-import { STATUS_OPTIONS, jobTypeLabel, workModeLabel } from "@/lib/applications/presentation";
+import { statusLabel, jobTypeLabel, workModeLabel } from "@/lib/applications/presentation";
 import { APPLICATION_COLUMN_DEFS, type ApplicationColumnId } from "@/lib/applications/tableColumns";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/select";
 import { Alert } from "../ui/alert";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
@@ -88,22 +87,6 @@ export function ApplicationsTable({
 
   // Get the definitions for the visible columns
   const visibleColumnsDefs = APPLICATION_COLUMN_DEFS.filter((c) => visibleColumns.includes(c.id));
-
-  // Updating status
-  async function handleStatusChange(id: string, next: ApplicationStatus) {
-    setRowError(null);
-    setBusyId(id);
-
-    try {
-      await applicationsApi.updateStatus(id, next);
-      onChanged();  // on success, call so parent refetches
-    } catch (err) {
-      if (err instanceof ApiError) setRowError(err.message);
-      else setRowError("Failed to update status.");
-    } finally {
-      setBusyId(null);
-    }
-  }
 
   // Deleting an Application
   async function handleDelete(id: string) {
@@ -213,25 +196,7 @@ export function ApplicationsTable({
                         return <td key={col.id} className="p-3">{workModeLabel(application.workMode)}</td>;
 
                       case "status":
-                        return (
-                          <td key={col.id} className="p-3">
-                            <Select
-                              className="h-8 w-[140px] px-2"
-                              value={application.status}
-                              disabled={busyId === application.id}
-                              onClick={(e) => e.stopPropagation()}
-                              onChange={(e) =>
-                                handleStatusChange(application.id, e.target.value as ApplicationStatus)
-                              }
-                            >
-                              {STATUS_OPTIONS.map((s) => (
-                                <option key={s.value} value={s.value}>
-                                  {s.label}
-                                </option>
-                              ))}
-                            </Select>
-                          </td>
-                        );
+                        return <td key={col.id} className="p-3">{statusLabel(application.status)}</td>;
 
                       case "dateApplied":
                         return (

@@ -8,6 +8,7 @@ export const applicationSelect = {
   userId: false,
   company: true,
   position: true,
+  // location: true, // TODO: add location to the application
   status: true,
   dateApplied: true,
   
@@ -52,7 +53,7 @@ export type UpdateApplicationInput = {
   company?: string;
   position?: string;
   status?: ApplicationStatus;
-  dateApplied?: string;
+  dateApplied?: string | null;
   jobType?: JobType;
   jobTypeDetails?: string;
   workMode?: WorkMode;
