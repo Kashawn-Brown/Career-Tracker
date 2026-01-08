@@ -1,9 +1,12 @@
 import { Type, Static } from "@sinclair/typebox";
+import { WorkMode } from "@prisma/client";
 
 /**
  * Schemas for Fastify to validate incoming profile requests.
  */
 
+// Work mode schema derived from Prisma enum.
+const WorkModeSchema = Type.Enum(WorkMode);
 
 /**
  * Defines the shape of the request body for updating profile.
@@ -24,6 +27,14 @@ export const UpdateMeBody = Type.Object(
     linkedInUrl: Type.Optional(Type.String({ maxLength: 300 })),
     githubUrl: Type.Optional(Type.String({ maxLength: 300 })),
     portfolioUrl: Type.Optional(Type.String({ maxLength: 300 })),
+
+    // Job search preferences (AI foundation)
+    jobSearchTitlesText: Type.Optional(Type.String({ maxLength: 500 })),
+    jobSearchLocationsText: Type.Optional(Type.String({ maxLength: 500 })),
+    jobSearchKeywordsText: Type.Optional(Type.String({ maxLength: 500 })),
+    jobSearchSummary: Type.Optional(Type.String({ maxLength: 2000 })),
+    jobSearchWorkMode: Type.Optional(WorkModeSchema),
+
   },
   { additionalProperties: false }
 );

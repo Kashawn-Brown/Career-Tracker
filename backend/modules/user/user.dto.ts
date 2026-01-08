@@ -17,6 +17,13 @@ export const userSelect = {
   githubUrl: true,
   portfolioUrl: true,
 
+  // Job search preferences (AI foundation)
+  jobSearchTitlesText: true,
+  jobSearchLocationsText: true,
+  jobSearchKeywordsText: true,
+  jobSearchSummary: true,
+  jobSearchWorkMode: true,
+
   createdAt: true,
   updatedAt: true,
 } as const;
