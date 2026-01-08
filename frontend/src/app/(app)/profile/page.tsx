@@ -18,7 +18,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { documentsApi } from "@/lib/api/documents";
 import { Alert } from "@/components/ui/alert";
-import type { Document, UpsertBaseResumeRequest } from "@/types/api";
+import type { Document, UpsertBaseResumeRequest, WorkMode } from "@/types/api";
+import { Textarea } from "@/components/ui/textarea";
+import { Select } from "@/components/ui/select";
 
 // ProfilePage: view + edit minimal profile fields via GET/PATCH /users/me.
 export default function ProfilePage() {
@@ -52,6 +54,16 @@ export default function ProfilePage() {
   const [linkedInUrl, setLinkedInUrl] = useState(user?.linkedInUrl ?? "");
   const [githubUrl, setGithubUrl] = useState(user?.githubUrl ?? "");
   const [portfolioUrl, setPortfolioUrl] = useState(user?.portfolioUrl ?? "");
+
+  // Job search preferences edit mode
+  const [isEditingJobSearch, setIsEditingJobSearch] = useState(false);
+  const [isJobSearchSaving, setIsJobSearchSaving] = useState(false);
+
+  const [jobSearchTitlesText, setJobSearchTitlesText] = useState(user?.jobSearchTitlesText ?? "");
+  const [jobSearchLocationsText, setJobSearchLocationsText] = useState(user?.jobSearchLocationsText ?? "");
+  const [jobSearchKeywordsText, setJobSearchKeywordsText] = useState(user?.jobSearchKeywordsText ?? "");
+  const [jobSearchSummary, setJobSearchSummary] = useState(user?.jobSearchSummary ?? "");
+  const [jobSearchWorkMode, setJobSearchWorkMode] = useState<WorkMode>(user?.jobSearchWorkMode ?? "UNKNOWN");
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -102,6 +114,11 @@ export default function ProfilePage() {
         setLinkedInUrl(toDisplayString(res.user.linkedInUrl));
         setGithubUrl(toDisplayString(res.user.githubUrl));
         setPortfolioUrl(toDisplayString(res.user.portfolioUrl));
+        setJobSearchTitlesText(toDisplayString(res.user.jobSearchTitlesText));
+        setJobSearchLocationsText(toDisplayString(res.user.jobSearchLocationsText));
+        setJobSearchKeywordsText(toDisplayString(res.user.jobSearchKeywordsText));
+        setJobSearchSummary(toDisplayString(res.user.jobSearchSummary));
+        setJobSearchWorkMode(res.user.jobSearchWorkMode ?? "UNKNOWN");
 
         
         // Load base resume metadata for the logged-in user.
@@ -290,7 +307,6 @@ export default function ProfilePage() {
     }
   }
 
-
   // Deletes the base resume metadata.
   async function handleResumeDelete() {
     setErrorMessage(null);
@@ -317,6 +333,86 @@ export default function ProfilePage() {
       setIsResumeDeleting(false);
     }
   }
+
+  // Starts the job search preferences edit mode.
+  function startJobSearchEdit() {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setIsEditingJobSearch(true);
+  }
+
+  // Cancels the job search preferences edit mode.
+  function cancelJobSearchEdit() {
+    setJobSearchTitlesText(toDisplayString(user?.jobSearchTitlesText));
+    setJobSearchLocationsText(toDisplayString(user?.jobSearchLocationsText));
+    setJobSearchKeywordsText(toDisplayString(user?.jobSearchKeywordsText));
+    setJobSearchSummary(toDisplayString(user?.jobSearchSummary));
+    setJobSearchWorkMode(user?.jobSearchWorkMode ?? "UNKNOWN");
+
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setIsEditingJobSearch(false);
+  }
+
+  // Saves the job search preferences.
+  async function handleJobSearchSave(e: React.FormEvent) {
+    e.preventDefault();
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    const payload: UpdateMeRequest = {};
+
+    if (jobSearchTitlesText !== toDisplayString(user?.jobSearchTitlesText)) {
+      payload.jobSearchTitlesText = jobSearchTitlesText;
+    }
+    if (jobSearchLocationsText !== toDisplayString(user?.jobSearchLocationsText)) {
+      payload.jobSearchLocationsText = jobSearchLocationsText;
+    }
+    if (jobSearchKeywordsText !== toDisplayString(user?.jobSearchKeywordsText)) {
+      payload.jobSearchKeywordsText = jobSearchKeywordsText;
+    }
+    if (jobSearchSummary !== toDisplayString(user?.jobSearchSummary)) {
+      payload.jobSearchSummary = jobSearchSummary;
+    }
+
+    const currentMode = user?.jobSearchWorkMode ?? "UNKNOWN";
+    if (jobSearchWorkMode !== currentMode) {
+      payload.jobSearchWorkMode = jobSearchWorkMode;
+    }
+
+    if (Object.keys(payload).length === 0) {
+      setErrorMessage("No changes.");
+      return;
+    }
+
+    try {
+      setIsJobSearchSaving(true);
+
+      const res = await apiFetch<MeResponse>(routes.users.me(), {
+        method: "PATCH",
+        body: payload,
+      });
+
+      setCurrentUser(res.user);
+
+      // sync local state to saved values
+      setJobSearchTitlesText(toDisplayString(res.user.jobSearchTitlesText));
+      setJobSearchLocationsText(toDisplayString(res.user.jobSearchLocationsText));
+      setJobSearchKeywordsText(toDisplayString(res.user.jobSearchKeywordsText));
+      setJobSearchSummary(toDisplayString(res.user.jobSearchSummary));
+      setJobSearchWorkMode(res.user.jobSearchWorkMode ?? "UNKNOWN");
+
+      setIsEditingJobSearch(false);
+      setSuccessMessage("Saved.");
+    } catch (err) {
+      if (err instanceof ApiError) setErrorMessage(err.message);
+      else setErrorMessage("Failed to save job search preferences.");
+    } finally {
+      setIsJobSearchSaving(false);
+    }
+  }
+
+
   
   const hasMessages = !!(errorMessage || resumeErrorMessage || successMessage);
 
@@ -455,6 +551,102 @@ export default function ProfilePage() {
 
                 <Button type="button" variant="outline" onClick={cancelProfileEdit} disabled={isSaving}>
                   Cancel
+                </Button>
+              </div>
+            ) : null}
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Job search preferences section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Job Search Preferences</CardTitle>
+          <CardDescription>
+            Used later for AI tailoring (titles, locations, keywords, preferred arrangement).
+          </CardDescription>
+
+          {!isEditingJobSearch ? (
+            <CardAction>
+              <Button type="button" variant="outline" size="sm" onClick={startJobSearchEdit}>
+                Edit
+              </Button>
+            </CardAction>
+          ) : null}
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+          <form className="space-y-4" onSubmit={handleJobSearchSave}>
+            <div className="space-y-1">
+              <Label htmlFor="jobSearchTitlesText">Target titles (comma-separated)</Label>
+              <Input
+                id="jobSearchTitlesText"
+                value={jobSearchTitlesText}
+                onChange={(e) => setJobSearchTitlesText(e.target.value)}
+                placeholder="Backend Engineer, SRE, DevOps, ..."
+                readOnly={!isEditingJobSearch}
+                className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="jobSearchLocationsText">Preferred locations (comma-separated)</Label>
+              <Input
+                id="jobSearchLocationsText"
+                value={jobSearchLocationsText}
+                onChange={(e) => setJobSearchLocationsText(e.target.value)}
+                placeholder="e.g., Toronto, USA, Ottawa, ..."
+                readOnly={!isEditingJobSearch}
+                className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="jobSearchWorkMode">Preferred work arrangement</Label>
+              <Select
+                id="jobSearchWorkMode"
+                value={jobSearchWorkMode}
+                onChange={(e) => setJobSearchWorkMode(e.target.value as WorkMode)}
+                disabled={!isEditingJobSearch}
+              >
+                <option value="UNKNOWN">Any</option>
+                <option value="REMOTE">Remote</option>
+                <option value="HYBRID">Hybrid</option>
+                <option value="ONSITE">On-site</option>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="jobSearchKeywordsText">Keywords (comma-separated)</Label>
+              <Input
+                id="jobSearchKeywordsText"
+                value={jobSearchKeywordsText}
+                onChange={(e) => setJobSearchKeywordsText(e.target.value)}
+                placeholder="e.g., AWS, Kubernetes, Terraform, Java, ..."
+                readOnly={!isEditingJobSearch}
+                className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="jobSearchSummary">Short summary</Label>
+              <Textarea
+                id="jobSearchSummary"
+                value={jobSearchSummary}
+                onChange={(e) => setJobSearchSummary(e.target.value)}
+                placeholder="A few lines about what you’re targeting and what you’re strong at..."
+                readOnly={!isEditingJobSearch}
+                className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+              />
+            </div>
+
+            {isEditingJobSearch ? (
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={cancelJobSearchEdit}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isJobSearchSaving}>
+                  {isJobSearchSaving ? "Saving..." : "Save"}
                 </Button>
               </div>
             ) : null}
