@@ -66,6 +66,16 @@ export async function updateMe(userId: string, data: UpdateMeBodyType) {
     updateData.skills = Array.from(new Set(cleaned));
   }
 
+  // Job search preferences (AI foundation)
+  updateData.jobSearchTitlesText = normalizeNullableString(data.jobSearchTitlesText);
+  updateData.jobSearchLocationsText = normalizeNullableString(data.jobSearchLocationsText);
+  updateData.jobSearchKeywordsText = normalizeNullableString(data.jobSearchKeywordsText);
+  updateData.jobSearchSummary = normalizeNullableString(data.jobSearchSummary);
+
+  if (data.jobSearchWorkMode !== undefined) {
+    updateData.jobSearchWorkMode = data.jobSearchWorkMode;
+  }
+
   // Run the database update
   try {
     // Throws an error if the user doesn’t exist

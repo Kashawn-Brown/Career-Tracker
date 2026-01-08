@@ -13,9 +13,6 @@ model User {
   name         String
   passwordHash String
 
-  // MVP: one base resume per user (later implement uploads to GCS)
-  baseResumeUrl String?
-
   // Profile fields (post-MVP foundation)
   location     String?
   currentRole  String?
@@ -23,6 +20,16 @@ model User {
   linkedInUrl  String?
   githubUrl    String?
   portfolioUrl String?
+
+  // Job search preferences (AI foundation)
+  jobSearchTitlesText    String?
+  jobSearchLocationsText String?
+  jobSearchKeywordsText  String?
+  jobSearchSummary       String?
+  jobSearchWorkMode      WorkMode @default(UNKNOWN)
+
+  // MVP: one base resume per user (later implement uploads to GCS)
+  baseResumeUrl String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -27,6 +27,13 @@ export type AuthUser = {
   githubUrl: string | null;
   portfolioUrl: string | null;
 
+  // Job search preferences (AI foundation)
+  jobSearchTitlesText: string | null;
+  jobSearchLocationsText: string | null;
+  jobSearchKeywordsText: string | null;
+  jobSearchSummary: string | null;
+  jobSearchWorkMode: WorkMode;
+
   createdAt: string; // JSON-serialized Date from backend
   updatedAt: string; // JSON-serialized Date from backend
 };
@@ -40,6 +47,11 @@ export type UpdateMeRequest = {
   linkedInUrl?: string;
   githubUrl?: string;
   portfolioUrl?: string;
+  jobSearchTitlesText?: string;
+  jobSearchLocationsText?: string;
+  jobSearchKeywordsText?: string;
+  jobSearchSummary?: string;
+  jobSearchWorkMode?: WorkMode;
 };
 
 export type MeResponse = { 
