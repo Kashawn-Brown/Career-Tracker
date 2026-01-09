@@ -14,6 +14,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { documentsApi } from "@/lib/api/documents";
@@ -21,6 +29,7 @@ import { Alert } from "@/components/ui/alert";
 import type { Document, UpsertBaseResumeRequest, WorkMode } from "@/types/api";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
+import { workModeLabel } from "@/lib/applications/presentation";
 
 // ProfilePage: view + edit minimal profile fields via GET/PATCH /users/me.
 export default function ProfilePage() {
@@ -65,12 +74,16 @@ export default function ProfilePage() {
   const [jobSearchSummary, setJobSearchSummary] = useState(user?.jobSearchSummary ?? "");
   const [jobSearchWorkMode, setJobSearchWorkMode] = useState<WorkMode>(user?.jobSearchWorkMode ?? "UNKNOWN");
 
+  // UI state
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [resumeErrorMessage, setResumeErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const [isJobSearchDialogOpen, setIsJobSearchDialogOpen] = useState(false);
+  const [isResumeDialogOpen, setIsResumeDialogOpen] = useState(false);
 
   // Helpers
   function toDisplayString(x: string | null | undefined) {
@@ -299,6 +312,7 @@ export default function ProfilePage() {
       setBaseResume(res.document);
       setIsEditingResume(false); // exit edit mode on success
       setSuccessMessage("Base resume saved.");
+      setIsResumeDialogOpen(false);
     } catch (err) {
       if (err instanceof ApiError) setErrorMessage(err.message);
       else setErrorMessage("Failed to save base resume.");
@@ -309,6 +323,16 @@ export default function ProfilePage() {
 
   // Deletes the base resume metadata.
   async function handleResumeDelete() {
+
+    // Nothing to delete (or already busy)
+    if (!baseResume?.url || isResumeSaving) return;
+
+    const confirmed = window.confirm(
+      "Remove your base resume link?\n\nThis will delete the current resume URL from your profile."
+    );
+
+    if (!confirmed) return;
+
     setErrorMessage(null);
     setSuccessMessage(null);
 
@@ -326,6 +350,7 @@ export default function ProfilePage() {
 
       setIsEditingResume(true); // encourage re-adding after deletion
       setSuccessMessage("Base resume deleted.");
+      setIsResumeDialogOpen(false);
     } catch (err) {
       if (err instanceof ApiError) setErrorMessage(err.message);
       else setErrorMessage("Failed to delete base resume.");
@@ -333,6 +358,24 @@ export default function ProfilePage() {
       setIsResumeDeleting(false);
     }
   }
+
+
+  // Handles the resume dialog open state changes.
+  function handleResumeDialogOpenChange(nextOpen: boolean) {
+    setIsResumeDialogOpen(nextOpen);
+
+    if (nextOpen) {
+      // If no resume exists, go straight to edit mode (matches your current UX).
+      setIsEditingResume(!baseResume);
+      return;
+    }
+
+    // Closing discards any unsaved edits.
+    if (isEditingResume) cancelResumeEdit();
+    else setIsEditingResume(false);
+  }
+
+
 
   // Starts the job search preferences edit mode.
   function startJobSearchEdit() {
@@ -404,6 +447,8 @@ export default function ProfilePage() {
 
       setIsEditingJobSearch(false);
       setSuccessMessage("Saved.");
+      setIsJobSearchDialogOpen(false);
+
     } catch (err) {
       if (err instanceof ApiError) setErrorMessage(err.message);
       else setErrorMessage("Failed to save job search preferences.");
@@ -413,6 +458,23 @@ export default function ProfilePage() {
   }
 
 
+  // Handles the job search dialog open state changes.
+  function handleJobSearchDialogOpenChange(nextOpen: boolean) {
+    setIsJobSearchDialogOpen(nextOpen);
+  
+    // Always open in view-mode (editing is intentional).
+    if (nextOpen) {
+      setIsEditingJobSearch(false);
+      return;
+    }
+  
+    // If user closes while editing, discard unsaved changes safely.
+    if (isEditingJobSearch) {
+      cancelJobSearchEdit();
+    } else {
+      setIsEditingJobSearch(false);
+    }
+  }
   
   const hasMessages = !!(errorMessage || resumeErrorMessage || successMessage);
 
@@ -421,360 +483,463 @@ export default function ProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-3xl">
-        <div className="rounded-md border bg-muted/20 p-4 text-sm text-muted-foreground">
-          Loading profile...
+      <div className="mx-auto max-w-screen-2xl px-4 py-6 sm:px-6 lg:px-8">
+        <div className="max-w-3xl">
+          <div className="rounded-md border bg-muted/20 p-4 text-sm text-muted-foreground">
+            Loading profile...
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-xl space-y-6">
-      {hasMessages ? (
-        <div className="space-y-2">
-          {errorMessage ? <Alert variant="destructive">{errorMessage}</Alert> : null}
-          {resumeErrorMessage ? <Alert variant="warning">{resumeErrorMessage}</Alert> : null}
-          {successMessage ? <Alert variant="success">{successMessage}</Alert> : null}
-        </div>
-      ) : null}
-
-
-      {/* Profile section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Profile</CardTitle>
-          <CardDescription>
-            Signed in as <span className="font-medium">{user?.email}</span>
-          </CardDescription>
-
-          {/* Profile edit mode: show edit button */}
-          {!isEditingProfile ? (
-              <CardAction>
-                <Button type="button" variant="outline" size="sm" onClick={startProfileEdit}>
-                  Edit
-                </Button>
-              </CardAction>
-            ) : null}
-          </CardHeader>
-
-          <CardContent className="space-y-4">
-          <form className="space-y-4" onSubmit={handleProfileSave}>
-            <div className="space-y-1">
-              <Label htmlFor="name">Name</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                readOnly={!isEditingProfile}
-                className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label htmlFor="location">Location</Label>
-              <Input
-                id="location"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="..."
-                readOnly={!isEditingProfile}
-                className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label htmlFor="currentRole">Current role</Label>
-              <Input
-                id="currentRole"
-                value={currentRole}
-                onChange={(e) => setCurrentRole(e.target.value)}
-                placeholder="..."
-                readOnly={!isEditingProfile}
-                className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label htmlFor="skills">Skills (comma-separated)</Label>
-              <Input
-                id="skills"
-                value={skillsInput}
-                onChange={(e) => setSkillsInput(e.target.value)}
-                placeholder="..."
-                readOnly={!isEditingProfile}
-                className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label htmlFor="linkedInUrl">LinkedIn URL</Label>
-              <Input
-                id="linkedInUrl"
-                value={linkedInUrl}
-                onChange={(e) => setLinkedInUrl(e.target.value)}
-                placeholder="..."
-                readOnly={!isEditingProfile}
-                className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label htmlFor="githubUrl">GitHub URL</Label>
-              <Input
-                id="githubUrl"
-                value={githubUrl}
-                onChange={(e) => setGithubUrl(e.target.value)}
-                placeholder="..."
-                readOnly={!isEditingProfile}
-                className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label htmlFor="portfolioUrl">Portfolio URL</Label>
-              <Input
-                id="portfolioUrl"
-                value={portfolioUrl}
-                onChange={(e) => setPortfolioUrl(e.target.value)}
-                placeholder="..."
-                readOnly={!isEditingProfile}
-                className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-              />
-            </div>
-
-            {isEditingProfile ? (
-              <div className="flex gap-2">
-                <Button type="submit" disabled={isSaving}>
-                  {isSaving ? "Saving..." : "Save"}
-                </Button>
-
-                <Button type="button" variant="outline" onClick={cancelProfileEdit} disabled={isSaving}>
-                  Cancel
-                </Button>
-              </div>
-            ) : null}
-          </form>
-        </CardContent>
-      </Card>
-
-      {/* Job search preferences section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Job Search Preferences</CardTitle>
-          <CardDescription>
-            Used later for AI tailoring (titles, locations, keywords, preferred arrangement).
-          </CardDescription>
-
-          {!isEditingJobSearch ? (
-            <CardAction>
-              <Button type="button" variant="outline" size="sm" onClick={startJobSearchEdit}>
-                Edit
-              </Button>
-            </CardAction>
-          ) : null}
-        </CardHeader>
-
-        <CardContent className="space-y-4">
-          <form className="space-y-4" onSubmit={handleJobSearchSave}>
-            <div className="space-y-1">
-              <Label htmlFor="jobSearchTitlesText">Target titles (comma-separated)</Label>
-              <Input
-                id="jobSearchTitlesText"
-                value={jobSearchTitlesText}
-                onChange={(e) => setJobSearchTitlesText(e.target.value)}
-                placeholder="Backend Engineer, SRE, DevOps, ..."
-                readOnly={!isEditingJobSearch}
-                className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label htmlFor="jobSearchLocationsText">Preferred locations (comma-separated)</Label>
-              <Input
-                id="jobSearchLocationsText"
-                value={jobSearchLocationsText}
-                onChange={(e) => setJobSearchLocationsText(e.target.value)}
-                placeholder="e.g., Toronto, USA, Ottawa, ..."
-                readOnly={!isEditingJobSearch}
-                className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label htmlFor="jobSearchWorkMode">Preferred work arrangement</Label>
-              <Select
-                id="jobSearchWorkMode"
-                value={jobSearchWorkMode}
-                onChange={(e) => setJobSearchWorkMode(e.target.value as WorkMode)}
-                disabled={!isEditingJobSearch}
-              >
-                <option value="UNKNOWN">Any</option>
-                <option value="REMOTE">Remote</option>
-                <option value="HYBRID">Hybrid</option>
-                <option value="ONSITE">On-site</option>
-              </Select>
-            </div>
-
-            <div className="space-y-1">
-              <Label htmlFor="jobSearchKeywordsText">Keywords (comma-separated)</Label>
-              <Input
-                id="jobSearchKeywordsText"
-                value={jobSearchKeywordsText}
-                onChange={(e) => setJobSearchKeywordsText(e.target.value)}
-                placeholder="e.g., AWS, Kubernetes, Terraform, Java, ..."
-                readOnly={!isEditingJobSearch}
-                className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label htmlFor="jobSearchSummary">Short summary</Label>
-              <Textarea
-                id="jobSearchSummary"
-                value={jobSearchSummary}
-                onChange={(e) => setJobSearchSummary(e.target.value)}
-                placeholder="A few lines about what you’re targeting and what you’re strong at..."
-                readOnly={!isEditingJobSearch}
-                className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-              />
-            </div>
-
-            {isEditingJobSearch ? (
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <Button type="button" variant="outline" onClick={cancelJobSearchEdit}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isJobSearchSaving}>
-                  {isJobSearchSaving ? "Saving..." : "Save"}
-                </Button>
-              </div>
-            ) : null}
-          </form>
-        </CardContent>
-      </Card>
-
-
-      {/* Base resume section */}
-      <Card>
-        <CardHeader className="border-b">
-          <CardTitle>Base Resume</CardTitle>
-          <CardDescription>
-            Store a link to your current resume <br/>(metadata-only for MVP).
-          </CardDescription>
-
-          <CardAction>
-            <div className="flex gap-2">
-              {!isEditingResume ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={startResumeEdit}
-                  disabled={!baseResume}
-                >
-                  Edit
-                </Button>
-              ) : null}
-
-              <Button
-                type="button"
-                variant="destructive"
-                size="sm"
-                onClick={handleResumeDelete}
-                disabled={!baseResume || isResumeDeleting}
-              >
-                {isResumeDeleting ? "Deleting..." : "Delete"}
-              </Button>
-            </div>
-          </CardAction>
-        </CardHeader>
-
-        <CardContent className="space-y-4">
-          <div className="text-sm text-muted-foreground">
-            {baseResume ? (
-              <>
-                Current:{" "}
-                <a className="underline" href={baseResume.url} target="_blank" rel="noreferrer">
-                  {baseResume.originalName}
-                </a>
-              </>
-            ) : (
-              "No base resume saved yet."
-            )}
+    <div className="mx-auto max-w-screen-xl px-4 py-6 sm:px-6 lg:px-8">
+      <div className="space-y-6">
+        {hasMessages ? (
+          <div className="space-y-2">
+            {errorMessage ? <Alert variant="destructive">{errorMessage}</Alert> : null}
+            {resumeErrorMessage ? <Alert variant="warning">{resumeErrorMessage}</Alert> : null}
+            {successMessage ? <Alert variant="success">{successMessage}</Alert> : null}
           </div>
+        ) : null}
 
-          <form className="space-y-4" onSubmit={handleResumeSave}>
-            <div className="space-y-1">
-              <Label htmlFor="resumeUrl">Resume URL</Label>
-              <Input
-                id="resumeUrl"
-                value={resumeUrl}
-                onChange={(e) => setResumeUrl(e.target.value)}
-                placeholder="https://... or https://storage.googleapis.com/..."
-                readOnly={!isEditingResume}
-                className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-              />
-            </div>
+        <div className="grid gap-6 lg:grid-cols-12 lg:items-start">
+          
+          {/* Left: Profile section */}
+          <div className="lg:col-span-7">
+            <Card>
+              <CardHeader>
+                <CardTitle>Profile</CardTitle>
+                <CardDescription>
+                  Signed in as <span className="font-medium">{user?.email}</span>
+                </CardDescription>
 
-            <div className="space-y-1">
-              <Label htmlFor="resumeName">File name</Label>
-              <Input
-                id="resumeName"
-                value={resumeName}
-                onChange={(e) => setResumeName(e.target.value)}
-                placeholder="Base_Resume.pdf"
-                readOnly={!isEditingResume}
-                className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-              />
-            </div>
+                {/* Profile edit mode: show edit button */}
+                {!isEditingProfile ? (
+                    <CardAction>
+                      <Button type="button" variant="outline" size="sm" onClick={startProfileEdit}>
+                        Edit
+                      </Button>
+                    </CardAction>
+                  ) : null}
+                </CardHeader>
 
-            <div className="space-y-1">
-              <Label htmlFor="resumeMime">MIME type</Label>
-              <Input
-                id="resumeMime"
-                value={resumeMime}
-                onChange={(e) => setResumeMime(e.target.value)}
-                placeholder="application/pdf"
-                readOnly={!isEditingResume}
-                className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-              />
-            </div>
+                <CardContent className="space-y-4">
+                <form className="space-y-4" onSubmit={handleProfileSave}>
+                  <div className="space-y-1">
+                    <Label htmlFor="name">Name</Label>
+                    <Input
+                      id="name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      readOnly={!isEditingProfile}
+                      className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+                    />
+                  </div>
 
-            <div className="space-y-1">
-              <Label htmlFor="resumeSize">Size (bytes) (optional)</Label>
-              <Input
-                id="resumeSize"
-                value={resumeSize}
-                onChange={(e) => setResumeSize(e.target.value)}
-                placeholder="123456"
-                readOnly={!isEditingResume}
-                className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-              />
-            </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="location">Location</Label>
+                    <Input
+                      id="location"
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
+                      placeholder="..."
+                      readOnly={!isEditingProfile}
+                      className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+                    />
+                  </div>
 
-            {isEditingResume ? (
-              <div className="flex gap-2">
-                <Button type="submit" disabled={isResumeSaving}>
-                  {isResumeSaving
-                    ? "Saving..."
-                    : baseResume
-                    ? "Replace base resume"
-                    : "Save base resume"}
-                </Button>
-                
+                  <div className="space-y-1">
+                    <Label htmlFor="currentRole">Current role</Label>
+                    <Input
+                      id="currentRole"
+                      value={currentRole}
+                      onChange={(e) => setCurrentRole(e.target.value)}
+                      placeholder="..."
+                      readOnly={!isEditingProfile}
+                      className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="skills">Skills (comma-separated)</Label>
+                    <Input
+                      id="skills"
+                      value={skillsInput}
+                      onChange={(e) => setSkillsInput(e.target.value)}
+                      placeholder="..."
+                      readOnly={!isEditingProfile}
+                      className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="linkedInUrl">LinkedIn URL</Label>
+                    <Input
+                      id="linkedInUrl"
+                      value={linkedInUrl}
+                      onChange={(e) => setLinkedInUrl(e.target.value)}
+                      placeholder="..."
+                      readOnly={!isEditingProfile}
+                      className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="githubUrl">GitHub URL</Label>
+                    <Input
+                      id="githubUrl"
+                      value={githubUrl}
+                      onChange={(e) => setGithubUrl(e.target.value)}
+                      placeholder="..."
+                      readOnly={!isEditingProfile}
+                      className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="portfolioUrl">Portfolio URL</Label>
+                    <Input
+                      id="portfolioUrl"
+                      value={portfolioUrl}
+                      onChange={(e) => setPortfolioUrl(e.target.value)}
+                      placeholder="..."
+                      readOnly={!isEditingProfile}
+                      className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+                    />
+                  </div>
+
+                  {isEditingProfile ? (
+                    <div className="flex gap-2">
+                      <Button type="submit" disabled={isSaving}>
+                        {isSaving ? "Saving..." : "Save"}
+                      </Button>
+
+                      <Button type="button" variant="outline" onClick={cancelProfileEdit} disabled={isSaving}>
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : null}
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+        
+
+          {/* Right: secondary cards stacked */}
+          <div className="space-y-6 lg:col-span-5">
+            {/* Job search preferences section */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Job Search Preferences</CardTitle>
+                <CardDescription>
+                  Used later for AI tailoring (titles, locations, keywords, preferred arrangement).
+                </CardDescription>
+
+                <CardAction>
+                  <Dialog open={isJobSearchDialogOpen} onOpenChange={handleJobSearchDialogOpenChange}>
+                    <DialogTrigger asChild>
+                      <Button type="button" variant="outline" size="sm">
+                        View / Edit
+                      </Button>
+                    </DialogTrigger>
+
+                    <DialogContent className="max-w-2xl">
+                      <div className="flex items-start justify-between gap-4">
+                        <DialogHeader>
+                          <DialogTitle>Job Search Preferences</DialogTitle>
+                          <DialogDescription>
+                            View first. Click Edit to make changes, then Save to persist.
+                          </DialogDescription>
+                        </DialogHeader>
+
+                        {!isEditingJobSearch ? (
+                          <Button type="button" variant="outline" size="sm" onClick={startJobSearchEdit}>
+                            Edit
+                          </Button>
+                        ) : null}
+                      </div>
+
+                      <form className="mt-4 space-y-4" onSubmit={handleJobSearchSave}>
+                        <div className="space-y-1">
+                          <Label htmlFor="jobSearchTitlesText">Target titles (comma-separated)</Label>
+                          <Input
+                            id="jobSearchTitlesText"
+                            value={jobSearchTitlesText}
+                            onChange={(e) => setJobSearchTitlesText(e.target.value)}
+                            placeholder="e.g., Backend Engineer, SRE, DevOps, ..."
+                            readOnly={!isEditingJobSearch}
+                            className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label htmlFor="jobSearchLocationsText">Preferred locations (comma-separated)</Label>
+                          <Input
+                            id="jobSearchLocationsText"
+                            value={jobSearchLocationsText}
+                            onChange={(e) => setJobSearchLocationsText(e.target.value)}
+                            placeholder="e.g., Toronto, USA, Ottawa, ..."
+                            readOnly={!isEditingJobSearch}
+                            className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label htmlFor="jobSearchWorkMode">Preferred work arrangement</Label>
+                          <Select
+                            id="jobSearchWorkMode"
+                            value={jobSearchWorkMode}
+                            onChange={(e) => setJobSearchWorkMode(e.target.value as WorkMode)}
+                            disabled={!isEditingJobSearch}
+                          >
+                            <option value="UNKNOWN">Any</option>
+                            <option value="REMOTE">Remote</option>
+                            <option value="HYBRID">Hybrid</option>
+                            <option value="ONSITE">On-site</option>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label htmlFor="jobSearchKeywordsText">Keywords (comma-separated)</Label>
+                          <Input
+                            id="jobSearchKeywordsText"
+                            value={jobSearchKeywordsText}
+                            onChange={(e) => setJobSearchKeywordsText(e.target.value)}
+                            placeholder="e.g., AWS, Kubernetes, Terraform, Java, ..."
+                            readOnly={!isEditingJobSearch}
+                            className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label htmlFor="jobSearchSummary">Short summary</Label>
+                          <Textarea
+                            id="jobSearchSummary"
+                            value={jobSearchSummary}
+                            onChange={(e) => setJobSearchSummary(e.target.value)}
+                            placeholder="A few lines about what you’re targeting and what you’re strong at..."
+                            readOnly={!isEditingJobSearch}
+                            className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+                          />
+                        </div>
+
+                        {isEditingJobSearch ? (
+                          <div className="flex items-center justify-end gap-2 pt-2">
+                            <Button type="button" variant="outline" onClick={cancelJobSearchEdit}>
+                              Cancel
+                            </Button>
+                            <Button type="submit" disabled={isJobSearchSaving}>
+                              {isJobSearchSaving ? "Saving..." : "Save"}
+                            </Button>
+                          </div>
+                        ) : null}
+                      </form>
+                    </DialogContent>
+                  </Dialog>
+                </CardAction>
+              </CardHeader>
+
+              {/* Compact summary (keeps page from being a long stack of forms) */}
+              <CardContent className="space-y-2 text-sm">
+                <div className="grid gap-1">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-muted-foreground">Work arrangement</span>
+                    <span className="truncate font-medium">
+                      {jobSearchWorkMode === "UNKNOWN" ? "Any" : workModeLabel(jobSearchWorkMode)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-muted-foreground">Titles</span>
+                    <span className="truncate font-medium" title={jobSearchTitlesText}>
+                      {jobSearchTitlesText.trim() ? jobSearchTitlesText : "—"}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-muted-foreground">Locations</span>
+                    <span className="truncate font-medium" title={jobSearchLocationsText}>
+                      {jobSearchLocationsText.trim() ? jobSearchLocationsText : "—"}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-muted-foreground">Keywords</span>
+                    <span className="truncate font-medium" title={jobSearchKeywordsText}>
+                      {jobSearchKeywordsText.trim() ? jobSearchKeywordsText : "—"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="text-muted-foreground">
+                  {jobSearchSummary.trim() ? jobSearchSummary : "No summary set yet."}
+                </div>
+              </CardContent>
+            </Card>
+
+
+
+            {/* Base resume section */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Base Resume</CardTitle>
+                <CardDescription>
+                  Store a link to your current resume (metadata-only for MVP).
+                </CardDescription>
+
+                <CardAction>
+                  <Dialog open={isResumeDialogOpen} onOpenChange={handleResumeDialogOpenChange}>
+                    <DialogTrigger asChild>
+                      <Button type="button" variant="outline" size="sm">
+                        View / Edit
+                      </Button>
+                    </DialogTrigger>
+
+                    <DialogContent className="max-w-2xl">
+                      <div className="flex items-start justify-between gap-4">
+                        <DialogHeader>
+                          <DialogTitle>Base Resume</DialogTitle>
+                          <DialogDescription>
+                            View first. Click Edit to replace. Delete removes the saved metadata.
+                          </DialogDescription>
+                        </DialogHeader>
+
+                        <div className="flex gap-2">
+                          {!isEditingResume ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={startResumeEdit}
+                              disabled={!baseResume}
+                            >
+                              Edit
+                            </Button>
+                          ) : null}
+
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            onClick={handleResumeDelete}
+                            disabled={!baseResume || isResumeDeleting}
+                          >
+                            {isResumeDeleting ? "Deleting..." : "Delete"}
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 text-sm text-muted-foreground">
+                        {baseResume ? (
+                          <>
+                            Current:{" "}
+                            <a className="underline" href={baseResume.url} target="_blank" rel="noreferrer">
+                              {baseResume.originalName}
+                            </a>
+                          </>
+                        ) : (
+                          "No base resume saved yet."
+                        )}
+                      </div>
+
+                      <form className="mt-4 space-y-4" onSubmit={handleResumeSave}>
+                        <div className="space-y-1">
+                          <Label htmlFor="resumeUrl">Resume URL</Label>
+                          <Input
+                            id="resumeUrl"
+                            value={resumeUrl}
+                            onChange={(e) => setResumeUrl(e.target.value)}
+                            placeholder="https://... or https://storage.googleapis.com/..."
+                            readOnly={!isEditingResume}
+                            className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label htmlFor="resumeName">File name</Label>
+                          <Input
+                            id="resumeName"
+                            value={resumeName}
+                            onChange={(e) => setResumeName(e.target.value)}
+                            placeholder="Base_Resume.pdf"
+                            readOnly={!isEditingResume}
+                            className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label htmlFor="resumeMime">MIME type</Label>
+                          <Input
+                            id="resumeMime"
+                            value={resumeMime}
+                            onChange={(e) => setResumeMime(e.target.value)}
+                            placeholder="application/pdf"
+                            readOnly={!isEditingResume}
+                            className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label htmlFor="resumeSize">Size (bytes) (optional)</Label>
+                          <Input
+                            id="resumeSize"
+                            value={resumeSize}
+                            onChange={(e) => setResumeSize(e.target.value)}
+                            placeholder="123456"
+                            readOnly={!isEditingResume}
+                            className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+                          />
+                        </div>
+
+                        {isEditingResume ? (
+                          <div className="flex items-center justify-end gap-2 pt-2">
+                            {baseResume ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={cancelResumeEdit}
+                                disabled={isResumeSaving}
+                              >
+                                Cancel
+                              </Button>
+                            ) : null}
+
+                            <Button type="submit" disabled={isResumeSaving}>
+                              {isResumeSaving
+                                ? "Saving..."
+                                : baseResume
+                                ? "Replace base resume"
+                                : "Save base resume"}
+                            </Button>
+                          </div>
+                        ) : null}
+                      </form>
+                    </DialogContent>
+                  </Dialog>
+                </CardAction>
+              </CardHeader>
+
+              {/* Compact summary */}
+              <CardContent className="text-sm text-muted-foreground">
                 {baseResume ? (
-                  <Button type="button" variant="outline" onClick={cancelResumeEdit} disabled={isResumeSaving}>
-                  Cancel
-                </Button>
-                ): null}
-
-              </div>
-            ) : null}
-          </form>
-        </CardContent>
-      </Card>
+                  <>
+                    Current:{" "}
+                    <a className="underline" href={baseResume.url} target="_blank" rel="noreferrer">
+                      {baseResume.originalName}
+                    </a>
+                  </>
+                ) : (
+                  "No base resume saved yet."
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
     </div>
+
   );
 }
 

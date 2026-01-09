@@ -17,12 +17,17 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { Alert } from "@/components/ui/alert";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { ChevronDown, ChevronRight, Filter, Plus, Star, X } from "lucide-react";
 
 
 // ApplicationsPage: fetches and displays the user's applications (GET /applications) with pagination.
@@ -32,6 +37,8 @@ export default function ApplicationsPage() {
   const [data, setData] = useState<ApplicationsListResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isAddApplicationOpen, setIsAddApplicationOpen] = useState(false);
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
   // Page state
   const [page, setPage] = useState(1);
@@ -61,6 +68,15 @@ export default function ApplicationsPage() {
   const [jobType, setJobType] = useState<"ALL" | JobType>("ALL");
   const [workMode, setWorkMode] = useState<"ALL" | WorkMode>("ALL");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
+
+  const activeFilterCount =
+  (queryInput.trim() ? 1 : 0) +
+  (status !== "ALL" ? 1 : 0) +
+  (jobType !== "ALL" ? 1 : 0) +
+  (workMode !== "ALL" ? 1 : 0) +
+  (favoritesOnly ? 1 : 0);
+
+  const hasActiveFilters = activeFilterCount > 0;
 
   // Column visibility state
   const [showColumns, setShowColumns] = useState(false);
@@ -206,8 +222,6 @@ export default function ApplicationsPage() {
     return updated;
   }
 
-  
-
   // handlePageSizeChange: changes the page size.
   function handlePageSizeChange(numberPerPage: string) {
     const next = Number(numberPerPage);
@@ -299,51 +313,64 @@ export default function ApplicationsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold">Applications</h1>
-        <p className="text-sm text-muted-foreground">
-          {data ? `${data.total} total • page ${data.page} of ${data.totalPages}` : "Loading…"}
-        </p>
-      </div>
 
-      {/* Add application */}
-      <Card>
-        <CardHeader className="border-b">
-          <CardTitle>Add application</CardTitle>
-          <CardDescription>Create a new job application record.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <CreateApplicationForm
-            onCreated={() => {
-              setPage(1);
-              refreshList();
-            }}
-          />
-        </CardContent>
-      </Card>
+      {/* Add application section */}
+      <Collapsible open={isAddApplicationOpen} onOpenChange={setIsAddApplicationOpen}>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold">Applications</h1>
 
-      {/* List + controls */}
-      <Card>
-        <CardHeader className="border-b">
-          <CardTitle>Your applications</CardTitle>
-          <CardDescription>
-            Search, filter, and update statuses. Changes save instantly.
-          </CardDescription>
-        </CardHeader>
-      
-        {/* Table controls (MVP) */}
-        <CardContent className="space-y-4">
-          
-          {/* Columns control */}
-          <div className="flex items-center justify-end">
-            <Button
-              variant="outline"
-              onClick={() => setShowColumns((v) => !v)}
-            >
-              Columns
+          <CollapsibleTrigger asChild>
+            <Button variant="secondary" className="gap-2">
+              <Plus className="h-4 w-4" />
+              Add application
+              {isAddApplicationOpen ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronRight className="h-4 w-4" />
+              )}
             </Button>
+          </CollapsibleTrigger>
+        </div>
+
+        <CollapsibleContent className="mt-4">
+          <Card>
+            <CardHeader className="border-b">
+              <CardTitle>Add application</CardTitle>
+              <CardDescription>Create a new job application record.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <CreateApplicationForm
+                onCreated={() => {
+                  setPage(1);
+                  refreshList();
+                }}
+              />
+            </CardContent>
+          </Card> 
+        </CollapsibleContent>
+      </Collapsible>
+
+      {/* Applications section */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div >
+            <h2 className="text-lg font-semibold">Your applications</h2>
+            <p className="text-sm text-muted-foreground">
+              Search, filter, track,and update applications.
+            </p>
           </div>
 
+          {/* Column controls button */}
+          <div className="flex items-center justify-end">
+              <Button variant="outline" onClick={() => setShowColumns((v) => !v)}>
+                {showColumns ? "Hide Column Controls" : "Show Column Controls"}
+              </Button>
+          </div>
+        </div>
+        {/* Controls surface (filters + column visibility) */}
+        <div className="space-y-4">
+          {/* Columns control */}
+          
           {showColumns ? (
             <ColumnsControl
               visibleColumns={visibleColumns}
@@ -351,215 +378,262 @@ export default function ApplicationsPage() {
             />
           ) : null}
 
+          {/* Filters control */}
+          <Collapsible open={isFiltersOpen} onOpenChange={setIsFiltersOpen}>
+            <div className="rounded-lg border bg-background">
+              <CollapsibleTrigger asChild>
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                >
+                  <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Filters</span>
+                    {hasActiveFilters ? (
+                      <span className="bg-primary text-primary-foreground px-2 py-0.5 rounded-full text-xs">
+                        {activeFilterCount}
+                      </span>
+                    ) : null}
+                  </div>
 
-          <div className="grid gap-4 md:grid-cols-12">
-            {/* Search */}
-            <div className="space-y-1 md:col-span-6">
-              <Label htmlFor="q">Search</Label>
-              <Input
-                id="q"
-                value={queryInput}
-                onChange={(e) => setQueryInput(e.target.value)}
-                placeholder="Search company or position..."
-              />
+                  {isFiltersOpen ? (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </button>
+              </CollapsibleTrigger>
+
+              <CollapsibleContent className="border-t px-6 py-6">
+                {/* Clear all filters button */}
+                <div className="flex justify-end mb-6">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={resetControls}
+                    disabled={!hasActiveFilters}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <X className="h-3 w-3 mr-1" />
+                    Clear All
+                  </Button>
+                </div>
+          
+                {/* Filters Grid */}
+                <div className="grid gap-x-6 gap-y-6 md:grid-cols-12">
+                  
+                  {/* Search */}
+                  <div className="space-y-2 md:col-span-6">
+                    <Label htmlFor="q">Search</Label>
+                    <Input
+                      id="q"
+                      value={queryInput}
+                      onChange={(e) => setQueryInput(e.target.value)}
+                      placeholder="Search company or position..."
+                    />
+                  </div>
+
+                  {/* Status */}
+                  <div className="space-y-2 md:col-span-6">
+                    <Label htmlFor="status">Status</Label>
+                    <Select
+                      id="status"
+                      value={status}
+                      onChange={(e) => {
+                        setStatus(e.target.value as "ALL" | ApplicationStatus);
+                        resetToFirstPage();
+                      }}
+                    >
+                      {STATUS_FILTER_OPTIONS.map((s) => (
+                        <option key={s} value={s}>
+                          {s === "ALL" ? "All statuses" : statusLabel(s)}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+
+                  {/* Job type */}
+                  <div className="space-y-2 md:col-span-4">
+                    <Label htmlFor="jobType">Job type</Label>
+                    <Select
+                      id="jobType"
+                      value={jobType}
+                      onChange={(e) => {
+                        setJobType(e.target.value as "ALL" | JobType);
+                        resetToFirstPage();
+                      }}
+                    >
+                      {JOB_TYPE_FILTER_OPTIONS.map((j) => (
+                        <option key={j} value={j}>
+                          {j === "ALL" ? "All types" : jobTypeLabel(j)}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+
+                  {/* Work mode */}
+                  <div className="space-y-2 md:col-span-4">
+                    <Label htmlFor="workMode">Work Arrangement</Label>
+                    <Select
+                      id="workMode"
+                      value={workMode}
+                      onChange={(e) => {
+                        setWorkMode(e.target.value as "ALL" | WorkMode);
+                        resetToFirstPage();
+                      }}
+                    >
+                      {WORK_MODE_FILTER_OPTIONS.map((w) => (
+                        <option key={w} value={w}>
+                          {w === "ALL" ? "All arrangements" : workModeLabel(w)}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+
+                  {/* Favorites */}
+                  <div className="space-y-2 md:col-span-4">
+                    <Label htmlFor="favoritesOnly">Favorites</Label>
+                    <label className="flex h-9 items-center gap-2 rounded-md border px-3 text-sm">
+                      <input
+                        id="favoritesOnly"
+                        type="checkbox"
+                        checked={favoritesOnly}
+                        onChange={(e) => {
+                          setFavoritesOnly(e.target.checked);
+                          resetToFirstPage();
+                        }}
+                        className="h-4 w-4"
+                      />
+                      {favoritesOnly ? (
+                        <span className="flex items-center gap-1">
+                          <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" /> Favorites only
+                        </span>
+                      ) : (
+                        <span> All applications</span>
+                      )}
+                    </label>
+                  </div>
+
+                </div>
+              </CollapsibleContent>
             </div>
-
-            {/* Status */}
-            <div className="space-y-1 md:col-span-6">
-              <Label htmlFor="status">Status</Label>
-              <Select
-                id="status"
-                value={status}
-                onChange={(e) => {
-                  setStatus(e.target.value as "ALL" | ApplicationStatus);
-                  resetToFirstPage();
-                }}
-              >
-                {STATUS_FILTER_OPTIONS.map((s) => (
-                  <option key={s} value={s}>
-                    {s === "ALL" ? "All statuses" : statusLabel(s)}
-                  </option>
-                ))}
-              </Select>
-            </div>
-
-
-            {/* Job type */}
-            <div className="space-y-1 md:col-span-4">
-              <Label htmlFor="jobType">Job type</Label>
-              <Select
-                id="jobType"
-                value={jobType}
-                onChange={(e) => {
-                  setJobType(e.target.value as "ALL" | JobType);
-                  resetToFirstPage();
-                }}
-              >
-                {JOB_TYPE_FILTER_OPTIONS.map((j) => (
-                  <option key={j} value={j}>
-                    {j === "ALL" ? "All types" : jobTypeLabel(j)}
-                  </option>
-                ))}
-              </Select>
-            </div>
-
-            {/* Work mode */}
-            <div className="space-y-1 md:col-span-4">
-              <Label htmlFor="workMode">Work Arrangement</Label>
-              <Select
-                id="workMode"
-                value={workMode}
-                onChange={(e) => {
-                  setWorkMode(e.target.value as "ALL" | WorkMode);
-                  resetToFirstPage();
-                }}
-              >
-                {WORK_MODE_FILTER_OPTIONS.map((w) => (
-                  <option key={w} value={w}>
-                    {w === "ALL" ? "All arrangements" : workModeLabel(w)}
-                  </option>
-                ))}
-              </Select>
-            </div>
-
-            {/* Favorites */}
-            <div className="space-y-1 md:col-span-4">
-              <Label htmlFor="favoritesOnly">Favorites</Label>
-              <label className="flex h-10 items-center gap-2 rounded-md border px-3 text-sm">
-                <input
-                  id="favoritesOnly"
-                  type="checkbox"
-                  checked={favoritesOnly}
-                  onChange={(e) => {
-                    setFavoritesOnly(e.target.checked);
-                    resetToFirstPage();
-                  }}
-                  className="h-4 w-4"
-                />
-                {favoritesOnly ? <span>⭐ Favorites only</span> : <span>All applications</span>}
-              </label>
-            </div>
-
-            {/* Reset */}
-            <div className="flex justify-end md:col-span-12">
-              <Button variant="outline" className="w-full" onClick={resetControls}>
-                Reset
-              </Button>
-            </div>
-          </div>
+          </Collapsible>
 
           {errorMessage ? <Alert variant="destructive">{errorMessage}</Alert> : null}
+        </div>
 
-          {/* Loading State / Table */}
-          {isLoading && !data ? (
-            <div className="rounded-md border bg-muted/20 p-4 text-sm text-muted-foreground">
-              Loading applications...
-            </div>
-          ) : (
-            <ApplicationsTable
-              items={data?.items ?? []}
-              sortBy={sortBy}
-              sortDir={sortDir}
-              isDefaultSort={isDefaultSort}
-              onSort={handleHeaderSortClick}
-              onChanged={() => setReloadKey((k) => k + 1)}
-              visibleColumns={visibleColumns}
-              onRowClick={(application) => {
-                setSelectedApplication(application);
-                setDetailsOpen(true);
-              }}
-            />
-          )}
-        </CardContent>
+        {/* Applications table */}
+        {isLoading && !data ? (
+          <div className="rounded-md border bg-muted/20 p-4 text-sm text-muted-foreground">
+            Loading applications...
+          </div>
+        ) : (
+          <ApplicationsTable
+            items={data?.items ?? []}
+            sortBy={sortBy}
+            sortDir={sortDir}
+            isDefaultSort={isDefaultSort}
+            onSort={handleHeaderSortClick}
+            onChanged={() => setReloadKey((k) => k + 1)}
+            visibleColumns={visibleColumns}
+            onRowClick={(application) => {
+              setSelectedApplication(application);
+              setDetailsOpen(true);
+            }}
+          />
+        )}
 
-        
-        <CardFooter className="border-t justify-end gap-2">
-          <div className="w-full space-y-3"> 
-            
-            {/* Top row: Rows per page selector (left) + Showing range (right) */}
-            <div className="flex items-center justify-between">
-              
-              {/* Page size selector */}
-              <div className="flex items-center gap-1">
-                <Label htmlFor="pageSize" className="text-sm text-muted-foreground">
-                  Rows per page:
-                </Label>
+        {/* Pagination surface */}
+        <div className="w-full space-y-3 px-2 sm:px-3">
+          {/* Top row: Rows per page selector (left) + Showing range (right) */}
+          <div className="flex items-center justify-between">
+            {/* Page size selector */}
+            <div className="flex items-center gap-1">
+              <Label htmlFor="pageSize" className="text-sm text-muted-foreground">
+                Rows per page:
+              </Label>
 
-                <Select
-                  id="pageSize"
-                  className="h-9 w-[80px]"
-                  value={String(pageSize)}
-                  onChange={(e) => handlePageSizeChange(e.target.value)}
-                  disabled={isLoading}
-                >
-                  {PAGE_SIZE_OPTIONS.map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-
-              {/* Results info */}
-              <div className="text-sm text-muted-foreground">
-                {total === 0 ? "No results" : `Showing ${startIndex}–${endIndex} of ${total}`}
-              </div>
-            </div>
-            
-            {/* Bottom row: Pagination */}
-            <div className="flex items-center justify-center gap-1">
-              
-              {/* Previous page button */}
-              <Button
-                variant="outline"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={!data || page <= 1 || isLoading}
+              <Select
+                id="pageSize"
+                className="h-9 w-[80px]"
+                value={String(pageSize)}
+                onChange={(e) => handlePageSizeChange(e.target.value)}
+                disabled={isLoading}
               >
-                Prev
-              </Button>
-              
-              {/* Page numbers */}
-              <div className="flex items-center gap-1">
-                {buildPageTokens(page, Math.ceil(total/pageSize)).map((t, idx) => {
-                  if (t === "…") {
-                    return (
-                      <span key={`ellipsis-${idx}`} className="px-2 text-muted-foreground select-none">
-                        …
-                      </span>
-                    );
-                  }
+                {PAGE_SIZE_OPTIONS.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </Select>
+            </div>
 
-                  const isCurrent = t === page;
-
-                  return (
-                    <Button
-                      key={t}
-                      variant={isCurrent ? "secondary" : "ghost"}
-                      size="sm"
-                      disabled={isCurrent || isLoading}
-                      onClick={() => setPage(t)}
-                      className="h-9 min-w-9 px-2"
-                    >
-                      {t}
-                    </Button>
-                  );
-                })}
-              </div>
-
-              {/* Next page button */}
-              <Button
-                variant="outline"
-                onClick={() => setPage((p) => (data ? Math.min(data.totalPages, p + 1) : p + 1))}
-                disabled={!data || page >= data.totalPages || isLoading}
-              >
-                Next
-              </Button>
+            {/* Results info */}
+            <div className="text-sm text-muted-foreground">
+              {total === 0
+                ? "No results"
+                : `Showing ${startIndex}–${endIndex} of ${total} results`}
             </div>
           </div>
-        </CardFooter>
-      </Card>
+
+          {/* Bottom row: Pagination */}
+          <div className="flex items-center justify-center gap-1">
+            {/* Previous page button */}
+            <Button
+              variant="outline"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={!data || page <= 1 || isLoading}
+            >
+              Prev
+            </Button>
+
+            {/* Page numbers */}
+            <div className="flex items-center gap-1">
+              {buildPageTokens(page, Math.ceil(total / pageSize)).map((t, idx) => {
+                if (t === "…") {
+                  return (
+                    <span
+                      key={`ellipsis-${idx}`}
+                      className="px-2 text-muted-foreground select-none"
+                    >
+                      …
+                    </span>
+                  );
+                }
+
+                const isCurrent = t === page;
+
+                return (
+                  <Button
+                    key={t}
+                    variant={isCurrent ? "secondary" : "ghost"}
+                    size="sm"
+                    disabled={isCurrent || isLoading}
+                    onClick={() => setPage(t)}
+                    className="h-9 min-w-9 px-2"
+                  >
+                    {t}
+                  </Button>
+                );
+              })}
+            </div>
+
+            {/* Next page button */}
+            <Button
+              variant="outline"
+              onClick={() =>
+                setPage((p) => (data ? Math.min(data.totalPages, p + 1) : p + 1))
+              }
+              disabled={!data || page >= data.totalPages || isLoading}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      </section>
+
       
-      {/* Application details drawer */}
+      {/* Application details drawer section */}
       <ApplicationDetailsDrawer
         open={detailsOpen}
         onOpenChange={(open) => {

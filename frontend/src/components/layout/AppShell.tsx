@@ -10,7 +10,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <Header />
 
       {/* Main content area: centered container with padding */}
-      <main className="mx-auto w-full max-w-5xl px-4 py-6">
+      <main className="mx-auto w-full max-w-screen-2xl px-4 py-6 sm:px-6 lg:px-8">
         {children}
       </main>
     </div>

@@ -27,7 +27,7 @@ export const APPLICATION_COLUMNS_STORAGE_KEY = "career-tracker:applications:visi
 
 // Column definitions for the applications table
 export const APPLICATION_COLUMN_DEFS: readonly ApplicationColumnDef[] = [
-  { id: "favorite",  label: "★",          required: true,  defaultVisible: true },
+  { id: "favorite",  label: "Favorite",          required: false,  defaultVisible: true },
   { id: "company",   label: "Company",    required: true,  defaultVisible: true },
   { id: "position",  label: "Position",   required: true,  defaultVisible: true },
   { id: "location",  label: "Location",   required: false, defaultVisible: true },
@@ -36,8 +36,8 @@ export const APPLICATION_COLUMN_DEFS: readonly ApplicationColumnDef[] = [
   { id: "workMode",  label: "Work Arrangement",required: false, defaultVisible: true },
   { id: "status",    label: "Status",     required: true,  defaultVisible: true },
   { id: "dateApplied",label:"Date Applied",    required: false, defaultVisible: true },
-  { id: "updatedAt", label: "Updated",    required: false, defaultVisible: true },
-  { id: "actions",   label: "Actions",    required: true,  defaultVisible: true },
+  { id: "updatedAt", label: "Updated",    required: false, defaultVisible: false },
+  { id: "actions",   label: "Actions",    required: false,  defaultVisible: true },
 ] as const;
 
 // Column order for the applications table
