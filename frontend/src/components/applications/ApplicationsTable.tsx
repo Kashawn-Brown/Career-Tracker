@@ -7,6 +7,7 @@ import { ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 import { statusLabel, jobTypeLabel, workModeLabel } from "@/lib/applications/presentation";
 import { APPLICATION_COLUMN_DEFS, type ApplicationColumnId } from "@/lib/applications/tableColumns";
+import { PILL_BASE_CLASS, getStatusPillTokens } from "@/lib/applications/pills";
 import { Button } from "@/components/ui/button";
 import { Alert } from "../ui/alert";
 import { ChevronDown, ChevronUp, Star } from "lucide-react";
@@ -184,25 +185,34 @@ export function ApplicationsTable({
                         return <td key={col.id} className="p-3 w-[60px] text-center"><Star className={application.isFavorite ? "h-4 w-4 fill-yellow-500 text-yellow-500" : "h-4 w-4 text-gray-400 "} /></td>;
 
                       case "company":
-                        return <td key={col.id} className="p-3">{application.company}</td>;
+                        return <td key={col.id} className="p-3 font-medium">{application.company}</td>;
 
                       case "position":
                         return <td key={col.id} className="p-3">{application.position}</td>;
 
                       case "location":
-                        return <td key={col.id} className="p-3">{application.location ?? "—"}</td>;
+                        return <td key={col.id} className="p-3 ">{application.location ?? "—"}</td>;
 
                       case "jobType":
-                        return <td key={col.id} className="p-3">{jobTypeLabel(application.jobType)}</td>;
+                        return <td key={col.id} className="p-3 text-muted-foreground">{jobTypeLabel(application.jobType)}</td>;
 
                       case "salaryText":
-                        return <td key={col.id} className="p-3">{application.salaryText ?? "—"}</td>;
+                        return <td key={col.id} className="p-3 text-muted-foreground">{application.salaryText ?? "—"}</td>;
 
                       case "workMode":
-                        return <td key={col.id} className="p-3">{workModeLabel(application.workMode)}</td>;
+                        return <td key={col.id} className="p-3 text-muted-foreground">{workModeLabel(application.workMode)}</td>;
 
-                      case "status":
-                        return <td key={col.id} className="p-3">{statusLabel(application.status)}</td>;
+                      case "status":{
+                        const { wrap, dot } = getStatusPillTokens(application.status);
+                        return (
+                          <td key={col.id} className="p-3">
+                            <span className={cn(PILL_BASE_CLASS, wrap)}>
+                              <span className={cn("w-1.5 h-1.5 rounded-full", dot)} />
+                              {statusLabel(application.status)}
+                            </span>
+                          </td>
+                        );
+                      }
 
                       case "dateApplied":
                         return (
@@ -220,8 +230,9 @@ export function ApplicationsTable({
 
                       case "actions":
                         return (
-                          <td key={col.id} className="p-3">
+                          <td key={col.id} className="p-3 text-right text-muted-foreground">
                             <Button
+                              className="hover:text-destructive hover:bg-destructive/10"
                               variant="outline"
                               size="sm"
                               disabled={busyId === application.id}

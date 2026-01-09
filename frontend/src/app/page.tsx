@@ -7,13 +7,17 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 import { Header } from "@/components/layout/Header";
+import type { ApplicationStatus } from "@/types/api";
+import { cn } from "@/lib/utils";
+import { statusLabel } from "@/lib/applications/presentation";
+import { PILL_BASE_CLASS, getStatusPillTokens } from "@/lib/applications/pills";
 
 const PREVIEW_ROWS = [
   {
     company: "Shopify",
     role: "Backend Developer",
     workMode: "Remote",
-    status: "Applied",
+    status: "APPLIED",
     salary: "$110k–$140k",
     resume: "Base Resume",
     coverLetter: "Planned",
@@ -24,7 +28,7 @@ const PREVIEW_ROWS = [
     company: "Deloitte",
     role: "Junior Developer",
     workMode: "Hybrid",
-    status: "Interviewing",
+    status: "INTERVIEW",
     salary: "—",
     resume: "Tailored v2",
     coverLetter: "Drafted",
@@ -35,7 +39,7 @@ const PREVIEW_ROWS = [
     company: "Robinhood",
     role: "Software Engineer",
     workMode: "On-site",
-    status: "Wishlist",
+    status: "WISHLIST",
     salary: "$120k–$160k",
     resume: "Base Resume",
     coverLetter: "—",
@@ -44,10 +48,12 @@ const PREVIEW_ROWS = [
   },
 ] as const;
 
-function StatusPill({ label }: { label: string }) {
+function StatusPill({ status }: { status: ApplicationStatus }) {
+  const { wrap, dot } = getStatusPillTokens(status);
   return (
-    <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-foreground">
-      {label}
+    <span className={cn(PILL_BASE_CLASS, wrap)}>
+      <span className={cn("h-1.5 w-1.5 rounded-full", dot)} />
+      {statusLabel(status)}
     </span>
   );
 }
@@ -160,10 +166,10 @@ export default function HomePage() {
                     {PREVIEW_ROWS.map((row) => (
                       <tr key={`${row.company}-${row.role}`} className="[&>td]:px-4 [&>td]:py-3">
                         <td className="font-medium">{row.company}</td>
-                        <td className="text-muted-foreground">{row.role}</td>
+                        <td className="">{row.role}</td>
                         <td className="text-muted-foreground">{row.workMode}</td>
                         <td>
-                          <StatusPill label={row.status} />
+                          <StatusPill status={row.status} />
                         </td>
                         <td className="text-muted-foreground">{row.salary}</td>
                         <td className="text-muted-foreground">{row.resume}</td>
