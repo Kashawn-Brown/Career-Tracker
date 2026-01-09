@@ -9,7 +9,7 @@ import { statusLabel, jobTypeLabel, workModeLabel } from "@/lib/applications/pre
 import { APPLICATION_COLUMN_DEFS, type ApplicationColumnId } from "@/lib/applications/tableColumns";
 import { Button } from "@/components/ui/button";
 import { Alert } from "../ui/alert";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Star } from "lucide-react";
 
 // Helper to display a sortable header in the table
 function SortableHeader({
@@ -114,12 +114,13 @@ export function ApplicationsTable({
 
       <div className="overflow-x-auto rounded-md border">
         <table className="w-full text-sm">
+          {/* Table header */}
           <thead className="bg-muted/50">
             <tr className="text-center">
               {visibleColumnsDefs.map((col) => {
                 switch (col.id) {
                   case "favorite":
-                    return <th key={col.id} className="p-3 w-[60px] text-center" title="Starred">{col.label}</th>;
+                    return <th key={col.id} className="p-3 w-[60px] text-center" title="Starred"></th>;
                     // return <SortableHeader key={col.id} label={col.label} col="isFavorite" sortBy={sortBy} sortDir={sortDir} isDefaultSort={isDefaultSort} onSort={onSort} />;
 
                   case "salaryText":
@@ -153,6 +154,7 @@ export function ApplicationsTable({
             </tr>
           </thead>
 
+          {/* Table body */}
           <tbody>
             {items.length === 0 ? (
               <tr>
@@ -179,7 +181,7 @@ export function ApplicationsTable({
                   {visibleColumnsDefs.map((col) => {
                     switch (col.id) {
                       case "favorite":
-                        return <td key={col.id} className="p-3 w-[60px] text-center">{application.isFavorite ? "★" : ""}</td>;
+                        return <td key={col.id} className="p-3 w-[60px] text-center"><Star className={application.isFavorite ? "h-4 w-4 fill-yellow-500 text-yellow-500" : "h-4 w-4 text-gray-400 "} /></td>;
 
                       case "company":
                         return <td key={col.id} className="p-3">{application.company}</td>;
