@@ -27,7 +27,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronRight, Plus, Star } from "lucide-react";
+import { ChevronDown, ChevronRight, Filter, Plus, Star, X } from "lucide-react";
 
 
 // ApplicationsPage: fetches and displays the user's applications (GET /applications) with pagination.
@@ -38,6 +38,7 @@ export default function ApplicationsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isAddApplicationOpen, setIsAddApplicationOpen] = useState(false);
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
   // Page state
   const [page, setPage] = useState(1);
@@ -67,6 +68,15 @@ export default function ApplicationsPage() {
   const [jobType, setJobType] = useState<"ALL" | JobType>("ALL");
   const [workMode, setWorkMode] = useState<"ALL" | WorkMode>("ALL");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
+
+  const activeFilterCount =
+  (queryInput.trim() ? 1 : 0) +
+  (status !== "ALL" ? 1 : 0) +
+  (jobType !== "ALL" ? 1 : 0) +
+  (workMode !== "ALL" ? 1 : 0) +
+  (favoritesOnly ? 1 : 0);
+
+  const hasActiveFilters = activeFilterCount > 0;
 
   // Column visibility state
   const [showColumns, setShowColumns] = useState(false);
@@ -212,8 +222,6 @@ export default function ApplicationsPage() {
     return updated;
   }
 
-  
-
   // handlePageSizeChange: changes the page size.
   function handlePageSizeChange(numberPerPage: string) {
     const next = Number(numberPerPage);
@@ -352,125 +360,162 @@ export default function ApplicationsPage() {
         </div>
 
         {/* Controls surface (filters + column visibility) */}
-        <div className="rounded-lg border bg-background p-4">
-          <div className="space-y-4">
-            {/* Columns control */}
-            <div className="flex items-center justify-end">
-              <Button variant="outline" onClick={() => setShowColumns((v) => !v)}>
-                Columns
-              </Button>
-            </div>
-
-            {showColumns ? (
-              <ColumnsControl
-                visibleColumns={visibleColumns}
-                onChange={setVisibleColumns}
-              />
-            ) : null}
-
-            <div className="grid gap-4 md:grid-cols-12">
-              {/* Search */}
-              <div className="space-y-1 md:col-span-6">
-                <Label htmlFor="q">Search</Label>
-                <Input
-                  id="q"
-                  value={queryInput}
-                  onChange={(e) => setQueryInput(e.target.value)}
-                  placeholder="Search company or position..."
-                />
-              </div>
-
-              {/* Status */}
-              <div className="space-y-1 md:col-span-6">
-                <Label htmlFor="status">Status</Label>
-                <Select
-                  id="status"
-                  value={status}
-                  onChange={(e) => {
-                    setStatus(e.target.value as "ALL" | ApplicationStatus);
-                    resetToFirstPage();
-                  }}
-                >
-                  {STATUS_FILTER_OPTIONS.map((s) => (
-                    <option key={s} value={s}>
-                      {s === "ALL" ? "All statuses" : statusLabel(s)}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-
-              {/* Job type */}
-              <div className="space-y-1 md:col-span-4">
-                <Label htmlFor="jobType">Job type</Label>
-                <Select
-                  id="jobType"
-                  value={jobType}
-                  onChange={(e) => {
-                    setJobType(e.target.value as "ALL" | JobType);
-                    resetToFirstPage();
-                  }}
-                >
-                  {JOB_TYPE_FILTER_OPTIONS.map((j) => (
-                    <option key={j} value={j}>
-                      {j === "ALL" ? "All types" : jobTypeLabel(j)}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-
-              {/* Work mode */}
-              <div className="space-y-1 md:col-span-4">
-                <Label htmlFor="workMode">Work Arrangement</Label>
-                <Select
-                  id="workMode"
-                  value={workMode}
-                  onChange={(e) => {
-                    setWorkMode(e.target.value as "ALL" | WorkMode);
-                    resetToFirstPage();
-                  }}
-                >
-                  {WORK_MODE_FILTER_OPTIONS.map((w) => (
-                    <option key={w} value={w}>
-                      {w === "ALL" ? "All arrangements" : workModeLabel(w)}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-
-              {/* Favorites */}
-              <div className="space-y-1 md:col-span-4">
-                <Label htmlFor="favoritesOnly">Favorites</Label>
-                <label className="flex h-10 items-center gap-2 rounded-md border px-3 text-sm">
-                  <input
-                    id="favoritesOnly"
-                    type="checkbox"
-                    checked={favoritesOnly}
-                    onChange={(e) => {
-                      setFavoritesOnly(e.target.checked);
-                      resetToFirstPage();
-                    }}
-                    className="h-4 w-4"
-                  />
-                  {favoritesOnly ? (
-                    <span className="flex items-center gap-1">
-                      <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" /> Favorites only
-                    </span>
-                  ) : (
-                    <span> All applications</span>
-                  )}
-                </label>
-              </div>
-
-              {/* Reset */}
-              <div className="flex justify-end md:col-span-12">
-                <Button variant="outline" className="w-full" onClick={resetControls}>
-                  Reset
-                </Button>
-              </div>
-            </div>
-
-            {errorMessage ? <Alert variant="destructive">{errorMessage}</Alert> : null}
+        <div className="space-y-4">
+          {/* Columns control */}
+          <div className="flex items-center justify-end">
+            <Button variant="outline" onClick={() => setShowColumns((v) => !v)}>
+              Columns
+            </Button>
           </div>
+          {showColumns ? (
+            <ColumnsControl
+              visibleColumns={visibleColumns}
+              onChange={setVisibleColumns}
+            />
+          ) : null}
+
+          {/* Filters control */}
+          <Collapsible open={isFiltersOpen} onOpenChange={setIsFiltersOpen}>
+            <div className="rounded-lg border bg-background">
+              <CollapsibleTrigger asChild>
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                >
+                  <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Filters</span>
+                    {hasActiveFilters ? (
+                      <span className="bg-primary text-primary-foreground px-2 py-0.5 rounded-full text-xs">
+                        {activeFilterCount}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {isFiltersOpen ? (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </button>
+              </CollapsibleTrigger>
+
+              <CollapsibleContent className="border-t px-6 py-6">
+                {/* Action Buttons Row */}
+                <div className="flex justify-end mb-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={resetControls}
+                    disabled={!hasActiveFilters}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <X className="h-3 w-3 mr-1" />
+                    Clear All
+                  </Button>
+                </div>
+          
+                {/* Filters Grid */}
+                <div className="grid gap-4 md:grid-cols-12">
+                  
+                  {/* Search */}
+                  <div className="space-y-1 md:col-span-6">
+                    <Label htmlFor="q">Search</Label>
+                    <Input
+                      id="q"
+                      value={queryInput}
+                      onChange={(e) => setQueryInput(e.target.value)}
+                      placeholder="Search company or position..."
+                    />
+                  </div>
+
+                  {/* Status */}
+                  <div className="space-y-1 md:col-span-6">
+                    <Label htmlFor="status">Status</Label>
+                    <Select
+                      id="status"
+                      value={status}
+                      onChange={(e) => {
+                        setStatus(e.target.value as "ALL" | ApplicationStatus);
+                        resetToFirstPage();
+                      }}
+                    >
+                      {STATUS_FILTER_OPTIONS.map((s) => (
+                        <option key={s} value={s}>
+                          {s === "ALL" ? "All statuses" : statusLabel(s)}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+
+                  {/* Job type */}
+                  <div className="space-y-1 md:col-span-4">
+                    <Label htmlFor="jobType">Job type</Label>
+                    <Select
+                      id="jobType"
+                      value={jobType}
+                      onChange={(e) => {
+                        setJobType(e.target.value as "ALL" | JobType);
+                        resetToFirstPage();
+                      }}
+                    >
+                      {JOB_TYPE_FILTER_OPTIONS.map((j) => (
+                        <option key={j} value={j}>
+                          {j === "ALL" ? "All types" : jobTypeLabel(j)}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+
+                  {/* Work mode */}
+                  <div className="space-y-1 md:col-span-4">
+                    <Label htmlFor="workMode">Work Arrangement</Label>
+                    <Select
+                      id="workMode"
+                      value={workMode}
+                      onChange={(e) => {
+                        setWorkMode(e.target.value as "ALL" | WorkMode);
+                        resetToFirstPage();
+                      }}
+                    >
+                      {WORK_MODE_FILTER_OPTIONS.map((w) => (
+                        <option key={w} value={w}>
+                          {w === "ALL" ? "All arrangements" : workModeLabel(w)}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+
+                  {/* Favorites */}
+                  <div className="space-y-1 md:col-span-4">
+                    <Label htmlFor="favoritesOnly">Favorites</Label>
+                    <label className="flex h-10 items-center gap-2 rounded-md border px-3 text-sm">
+                      <input
+                        id="favoritesOnly"
+                        type="checkbox"
+                        checked={favoritesOnly}
+                        onChange={(e) => {
+                          setFavoritesOnly(e.target.checked);
+                          resetToFirstPage();
+                        }}
+                        className="h-4 w-4"
+                      />
+                      {favoritesOnly ? (
+                        <span className="flex items-center gap-1">
+                          <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" /> Favorites only
+                        </span>
+                      ) : (
+                        <span> All applications</span>
+                      )}
+                    </label>
+                  </div>
+
+                </div>
+              </CollapsibleContent>
+            </div>
+          </Collapsible>
+
+          {errorMessage ? <Alert variant="destructive">{errorMessage}</Alert> : null}
         </div>
 
         {/* Applications table */}
