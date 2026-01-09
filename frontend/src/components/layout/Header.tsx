@@ -27,7 +27,7 @@ export function Header() {
 
   return (
     <header className="border-b bg-background">
-      <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
+      <div className="mx-auto flex w-full items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
         {/* Left: brand */}
         <Link href="/" className="text-base font-semibold tracking-tight">
           Career-Tracker

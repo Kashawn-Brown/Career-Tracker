@@ -502,7 +502,7 @@ export default function ApplicationsPage() {
 
               {/* Results info */}
               <div className="text-sm text-muted-foreground">
-                {total === 0 ? "No results" : `Showing ${startIndex}–${endIndex} of ${total}`}
+                {total === 0 ? "No results" : `Showing ${startIndex}–${endIndex} of ${total} results`}
               </div>
             </div>
             

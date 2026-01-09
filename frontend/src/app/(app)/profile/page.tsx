@@ -583,7 +583,7 @@ export default function ProfilePage() {
                 id="jobSearchTitlesText"
                 value={jobSearchTitlesText}
                 onChange={(e) => setJobSearchTitlesText(e.target.value)}
-                placeholder="Backend Engineer, SRE, DevOps, ..."
+                placeholder="e.g., Backend Engineer, SRE, DevOps, ..."
                 readOnly={!isEditingJobSearch}
                 className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
               />
