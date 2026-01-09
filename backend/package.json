@@ -16,8 +16,10 @@
   },
   "dependencies": {
     "@fastify/cors": "^11.2.0",
+    "@fastify/multipart": "^9.3.0",
     "@fastify/rate-limit": "^10.3.0",
     "@fastify/sensible": "^6.0.3",
+    "@google-cloud/storage": "^7.18.0",
     "@prisma/client": "^6.9.0",
     "@sinclair/typebox": "^0.34.33",
     "bcrypt": "^6.0.0",
