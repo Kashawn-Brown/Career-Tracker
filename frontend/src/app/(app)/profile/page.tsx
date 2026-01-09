@@ -323,6 +323,16 @@ export default function ProfilePage() {
 
   // Deletes the base resume metadata.
   async function handleResumeDelete() {
+
+    // Nothing to delete (or already busy)
+    if (!baseResume?.url || isResumeSaving) return;
+
+    const confirmed = window.confirm(
+      "Remove your base resume link?\n\nThis will delete the current resume URL from your profile."
+    );
+
+    if (!confirmed) return;
+
     setErrorMessage(null);
     setSuccessMessage(null);
 
