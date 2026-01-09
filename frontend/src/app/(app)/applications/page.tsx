@@ -352,21 +352,25 @@ export default function ApplicationsPage() {
 
       {/* Applications section */}
       <section className="space-y-4">
-        <div>
-          <h2 className="text-lg font-semibold">Your applications</h2>
-          <p className="text-sm text-muted-foreground">
-            Search, filter, track,and update applications.
-          </p>
-        </div>
+        <div className="flex items-center justify-between">
+          <div >
+            <h2 className="text-lg font-semibold">Your applications</h2>
+            <p className="text-sm text-muted-foreground">
+              Search, filter, track,and update applications.
+            </p>
+          </div>
 
+          {/* Column controls button */}
+          <div className="flex items-center justify-end">
+              <Button variant="outline" onClick={() => setShowColumns((v) => !v)}>
+                {showColumns ? "Hide Column Controls" : "Show Column Controls"}
+              </Button>
+          </div>
+        </div>
         {/* Controls surface (filters + column visibility) */}
         <div className="space-y-4">
           {/* Columns control */}
-          <div className="flex items-center justify-end">
-            <Button variant="outline" onClick={() => setShowColumns((v) => !v)}>
-              Columns
-            </Button>
-          </div>
+          
           {showColumns ? (
             <ColumnsControl
               visibleColumns={visibleColumns}
@@ -401,8 +405,8 @@ export default function ApplicationsPage() {
               </CollapsibleTrigger>
 
               <CollapsibleContent className="border-t px-6 py-6">
-                {/* Action Buttons Row */}
-                <div className="flex justify-end mb-4">
+                {/* Clear all filters button */}
+                <div className="flex justify-end mb-6">
                   <Button
                     variant="outline"
                     size="sm"
@@ -416,10 +420,10 @@ export default function ApplicationsPage() {
                 </div>
           
                 {/* Filters Grid */}
-                <div className="grid gap-4 md:grid-cols-12">
+                <div className="grid gap-x-6 gap-y-6 md:grid-cols-12">
                   
                   {/* Search */}
-                  <div className="space-y-1 md:col-span-6">
+                  <div className="space-y-2 md:col-span-6">
                     <Label htmlFor="q">Search</Label>
                     <Input
                       id="q"
@@ -430,7 +434,7 @@ export default function ApplicationsPage() {
                   </div>
 
                   {/* Status */}
-                  <div className="space-y-1 md:col-span-6">
+                  <div className="space-y-2 md:col-span-6">
                     <Label htmlFor="status">Status</Label>
                     <Select
                       id="status"
@@ -449,7 +453,7 @@ export default function ApplicationsPage() {
                   </div>
 
                   {/* Job type */}
-                  <div className="space-y-1 md:col-span-4">
+                  <div className="space-y-2 md:col-span-4">
                     <Label htmlFor="jobType">Job type</Label>
                     <Select
                       id="jobType"
@@ -468,7 +472,7 @@ export default function ApplicationsPage() {
                   </div>
 
                   {/* Work mode */}
-                  <div className="space-y-1 md:col-span-4">
+                  <div className="space-y-2 md:col-span-4">
                     <Label htmlFor="workMode">Work Arrangement</Label>
                     <Select
                       id="workMode"
@@ -487,9 +491,9 @@ export default function ApplicationsPage() {
                   </div>
 
                   {/* Favorites */}
-                  <div className="space-y-1 md:col-span-4">
+                  <div className="space-y-2 md:col-span-4">
                     <Label htmlFor="favoritesOnly">Favorites</Label>
-                    <label className="flex h-10 items-center gap-2 rounded-md border px-3 text-sm">
+                    <label className="flex h-9 items-center gap-2 rounded-md border px-3 text-sm">
                       <input
                         id="favoritesOnly"
                         type="checkbox"
