@@ -83,6 +83,7 @@ export default function ProfilePage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const [isJobSearchDialogOpen, setIsJobSearchDialogOpen] = useState(false);
+  const [isResumeDialogOpen, setIsResumeDialogOpen] = useState(false);
 
   // Helpers
   function toDisplayString(x: string | null | undefined) {
@@ -311,6 +312,7 @@ export default function ProfilePage() {
       setBaseResume(res.document);
       setIsEditingResume(false); // exit edit mode on success
       setSuccessMessage("Base resume saved.");
+      setIsResumeDialogOpen(false);
     } catch (err) {
       if (err instanceof ApiError) setErrorMessage(err.message);
       else setErrorMessage("Failed to save base resume.");
@@ -338,6 +340,7 @@ export default function ProfilePage() {
 
       setIsEditingResume(true); // encourage re-adding after deletion
       setSuccessMessage("Base resume deleted.");
+      setIsResumeDialogOpen(false);
     } catch (err) {
       if (err instanceof ApiError) setErrorMessage(err.message);
       else setErrorMessage("Failed to delete base resume.");
@@ -345,6 +348,23 @@ export default function ProfilePage() {
       setIsResumeDeleting(false);
     }
   }
+
+
+  // Handles the resume dialog open state changes.
+  function handleResumeDialogOpenChange(nextOpen: boolean) {
+    setIsResumeDialogOpen(nextOpen);
+
+    if (nextOpen) {
+      // If no resume exists, go straight to edit mode (matches your current UX).
+      setIsEditingResume(!baseResume);
+      return;
+    }
+
+    // Closing discards any unsaved edits.
+    if (isEditingResume) cancelResumeEdit();
+    else setIsEditingResume(false);
+  }
+
 
 
   // Starts the job search preferences edit mode.
@@ -744,121 +764,156 @@ export default function ProfilePage() {
 
       {/* Base resume section */}
       <Card>
-        <CardHeader className="border-b">
+        <CardHeader>
           <CardTitle>Base Resume</CardTitle>
           <CardDescription>
-            Store a link to your current resume <br/>(metadata-only for MVP).
+            Store a link to your current resume (metadata-only for MVP).
           </CardDescription>
 
           <CardAction>
-            <div className="flex gap-2">
-              {!isEditingResume ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={startResumeEdit}
-                  disabled={!baseResume}
-                >
-                  Edit
+            <Dialog open={isResumeDialogOpen} onOpenChange={handleResumeDialogOpenChange}>
+              <DialogTrigger asChild>
+                <Button type="button" variant="outline" size="sm">
+                  View / Edit
                 </Button>
-              ) : null}
+              </DialogTrigger>
 
-              <Button
-                type="button"
-                variant="destructive"
-                size="sm"
-                onClick={handleResumeDelete}
-                disabled={!baseResume || isResumeDeleting}
-              >
-                {isResumeDeleting ? "Deleting..." : "Delete"}
-              </Button>
-            </div>
+              <DialogContent className="max-w-2xl">
+                <div className="flex items-start justify-between gap-4">
+                  <DialogHeader>
+                    <DialogTitle>Base Resume</DialogTitle>
+                    <DialogDescription>
+                      View first. Click Edit to replace. Delete removes the saved metadata.
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className="flex gap-2">
+                    {!isEditingResume ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={startResumeEdit}
+                        disabled={!baseResume}
+                      >
+                        Edit
+                      </Button>
+                    ) : null}
+
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      onClick={handleResumeDelete}
+                      disabled={!baseResume || isResumeDeleting}
+                    >
+                      {isResumeDeleting ? "Deleting..." : "Delete"}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="mt-4 text-sm text-muted-foreground">
+                  {baseResume ? (
+                    <>
+                      Current:{" "}
+                      <a className="underline" href={baseResume.url} target="_blank" rel="noreferrer">
+                        {baseResume.originalName}
+                      </a>
+                    </>
+                  ) : (
+                    "No base resume saved yet."
+                  )}
+                </div>
+
+                <form className="mt-4 space-y-4" onSubmit={handleResumeSave}>
+                  <div className="space-y-1">
+                    <Label htmlFor="resumeUrl">Resume URL</Label>
+                    <Input
+                      id="resumeUrl"
+                      value={resumeUrl}
+                      onChange={(e) => setResumeUrl(e.target.value)}
+                      placeholder="https://... or https://storage.googleapis.com/..."
+                      readOnly={!isEditingResume}
+                      className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="resumeName">File name</Label>
+                    <Input
+                      id="resumeName"
+                      value={resumeName}
+                      onChange={(e) => setResumeName(e.target.value)}
+                      placeholder="Base_Resume.pdf"
+                      readOnly={!isEditingResume}
+                      className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="resumeMime">MIME type</Label>
+                    <Input
+                      id="resumeMime"
+                      value={resumeMime}
+                      onChange={(e) => setResumeMime(e.target.value)}
+                      placeholder="application/pdf"
+                      readOnly={!isEditingResume}
+                      className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="resumeSize">Size (bytes) (optional)</Label>
+                    <Input
+                      id="resumeSize"
+                      value={resumeSize}
+                      onChange={(e) => setResumeSize(e.target.value)}
+                      placeholder="123456"
+                      readOnly={!isEditingResume}
+                      className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+                    />
+                  </div>
+
+                  {isEditingResume ? (
+                    <div className="flex items-center justify-end gap-2 pt-2">
+                      {baseResume ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={cancelResumeEdit}
+                          disabled={isResumeSaving}
+                        >
+                          Cancel
+                        </Button>
+                      ) : null}
+
+                      <Button type="submit" disabled={isResumeSaving}>
+                        {isResumeSaving
+                          ? "Saving..."
+                          : baseResume
+                          ? "Replace base resume"
+                          : "Save base resume"}
+                      </Button>
+                    </div>
+                  ) : null}
+                </form>
+              </DialogContent>
+            </Dialog>
           </CardAction>
         </CardHeader>
 
-        <CardContent className="space-y-4">
-          <div className="text-sm text-muted-foreground">
-            {baseResume ? (
-              <>
-                Current:{" "}
-                <a className="underline" href={baseResume.url} target="_blank" rel="noreferrer">
-                  {baseResume.originalName}
-                </a>
-              </>
-            ) : (
-              "No base resume saved yet."
-            )}
-          </div>
-
-          <form className="space-y-4" onSubmit={handleResumeSave}>
-            <div className="space-y-1">
-              <Label htmlFor="resumeUrl">Resume URL</Label>
-              <Input
-                id="resumeUrl"
-                value={resumeUrl}
-                onChange={(e) => setResumeUrl(e.target.value)}
-                placeholder="https://... or https://storage.googleapis.com/..."
-                readOnly={!isEditingResume}
-                className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label htmlFor="resumeName">File name</Label>
-              <Input
-                id="resumeName"
-                value={resumeName}
-                onChange={(e) => setResumeName(e.target.value)}
-                placeholder="Base_Resume.pdf"
-                readOnly={!isEditingResume}
-                className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label htmlFor="resumeMime">MIME type</Label>
-              <Input
-                id="resumeMime"
-                value={resumeMime}
-                onChange={(e) => setResumeMime(e.target.value)}
-                placeholder="application/pdf"
-                readOnly={!isEditingResume}
-                className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label htmlFor="resumeSize">Size (bytes) (optional)</Label>
-              <Input
-                id="resumeSize"
-                value={resumeSize}
-                onChange={(e) => setResumeSize(e.target.value)}
-                placeholder="123456"
-                readOnly={!isEditingResume}
-                className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-              />
-            </div>
-
-            {isEditingResume ? (
-              <div className="flex gap-2">
-                <Button type="submit" disabled={isResumeSaving}>
-                  {isResumeSaving
-                    ? "Saving..."
-                    : baseResume
-                    ? "Replace base resume"
-                    : "Save base resume"}
-                </Button>
-                
-                {baseResume ? (
-                  <Button type="button" variant="outline" onClick={cancelResumeEdit} disabled={isResumeSaving}>
-                  Cancel
-                </Button>
-                ): null}
-
-              </div>
-            ) : null}
-          </form>
+        {/* Compact summary */}
+        <CardContent className="text-sm text-muted-foreground">
+          {baseResume ? (
+            <>
+              Current:{" "}
+              <a className="underline" href={baseResume.url} target="_blank" rel="noreferrer">
+                {baseResume.originalName}
+              </a>
+            </>
+          ) : (
+            "No base resume saved yet."
+          )}
         </CardContent>
       </Card>
     </div>
