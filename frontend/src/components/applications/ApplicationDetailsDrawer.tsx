@@ -771,6 +771,7 @@ export function ApplicationDetailsDrawer({
               <ApplicationDocumentsSection
                 applicationId={application.id}
                 open={open}
+                isEditing={isEditing}
               />
             </Section>
 
