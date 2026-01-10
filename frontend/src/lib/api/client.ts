@@ -4,9 +4,10 @@
 import { getToken } from "@/lib/auth/token";
 
 // a version of fetch's options (except remove the original body type from fetch options)
-type ApiFetchOptions = Omit<RequestInit, "body"> & {
+type ApiFetchOptions = Omit<RequestInit, "body" | "headers"> & {
   body?: unknown;     // pass an object and we'll JSON.stringify it (e.g. { email, password })
   auth?: boolean;     // default true; set false for login/register (asking "should we attach the Bearer token?")
+  headers?: Record<string, string>;
 };
 
 // Unauthorized handler: lets auth layer decide what to do on 401 (logout, redirect, etc.).
@@ -56,7 +57,8 @@ function getBaseUrl(): string {
 export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {
 
   // Pull values out of options
-  const { auth = true, body, headers, ...otherOptions } = options;    // ...otherOptions includes other fetch options like method, cache, etc.
+  const { auth = true, body, headers: originalHeaders = {}, ...otherOptions } = options;    // ...otherOptions includes other fetch options like method, cache, etc.
+
 
   // Decide whether to attach token
   const token = auth ? getToken() : null;
@@ -65,14 +67,27 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
   const baseUrl = getBaseUrl();
   const fullUrl = `${baseUrl}${path}`   // base + endpoint path
 
+  // If we're sending FormData (file upload), DO NOT set JSON headers or stringify the body.
+  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
+
+  const headers: Record<string, string> = { ...originalHeaders };
+
+  // Only set JSON content-type when NOT FormData
+  if (body !== undefined && !isFormData) {
+    headers["Content-Type"] = "application/json";
+  }
+  // If have a token → set header
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  // Build the body (if body is provided, stringify it only if not FormData)
+  const fetchBody = (body === undefined) ? undefined : isFormData ? (body as FormData) : JSON.stringify(body);
+
   // Call fetch
   const response = await fetch(fullUrl, {
-    headers: {
-      ...(body ? { "Content-Type": "application/json" } : {}),  // If sending a JSON body → set header
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),   // If have a token → set header
-      ...headers,   // apply any user-provided headers
-    },
-    body: body ? JSON.stringify(body) : undefined,    // If body is provided → stringify it
+    headers,
+    body: fetchBody,
     ...otherOptions,
   });
 

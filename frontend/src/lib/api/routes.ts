@@ -8,6 +8,7 @@
  */
 export const routes = {
   auth: {
+    me: () => "/auth/me",
     login: () => "/auth/login",
     register: () => "/auth/register",
   },
@@ -18,8 +19,17 @@ export const routes = {
     list: () => "/applications",
     create: () => "/applications",
     byId: (id: string) => `/applications/${id}`,
+
+    documents: {
+      list: (applicationId: string) => `/applications/${applicationId}/documents`,
+      upload: (applicationId: string, kind: string) =>
+        `/applications/${applicationId}/documents?kind=${encodeURIComponent(kind)}`,
+    },
   },
   documents: {
     baseResume: () => "/documents/base-resume",
+
+    download: (documentId: number | string) => `/documents/${documentId}/download`,
+    byId: (documentId: number | string) => `/documents/${documentId}`,
   },
 } as const;
