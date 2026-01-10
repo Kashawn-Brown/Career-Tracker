@@ -22,4 +22,16 @@ export const UpsertBaseResumeBody = Type.Object(
   { additionalProperties: false }
 );
 
+
+/**
+ * Defines the shape of the request params for getting a document.
+ */
+export const DocumentIdParams = Type.Object(
+  { id: Type.String({ minLength: 1 }) },
+  { additionalProperties: false }
+);
+
+
+
 export type UpsertBaseResumeBodyType = Static<typeof UpsertBaseResumeBody>;
+export type DocumentIdParamsType = Static<typeof DocumentIdParams>;

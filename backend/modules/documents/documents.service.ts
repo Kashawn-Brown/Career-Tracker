@@ -140,3 +140,45 @@ export async function createApplicationDocument(
   });
 }
 
+/**
+ * Documents v1:
+ * Fetch an application-attached document owned by the user.
+ * (Excludes BASE_RESUME and requires jobApplicationId.)
+ */
+export async function getApplicationDocumentById(userId: string, documentId: string) {
+  const doc = await prisma.document.findFirst({
+    where: {
+      id: parseInt(documentId),
+      userId,
+      jobApplicationId: { not: null },
+      kind: { not: DocumentKind.BASE_RESUME },
+    },
+    select: {
+      ...documentSelect,
+      storageKey: true,
+      jobApplicationId: true,
+    },
+  });
+
+  if (!doc) {
+    throw new AppError("Document not found.", 404);
+  }
+
+  if (!doc.storageKey) {
+    // Should never happen for application uploads, but keeps the behavior safe.
+    throw new AppError("Document is missing storageKey.", 500);
+  }
+
+  return doc;
+}
+
+/**
+ * Documents v1:
+ * Delete the document row (ownership already verified before calling this).
+ */
+export async function deleteDocumentById(userId: string, documentId: string) {
+  await prisma.document.delete({ where: { id: parseInt(documentId), userId } });
+  return { ok: true };
+}
+
+
