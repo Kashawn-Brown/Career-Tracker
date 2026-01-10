@@ -6,6 +6,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { STATUS_OPTIONS, JOB_TYPE_OPTIONS, WORK_MODE_OPTIONS, statusLabel, jobTypeLabel, workModeLabel } from "@/lib/applications/presentation";
 import { dateAppliedFormat, toDateInputValue, dateInputToIso, todayInputValue } from "@/lib/applications/dates";
 import { parseTags, serializeTags, splitTagInput } from "@/lib/applications/tags";
+import { ApplicationDocumentsSection } from "@/components/applications/ApplicationDocumentsSection";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -764,6 +765,13 @@ export function ApplicationDetailsDrawer({
                   className="min-h-[140px]"
                 />
               )}
+            </Section>
+
+            <Section title="Documents">
+              <ApplicationDocumentsSection
+                applicationId={application.id}
+                open={open}
+              />
             </Section>
 
             <Section title="AI">
