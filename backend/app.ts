@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 import rateLimit from "@fastify/rate-limit";
 import cors from "@fastify/cors";
+import multipart from "@fastify/multipart";
 import { registerErrorHandlers } from "./middleware/error-handler.js";
 import { debugRoutes } from "./modules/debug/debug.routes.js";
 import { applicationsRoutes } from "./modules/applications/applications.routes.js";
@@ -27,6 +28,20 @@ export function buildApp() {
 
   // keep it disabled globally and enable per-route on auth endpoints only.
   app.register(rateLimit, { global: false });
+
+  // Multipart uploads (Documents v1)
+  // Security note: fastify-multipart defaults to 1MB. Set a safer default here.
+  const maxUploadBytesRaw = Number(process.env.GCS_MAX_UPLOAD_BYTES);
+  const maxUploadBytes = Number.isFinite(maxUploadBytesRaw) && maxUploadBytesRaw > 0 ? maxUploadBytesRaw : 10 * 1024 * 1024; // 10MB default
+
+  // Register multipart plugin for file uploads
+  app.register(multipart, {
+    limits: {
+      fileSize: maxUploadBytes,
+      files: 1,
+      parts: 20,
+    },
+  });
 
   // Health endpoint for local checks + Cloud Run later
   app.get("/health", async () => ({ ok: true }));

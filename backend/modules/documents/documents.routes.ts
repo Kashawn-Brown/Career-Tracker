@@ -3,6 +3,10 @@ import { requireAuth } from "../../middleware/auth.js";
 import { UpsertBaseResumeBody } from "./documents.schemas.js";
 import type { UpsertBaseResumeBodyType } from "./documents.schemas.js";
 import * as DocumentsService from "./documents.service.js";
+import { getGcsConfig, getStorageClient } from "../../lib/gcs.js";
+import { DocumentIdParams } from "./documents.schemas.js";
+import type { DocumentIdParamsType } from "./documents.schemas.js";
+
 
 export async function documentsRoutes(app: FastifyInstance) {
 
@@ -40,4 +44,62 @@ export async function documentsRoutes(app: FastifyInstance) {
     const userId = req.user!.id;
     return DocumentsService.deleteBaseResume(userId);
   });
+
+    /**
+   * Documents v1:
+   * Get a short-lived signed download URL for an application document.
+   */
+    app.get(
+      "/:id/download",
+      {
+        preHandler: [requireAuth],
+        schema: { params: DocumentIdParams },
+      },
+      async (req) => {
+        const userId = req.user!.id;
+        const { id } = req.params as DocumentIdParamsType;
+  
+        const doc = await DocumentsService.getApplicationDocumentById(userId, id);
+  
+        const cfg = getGcsConfig();
+        const bucket = getStorageClient().bucket(cfg.bucketName);
+  
+        const [downloadUrl] = await bucket.file(doc.storageKey).getSignedUrl({
+          version: "v4",
+          action: "read",
+          expires: Date.now() + cfg.signedUrlTtlSeconds * 1000,
+        });
+  
+        return { downloadUrl };
+      }
+    );
+  
+    /**
+     * Documents v1:
+     * Delete an application document (GCS object + DB row).
+     */
+    app.delete(
+      "/:id",
+      {
+        preHandler: [requireAuth],
+        schema: { params: DocumentIdParams },
+      },
+      async (req) => {
+        const userId = req.user!.id;
+        const { id } = req.params as DocumentIdParamsType;
+  
+        const doc = await DocumentsService.getApplicationDocumentById(userId, id);
+  
+        const cfg = getGcsConfig();
+        const bucket = getStorageClient().bucket(cfg.bucketName);
+  
+        // Best-effort object deletion (ignore if already gone)
+        await bucket.file(doc.storageKey).delete({ ignoreNotFound: true });
+  
+        return DocumentsService.deleteDocumentById(userId, id);
+      }
+    );
+  
 }
+
+
