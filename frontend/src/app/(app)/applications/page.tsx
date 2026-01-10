@@ -222,6 +222,22 @@ export default function ApplicationsPage() {
     return updated;
   }
 
+  // handleDocumentsChanged: handles the change of the documents of the application.
+  async function handleDocumentsChanged(applicationId: string) {
+    // Refetch list so the table + sorting (updatedAt) updates immediately
+    setReloadKey((k) => k + 1);
+  
+    // Optional: refresh the drawer's application so its "Updated" value matches too
+    if (selectedApplication?.id === applicationId) {
+      try {
+        const latest = await applicationsApi.get(applicationId);
+        setSelectedApplication(latest);
+      } catch {
+        // non-blocking
+      }
+    }
+  }
+
   // handlePageSizeChange: changes the page size.
   function handlePageSizeChange(numberPerPage: string) {
     const next = Number(numberPerPage);
@@ -639,10 +655,11 @@ export default function ApplicationsPage() {
         open={detailsOpen}
         onOpenChange={(open) => {
           setDetailsOpen(open);
-          if (!open) setSelectedApplication(null); // ✅ close clears selection
+          if (!open) setSelectedApplication(null);
         }}
         application={selectedApplication}
-        onSave={handleSaveDetails} // ✅ new
+        onSave={handleSaveDetails} 
+        onDocumentsChanged={handleDocumentsChanged}
       />
     </div>
   );
