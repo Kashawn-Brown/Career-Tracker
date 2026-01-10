@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { apiFetch, ApiError } from "@/lib/api/client";
 import { routes } from "@/lib/api/routes";
 import type { MeResponse, UpdateMeRequest } from "@/types/api";
@@ -26,7 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { documentsApi } from "@/lib/api/documents";
 import { Alert } from "@/components/ui/alert";
-import type { Document, UpsertBaseResumeRequest, WorkMode } from "@/types/api";
+import type { Document, WorkMode } from "@/types/api";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { workModeLabel } from "@/lib/applications/presentation";
@@ -40,11 +40,9 @@ export default function ProfilePage() {
   // baseResume: current BASE_RESUME document metadata (null means none saved yet).
   const [baseResume, setBaseResume] = useState<Document | null>(null);
 
-  // Resume form fields (MVP: metadata + URL only) (have to mimic an upload).
-  const [resumeUrl, setResumeUrl] = useState("");
-  const [resumeName, setResumeName] = useState("");
-  const [resumeMime, setResumeMime] = useState("");
-  const [resumeSize, setResumeSize] = useState<string>(""); // keep as string for input simplicity
+  // Resume file state
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const resumeFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [isResumeSaving, setIsResumeSaving] = useState(false);
   const [isResumeDeleting, setIsResumeDeleting] = useState(false);
@@ -105,6 +103,11 @@ export default function ProfilePage() {
     return a.every((v, i) => v === b[i]);
   }
 
+  function safeDocId(doc: Document): number {
+    const n = Number((doc as any).id);
+    return Number.isFinite(n) ? n : -1;
+  }
+
   // Loading the profile on mount (& depending on setCurrentUser)
   useEffect(() => {
     async function load() {
@@ -137,15 +140,9 @@ export default function ProfilePage() {
         // Load base resume metadata for the logged-in user.
         try { // It's own try/catch block so it does not block profile load even if resume load fails 
           const resumeRes = await documentsApi.getBaseResume();
-          setBaseResume(resumeRes.document);
-          setIsEditingResume(!resumeRes.document); // if none exists, go straight to edit mode
+          setBaseResume(resumeRes.baseResume);
+          setIsEditingResume(!resumeRes.baseResume); // if none exists, go straight to edit mode
 
-          if (resumeRes.document) {
-            setResumeUrl(resumeRes.document.url);
-            setResumeName(resumeRes.document.originalName);
-            setResumeMime(resumeRes.document.mimeType);
-            setResumeSize(resumeRes.document.size ? String(resumeRes.document.size) : "");
-          }
 
         } catch(err) {
           
@@ -258,102 +255,101 @@ export default function ProfilePage() {
 
   // Starts the base resume edit mode.
   function startResumeEdit() {
-    setErrorMessage(null);
+    setResumeErrorMessage(null);
     setSuccessMessage(null);
+    setResumeFile(null);
+    if (resumeFileInputRef.current) resumeFileInputRef.current.value = "";
     setIsEditingResume(true);
   }
   
   // Cancels the base resume edit mode.
   function cancelResumeEdit() {
-    // Cancel = revert back to last saved resume values (or clear if none)
-    if (baseResume) {
-      setResumeUrl(baseResume.url);
-      setResumeName(baseResume.originalName);
-      setResumeMime(baseResume.mimeType);
-      setResumeSize(baseResume.size ? String(baseResume.size) : "");
-      setIsEditingResume(false);
-    } else {
-      setResumeUrl("");
-      setResumeName("");
-      setResumeMime("");
-      setResumeSize("");
-      setIsEditingResume(false);
-    }
-  
-    setErrorMessage(null);
+    setResumeFile(null);
+    if (resumeFileInputRef.current) resumeFileInputRef.current.value = "";
+    setResumeErrorMessage(null);
     setSuccessMessage(null);
+    setIsEditingResume(false);
   }
 
-  // Saves/replaces the base resume metadata.
-  async function handleResumeSave(e: React.FormEvent) {
-    e.preventDefault();
-    setErrorMessage(null);
-    setSuccessMessage(null);
-
-    if (!resumeUrl.trim() || !resumeName.trim() || !resumeMime.trim()) {
-      setErrorMessage("Resume URL, file name, and MIME type are required.");
+  // Opens the base resume in a new tab.
+  async function handleResumeOpen() {
+    if (!baseResume) return;
+  
+    const id = safeDocId(baseResume);
+    if (id < 0) {
+      setResumeErrorMessage("Invalid resume id.");
       return;
     }
+  
+    try {
+      setResumeErrorMessage(null);
+      const res = await documentsApi.getDownloadUrl(id);
+      window.open(res.downloadUrl, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      if (err instanceof ApiError) setResumeErrorMessage(err.message);
+      else setResumeErrorMessage("Failed to open resume.");
+    }
+  }
 
-    const payload: UpsertBaseResumeRequest = {
-      url: resumeUrl.trim(),
-      originalName: resumeName.trim(),
-      mimeType: resumeMime.trim(),
-      // size is optional; only send if provided
-      ...(resumeSize.trim() ? { size: Number(resumeSize) } : {}),
-    };
-
+  // Saves/replaces the base resume file.
+  async function handleResumeSave(e: React.FormEvent) {
+    e.preventDefault();
+    setResumeErrorMessage(null);
+    setSuccessMessage(null);
+  
+    if (!resumeFile) {
+      setResumeErrorMessage("Choose a file to upload.");
+      return;
+    }
+  
     try {
       setIsResumeSaving(true);
-
-
-      const res = await documentsApi.upsertBaseResume(payload);
-
-      setBaseResume(res.document);
-      setIsEditingResume(false); // exit edit mode on success
+  
+      const res = await documentsApi.upsertBaseResume(resumeFile);
+  
+      setBaseResume(res.baseResume);
+      setResumeFile(null);
+      if (resumeFileInputRef.current) resumeFileInputRef.current.value = "";
+  
+      setIsEditingResume(false);
       setSuccessMessage("Base resume saved.");
       setIsResumeDialogOpen(false);
     } catch (err) {
-      if (err instanceof ApiError) setErrorMessage(err.message);
-      else setErrorMessage("Failed to save base resume.");
+      if (err instanceof ApiError) setResumeErrorMessage(err.message);
+      else setResumeErrorMessage("Failed to save base resume.");
     } finally {
       setIsResumeSaving(false);
     }
   }
+  
 
-  // Deletes the base resume metadata.
+  // Deletes the base resume file.
   async function handleResumeDelete() {
-
-    // Nothing to delete (or already busy)
-    if (!baseResume?.url || isResumeSaving) return;
-
+    if (!baseResume || isResumeSaving) return;
+  
     const confirmed = window.confirm(
-      "Remove your base resume link?\n\nThis will delete the current resume URL from your profile."
+      "Delete your base resume?\n\nThis removes the saved resume and deletes the stored file."
     );
-
     if (!confirmed) return;
-
-    setErrorMessage(null);
+  
+    setResumeErrorMessage(null);
     setSuccessMessage(null);
-
+  
     try {
       setIsResumeDeleting(true);
-
+  
       await documentsApi.deleteBaseResume();
       setBaseResume(null);
-
-      // Clear form inputs as well.
-      setResumeUrl("");
-      setResumeName("");
-      setResumeMime("");
-      setResumeSize("");
-
-      setIsEditingResume(true); // encourage re-adding after deletion
+  
+      setResumeFile(null);
+      if (resumeFileInputRef.current) resumeFileInputRef.current.value = "";
+  
+      setIsEditingResume(true);
       setSuccessMessage("Base resume deleted.");
       setIsResumeDialogOpen(false);
     } catch (err) {
-      if (err instanceof ApiError) setErrorMessage(err.message);
-      else setErrorMessage("Failed to delete base resume.");
+      if (err instanceof ApiError) setResumeErrorMessage(err.message);
+      else setResumeErrorMessage("Failed to delete base resume.");
     } finally {
       setIsResumeDeleting(false);
     }
@@ -786,7 +782,7 @@ export default function ProfilePage() {
               <CardHeader>
                 <CardTitle>Base Resume</CardTitle>
                 <CardDescription>
-                  Store a link to your current resume (metadata-only for MVP).
+                  Upload your current resume once, then reuse it across applications.
                 </CardDescription>
 
                 <CardAction>
@@ -802,11 +798,17 @@ export default function ProfilePage() {
                         <DialogHeader>
                           <DialogTitle>Base Resume</DialogTitle>
                           <DialogDescription>
-                            View first. Click Edit to replace. Delete removes the saved metadata.
+                            View first. Click Edit to replace. Delete removes the saved resume.
                           </DialogDescription>
                         </DialogHeader>
 
                         <div className="flex gap-2">
+                          {baseResume && !isEditingResume ? (
+                            <Button type="button" variant="outline" size="sm" onClick={handleResumeOpen}>
+                              Open
+                            </Button>
+                          ) : null}
+
                           {!isEditingResume ? (
                             <Button
                               type="button"
@@ -834,10 +836,7 @@ export default function ProfilePage() {
                       <div className="mt-4 text-sm text-muted-foreground">
                         {baseResume ? (
                           <>
-                            Current:{" "}
-                            <a className="underline" href={baseResume.url} target="_blank" rel="noreferrer">
-                              {baseResume.originalName}
-                            </a>
+                            Current: <span className="font-medium">{baseResume.originalName}</span>
                           </>
                         ) : (
                           "No base resume saved yet."
@@ -846,67 +845,27 @@ export default function ProfilePage() {
 
                       <form className="mt-4 space-y-4" onSubmit={handleResumeSave}>
                         <div className="space-y-1">
-                          <Label htmlFor="resumeUrl">Resume URL</Label>
+                          <Label htmlFor="resumeFile">Resume file</Label>
                           <Input
-                            id="resumeUrl"
-                            value={resumeUrl}
-                            onChange={(e) => setResumeUrl(e.target.value)}
-                            placeholder="https://... or https://storage.googleapis.com/..."
-                            readOnly={!isEditingResume}
-                            className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+                            id="resumeFile"
+                            ref={resumeFileInputRef}
+                            type="file"
+                            accept=".pdf,.txt,application/pdf,text/plain"
+                            disabled={!isEditingResume}
+                            onChange={(e) => setResumeFile(e.target.files?.[0] ?? null)}
                           />
-                        </div>
-
-                        <div className="space-y-1">
-                          <Label htmlFor="resumeName">File name</Label>
-                          <Input
-                            id="resumeName"
-                            value={resumeName}
-                            onChange={(e) => setResumeName(e.target.value)}
-                            placeholder="Base_Resume.pdf"
-                            readOnly={!isEditingResume}
-                            className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-                          />
-                        </div>
-
-                        <div className="space-y-1">
-                          <Label htmlFor="resumeMime">MIME type</Label>
-                          <Input
-                            id="resumeMime"
-                            value={resumeMime}
-                            onChange={(e) => setResumeMime(e.target.value)}
-                            placeholder="application/pdf"
-                            readOnly={!isEditingResume}
-                            className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-                          />
-                        </div>
-
-                        <div className="space-y-1">
-                          <Label htmlFor="resumeSize">Size (bytes) (optional)</Label>
-                          <Input
-                            id="resumeSize"
-                            value={resumeSize}
-                            onChange={(e) => setResumeSize(e.target.value)}
-                            placeholder="123456"
-                            readOnly={!isEditingResume}
-                            className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-                          />
+                          <div className="text-xs text-muted-foreground">Accepted: PDF, TXT</div>
                         </div>
 
                         {isEditingResume ? (
                           <div className="flex items-center justify-end gap-2 pt-2">
                             {baseResume ? (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={cancelResumeEdit}
-                                disabled={isResumeSaving}
-                              >
+                              <Button type="button" variant="outline" onClick={cancelResumeEdit} disabled={isResumeSaving}>
                                 Cancel
                               </Button>
                             ) : null}
 
-                            <Button type="submit" disabled={isResumeSaving}>
+                            <Button type="submit" disabled={isResumeSaving || !resumeFile}>
                               {isResumeSaving
                                 ? "Saving..."
                                 : baseResume
@@ -921,20 +880,22 @@ export default function ProfilePage() {
                 </CardAction>
               </CardHeader>
 
-              {/* Compact summary */}
               <CardContent className="text-sm text-muted-foreground">
                 {baseResume ? (
-                  <>
-                    Current:{" "}
-                    <a className="underline" href={baseResume.url} target="_blank" rel="noreferrer">
-                      {baseResume.originalName}
-                    </a>
-                  </>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="truncate">
+                      Current: <span className="font-medium">{baseResume.originalName}</span>
+                    </div>
+                    <Button type="button" variant="outline" size="sm" onClick={handleResumeOpen}>
+                      Open
+                    </Button>
+                  </div>
                 ) : (
                   "No base resume saved yet."
                 )}
               </CardContent>
             </Card>
+
           </div>
         </div>
       </div>
