@@ -155,8 +155,13 @@ app.get(
     const dot = originalName.lastIndexOf(".");
     const ext = dot !== -1 ? originalName.slice(dot).toLowerCase() : "";
     const safeExt = ext.length > 0 && ext.length <= 10 ? ext : "";
+
+    // Get the key prefix from the environment variable
+    const prefix = (process.env.GCS_KEY_PREFIX ?? "").trim();
+    const base = `users/${userId}/applications/${applicationId}/${id}${safeExt}`;
   
-    return `users/${userId}/applications/${applicationId}/${id}${safeExt}`;
+    // If prefix is set (dev/prod), keep keys clearly separated.
+    return prefix ? `${prefix}/${base}` : base;
   }
   
   // Helper function to check if a mime type is allowed
