@@ -29,6 +29,20 @@ export function buildApp() {
   // keep it disabled globally and enable per-route on auth endpoints only.
   app.register(rateLimit, { global: false });
 
+  // Multipart uploads (Documents v1)
+  // Security note: fastify-multipart defaults to 1MB. Set a safer default here.
+  const maxUploadBytesRaw = Number(process.env.GCS_MAX_UPLOAD_BYTES);
+  const maxUploadBytes = Number.isFinite(maxUploadBytesRaw) && maxUploadBytesRaw > 0 ? maxUploadBytesRaw : 10 * 1024 * 1024; // 10MB default
+
+  // Register multipart plugin for file uploads
+  app.register(multipart, {
+    limits: {
+      fileSize: maxUploadBytes,
+      files: 1,
+      parts: 20,
+    },
+  });
+
   // Health endpoint for local checks + Cloud Run later
   app.get("/health", async () => ({ ok: true }));
 
@@ -46,21 +60,6 @@ export function buildApp() {
 
   // Mount Document endpoints under /api/v1/documents
   app.register(documentsRoutes, { prefix: "/api/v1/documents" });
-
-
-  // Multipart uploads (Documents v1)
-  // Security note: fastify-multipart defaults to 1MB. Set a safer default here.
-  const maxUploadBytesRaw = Number(process.env.GCS_MAX_UPLOAD_BYTES);
-  const maxUploadBytes = Number.isFinite(maxUploadBytesRaw) && maxUploadBytesRaw > 0 ? maxUploadBytesRaw : 10 * 1024 * 1024; // 10MB default
-
-  // Register multipart plugin for file uploads
-  app.register(multipart, {
-    limits: {
-      fileSize: maxUploadBytes,
-      files: 1,
-      parts: 20,
-    },
-  });
 
 
   // Debug route protected behind an env flag so it is not always enabled
