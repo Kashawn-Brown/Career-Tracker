@@ -104,7 +104,8 @@ export default function ProfilePage() {
   }
 
   function safeDocId(doc: Document): number {
-    const n = Number((doc as any).id);
+    const raw = doc.id;
+    const n = typeof raw === "number" ? raw : Number(raw);
     return Number.isFinite(n) ? n : -1;
   }
 
