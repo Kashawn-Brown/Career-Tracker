@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Star } from "lucide-react";
 
 // CreateApplicationForm: Form to create a new application (POST /applications).
 export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) {
@@ -19,7 +20,7 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
 
   // New fields (table foundations)
   const [applicationStatus, setApplicationStatus] = useState<ApplicationStatus>("WISHLIST");
-  
+  const [isFavorite, setIsFavorite] = useState(false);
   const [jobType, setJobType] = useState<JobType>("UNKNOWN");
   const [workMode, setWorkMode] = useState<WorkMode>("UNKNOWN");
   const [salaryText, setSalaryText] = useState("");
@@ -63,7 +64,7 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
     const payload: CreateApplicationRequest = {
       company: company.trim(),
       position: position.trim(),
-      
+      isFavorite: isFavorite,
       status: applicationStatus,
       // If status is APPLIED, set dateApplied automatically
       dateApplied: applicationStatus === "APPLIED" ? new Date().toISOString() : undefined,
@@ -94,6 +95,7 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
       // Reset form and refresh list.
       setCompany("");
       setPosition("");
+      setIsFavorite(false);
 
       setLocation("");
       setLocationDetails("");
@@ -126,8 +128,9 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
     <form className="space-y-3" onSubmit={handleSubmit}>
       {errorMessage ? <div className="text-sm text-red-600">{errorMessage}</div> : null}
 
-      <div className="grid gap-3 md:grid-cols-2">
-        <div className="space-y-1">
+      <div className="grid gap-x-6 gap-y-6 md:grid-cols-12">
+
+        <div className="space-y-2 md:col-span-5">
           <Label htmlFor="company">Company</Label>
           <Input
             id="company"
@@ -137,7 +140,7 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
           />
         </div>
 
-        <div className="space-y-1">
+        <div className="space-y-2 md:col-span-5">
           <Label htmlFor="position">Position</Label>
           <Input
             id="position"
@@ -147,7 +150,25 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
           />
         </div>
 
-        <div className="space-y-1">
+        <div className="space-y-2 md:col-span-2">
+          <Label htmlFor="isFavorite">Favorite</Label>
+          <label className="flex h-9 items-center gap-2 rounded-md border px-3 text-sm">
+            <input
+              id="isFavorite"
+              type="checkbox"
+              checked={isFavorite}
+              onChange={(e) => {
+                setIsFavorite(e.target.checked);
+              }}
+              className="h-4 w-4"
+            />
+            <span className="flex items-center gap-1">
+              <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" /> Favorite
+            </span>
+          </label>
+        </div>
+
+        <div className="space-y-2 md:col-span-4">
           <Label htmlFor="jobType">Job type</Label>
           <Select
             id="jobType"
@@ -162,17 +183,7 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
           </Select>
         </div>
 
-        <div className="space-y-1">
-          <Label htmlFor="salaryText">Salary</Label>
-          <Input
-            id="salaryText"
-            value={salaryText}
-            onChange={(e) => setSalaryText(e.target.value)}
-            placeholder='$90k–110k CAD, $55/hr, etc.'
-          />
-        </div>
-
-        <div className="space-y-1">
+        <div className="space-y-2 md:col-span-4">
           <Label htmlFor="workMode">Work Arrangement</Label>
           <Select
             id="workMode"
@@ -187,7 +198,7 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
           </Select>
         </div>
 
-        <div className="space-y-1">
+        <div className="space-y-2 md:col-span-4">
           <Label htmlFor="Status">Application Status</Label>
           <Select
             id="applicationStatus"
@@ -200,9 +211,9 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
               </option>
             ))}
           </Select>
-        </div>
+        </div>    
 
-        <div className="space-y-1">
+        <div className="space-y-2 md:col-span-6">
           <Label htmlFor="location">Location</Label>
           <Input
             id="location"
@@ -212,13 +223,23 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
           />
         </div>
 
-        <div className="space-y-1">
+        {/* <div className="space-y-2 md:col-span-4">
           <Label htmlFor="locationDetails">Location Details</Label>
           <Input
             id="locationDetails"
             value={locationDetails}
             onChange={(e) => setLocationDetails(e.target.value)}
             placeholder="e.g., 159 St. George St."
+          />
+        </div> */}
+
+        <div className="space-y-2 md:col-span-6">
+          <Label htmlFor="salaryText">Salary</Label>
+          <Input
+            id="salaryText"
+            value={salaryText}
+            onChange={(e) => setSalaryText(e.target.value)}
+            placeholder='$90k–110k CAD, $55/hr, etc.'
           />
         </div>
       </div>
@@ -234,8 +255,9 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
 
       {/* Show more fields if the user clicks the "More fields" button */}
       {showMore ? (
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className="space-y-1 md:col-span-2">
+        <div className="grid gap-x-6 gap-y-6 md:grid-cols-6">
+          
+          <div className="space-y-2 md:col-span-2">
             <Label htmlFor="jobTypeDetails">Job Type Details</Label>
             <Input
               id="jobTypeDetails"
@@ -245,7 +267,7 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
             />
           </div>
 
-          <div className="space-y-1 md:col-span-2">
+          <div className="space-y-2 md:col-span-2">
             <Label htmlFor="workModeDetails">Work Arrangement Details</Label>
             <Input
               id="workModeDetails"
@@ -254,10 +276,20 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
               placeholder="e.g., 2 days in office"
             />
           </div>
+
+          <div className="space-y-2 md:col-span-2">
+            <Label htmlFor="locationDetails">Location Details</Label>
+            <Input
+              id="locationDetails"
+              value={locationDetails}
+              onChange={(e) => setLocationDetails(e.target.value)}
+              placeholder="e.g., 159 St. George St."
+            />
+          </div>
         </div>
       ) : null}
       
-      <div className="flex justify-end">
+      <div className="flex justify-end mt-8">
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting ? "Adding..." : "Add application"}
         </Button>

@@ -139,6 +139,7 @@ export type ListApplicationsParams = {
 export type CreateApplicationRequest = {
   company: string;
   position: string;
+  isFavorite?: boolean;
   status?: ApplicationStatus;
 
   location?: string;
