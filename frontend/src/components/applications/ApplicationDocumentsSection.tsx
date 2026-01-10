@@ -36,9 +36,11 @@ function safeDocId(doc: Document): number {
 export function ApplicationDocumentsSection({
   applicationId,
   open,
+  isEditing,
 }: {
   applicationId: string;
   open: boolean;
+  isEditing: boolean;
 }) {
   const [docs, setDocs] = useState<Document[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -109,39 +111,6 @@ export function ApplicationDocumentsSection({
 
   return (
     <div className="space-y-3">
-      {/* Upload row */}
-      <div className="rounded-md border p-3 space-y-3">
-        <div className="text-sm font-medium">Upload document</div>
-
-        <div className="grid grid-cols-1 gap-2">
-          <div className="grid grid-cols-[140px_1fr] gap-2 items-center">
-            <Select
-              value={kind}
-              onChange={(e) =>
-                setKind(e.target.value as ApplicationDocumentKind)
-              }
-            >
-              {DOC_KIND_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </Select>
-
-            <Input
-              ref={fileInputRef}
-              type="file"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            />
-          </div>
-
-          <Button onClick={onUpload} disabled={!canUpload}>
-            <Upload className="mr-2 h-4 w-4" />
-            {isUploading ? "Uploading..." : "Upload"}
-          </Button>
-        </div>
-      </div>
-
       {/* List */}
       <div className="rounded-md border">
         <div className="px-3 py-2 border-b flex items-center justify-between">
@@ -189,23 +158,60 @@ export function ApplicationDocumentsSection({
                     <Download className="h-4 w-4" />
                   </Button>
 
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDelete(doc);
-                    }}
-                    title="Delete"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {isEditing && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete(doc);
+                      }}
+                      title="Delete"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* Upload row */}
+      {isEditing && (
+        <div className="rounded-md border p-3 space-y-3">
+          <div className="text-sm font-medium">Upload document</div>
+
+          <div className="grid grid-cols-1 gap-2">
+            <div className="grid grid-cols-[140px_1fr] gap-2 items-center">
+              <Select
+                value={kind}
+                onChange={(e) =>
+                  setKind(e.target.value as ApplicationDocumentKind)
+                }
+              >
+                {DOC_KIND_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </Select>
+
+              <Input
+                ref={fileInputRef}
+                type="file"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              />
+            </div>
+
+            <Button onClick={onUpload} disabled={!canUpload}>
+              <Upload className="mr-2 h-4 w-4" />
+              {isUploading ? "Uploading..." : "Upload"}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
