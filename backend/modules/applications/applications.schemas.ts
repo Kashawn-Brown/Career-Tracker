@@ -137,6 +137,25 @@ export const UpdateApplicationBody = Type.Object(
   { additionalProperties: false }
 );
 
+/**
+ * Documents v1:
+ * For application attachments small subset of document kinds allowed.
+ * (BASE_RESUME stays profile-only.)
+ */
+export const ApplicationDocumentKindSchema = Type.Union([
+  Type.Literal("RESUME"),
+  Type.Literal("COVER_LETTER"),
+  Type.Literal("OTHER"),
+]);
+
+// Query params for uploading a document to an application
+export const UploadApplicationDocumentQuery = Type.Object(
+  {
+    kind: Type.Optional(ApplicationDocumentKindSchema),
+  },
+  { additionalProperties: false }
+);
+
 
 // TS types derived from the schemas (keeps TS and validation in sync)
 // Gives real TS types that matches the schema exactly
@@ -146,5 +165,7 @@ export type ApplicationIdParamsType = Static<typeof ApplicationIdParams>;
 export type UpdateApplicationBodyType = Static<typeof UpdateApplicationBody>;
 export type ApplicationStatusType = Static<typeof ApplicationStatusSchema>;
 
+
+export type UploadApplicationDocumentQueryType = Static<typeof UploadApplicationDocumentQuery>;
 
 

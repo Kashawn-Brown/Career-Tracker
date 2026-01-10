@@ -1,3 +1,4 @@
+import { DocumentKind } from "@prisma/client";
 
 export const documentSelect = {
   id: true,
@@ -17,4 +18,14 @@ export type upsertBaseResumeInput = {
   mimeType: string;
   size?: number;
   storageKey?: string;
+};
+
+
+// 
+export type CreateApplicationDocumentInput = {
+  kind: DocumentKind;
+  storageKey: string;
+  originalName: string;
+  mimeType: string;
+  size?: number;
 };

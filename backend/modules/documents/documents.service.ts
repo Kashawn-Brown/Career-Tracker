@@ -1,7 +1,9 @@
 import { DocumentKind, Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { documentSelect } from "./documents.dto.js";
-import type { upsertBaseResumeInput } from "./documents.dto.js";
+import type { upsertBaseResumeInput, CreateApplicationDocumentInput } from "./documents.dto.js";
+import { AppError } from "../../errors/app-error.js";
+
 
 
 /**
@@ -86,3 +88,55 @@ export async function deleteBaseResume(userId: string) {
     return { ok: true };
   });
 }
+
+
+/**
+ * Documents v1:
+ * Counts the documents for a given application.
+ */
+export async function countApplicationDocuments(userId: string, jobApplicationId: string) {
+  return prisma.document.count({
+    where: { userId, jobApplicationId },
+  });
+}
+
+/**
+ * Documents v1:
+ * Lists the documents for a given application.
+ */
+export async function listApplicationDocuments(userId: string, jobApplicationId: string) {
+  return prisma.document.findMany({
+    where: { userId, jobApplicationId },
+    orderBy: { createdAt: "desc" },
+    select: documentSelect,
+  });
+}
+
+/**
+ * Documents v1:
+ * Creates a new document for a given application.
+ */
+export async function createApplicationDocument(
+  userId: string,
+  jobApplicationId: string,
+  input: CreateApplicationDocumentInput
+) {
+  if (input.kind === DocumentKind.BASE_RESUME) {
+    throw new AppError("BASE_RESUME is not allowed for application attachments.", 400);
+  }
+
+  return prisma.document.create({
+    data: {
+      userId,
+      jobApplicationId,
+      kind: input.kind,
+      storageKey: input.storageKey,
+      originalName: input.originalName,
+      mimeType: input.mimeType,
+      size: input.size,
+      url: null,
+    },
+    select: documentSelect,
+  });
+}
+
