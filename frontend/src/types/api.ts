@@ -185,33 +185,54 @@ export type UpdateApplicationRequest = {
 
 // --- Document DTOs: matches backend ---
 
+export type DocumentKind = "BASE_RESUME" | "RESUME" | "COVER_LETTER" | "OTHER";
+
 // Document: minimal document shape returned by backend (BASE_RESUME only for MVP).
 export type Document = {
-  id: string;
-  kind: "BASE_RESUME";
-  url: string;
+  id: number | string;
+  kind: DocumentKind;
+  url: string | null;
   originalName: string;
   mimeType: string;
-  size: number | null;
-  createdAt: string; // ISO string from API
-  updatedAt: string; // ISO string from API
+  size: number | null | undefined;
+  createdAt: string; // JSON-serialized Date from backend
+  updatedAt: string; // JSON-serialized Date from backend
 };
 
 // GetBaseResumeResponse: backend returns { document: Document | null }.
 export type GetBaseResumeResponse = {
-  document: Document | null;
-};
-
-// UpsertBaseResumeRequest: matches backend schema for POST /documents/base-resume.
-export type UpsertBaseResumeRequest = {
-  url: string;
-  originalName: string;
-  mimeType: string;
-  size?: number;
-  storageKey?: string; // future: GCS key (optional in MVP)
+  baseResume: Document | null;
 };
 
 // UpsertBaseResumeResponse: backend returns { document: Document }.
 export type UpsertBaseResumeResponse = {
+  baseResume: Document;
+};
+
+// DeleteBaseResumeResponse: backend returns { ok: true }.
+export type DeleteBaseResumeResponse = {
+  ok: true;
+};
+
+// Application documents
+export type ListApplicationDocumentsResponse = {
+  documents: Document[];
+};
+
+export type UploadApplicationDocumentParams = {
+  applicationId: string;
+  kind: Exclude<DocumentKind, "BASE_RESUME">;
+  file: File;
+};
+
+export type UploadApplicationDocumentResponse = {
   document: Document;
+};
+
+export type GetDocumentDownloadUrlResponse = {
+  downloadUrl: string;
+};
+
+export type DeleteDocumentResponse = {
+  ok: true;
 };

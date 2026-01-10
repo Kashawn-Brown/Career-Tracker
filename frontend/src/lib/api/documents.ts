@@ -4,28 +4,54 @@ import { routes } from "@/lib/api/routes";
 import type {
   OkResponse,
   GetBaseResumeResponse,
-  UpsertBaseResumeRequest,
   UpsertBaseResumeResponse,
+  GetDocumentDownloadUrlResponse,
+  DeleteDocumentResponse,
 } from "@/types/api";
 
 export const documentsApi = {
 
-    // Fetches the current base resume metadata for the logged-in user.
-    getBaseResume() {
-        return apiFetch<GetBaseResumeResponse>(routes.documents.baseResume(), { method: "GET" });
-    },
+  // Fetches the current base resume metadata for the logged-in user.
+  getBaseResume() {
+    return apiFetch<GetBaseResumeResponse>(routes.documents.baseResume(), { 
+      method: "GET" 
+    });
+  },
 
-    // Creates/replaces the base resume metadata for the logged-in user
-    upsertBaseResume(body: UpsertBaseResumeRequest) {
-        return apiFetch<UpsertBaseResumeResponse>(routes.documents.baseResume(), {
-            method: "POST",
-            body,
-        });
-    },
+  // Creates/replaces the base resume metadata for the logged-in user
+  upsertBaseResume(file: File): Promise<UpsertBaseResumeResponse> {
+      
+    // Create a FormData object to send the file to the backend.
+    const form = new FormData();
+    form.append("file", file);
 
-    // Deletes the base resume metadata for the logged-in user.
-    deleteBaseResume() {
-        return apiFetch<OkResponse>(routes.documents.baseResume(), { method: "DELETE" });
-    }
+    return apiFetch<UpsertBaseResumeResponse>(routes.documents.baseResume(), {
+      method: "POST",
+      body: form,
+    });
+  },
+
+  // Deletes the base resume metadata for the logged-in user.
+  deleteBaseResume() {
+    return apiFetch<OkResponse>(routes.documents.baseResume(), { 
+      method: "DELETE" 
+    });
+  },
+
+  // Get a download URL for a document.
+  getDownloadUrl(documentId: number) {
+    return apiFetch<GetDocumentDownloadUrlResponse>(
+      routes.documents.download(documentId), { 
+        method: "GET" 
+      }
+    );
+  },
+  
+  // Delete a document by id 
+  deleteById(documentId: number) {
+    return apiFetch<DeleteDocumentResponse>(routes.documents.byId(documentId), {
+      method: "DELETE",
+    });
+  },
 
 }
