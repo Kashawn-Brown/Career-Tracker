@@ -148,6 +148,7 @@ export function ApplicationDetailsDrawer({
   onOpenChange,
   application,
   onSave,
+  onDocumentsChanged,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -156,6 +157,7 @@ export function ApplicationDetailsDrawer({
     applicationId: string,
     patch: UpdateApplicationRequest
   ) => Promise<Application>;
+  onDocumentsChanged?: (applicationId: string) => void;
 }) {
   // UI state
   const [isEditing, setIsEditing] = useState(false);
@@ -772,6 +774,7 @@ export function ApplicationDetailsDrawer({
                 applicationId={application.id}
                 open={open}
                 isEditing={isEditing}
+                onDocumentsChanged={onDocumentsChanged}
               />
             </Section>
 

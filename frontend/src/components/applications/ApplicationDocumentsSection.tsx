@@ -37,10 +37,12 @@ export function ApplicationDocumentsSection({
   applicationId,
   open,
   isEditing,
+  onDocumentsChanged,
 }: {
   applicationId: string;
   open: boolean;
   isEditing: boolean;
+  onDocumentsChanged?: (applicationId: string) => void;
 }) {
   const [docs, setDocs] = useState<Document[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -84,6 +86,7 @@ export function ApplicationDocumentsSection({
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
       await refresh();
+      onDocumentsChanged?.(applicationId);
     } finally {
       setIsUploading(false);
     }
@@ -107,6 +110,7 @@ export function ApplicationDocumentsSection({
 
     await documentsApi.deleteById(id);
     await refresh();
+    onDocumentsChanged?.(applicationId);
   }
 
   return (
