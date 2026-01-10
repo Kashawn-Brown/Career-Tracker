@@ -36,6 +36,7 @@ export type CreateApplicationInput = {
   userId: string;
   company: string;
   position: string;
+  isFavorite?: boolean;
   location?: string;
   locationDetails?: string;
   status?: ApplicationStatus;

@@ -23,6 +23,7 @@ export async function createApplication(input: CreateApplicationInput) {
       userId: input.userId,
       company: input.company,
       position: input.position,
+      isFavorite: input.isFavorite ?? false,
 
       location: normalizeNullableString(input.location),
       locationDetails: normalizeNullableString(input.locationDetails),

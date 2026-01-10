@@ -30,6 +30,8 @@ export const CreateApplicationBody = Type.Object(
     company: Type.String({ minLength: 1, maxLength: 200 }),
     position: Type.String({ minLength: 1, maxLength: 200 }),
 
+    isFavorite: Type.Optional(Type.Boolean()),
+
     // Optional because it can default to server-side.
     status: Type.Optional(ApplicationStatusSchema),
 
