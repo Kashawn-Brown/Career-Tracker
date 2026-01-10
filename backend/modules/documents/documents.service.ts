@@ -125,18 +125,33 @@ export async function createApplicationDocument(
     throw new AppError("BASE_RESUME is not allowed for application attachments.", 400);
   }
 
-  return prisma.document.create({
-    data: {
-      userId,
-      jobApplicationId,
-      kind: input.kind,
-      storageKey: input.storageKey,
-      originalName: input.originalName,
-      mimeType: input.mimeType,
-      size: input.size,
-      url: null,
-    },
-    select: documentSelect,
+  return prisma.$transaction(async (db) => {
+    
+    const created = await db.document.create({
+      data: {
+        userId,
+        jobApplicationId,
+        kind: input.kind,
+        storageKey: input.storageKey,
+        originalName: input.originalName,
+        mimeType: input.mimeType,
+        size: input.size,
+        url: null,
+      },
+      select: documentSelect,
+    });
+
+    // Update the application updatedAt to keep the last updated time.
+    const result = await db.jobApplication.updateMany({
+      where: { id: jobApplicationId, userId },
+      data: { updatedAt: new Date() },
+    });
+
+    if (result.count === 0) {
+      throw new AppError("Application not found", 404);
+    }
+
+    return created;
   });
 }
 
@@ -177,8 +192,29 @@ export async function getApplicationDocumentById(userId: string, documentId: str
  * Delete the document row (ownership already verified before calling this).
  */
 export async function deleteDocumentById(userId: string, documentId: string) {
-  await prisma.document.delete({ where: { id: parseInt(documentId), userId } });
-  return { ok: true };
+  
+  return prisma.$transaction(async (db) => {
+    
+    const deleted = await db.document.delete({ 
+      where: { id: parseInt(documentId), userId },
+      select: {jobApplicationId: true},
+    });
+
+    // Only "touch" application if this doc belongs to one.
+    if (deleted.jobApplicationId) {
+      
+      const result = await db.jobApplication.updateMany({
+        where: { id: deleted.jobApplicationId, userId },
+        data: { updatedAt: new Date() },
+      });
+
+      if (result.count === 0) {
+        throw new AppError("Application not found", 404);
+      }
+    }
+
+    return { ok: true };    
+  });
 }
 
 
