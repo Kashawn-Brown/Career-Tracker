@@ -312,61 +312,62 @@ export default function ApplicationsPage() {
   }
 
   return (
-    <div className="space-y-6">
-
-      {/* Add application section */}
-      <Collapsible open={isAddApplicationOpen} onOpenChange={setIsAddApplicationOpen}>
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold">Applications</h1>
-
-          <CollapsibleTrigger asChild>
-            <Button variant="secondary" className="gap-2">
-              <Plus className="h-4 w-4" />
-              Add application
-              {isAddApplicationOpen ? (
-                <ChevronDown className="h-4 w-4" />
-              ) : (
-                <ChevronRight className="h-4 w-4" />
-              )}
-            </Button>
-          </CollapsibleTrigger>
-        </div>
-
-        <CollapsibleContent className="mt-4">
-          <Card>
-            <CardHeader className="border-b">
-              <CardTitle>Add application</CardTitle>
-              <CardDescription>Create a new job application record.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <CreateApplicationForm
-                onCreated={() => {
-                  setPage(1);
-                  refreshList();
-                }}
-              />
-            </CardContent>
-          </Card> 
-        </CollapsibleContent>
-      </Collapsible>
-
-      {/* Applications section */}
+    <div className="space-y-6">     
       <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div >
-            <h2 className="text-lg font-semibold">Your applications</h2>
-            <p className="text-sm text-muted-foreground">
-              Search, filter, track,and update applications.
-            </p>
-          </div>
-
-          {/* Column controls button */}
-          <div className="flex items-center justify-end">
+               
+        {/* Header section */}
+        <Collapsible open={isAddApplicationOpen} onOpenChange={setIsAddApplicationOpen}>
+          <div className="flex items-center justify-between gap-3">
+            <h1 className="text-2xl font-semibold">Your Applications</h1>
+            
+            
+            <div className="flex items-center justify-end gap-3">
+              
+              {/* Column controls button */}
               <Button variant="outline" onClick={() => setShowColumns((v) => !v)}>
                 {showColumns ? "Hide Column Controls" : "Show Column Controls"}
               </Button>
+              
+              {/* Add application button */}
+              <CollapsibleTrigger asChild>
+                <Button variant="secondary" className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Add application
+                  {isAddApplicationOpen ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+            </div>            
           </div>
-        </div>
+          <div>
+            <p className="text-sm text-muted-foreground">
+              Manage all your job applications: search, filter, update, improve all in one place.
+            </p>
+          </div>
+
+          {/* Add application section */}
+          <CollapsibleContent className="mt-4">
+            <Card>
+              <CardHeader className="border-b">
+                <CardTitle>Add application</CardTitle>
+                <CardDescription>Create a new job application record.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <CreateApplicationForm
+                  onCreated={() => {
+                    setPage(1);
+                    refreshList();
+                  }}
+                />
+              </CardContent>
+            </Card> 
+          </CollapsibleContent>
+        </Collapsible>
+
+
         {/* Controls surface (filters + column visibility) */}
         <div className="space-y-4">
           {/* Columns control */}

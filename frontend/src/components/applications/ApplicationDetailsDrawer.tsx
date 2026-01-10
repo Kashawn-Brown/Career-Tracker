@@ -419,28 +419,39 @@ export function ApplicationDetailsDrawer({
                     <Field label="Company" value={application.company} />
                     <Field label="Position" value={application.position} />
 
-                    <Field 
-                      label="Location" 
-                      value={application.location} 
-                      details={application.locationDetails}
-                      emptyValue="N/A"
-                    />
+                    {application.location ? (
+                      <Field 
+                        label="Location" 
+                        value={application.location} 
+                        details={application.locationDetails}
+                        emptyValue="N/A"
+                      />
+                    ) : null}
+                    
+                    {application.jobType!="UNKNOWN" ? (
+                      <Field
+                        label="Job type"
+                        value={jobTypeLabel(application.jobType)}
+                        details={application.jobTypeDetails}
+                      />
+                    ) : null}
 
-                    <Field
-                      label="Salary"
-                      value={application.salaryText}
-                      emptyValue="Not specified"
-                    />
-                    <Field
-                      label="Job type"
-                      value={jobTypeLabel(application.jobType)}
-                      details={application.jobTypeDetails}
-                    />
-                    <Field
+                    {application.workMode!="UNKNOWN" ? (
+                      <Field
                       label="Work arrangement"
                       value={workModeLabel(application.workMode)}
                       details={application.workModeDetails}
                     />
+                    ) : null}
+
+                    {application.salaryText ? (
+                      <Field
+                      label="Salary"
+                      value={application.salaryText}
+                        emptyValue="Not specified"
+                      />
+                    ) : null}
+
                     {application.dateApplied ? (
                       <Field
                         label="Date applied"
@@ -449,6 +460,7 @@ export function ApplicationDetailsDrawer({
                     ) : null}
                   </>
                 ) : (
+                  
                   // Editing the application details
                   <>
                     {/* Company */}
