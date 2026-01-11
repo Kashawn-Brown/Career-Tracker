@@ -415,17 +415,24 @@ export function ApplicationDetailsDrawer({
       {/* Document preview */}
       {previewDocId ? (
         <div
-          className="hidden lg:block fixed inset-y-0 left-0 z-[60] bg-background border-r pointer-events-auto"
-          style={{ right: "min(32rem, 75vw)" }}
+          className="hidden lg:flex fixed inset-y-0 left-0 z-[60] pointer-events-none items-start justify-center p-4"
+          style={{ right: "min(32rem, 75vw)" }} // keeps it from overlapping the drawer
         >
-          <div className="pointer-events-auto mt-4 w-[min(900px,calc(100%-2rem))] h-[calc(100%-2rem)] rounded-lg border bg-background shadow-lg overflow-hidden">
+          <div className="pointer-events-auto mt-2 w-[min(900px,calc(100%-2rem))] h-[min(80vh,900px)] rounded-xl border bg-background shadow-xl overflow-hidden">
             <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
               <div className="min-w-0">
-                <div className="text-sm font-medium truncate">{previewTitle ?? "Preview"}</div>
+                <div className="text-sm font-medium truncate">
+                  {previewTitle ?? "Preview"}
+                </div>
                 <div className="text-xs text-muted-foreground">PDF preview</div>
               </div>
 
-              <Button variant="ghost" size="icon" onClick={clearPreview} title="Close preview">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={clearPreview}
+                title="Close preview"
+              >
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -439,7 +446,7 @@ export function ApplicationDetailsDrawer({
                 <iframe
                   src={previewUrl}
                   title={previewTitle ?? "PDF preview"}
-                  className="h-full w-full"
+                  className="h-full w-full bg-white"
                   referrerPolicy="no-referrer"
                 />
               ) : null}
@@ -447,6 +454,7 @@ export function ApplicationDetailsDrawer({
           </div>
         </div>
       ) : null}
+
       
       {/* Application details */}
       <SheetContent side="right" className="space-y-5 overflow-y-auto">
