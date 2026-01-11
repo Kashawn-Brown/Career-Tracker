@@ -799,7 +799,7 @@ export default function ProfilePage() {
                         <DialogHeader>
                           <DialogTitle>Base Resume</DialogTitle>
                           <DialogDescription>
-                            View first. Click Edit to replace. Delete removes the saved resume.
+                            Click Edit to replace. Delete removes the saved resume.
                           </DialogDescription>
                         </DialogHeader>
 
@@ -855,7 +855,7 @@ export default function ProfilePage() {
                             disabled={!isEditingResume}
                             onChange={(e) => setResumeFile(e.target.files?.[0] ?? null)}
                           />
-                          <div className="text-xs text-muted-foreground">Accepted: PDF, TXT</div>
+                          <div className="text-xs text-muted-foreground">Accepted: PDF, TXT • up to 10MB</div>
                         </div>
 
                         {isEditingResume ? (
