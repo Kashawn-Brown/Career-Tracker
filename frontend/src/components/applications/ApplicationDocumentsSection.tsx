@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Download, FileText, Trash2, Upload } from "lucide-react";
+import { Download, Eye, FileText, Trash2, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,11 +40,15 @@ export function ApplicationDocumentsSection({
   open,
   isEditing,
   onDocumentsChanged,
+  activePreviewDocId,
+  onPreviewRequested,
 }: {
   applicationId: string;
   open: boolean;
   isEditing: boolean;
   onDocumentsChanged?: (applicationId: string) => void;
+  activePreviewDocId?: string | null;
+  onPreviewRequested?: (doc: Document | null) => void;
 }) {
   const [docs, setDocs] = useState<Document[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -59,6 +63,19 @@ export function ApplicationDocumentsSection({
 
   const canUpload = useMemo(() => !!file && !isUploading, [file, isUploading]);
 
+  // Resets the local UI state when switching apps / reopening.
+  useEffect(() => {
+    if (!open) return;
+    if (!applicationId) return;
+
+    // reset local UI state when switching apps / reopening
+    setFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applicationId, open]);
+  
+  // Refreshes the list of documents for the application.
   async function refresh() {
     setIsLoading(true);
     try {
@@ -76,17 +93,7 @@ export function ApplicationDocumentsSection({
     }
   }
 
-  useEffect(() => {
-    if (!open) return;
-    if (!applicationId) return;
-
-    // reset local UI state when switching apps / reopening
-    setFile(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-    refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [applicationId, open]);
-
+  // Uploads a document to the application.
   async function onUpload() {
     if (!file) return;
 
@@ -111,6 +118,7 @@ export function ApplicationDocumentsSection({
     }
   }
 
+  // Opens a document in a new tab.
   async function onOpenInline(doc: Document) {
     const id = safeDocId(doc);
     if (id < 0) return;
@@ -129,6 +137,7 @@ export function ApplicationDocumentsSection({
     }
   }
 
+  // Downloads a document.
   async function onDownload(doc: Document) {
     const id = safeDocId(doc);
     if (id < 0) return;
@@ -147,12 +156,17 @@ export function ApplicationDocumentsSection({
     }
   }
 
+  // Deletes a document.
   async function onDelete(doc: Document) {
     const id = safeDocId(doc);
     if (id < 0) return;
 
     const ok = window.confirm(`Delete "${doc.originalName}"?`);
     if (!ok) return;
+
+    if (activePreviewDocId === String(doc.id)) {
+      onPreviewRequested?.(null);
+    }
 
     try {
       setErrorMessage(null);      
@@ -166,6 +180,7 @@ export function ApplicationDocumentsSection({
       else setErrorMessage("Failed to delete document.");
     }
   }
+
 
   return (
     <div className="space-y-4">
@@ -210,6 +225,20 @@ export function ApplicationDocumentsSection({
                 </div>
 
                 {/* Actions */}
+                {doc.mimeType === "application/pdf" ? (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onPreviewRequested?.(doc);
+                    }}
+                    title="Preview"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                ) : null}
+
                 <div className="flex items-center gap-1">
                   <Button
                     variant="ghost"
@@ -266,7 +295,7 @@ export function ApplicationDocumentsSection({
               <Input
                 ref={fileInputRef}
                 type="file"
-                accept=".pdf,.txt,.doc,.docx,.pdf,.txt,application/pdf,text/plain"
+                accept=".pdf,.txt,application/pdf,text/plain"
                 className="text-xs text-muted-foreground"
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
               />

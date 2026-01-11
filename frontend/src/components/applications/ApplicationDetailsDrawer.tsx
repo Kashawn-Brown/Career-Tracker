@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Application, UpdateApplicationRequest, ApplicationStatus, JobType, WorkMode } from "@/types/api";
+import type { Application, UpdateApplicationRequest, ApplicationStatus, JobType, WorkMode, Document } from "@/types/api";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { STATUS_OPTIONS, JOB_TYPE_OPTIONS, WORK_MODE_OPTIONS, statusLabel, jobTypeLabel, workModeLabel } from "@/lib/applications/presentation";
 import { dateAppliedFormat, toDateInputValue, dateInputToIso, todayInputValue } from "@/lib/applications/dates";
 import { parseTags, serializeTags, splitTagInput } from "@/lib/applications/tags";
 import { ApplicationDocumentsSection } from "@/components/applications/ApplicationDocumentsSection";
+import { documentsApi } from "@/lib/api/documents";
+import { ApiError } from "@/lib/api/client";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -176,6 +178,12 @@ export function ApplicationDetailsDrawer({
   // A ref to the last application id that was opened
   const lastAppIdRef = useRef<string | null>(null);
 
+  const [previewDocId, setPreviewDocId] = useState<string | null>(null);
+  const [previewTitle, setPreviewTitle] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+
   // keep the drawer’s draft in sync with the selected application.
   useEffect(() => {
 
@@ -215,8 +223,7 @@ export function ApplicationDetailsDrawer({
 
   }, [open, application, isEditing]);
 
-  
-
+  // Starts the edit mode.
   function startEdit() {
     if (!application) return;
     setDraft(toDraft(application));
@@ -226,6 +233,7 @@ export function ApplicationDetailsDrawer({
     setArmedTagIndex(null);
   }
 
+  // Cancels the edit mode.
   function cancelEdit() {
     if (!application) return;
     setDraft(toDraft(application));
@@ -235,6 +243,7 @@ export function ApplicationDetailsDrawer({
     setArmedTagIndex(null);
   }
 
+  // Adds tags from the input.
   function addTagsFromInput() {
     if (!draft) return;
 
@@ -257,6 +266,7 @@ export function ApplicationDetailsDrawer({
     setArmedTagIndex(null);
   }
 
+  // Removes a tag at the given index.
   function removeTagAt(index: number) {
     if (!draft) return;
     const next = draft.tags.filter((_, i) => i !== index);
@@ -264,6 +274,7 @@ export function ApplicationDetailsDrawer({
     setArmedTagIndex(null);
   }
 
+  // Saves the changes to the application.
   async function handleSave() {
     if (!application || !draft) return;
 
@@ -330,6 +341,64 @@ export function ApplicationDetailsDrawer({
     }
   }
 
+  // Clears the document preview.
+  function clearPreview() {
+    setPreviewDocId(null);
+    setPreviewTitle(null);
+    setPreviewUrl(null);
+    setPreviewError(null);
+    setIsPreviewLoading(false);
+  }
+
+  // Clears the document preview when the drawer closes.
+  useEffect(() => {
+    if (!open) clearPreview();
+  }, [open]);
+  
+  // Clears the document preview when the application changes.
+  useEffect(() => {
+    clearPreview();
+  }, [application?.id]);
+
+  // Handles a document preview request.
+  async function handlePreviewRequest(doc: Document | null) {
+    if (!doc) {
+      clearPreview();
+      return;
+    }
+  
+    // Only support PDF preview
+    if (doc.mimeType !== "application/pdf") return;
+  
+    const docIdStr = String(doc.id);
+  
+    // Close if already open
+    if (previewDocId === docIdStr) {
+      clearPreview();
+      return;
+    }
+  
+    const id = Number(doc.id);
+    if (!Number.isFinite(id)) return;
+  
+    setPreviewDocId(docIdStr);
+    setPreviewTitle(doc.originalName ?? "Document");
+    setPreviewUrl(null);         // prevents “old PDF flashes” when switching docs
+    setPreviewError(null);
+    setIsPreviewLoading(true);
+  
+    try {
+      const res = await documentsApi.getDownloadUrl(id, { disposition: "inline" });
+      setPreviewUrl(res.downloadUrl);
+    } catch (err) {
+      if (err instanceof ApiError) setPreviewError(err.message);
+      else setPreviewError("Failed to load preview.");
+    } finally {
+      setIsPreviewLoading(false);
+    }
+  }
+  
+
   // The title of the application details drawer (e.g. "⭐ Position @ Company")
   const title = useMemo(() => {
     if (!application) return "Application details";
@@ -342,6 +411,48 @@ export function ApplicationDetailsDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
+
+      {/* Document preview */}
+      {previewDocId ? (
+        <div
+          className="hidden lg:block fixed inset-y-0 left-0 z-50 bg-background border-r"
+          style={{ right: "min(32rem, 75vw)" }} // matches Sheet width: w-3/4, sm:max-w-lg (32rem)
+        >
+          <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+            <div className="min-w-0">
+              <div className="text-sm font-medium truncate">
+                {previewTitle ?? "Preview"}
+              </div>
+              <div className="text-xs text-muted-foreground">PDF preview</div>
+            </div>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={clearPreview}
+              title="Close preview"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="h-[calc(100%-52px)]">
+            {isPreviewLoading ? (
+              <div className="p-4 text-sm text-muted-foreground">Loading preview...</div>
+            ) : previewError ? (
+              <div className="p-4 text-sm text-destructive">{previewError}</div>
+            ) : previewUrl ? (
+              <iframe
+                src={previewUrl}
+                className="h-full w-full"
+                referrerPolicy="no-referrer"
+              />
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+      
+      {/* Application details */}
       <SheetContent side="right" className="space-y-5 overflow-y-auto">
         <SheetHeader>
           <SheetTitle>{title}</SheetTitle>
@@ -775,6 +886,8 @@ export function ApplicationDetailsDrawer({
                 open={open}
                 isEditing={isEditing}
                 onDocumentsChanged={onDocumentsChanged}
+                activePreviewDocId={previewDocId}
+                onPreviewRequested={handlePreviewRequest}
               />
             </Section>
 
