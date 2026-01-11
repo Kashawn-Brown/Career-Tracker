@@ -31,7 +31,21 @@ export const DocumentIdParams = Type.Object(
   { additionalProperties: false }
 );
 
+/**
+ * Defines the shape of the query params for downloading a document.
+ */
+export const DocumentDownloadQuery = Type.Object(
+  {
+    disposition: Type.Optional(
+      Type.Union([Type.Literal("inline"), Type.Literal("attachment")])
+    ),
+  },
+  { additionalProperties: false }
+);
+
 
 
 export type UpsertBaseResumeBodyType = Static<typeof UpsertBaseResumeBody>;
 export type DocumentIdParamsType = Static<typeof DocumentIdParams>;
+export type DocumentDownloadQueryType = Static<typeof DocumentDownloadQuery>;
+

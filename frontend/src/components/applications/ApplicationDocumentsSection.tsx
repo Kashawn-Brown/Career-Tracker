@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Download, FileText, Trash2, Upload } from "lucide-react";
+import { Download, Eye, FileText, Trash2, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+
+import { ApiError } from "@/lib/api/client";
 
 import { applicationDocumentsApi } from "@/lib/api/application-documents";
 import { documentsApi } from "@/lib/api/documents";
@@ -38,11 +40,15 @@ export function ApplicationDocumentsSection({
   open,
   isEditing,
   onDocumentsChanged,
+  activePreviewDocId,
+  onPreviewRequested,
 }: {
   applicationId: string;
   open: boolean;
   isEditing: boolean;
   onDocumentsChanged?: (applicationId: string) => void;
+  activePreviewDocId?: string | null;
+  onPreviewRequested?: (doc: Document | null) => void;
 }) {
   const [docs, setDocs] = useState<Document[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -50,22 +56,14 @@ export function ApplicationDocumentsSection({
   const [kind, setKind] = useState<ApplicationDocumentKind>("RESUME");
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Helps reset the <input type="file" />
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const canUpload = useMemo(() => !!file && !isUploading, [file, isUploading]);
 
-  async function refresh() {
-    setIsLoading(true);
-    try {
-      const res = await applicationDocumentsApi.list(applicationId);
-      setDocs(res.documents ?? []);
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
+  // Resets the local UI state when switching apps / reopening.
   useEffect(() => {
     if (!open) return;
     if (!applicationId) return;
@@ -76,31 +74,89 @@ export function ApplicationDocumentsSection({
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applicationId, open]);
+  
+  // Refreshes the list of documents for the application.
+  async function refresh() {
+    setIsLoading(true);
+    try {
+      setErrorMessage(null);
+      const res = await applicationDocumentsApi.list(applicationId);
+      setDocs(res.documents ?? []);
+    } catch (err) {
+      // Keep the drawer usable even if docs fail
+      setDocs([]);
+      
+      if (err instanceof ApiError) setErrorMessage(err.message);
+      else setErrorMessage("Failed to load documents.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
+  // Uploads a document to the application.
   async function onUpload() {
     if (!file) return;
 
     setIsUploading(true);
     try {
+      setErrorMessage(null);
+
       await applicationDocumentsApi.upload({ applicationId, kind, file });
+      
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
+
       await refresh();
       onDocumentsChanged?.(applicationId);
+
+    } catch (err) {
+      
+      if (err instanceof ApiError) setErrorMessage(err.message);
+      else setErrorMessage("Document upload failed.");
     } finally {
       setIsUploading(false);
     }
   }
 
-  async function onOpen(doc: Document) {
+  // Opens a document in a new tab.
+  async function onOpenInline(doc: Document) {
     const id = safeDocId(doc);
     if (id < 0) return;
 
-    const res = await documentsApi.getDownloadUrl(id);
-    // This acts as “preview” for now (new tab). Simple + not over-engineered.
-    window.open(res.downloadUrl, "_blank", "noopener,noreferrer");
+    try {
+      setErrorMessage(null);
+
+      const res = await documentsApi.getDownloadUrl(id, { disposition: "inline" });
+      // This acts as “preview” for now (new tab). Simple + not over-engineered.
+      window.open(res.downloadUrl, "_blank", "noopener,noreferrer");
+
+    } catch (err) {
+      
+      if (err instanceof ApiError) setErrorMessage(err.message);
+      else setErrorMessage("Failed to open document.");
+    }
   }
 
+  // Downloads a document.
+  async function onDownload(doc: Document) {
+    const id = safeDocId(doc);
+    if (id < 0) return;
+
+    try {
+      setErrorMessage(null);
+
+      const res = await documentsApi.getDownloadUrl(id, { disposition: "attachment" });
+      // This acts as “preview” for now (new tab). Simple + not over-engineered.
+      window.open(res.downloadUrl, "_blank", "noopener,noreferrer");
+
+    } catch (err) {
+      
+      if (err instanceof ApiError) setErrorMessage(err.message);
+      else setErrorMessage("Failed to open document.");
+    }
+  }
+
+  // Deletes a document.
   async function onDelete(doc: Document) {
     const id = safeDocId(doc);
     if (id < 0) return;
@@ -108,13 +164,33 @@ export function ApplicationDocumentsSection({
     const ok = window.confirm(`Delete "${doc.originalName}"?`);
     if (!ok) return;
 
-    await documentsApi.deleteById(id);
-    await refresh();
-    onDocumentsChanged?.(applicationId);
+    if (activePreviewDocId === String(doc.id)) {
+      onPreviewRequested?.(null);
+    }
+
+    try {
+      setErrorMessage(null);      
+      await documentsApi.deleteById(id);
+      await refresh();
+      onDocumentsChanged?.(applicationId);
+
+    } catch (err) {
+      
+      if (err instanceof ApiError) setErrorMessage(err.message);
+      else setErrorMessage("Failed to delete document.");
+    }
   }
 
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      {/* Error message */}
+      {errorMessage ? (
+        <div className="rounded-md border px-3 py-2 text-sm text-destructive">
+          {errorMessage}
+        </div>
+      ) : null}
+
       {/* List */}
       <div className="rounded-md border">
         <div className="px-3 py-2 border-b flex items-center justify-between">
@@ -134,7 +210,7 @@ export function ApplicationDocumentsSection({
               <div
                 key={String(doc.id)}
                 className="px-3 py-2 flex items-center gap-3 hover:bg-muted/40 cursor-pointer"
-                onClick={() => onOpen(doc)}
+                onClick={() => onOpenInline(doc)}
               >
                 <FileText className="h-4 w-4 text-muted-foreground" />
 
@@ -149,15 +225,29 @@ export function ApplicationDocumentsSection({
                 </div>
 
                 {/* Actions */}
+                {doc.mimeType === "application/pdf" ? (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onPreviewRequested?.(doc);
+                    }}
+                    title="Preview"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                ) : null}
+
                 <div className="flex items-center gap-1">
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={(e) => {
                       e.stopPropagation();
-                      onOpen(doc);
+                      onDownload(doc);
                     }}
-                    title="Open / Download"
+                    title="Download"
                   >
                     <Download className="h-4 w-4" />
                   </Button>
@@ -187,7 +277,7 @@ export function ApplicationDocumentsSection({
         <div className="rounded-md border p-3 space-y-3">
           <div className="text-sm font-medium">Upload document</div>
 
-          <div className="grid grid-cols-1 gap-2">
+          <div className="space-y-3 grid grid-cols-1 gap-2">
             <div className="grid grid-cols-[140px_1fr] gap-2 items-center">
               <Select
                 value={kind}
@@ -205,6 +295,8 @@ export function ApplicationDocumentsSection({
               <Input
                 ref={fileInputRef}
                 type="file"
+                accept=".pdf,.txt,application/pdf,text/plain"
+                className="text-xs text-muted-foreground"
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
               />
             </div>
