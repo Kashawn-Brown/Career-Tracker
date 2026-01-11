@@ -111,14 +111,32 @@ export function ApplicationDocumentsSection({
     }
   }
 
-  async function onOpen(doc: Document) {
+  async function onOpenInline(doc: Document) {
     const id = safeDocId(doc);
     if (id < 0) return;
 
     try {
       setErrorMessage(null);
 
-      const res = await documentsApi.getDownloadUrl(id);
+      const res = await documentsApi.getDownloadUrl(id, { disposition: "inline" });
+      // This acts as “preview” for now (new tab). Simple + not over-engineered.
+      window.open(res.downloadUrl, "_blank", "noopener,noreferrer");
+
+    } catch (err) {
+      
+      if (err instanceof ApiError) setErrorMessage(err.message);
+      else setErrorMessage("Failed to open document.");
+    }
+  }
+
+  async function onDownload(doc: Document) {
+    const id = safeDocId(doc);
+    if (id < 0) return;
+
+    try {
+      setErrorMessage(null);
+
+      const res = await documentsApi.getDownloadUrl(id, { disposition: "attachment" });
       // This acts as “preview” for now (new tab). Simple + not over-engineered.
       window.open(res.downloadUrl, "_blank", "noopener,noreferrer");
 
@@ -177,7 +195,7 @@ export function ApplicationDocumentsSection({
               <div
                 key={String(doc.id)}
                 className="px-3 py-2 flex items-center gap-3 hover:bg-muted/40 cursor-pointer"
-                onClick={() => onOpen(doc)}
+                onClick={() => onOpenInline(doc)}
               >
                 <FileText className="h-4 w-4 text-muted-foreground" />
 
@@ -198,9 +216,9 @@ export function ApplicationDocumentsSection({
                     size="icon"
                     onClick={(e) => {
                       e.stopPropagation();
-                      onOpen(doc);
+                      onDownload(doc);
                     }}
-                    title="Open / Download"
+                    title="Download"
                   >
                     <Download className="h-4 w-4" />
                   </Button>

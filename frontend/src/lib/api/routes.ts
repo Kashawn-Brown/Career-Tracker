@@ -28,8 +28,17 @@ export const routes = {
   },
   documents: {
     baseResume: () => "/documents/base-resume",
-
-    download: (documentId: number | string) => `/documents/${documentId}/download`,
     byId: (documentId: number | string) => `/documents/${documentId}`,
+
+    // Get a download URL for a document. (Optional disposition query param for "open in browser" vs "force download")
+    download: (
+      documentId: number | string,
+      opts?: { disposition?: "inline" | "attachment" }
+    ) => {
+      const base = `/documents/${documentId}/download`;
+      const disposition = opts?.disposition;
+      return disposition ? `${base}?disposition=${disposition}` : base;
+    },
   },
+
 } as const;

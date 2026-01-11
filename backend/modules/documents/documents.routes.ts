@@ -4,8 +4,8 @@ import { UpsertBaseResumeBody } from "./documents.schemas.js";
 import type { UpsertBaseResumeBodyType } from "./documents.schemas.js";
 import * as DocumentsService from "./documents.service.js";
 import { getGcsConfig, getStorageClient } from "../../lib/gcs.js";
-import { DocumentIdParams } from "./documents.schemas.js";
-import type { DocumentIdParamsType } from "./documents.schemas.js";
+import { DocumentIdParams, DocumentDownloadQuery } from "./documents.schemas.js";
+import type { DocumentIdParamsType, DocumentDownloadQueryType } from "./documents.schemas.js";
 
 
 export async function documentsRoutes(app: FastifyInstance) {
@@ -53,9 +53,10 @@ export async function documentsRoutes(app: FastifyInstance) {
       "/:id/download",
       {
         preHandler: [requireAuth],
-        schema: { params: DocumentIdParams },
+        schema: { params: DocumentIdParams, querystring: DocumentDownloadQuery },
       },
       async (req) => {
+
         const userId = req.user!.id;
         const { id } = req.params as DocumentIdParamsType;
   
@@ -63,11 +64,21 @@ export async function documentsRoutes(app: FastifyInstance) {
   
         const cfg = getGcsConfig();
         const bucket = getStorageClient().bucket(cfg.bucketName);
+
+        // Get the disposition from the query string
+        const { disposition = "inline" } = (req.query as DocumentDownloadQueryType) ?? {};
+
+        // Build the safe name for the document
+        const safeName = (doc.originalName ?? "document")
+        .replace(/[\r\n"]/g, "")
+        .slice(0, 150);
   
         const [downloadUrl] = await bucket.file(doc.storageKey).getSignedUrl({
           version: "v4",
           action: "read",
           expires: Date.now() + cfg.signedUrlTtlSeconds * 1000,
+          // Controls “open in browser” vs “force download”
+          responseDisposition: `${disposition}; filename="${safeName}"`,
         });
   
         return { downloadUrl };

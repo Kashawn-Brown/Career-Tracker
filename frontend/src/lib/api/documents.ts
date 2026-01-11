@@ -39,9 +39,9 @@ export const documentsApi = {
   },
 
   // Get a download URL for a document.
-  getDownloadUrl(documentId: number) {
+  getDownloadUrl(documentId: number, opts?: { disposition?: "inline" | "attachment" }) {
     return apiFetch<GetDocumentDownloadUrlResponse>(
-      routes.documents.download(documentId), { 
+      routes.documents.download(documentId, opts), { 
         method: "GET" 
       }
     );
