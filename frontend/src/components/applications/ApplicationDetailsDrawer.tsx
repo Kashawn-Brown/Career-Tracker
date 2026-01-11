@@ -415,39 +415,35 @@ export function ApplicationDetailsDrawer({
       {/* Document preview */}
       {previewDocId ? (
         <div
-          className="hidden lg:block fixed inset-y-0 left-0 z-50 bg-background border-r"
-          style={{ right: "min(32rem, 75vw)" }} // matches Sheet width: w-3/4, sm:max-w-lg (32rem)
+          className="hidden lg:block fixed inset-y-0 left-0 z-[60] bg-background border-r pointer-events-auto"
+          style={{ right: "min(32rem, 75vw)" }}
         >
-          <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
-            <div className="min-w-0">
-              <div className="text-sm font-medium truncate">
-                {previewTitle ?? "Preview"}
+          <div className="pointer-events-auto mt-4 w-[min(900px,calc(100%-2rem))] h-[calc(100%-2rem)] rounded-lg border bg-background shadow-lg overflow-hidden">
+            <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+              <div className="min-w-0">
+                <div className="text-sm font-medium truncate">{previewTitle ?? "Preview"}</div>
+                <div className="text-xs text-muted-foreground">PDF preview</div>
               </div>
-              <div className="text-xs text-muted-foreground">PDF preview</div>
+
+              <Button variant="ghost" size="icon" onClick={clearPreview} title="Close preview">
+                <X className="h-4 w-4" />
+              </Button>
             </div>
 
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={clearPreview}
-              title="Close preview"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-
-          <div className="h-[calc(100%-52px)]">
-            {isPreviewLoading ? (
-              <div className="p-4 text-sm text-muted-foreground">Loading preview...</div>
-            ) : previewError ? (
-              <div className="p-4 text-sm text-destructive">{previewError}</div>
-            ) : previewUrl ? (
-              <iframe
-                src={previewUrl}
-                className="h-full w-full"
-                referrerPolicy="no-referrer"
-              />
-            ) : null}
+            <div className="h-[calc(100%-52px)]">
+              {isPreviewLoading ? (
+                <div className="p-4 text-sm text-muted-foreground">Loading preview...</div>
+              ) : previewError ? (
+                <div className="p-4 text-sm text-destructive">{previewError}</div>
+              ) : previewUrl ? (
+                <iframe
+                  src={previewUrl}
+                  title={previewTitle ?? "PDF preview"}
+                  className="h-full w-full"
+                  referrerPolicy="no-referrer"
+                />
+              ) : null}
+            </div>
           </div>
         </div>
       ) : null}
