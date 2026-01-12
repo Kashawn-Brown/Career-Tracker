@@ -6,7 +6,6 @@ import type {
   GetBaseResumeResponse,
   UpsertBaseResumeResponse,
   GetDocumentDownloadUrlResponse,
-  DeleteDocumentResponse,
 } from "@/types/api";
 
 export const documentsApi = {
@@ -49,7 +48,7 @@ export const documentsApi = {
   
   // Delete a document by id 
   deleteById(documentId: number) {
-    return apiFetch<DeleteDocumentResponse>(routes.documents.byId(documentId), {
+    return apiFetch<OkResponse>(routes.documents.byId(documentId), {
       method: "DELETE",
     });
   },

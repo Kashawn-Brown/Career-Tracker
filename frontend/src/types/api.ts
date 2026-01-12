@@ -233,6 +233,93 @@ export type GetDocumentDownloadUrlResponse = {
   downloadUrl: string;
 };
 
-export type DeleteDocumentResponse = {
-  ok: true;
+
+// --- Connections DTOs: matches backend ---
+
+export type ConnectionSortBy = "updatedAt" | "createdAt" | "name" | "company" | "title" | "relationship" | "location";
+
+export type ConnectionSortDir = "asc" | "desc";
+
+// Connection: connection shape returned by backend
+export type Connection = {
+  id: string;
+  name: string;
+  company: string | null;
+  title: string | null;
+
+  email: string | null;
+  linkedInUrl: string | null;
+  notes: string | null;
+
+  phone: string | null;
+  relationship: string | null;
+  location: string | null;
+
+  status: boolean | null;
+
+  createdAt: string;
+  updatedAt: string;
 };
+
+export type CreateConnectionRequest = {
+  name: string;
+  company?: string | null;
+  title?: string | null;
+
+  email?: string | null;
+  linkedInUrl?: string | null;
+  notes?: string | null;
+
+  phone?: string | null;
+  relationship?: string | null;
+  location?: string | null;
+  status?: boolean | null;
+};
+
+export type UpdateConnectionRequest = {
+  name?: string;
+  company?: string;
+  title?: string;
+
+  email?: string | null;
+  linkedInUrl?: string | null;
+  notes?: string | null;
+
+  phone?: string | null;
+  relationship?: string | null;
+  location?: string | null;
+  status?: boolean | null;
+};
+
+export type ListConnectionsParams = {
+  q?: string;
+
+  name?: string;
+  company?: string;
+  relationship?: string;
+
+  status?: boolean;
+
+  page?: number;
+  pageSize?: number;
+
+  sortBy?: ConnectionSortBy;
+  sortDir?: ConnectionSortDir;
+};
+
+export type ListConnectionsResponse = Paginated<Connection>;
+
+// Application <-> Connection
+export type ApplicationConnection = Connection & {
+  attachedAt: string; // returned by GET /applications/:id/connections
+};
+
+export type ListApplicationConnectionsResponse = {
+  connections: ApplicationConnection[];
+};
+
+export type ConnectionResponse = {
+  connection: Connection;
+};
+
+
