@@ -222,6 +222,22 @@ export default function ApplicationsPage() {
     return updated;
   }
 
+  // handleConnectionsChanged: handles the change of the connections of the application.
+  async function handleConnectionsChanged(applicationId: string) {
+    // Refetch list so the table + sorting (updatedAt) updates immediately
+    setReloadKey((k) => k + 1);
+  
+    // Optional: refresh the drawer's application so its "Updated" value matches too
+    if (selectedApplication?.id === applicationId) {
+      try {
+        const latest = await applicationsApi.get(applicationId);
+        setSelectedApplication(latest);
+      } catch {
+        // non-blocking
+      }
+    }
+  }
+
   // handleDocumentsChanged: handles the change of the documents of the application.
   async function handleDocumentsChanged(applicationId: string) {
     // Refetch list so the table + sorting (updatedAt) updates immediately
@@ -660,6 +676,7 @@ export default function ApplicationsPage() {
         application={selectedApplication}
         onSave={handleSaveDetails} 
         onDocumentsChanged={handleDocumentsChanged}
+        onConnectionsChanged={handleConnectionsChanged}
       />
     </div>
   );

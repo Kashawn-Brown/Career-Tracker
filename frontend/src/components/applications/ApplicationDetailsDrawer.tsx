@@ -7,6 +7,7 @@ import { STATUS_OPTIONS, JOB_TYPE_OPTIONS, WORK_MODE_OPTIONS, statusLabel, jobTy
 import { dateAppliedFormat, toDateInputValue, dateInputToIso, todayInputValue } from "@/lib/applications/dates";
 import { parseTags, serializeTags, splitTagInput } from "@/lib/applications/tags";
 import { ApplicationDocumentsSection } from "@/components/applications/ApplicationDocumentsSection";
+import { ApplicationConnectionsSection } from "@/components/applications/ApplicationConnectionsSection";
 import { documentsApi } from "@/lib/api/documents";
 import { ApiError } from "@/lib/api/client";
 import { Input } from "@/components/ui/input";
@@ -151,6 +152,7 @@ export function ApplicationDetailsDrawer({
   application,
   onSave,
   onDocumentsChanged,
+  onConnectionsChanged,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -160,6 +162,7 @@ export function ApplicationDetailsDrawer({
     patch: UpdateApplicationRequest
   ) => Promise<Application>;
   onDocumentsChanged?: (applicationId: string) => void;
+  onConnectionsChanged?: (applicationId: string) => void;
 }) {
   // UI state
   const [isEditing, setIsEditing] = useState(false);
@@ -882,6 +885,15 @@ export function ApplicationDetailsDrawer({
                   className="min-h-[140px]"
                 />
               )}
+            </Section>
+
+            <Section title="Connections">
+              <ApplicationConnectionsSection
+                applicationId={application.id}
+                open={open}
+                isEditing={isEditing}
+                onConnectionsChanged={onConnectionsChanged}
+              />
             </Section>
 
             <Section title="Documents">
