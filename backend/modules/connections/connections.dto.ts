@@ -50,6 +50,9 @@ export const connectionSelect = {
   export type ListConnectionsParams = {
     userId: string;
     q?: string;
+    name?: string;
+    company?: string;
+    relationship?: string;
     status?: boolean;
 
     page?: number;

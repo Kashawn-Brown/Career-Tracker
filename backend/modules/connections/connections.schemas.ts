@@ -5,11 +5,17 @@ import { Type, Static } from "@sinclair/typebox";
  * Runtime validation + TS types derived from the schemas.
  */
 
+/**
+ * Schema for the :id in the URL (route params) -> the :id in the URL (route params)
+ */
 export const ConnectionIdParams = Type.Object(
   { id: Type.String({ minLength: 1 }) },
   { additionalProperties: false }
 );
 
+/**
+ * Schema for the body of the POST /api/v1/connections request -> the body of the POST /api/v1/connections request
+ */
 export const CreateConnectionBody = Type.Object(
   {
     name: Type.String({ minLength: 1, maxLength: 200 }),
@@ -26,6 +32,9 @@ export const CreateConnectionBody = Type.Object(
   { additionalProperties: false }
 );
 
+/**
+ * Schema for the body of the PATCH /api/v1/connections/:id request -> the body of the PATCH /api/v1/connections/:id request
+ */
 export const UpdateConnectionBody = Type.Object(
   {
     name: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
@@ -42,15 +51,25 @@ export const UpdateConnectionBody = Type.Object(
   { additionalProperties: false }
 );
 
+/**
+ * Schema for the query string of the GET /api/v1/connections request -> the query string of the GET /api/v1/connections request
+ */
 export const ListConnectionsQuery = Type.Object(
   {
+    // Basic text search across name, company, title, email, phone
     q: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
-
+    
+    // Optional filters
+    name: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
+    company: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
+    relationship: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
     status: Type.Optional(Type.Boolean()),
 
+    // Pagination
     page: Type.Optional(Type.Integer({ minimum: 1 })),
     pageSize: Type.Optional(Type.Integer({ minimum: 1, maximum: 200 })),
 
+    // Sorting
     sortBy: Type.Optional(
       Type.Union([
         Type.Literal("updatedAt"),

@@ -53,7 +53,7 @@ export async function listConnections(params: ListConnectionsParams) {
   const where: Prisma.ConnectionWhereInput = { userId: params.userId };
 
   // Optional filters
-  if (params.status) where.status = params.status;
+  if (params.status !== undefined) where.status = params.status;
 
   // Basic text search across name, company, title, email
   if (params.q) {
@@ -65,6 +65,10 @@ export async function listConnections(params: ListConnectionsParams) {
       { phone: { contains: params.q, mode: "insensitive" } },
     ];
   }
+
+  if (params.name) where.name = { startsWith: params.name, mode: "insensitive" };
+  if (params.company) where.company = { startsWith: params.company, mode: "insensitive" };
+  if (params.relationship) where.relationship = { startsWith: params.relationship, mode: "insensitive" };
 
   const skip = (page - 1) * pageSize;
 
