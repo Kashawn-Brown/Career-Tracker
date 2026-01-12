@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { CreateApplicationBody, ListApplicationsQuery, ApplicationIdParams, UpdateApplicationBody, UploadApplicationDocumentQuery, } from "./applications.schemas.js";
-import type { CreateApplicationBodyType, ListApplicationsQueryType, ApplicationIdParamsType, UpdateApplicationBodyType, UploadApplicationDocumentQueryType, } from "./applications.schemas.js";
+import { CreateApplicationBody, ListApplicationsQuery, ApplicationIdParams, UpdateApplicationBody, UploadApplicationDocumentQuery, ApplicationConnectionParams } from "./applications.schemas.js";
+import type { CreateApplicationBodyType, ListApplicationsQueryType, ApplicationIdParamsType, UpdateApplicationBodyType, UploadApplicationDocumentQueryType } from "./applications.schemas.js";
 import * as ApplicationsService from "./applications.service.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { AppError } from "../../errors/app-error.js";
@@ -276,7 +276,50 @@ app.get(
     );
   
 
+    /** CONNECTIONS : */
 
+    /**
+   * List connections attached to an application
+   */
+  app.get(
+    "/:id/connections",
+    { preHandler: [requireAuth], schema: { params: ApplicationIdParams } },
+    async (req) => {
+      const userId = req.user!.id;
+      const { id } = req.params as { id: string };
+
+      const connections = await ApplicationsService.listApplicationConnections(userId, id);
+      return { connections };
+    }
+  );
+
+  /**
+   * Attach a connection to an application
+   */
+  app.post(
+    "/:id/connections/:connectionId",
+    { preHandler: [requireAuth], schema: { params: ApplicationConnectionParams } },
+    async (req) => {
+      const userId = req.user!.id;
+      const { id, connectionId } = req.params as { id: string; connectionId: string };
+
+      return ApplicationsService.attachConnectionToApplication(userId, id, connectionId);
+    }
+  );
+
+  /**
+   * Detach a connection from an application
+   */
+  app.delete(
+    "/:id/connections/:connectionId",
+    { preHandler: [requireAuth], schema: { params: ApplicationConnectionParams } },
+    async (req) => {
+      const userId = req.user!.id;
+      const { id, connectionId } = req.params as { id: string; connectionId: string };
+
+      return ApplicationsService.detachConnectionFromApplication(userId, id, connectionId);
+    }
+  );
   
 
 }

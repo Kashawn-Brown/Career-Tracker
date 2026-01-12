@@ -1,7 +1,7 @@
 import { ApplicationStatus, JobType, WorkMode, Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { AppError } from "../../errors/app-error.js";
-import { applicationSelect } from "./applications.dto.js";
+import { applicationSelect, applicationConnectionSelect } from "./applications.dto.js";
 import type { CreateApplicationInput, UpdateApplicationInput, ListApplicationsParams } from "./applications.dto.js";
 
 
@@ -197,6 +197,112 @@ export async function deleteApplication(userId: string, id: string) {
   if (result.count === 0) {
     throw new AppError("Application not found", 404);
   }
+
+  return { ok: true };
+}
+
+
+/** CONNECTIONS : */
+
+/**
+ * Lists the connections for an application.
+ */
+export async function listApplicationConnections(userId: string, applicationId: string) {
+  // Ensure application belongs to user
+  const app = await prisma.jobApplication.findFirst({
+    where: { id: applicationId, userId },
+    select: { id: true },
+  });
+
+  if (!app) throw new AppError("Application not found", 404);
+
+  const items = await prisma.applicationConnection.findMany({
+    where: { jobApplicationId: applicationId },
+    orderBy: { createdAt: "desc" },
+    select: applicationConnectionSelect,
+  });
+
+  // Flatten to { ...connection, attachedAt }
+  return items.map((row) => ({
+    ...row.connection,
+    attachedAt: row.createdAt,
+  }));
+}
+
+/**
+ * Attaches a connection to an application.
+ */
+export async function attachConnectionToApplication(
+  userId: string,
+  applicationId: string,
+  connectionId: string
+) {
+  // Validate both belong to user
+  const [app, conn] = await prisma.$transaction([
+    prisma.jobApplication.findFirst({
+      where: { id: applicationId, userId },
+      select: { id: true },
+    }),
+    prisma.connection.findFirst({
+      where: { id: connectionId, userId },
+      select: { id: true },
+    }),
+  ]);
+
+  if (!app) throw new AppError("Application not found", 404);
+  if (!conn) throw new AppError("Connection not found", 404);
+
+  await prisma.$transaction(async (db) => {
+    await db.applicationConnection.upsert({
+      where: {
+        jobApplicationId_connectionId: {
+          jobApplicationId: applicationId,
+          connectionId,
+        },
+      },
+      update: {},
+      create: {
+        jobApplicationId: applicationId,
+        connectionId,
+      },
+    });
+
+    // Keeps table “recent activity” consistent (same reason as documents).
+    await db.jobApplication.update({
+      where: { id: applicationId },
+      data: { updatedAt: new Date() }, // explicit touch
+    });
+  });
+
+  return { ok: true };
+}
+
+/**
+ * Detaches a connection from an application.
+ */
+export async function detachConnectionFromApplication(
+  userId: string,
+  applicationId: string,
+  connectionId: string
+) {
+  // Validate application belongs to user (connection is validated via join delete)
+  const app = await prisma.jobApplication.findFirst({
+    where: { id: applicationId, userId },
+    select: { id: true },
+  });
+
+  if (!app) throw new AppError("Application not found", 404);
+
+  await prisma.$transaction(async (db) => {
+    await db.applicationConnection.deleteMany({
+      where: { jobApplicationId: applicationId, connectionId },
+    });
+
+    await db.jobApplication.update({
+      where: { id: applicationId },
+      data: { updatedAt: new Date() }, // explicit touch
+    });
+  });
 
   return { ok: true };
 }
