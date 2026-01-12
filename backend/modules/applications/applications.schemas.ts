@@ -159,6 +159,21 @@ export const UploadApplicationDocumentQuery = Type.Object(
 );
 
 
+
+/** CONNECTIONS : */
+
+/**
+ * Schema for the :id and :connectionId in the URL (route params) -> the :id and :connectionId in the URL (route params)
+ */
+export const ApplicationConnectionParams = Type.Object(
+  {
+    id: Type.String({ minLength: 1 }), // application id
+    connectionId: Type.String({ minLength: 1 }),
+  },
+  { additionalProperties: false }
+);
+
+
 // TS types derived from the schemas (keeps TS and validation in sync)
 // Gives real TS types that matches the schema exactly
 export type CreateApplicationBodyType = Static<typeof CreateApplicationBody>;

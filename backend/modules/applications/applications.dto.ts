@@ -1,4 +1,5 @@
 import type { ApplicationStatus, JobType, WorkMode, Prisma } from "@prisma/client";
+import { connectionSelect } from "../connections/connections.dto.js";
 
 
 // Centralized “public” shapes returned to API clients.
@@ -28,6 +29,18 @@ export const applicationSelect = {
   createdAt: true,
   updatedAt: true,
   
+} as const;
+
+
+/**
+ * Centralized “public” shapes returned to API clients for connections attached to applications.
+ * Keeps Prisma selects consistent and prevents leaking future fields.
+ */
+export const applicationConnectionSelect = {
+  createdAt: true,
+  connection: {
+    select: connectionSelect,
+  },
 } as const;
 
 
