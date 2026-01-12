@@ -8,6 +8,8 @@ import { applicationsRoutes } from "./modules/applications/applications.routes.j
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { userRoutes } from "./modules/user/user.routes.js";
 import { documentsRoutes } from "./modules/documents/documents.routes.js";
+import { connectionsRoutes } from "./modules/connections/connections.routes.js";
+
 
 export function buildApp() {
   const app = Fastify({ logger: true });
@@ -60,6 +62,9 @@ export function buildApp() {
 
   // Mount Document endpoints under /api/v1/documents
   app.register(documentsRoutes, { prefix: "/api/v1/documents" });
+
+  // Mount Connections endpoints under /api/v1/connections
+  app.register(connectionsRoutes, { prefix: "/api/v1/connections" });
 
 
   // Debug route protected behind an env flag so it is not always enabled

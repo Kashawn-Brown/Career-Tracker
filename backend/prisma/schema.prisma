@@ -147,7 +147,7 @@ model Connection {
   linkedInUrl   String?
   notes         String?
 
-  phone         String        // Add a type for phone (assuming String; adjust as needed)
+  phone         String?       // Add a type for phone (assuming String; adjust as needed)
   relationship  String?       // (e.g., recruiter, referrer, colleague)
   location      String?
   status        Boolean?      // (active, inactive, etc.)
