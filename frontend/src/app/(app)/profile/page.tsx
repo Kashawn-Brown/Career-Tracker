@@ -5,6 +5,7 @@ import { apiFetch, ApiError } from "@/lib/api/client";
 import { routes } from "@/lib/api/routes";
 import type { MeResponse, UpdateMeRequest } from "@/types/api";
 import { useAuth } from "@/hooks/useAuth";
+import { ProfileConnectionsCard } from "@/components/profile/ProfileConnectionsCard";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -794,6 +795,8 @@ export default function ProfilePage() {
             </Card>
 
 
+            {/* Connections section */}
+            <ProfileConnectionsCard />
 
             {/* Base resume section */}
             <Card>
