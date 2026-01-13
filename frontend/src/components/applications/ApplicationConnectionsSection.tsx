@@ -6,9 +6,10 @@ import { connectionsApi } from "@/lib/api/connections";
 import { useConnectionAutocomplete } from "@/hooks/useConnectionAutocomplete";
 
 import { useEffect, useMemo,useState } from "react";
-import { Link2, Plus,Trash2, UserRound } from "lucide-react";
+import { Link2, Plus,Trash2, UserRound, Mail } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -17,6 +18,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 
 
@@ -137,6 +139,15 @@ export function ApplicationConnectionsSection({
   const [isAddSaving, setIsAddSaving] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
 
+  // ---- Connection Details states ----
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [activeConnection, setActiveConnection] = useState<ApplicationConnection | null>(null);
+  const [detailsMode, setDetailsMode] = useState<"view" | "edit">("view");
+
+  const [editDraft, setEditDraft] = useState<AddDraft>(emptyDraft());
+  const [isEditSaving, setIsEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
   // attachedIds: the ids of the connections attached to the application.
   const attachedIds = useMemo(() => new Set(connections.map((c) => c.id)), [connections]);
 
@@ -145,6 +156,32 @@ export function ApplicationConnectionsSection({
   const { items: suggestions, isLoading: isSuggestLoading } =
     useConnectionAutocomplete(addDraft.name, (isAddOpen && !selectedExisting));
   
+
+
+  // Fetch attached connections whenever the drawer opens or application changes
+  useEffect(() => {
+    if (!open) return;
+    if (!applicationId) return;
+
+    refresh();
+  }, [open, applicationId]);
+
+  // refresh: refreshes the list of connections attached to the application.
+  async function refresh() {
+    setIsLoading(true);
+    try {
+      setErrorMessage(null);
+      const res = await applicationsApi.listApplicationConnections(applicationId);
+      setConnections(res.connections ?? []);
+    } catch (err) {
+      setConnections([]);
+      if (err instanceof ApiError) setErrorMessage(err.message);
+      else setErrorMessage("Failed to load connections.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   // starts the add connection dialog.
   function startAdd() {
     setAddError(null);
@@ -177,34 +214,10 @@ export function ApplicationConnectionsSection({
     setAddDraft({ ...emptyDraft(), name: keepName });
   }
 
-  // Fetch attached connections whenever the drawer opens or application changes
-  useEffect(() => {
-    if (!open) return;
-    if (!applicationId) return;
-
-    refresh();
-  }, [open, applicationId]);
-
-  // refresh: refreshes the list of connections attached to the application.
-  async function refresh() {
-    setIsLoading(true);
-    try {
-      setErrorMessage(null);
-      const res = await applicationsApi.listApplicationConnections(applicationId);
-      setConnections(res.connections ?? []);
-    } catch (err) {
-      setConnections([]);
-      if (err instanceof ApiError) setErrorMessage(err.message);
-      else setErrorMessage("Failed to load connections.");
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
   // onDetach: removes a connection from the application.
   async function onDetach(connectionId: string, name: string) {
     const ok = window.confirm(`Remove "${name}" as a connection on this application?`);
-    if (!ok) return;
+    if (!ok) return
 
     try {
       setErrorMessage(null);
@@ -253,7 +266,72 @@ export function ApplicationConnectionsSection({
     }
   }
 
+  // keep the edit draft in sync with the active connection.
+  useEffect(() => {
+    if (!detailsOpen || !activeConnection) return;
+    setEditDraft(toDraft(activeConnection));
+  }, [detailsOpen, activeConnection]);
 
+  // openConnectionDetails: opens the connection details dialog.
+  function openConnectionDetails(conn: ApplicationConnection) {
+    setActiveConnection(conn);
+    setDetailsMode(isEditing ? "edit" : "view");
+    setEditError(null);
+    setDetailsOpen(true);
+  }
+  
+  // closeConnectionDetails: closes the connection details dialog.
+  function closeConnectionDetails() {
+    setDetailsOpen(false);
+    setActiveConnection(null);
+    setEditError(null);
+    setIsEditSaving(false);
+  }
+
+  async function handleSaveEdit() {
+  if (!activeConnection) return;
+
+  if (!editDraft.name.trim()) {
+    setEditError("Name is required.");
+    return;
+  }
+
+  setIsEditSaving(true);
+  setEditError(null);
+
+  try {
+    const payload = {
+      name: editDraft.name.trim(),
+      company: editDraft.company.trim() || undefined,
+      title: editDraft.title.trim() || undefined,
+      email: editDraft.email.trim() || undefined,
+      phone: editDraft.phone.trim() || undefined,
+      relationship: editDraft.relationship.trim() || undefined,
+      location: editDraft.location.trim() || undefined,
+      linkedInUrl: editDraft.linkedInUrl.trim() || undefined,
+      notes: editDraft.notes.trim() || undefined,
+    };
+
+    const updated = await connectionsApi.updateConnection(activeConnection.id, payload);
+
+    // normalize: some clients return Connection directly, others return { connection: Connection }
+    const updatedConn = "connection" in updated ? updated.connection : updated;
+
+    setConnections((prev) =>
+      prev.map((c) =>
+        c.id === activeConnection.id ? { ...c, ...updatedConn } : c
+      )
+    );
+
+    closeConnectionDetails();
+  } catch (err) {
+    setEditError(err instanceof Error ? err.message : "Failed to update connection.");
+  } finally {
+    setIsEditSaving(false);
+  }
+}
+
+  
 
   return (
     <div className="space-y-4">
@@ -275,7 +353,7 @@ export function ApplicationConnectionsSection({
             </div>
 
             {isEditing ? (
-              <Button variant="secondary" size="sm" onClick={startAdd}>
+              <Button variant="secondary" size="sm" onClick={startAdd} className="hover:bg-muted/60 hover:text-muted-foreground">
                 <Plus className="h-4 w-4 mr-1" />
                 Add
               </Button>
@@ -297,24 +375,14 @@ export function ApplicationConnectionsSection({
               return (
                 <div
                   key={c.id}
-                  className="px-3 py-2 flex items-center gap-3 hover:bg-muted/40"
+                  className="px-3 py-2 flex items-center gap-3 hover:bg-muted/40 cursor-pointer hover:font-medium"
+                  title={`View connection details`}
+                  onClick={() => openConnectionDetails(c)}
                 >
                   <UserRound className="h-4 w-4 text-muted-foreground" />
 
                   <div className="min-w-0 flex-1">
-                    <div 
-                    className="text-sm truncate cursor-pointer"
-                    onClick={() => {
-                      if(c.linkedInUrl) {
-                        window.open(c.linkedInUrl, "_blank", "noopener,noreferrer");
-                      }
-                      else if(c.email) {
-                        window.open(`mailto:${c.email}`, "_blank", "noopener,noreferrer");
-                      }
-                    }}
-                    >
-                      {c.name}
-                    </div>
+                    <div className="truncate text-sm">{c.name}</div>
 
                     {titleLine ? (
                       <div className="text-xs text-muted-foreground truncate">
@@ -330,12 +398,29 @@ export function ApplicationConnectionsSection({
                   </div>
 
                   <div className="flex items-center gap-1">
+                  {c.email ? (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Send Email"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.location.href = `mailto:${c.email}`;
+                        }}
+                      >
+                        <Mail className="h-4 w-4" />
+                      </Button>
+                    ) : null}                    
+                    
                     {c.linkedInUrl ? (
                       <Button
                         variant="ghost"
                         size="icon"
                         title="Open LinkedIn"
-                        onClick={() => window.open(c.linkedInUrl!, "_blank", "noopener,noreferrer")}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.open(c.linkedInUrl!, "_blank", "noopener,noreferrer");
+                        }}
                       >
                         <Link2 className="h-4 w-4" />
                       </Button>
@@ -346,7 +431,10 @@ export function ApplicationConnectionsSection({
                         variant="ghost"
                         size="icon"
                         title="Remove from application"
-                        onClick={() => onDetach(c.id, c.name)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDetach(c.id, c.name)
+                        }}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -359,9 +447,192 @@ export function ApplicationConnectionsSection({
         )}
       </div>
 
+      {/* View/Edit Current Connection Dialog */}
+      <Dialog open={detailsOpen} onOpenChange={(open) => !open && closeConnectionDetails()}>
+        <DialogContent className="sm:max-w-[640px]">
+          <DialogHeader>
+            <DialogTitle>
+              {detailsMode === "edit" ? "Edit connection" : "Connection Details"}
+            </DialogTitle>
+
+            <DialogDescription>
+
+              {detailsMode === "edit" ? "Edit connection details" : "View connection details"}
+            </DialogDescription>
+          </DialogHeader>
+
+          {!activeConnection ? null : detailsMode === "view" ? (
+            <div className="grid gap-4 mb-4 mt-4">
+              <div className="space-y-4">
+                <div className="grid gap-2">
+                  <Label>Name</Label>
+                  <Input readOnly value={activeConnection.name} />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label>Company</Label>
+                    <Input readOnly value={activeConnection.company ?? ""} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Title</Label>
+                    <Input readOnly value={activeConnection.title ?? ""} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label>Email</Label>
+                    <Input readOnly value={activeConnection.email ?? ""} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Phone</Label>
+                    <Input readOnly value={activeConnection.phone ?? ""} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label>Relationship</Label>
+                    <Input readOnly value={activeConnection.relationship ?? ""} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Location</Label>
+                    <Input readOnly value={activeConnection.location ?? ""} />
+                  </div>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label>LinkedIn URL</Label>
+                  <Input readOnly value={activeConnection.linkedInUrl ?? ""} />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label>Notes</Label>
+                  <Textarea readOnly value={activeConnection.notes ?? ""} />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="grid gap-4 mb-4 mt-4">
+              {/* Edit Connection Form */}
+              <div className="space-y-4">
+                <div className="grid gap-2">
+                  <Label className="text-muted-foreground">Name</Label>
+
+                    <Input
+                      value={editDraft.name}
+                      onChange={(e) => setEditDraft((p) => ({ ...p, name: e.target.value }))}
+                    />
+                </div>
+
+                {/* The rest of the fields (locked when existing selected) */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label className="text-muted-foreground">Company</Label>
+                    <Input
+                      value={editDraft.company}
+                      onChange={(e) => setEditDraft((p) => ({ ...p, company: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label className="text-muted-foreground">Title</Label>
+                    <Input
+                      value={editDraft.title}
+                      onChange={(e) => setEditDraft((p) => ({ ...p, title: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label className="text-muted-foreground">Email</Label>
+                    <Input
+                      value={editDraft.email}
+                      onChange={(e) => setEditDraft((p) => ({ ...p, email: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label className="text-muted-foreground">Phone</Label>
+                    <Input
+                      value={editDraft.phone}
+                      onChange={(e) => setEditDraft((p) => ({ ...p, phone: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                  
+                <div className="grid grid-cols-2 gap-4">
+
+                  <div className="grid gap-2">
+                    <Label className="text-muted-foreground">Relationship</Label>
+                    <Input
+                      value={editDraft.relationship}
+                      onChange={(e) => setEditDraft((p) => ({ ...p, relationship: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label className="text-muted-foreground">Location</Label>
+                    <Input
+                      value={editDraft.location}
+                      onChange={(e) => setEditDraft((p) => ({ ...p, location: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label className="text-muted-foreground">LinkedIn URL</Label>
+                  <Input
+                    value={editDraft.linkedInUrl}
+                    onChange={(e) => setEditDraft((p) => ({ ...p, linkedInUrl: e.target.value }))}
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label className="text-muted-foreground">Notes</Label>
+                  <Textarea
+                    value={editDraft.notes}
+                    onChange={(e) => setEditDraft((p) => ({ ...p, notes: e.target.value }))}
+                  />
+                </div>
+              </div>
+              
+            </div>
+          )}
+
+          {editError && <p className="text-sm text-destructive">{editError}</p>}
+
+          <DialogFooter>
+
+            {detailsMode === "view" && (
+              <>
+                <Button variant="outline" onClick={() => setDetailsMode("edit")}>
+                  Edit Details
+                </Button>
+                <Button  onClick={closeConnectionDetails}>
+                  Exit
+                </Button>
+              </>
+            )}
+            {detailsMode === "edit" && (
+              <>
+              <Button variant="outline" onClick={() => {setDetailsMode("view")}}>
+                Close
+              </Button>
+              <Button onClick={handleSaveEdit} disabled={isEditSaving}>
+                {isEditSaving ? "Saving..." : "Save changes"}
+              </Button>
+              </>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Add Connection Dialog */}
       <Dialog open={isAddOpen} onOpenChange={(open) => (open ? setIsAddOpen(true) : closeAdd())}>
-        <DialogContent className="sm:max-w-[560px]">
+        <DialogContent className="sm:max-w-[640px]">
           <DialogHeader>
             <DialogTitle>Add connection</DialogTitle>
             {/* <DialogDescription>
@@ -529,12 +800,12 @@ export function ApplicationConnectionsSection({
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-2">
-              <Button type="button" variant="ghost" onClick={closeAdd} disabled={isAddSaving}>
+              <Button type="button" variant="outline" onClick={closeAdd} disabled={isAddSaving}>
                 Cancel
               </Button>
 
               <Button type="button" onClick={confirmAdd} disabled={isAddSaving}>
-                {isAddSaving ? "Saving..." : selectedExisting ? "Add this connection" : "Create & add"}
+                {isAddSaving ? "Saving..." : selectedExisting ? "Add this connection" : "Add Connection"}
               </Button>
             </div>
           </div>
