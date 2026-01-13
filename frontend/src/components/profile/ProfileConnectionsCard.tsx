@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { connectionsApi } from "@/lib/api/connections";
+import { cn } from "@/lib/utils";
 
 import type { Connection, ConnectionSortBy, ConnectionSortDir } from "@/types/api";
 
@@ -23,7 +24,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
+// ProfileConnectionsCard: small preview on Profile + view-all dialog (2-pane list + details).
 export function ProfileConnectionsCard() {
   // Preview (small list on the Profile page)
   const [preview, setPreview] = useState<Connection[]>([]);
@@ -37,9 +42,28 @@ export function ProfileConnectionsCard() {
   const [isListLoading, setIsListLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
 
+  // Selection (right pane)
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
   // Sorting (default alpha)
   const [sortBy, setSortBy] = useState<ConnectionSortBy>("name");
   const [sortDir, setSortDir] = useState<ConnectionSortDir>("asc");
+
+  const selected = useMemo(
+    () => items.find((c) => c.id === selectedId) ?? null,
+    [items, selectedId]
+  );
+
+  function ensureSelection(nextItems: Connection[]) {
+    if (nextItems.length === 0) {
+      setSelectedId(null);
+      return;
+    }
+
+    // Keep selection if it still exists; otherwise pick the first item.
+    const stillExists = selectedId && nextItems.some((c) => c.id === selectedId);
+    if (!stillExists) setSelectedId(nextItems[0].id);
+  }
 
   async function loadPreview() {
     setIsPreviewLoading(true);
@@ -70,16 +94,22 @@ export function ProfileConnectionsCard() {
     try {
       const res = await connectionsApi.listConnections({
         page: 1,
-        pageSize: 200, // backend caps at 200 (connections.schemas.ts)
+        pageSize: 200, // backend caps at 200
         sortBy,
         sortDir,
       });
 
-      setItems(res.items ?? []);
+      const nextItems = res.items ?? [];
+      setItems(nextItems);
       setTotal(res.total ?? 0);
+
+      // Keep selection stable across sort changes/open, if possible.
+      ensureSelection(nextItems);
     } catch (err) {
       setItems([]);
       setTotal(0);
+      setSelectedId(null);
+
       if (err instanceof ApiError) setListError(err.message);
       else setListError("Failed to load connections.");
     } finally {
@@ -96,15 +126,21 @@ export function ProfileConnectionsCard() {
   useEffect(() => {
     if (!isDialogOpen) return;
     loadAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDialogOpen, sortBy, sortDir]);
 
   function handleDialogOpenChange(next: boolean) {
     setIsDialogOpen(next);
 
     if (!next) {
-      // Keep it simple: when you close, we just clear list errors.
+      // Reset list-only transient UI on close.
       setListError(null);
+      setIsListLoading(false);
     }
+  }
+
+  function subtitle(c: Connection) {
+    return [c.title, c.company].filter(Boolean).join(" • ");
   }
 
   return (
@@ -143,21 +179,19 @@ export function ProfileConnectionsCard() {
             {preview.map((c) => (
               <div key={c.id} className="flex items-center justify-between gap-4">
                 <span className="truncate font-medium">{c.name}</span>
-                <span className="truncate text-muted-foreground">
-                  {c.company ?? "—"}
-                </span>
+                <span className="truncate text-muted-foreground">{c.company ?? "—"}</span>
               </div>
             ))}
           </div>
         )}
 
-        {/* View-all dialog */}
+        {/* View-all dialog (2-pane) */}
         <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-5xl max-h-[80vh] overflow-hidden">
             <DialogHeader>
               <DialogTitle>All connections</DialogTitle>
               <DialogDescription>
-                Sorted alphabetically by default. Use the controls to change ordering.
+                Click a person on the left to view details on the right.
               </DialogDescription>
             </DialogHeader>
 
@@ -191,10 +225,6 @@ export function ProfileConnectionsCard() {
                   </Select>
                 </div>
               </div>
-
-              <div className="text-xs text-muted-foreground">
-                {isListLoading ? "Loading..." : `${total} total`}
-              </div>
             </div>
 
             {listError ? (
@@ -203,27 +233,130 @@ export function ProfileConnectionsCard() {
               </div>
             ) : null}
 
-            {/* List */}
-            <div className="mt-4 rounded-md border">
-              {isListLoading ? (
-                <div className="p-3 text-sm text-muted-foreground">Loading connections...</div>
-              ) : items.length === 0 ? (
-                <div className="p-3 text-sm text-muted-foreground">No connections found.</div>
-              ) : (
-                <div className="divide-y">
-                  {items.map((c) => {
-                    const subtitle = [c.title, c.company].filter(Boolean).join(" • ");
-                    return (
-                      <div key={c.id} className="px-3 py-2">
-                        <div className="truncate text-sm font-medium">{c.name}</div>
-                        {subtitle ? (
-                          <div className="truncate text-xs text-muted-foreground">{subtitle}</div>
+            {/* 2-pane layout */}
+            <div className="mt-4 grid gap-4 md:grid-cols-[320px_1fr] h-[55vh]">
+              {/* Left list */}
+              <div className="rounded-md border overflow-hidden">
+                <div className="px-3 py-2 border-b text-sm font-medium">
+                  Connections
+                  <div className="text-xs text-muted-foreground float-right">
+                    {isListLoading ? "Loading..." : `${total} total`}
+                  </div>
+                </div>
+
+                <div className="h-[calc(55vh-41px)] overflow-auto">
+                  {isListLoading ? (
+                    <div className="p-3 text-sm text-muted-foreground">
+                      Loading connections...
+                    </div>
+                  ) : items.length === 0 ? (
+                    <div className="p-3 text-sm text-muted-foreground">
+                      No connections found.
+                    </div>
+                  ) : (
+                    <div className="divide-y">
+                      {items.map((c) => {
+                        const isSelected = c.id === selectedId;
+                        return (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => setSelectedId(c.id)}
+                            className={cn(
+                              "w-full text-left px-3 py-2 hover:bg-muted/40",
+                              isSelected && "bg-muted/50"
+                            )}
+                            title="View details"
+                          >
+                            <div className="truncate text-sm font-medium">{c.name}</div>
+                            {subtitle(c) ? (
+                              <div className="truncate text-xs text-muted-foreground">
+                                {subtitle(c)}
+                              </div>
+                            ) : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Right details */}
+              <div className="rounded-md border overflow-hidden">
+                <div className="px-3 py-2 border-b text-sm font-medium">
+                  Details
+                </div>
+
+                <div className="h-[calc(55vh-41px)] overflow-auto p-4">
+                  {!selected ? (
+                    <div className="text-sm text-muted-foreground">
+                      Select a connection from the left to view details.
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="space-y-1">
+                        <div className="text-base font-semibold">{selected.name}</div>
+                        {subtitle(selected) ? (
+                          <div className="text-sm text-muted-foreground">
+                            {subtitle(selected)}
+                          </div>
                         ) : null}
                       </div>
-                    );
-                  })}
+
+                      <div className="grid gap-4">
+                        <div className="grid gap-2">
+                          <Label>Name</Label>
+                          <Input readOnly value={selected.name} />
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="grid gap-2">
+                            <Label>Company</Label>
+                            <Input readOnly value={selected.company ?? ""} />
+                          </div>
+                          <div className="grid gap-2">
+                            <Label>Title</Label>
+                            <Input readOnly value={selected.title ?? ""} />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="grid gap-2">
+                            <Label>Email</Label>
+                            <Input readOnly value={selected.email ?? ""} />
+                          </div>
+                          <div className="grid gap-2">
+                            <Label>Phone</Label>
+                            <Input readOnly value={selected.phone ?? ""} />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="grid gap-2">
+                            <Label>Relationship</Label>
+                            <Input readOnly value={selected.relationship ?? ""} />
+                          </div>
+                          <div className="grid gap-2">
+                            <Label>Location</Label>
+                            <Input readOnly value={selected.location ?? ""} />
+                          </div>
+                        </div>
+
+                        <div className="grid gap-2">
+                          <Label>LinkedIn URL</Label>
+                          <Input readOnly value={selected.linkedInUrl ?? ""} />
+                        </div>
+
+                        <div className="grid gap-2">
+                          <Label>Notes</Label>
+                          <Textarea readOnly value={selected.notes ?? ""} />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
 
             {total > 200 ? (
