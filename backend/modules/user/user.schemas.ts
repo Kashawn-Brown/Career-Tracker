@@ -18,6 +18,7 @@ export const UpdateMeBody = Type.Object(
 
     location: Type.Optional(Type.String({ maxLength: 120 })),
     currentRole: Type.Optional(Type.String({ maxLength: 120 })),
+    currentCompany: Type.Optional(Type.String({ maxLength: 120 })),
 
     // Skills stored as a string array
     skills: Type.Optional(

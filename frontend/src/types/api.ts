@@ -22,6 +22,7 @@ export type AuthUser = {
   // Profile fields (post-MVP foundation)
   location: string | null;
   currentRole: string | null;
+  currentCompany: string | null;
   skills: string[];
   linkedInUrl: string | null;
   githubUrl: string | null;
@@ -43,6 +44,7 @@ export type UpdateMeRequest = {
   name?: string;
   location?: string;
   currentRole?: string;
+  currentCompany?: string;
   skills?: string[];
   linkedInUrl?: string;
   githubUrl?: string;

@@ -57,6 +57,7 @@ export default function ProfilePage() {
   const [name, setName] = useState(user?.name ?? "");
   const [location, setLocation] = useState(user?.location ?? "");
   const [currentRole, setCurrentRole] = useState(user?.currentRole ?? "");
+  const [currentCompany, setCurrentCompany] = useState(user?.currentCompany ?? "");
   const [skillsInput, setSkillsInput] = useState((user?.skills ?? []).join(", "));
   const [linkedInUrl, setLinkedInUrl] = useState(user?.linkedInUrl ?? "");
   const [githubUrl, setGithubUrl] = useState(user?.githubUrl ?? "");
@@ -127,6 +128,7 @@ export default function ProfilePage() {
         setName(res.user.name ?? "");
         setLocation(toDisplayString(res.user.location));
         setCurrentRole(toDisplayString(res.user.currentRole));
+        setCurrentCompany(toDisplayString(res.user.currentCompany));
         setSkillsInput((res.user.skills ?? []).join(", "));
         setLinkedInUrl(toDisplayString(res.user.linkedInUrl));
         setGithubUrl(toDisplayString(res.user.githubUrl));
@@ -179,6 +181,7 @@ export default function ProfilePage() {
     setName(user?.name ?? "");
     setLocation(toDisplayString(user?.location));
     setCurrentRole(toDisplayString(user?.currentRole));
+    setCurrentCompany(toDisplayString(user?.currentCompany));
     setSkillsInput((user?.skills ?? []).join(", "));
     setLinkedInUrl(toDisplayString(user?.linkedInUrl));
     setGithubUrl(toDisplayString(user?.githubUrl));
@@ -208,6 +211,7 @@ export default function ProfilePage() {
 
     if (location !== toDisplayString(user?.location)) payload.location = location;
     if (currentRole !== toDisplayString(user?.currentRole)) payload.currentRole = currentRole;
+    if (currentCompany !== toDisplayString(user?.currentCompany)) payload.currentCompany = currentCompany;
 
     const nextSkills = parseSkills(skillsInput);
     const currentSkills = user?.skills ?? [];
@@ -238,6 +242,7 @@ export default function ProfilePage() {
       setName(res.user.name ?? "");
       setLocation(toDisplayString(res.user.location));
       setCurrentRole(toDisplayString(res.user.currentRole));
+      setCurrentCompany(toDisplayString(res.user.currentCompany));
       setSkillsInput((res.user.skills ?? []).join(", "));
       setLinkedInUrl(toDisplayString(res.user.linkedInUrl));
       setGithubUrl(toDisplayString(res.user.githubUrl));
@@ -541,6 +546,18 @@ export default function ProfilePage() {
                       id="location"
                       value={location}
                       onChange={(e) => setLocation(e.target.value)}
+                      placeholder="..."
+                      readOnly={!isEditingProfile}
+                      className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="currentCompany">Current company</Label>
+                    <Input
+                      id="currentCompany"
+                      value={currentCompany}
+                      onChange={(e) => setCurrentCompany(e.target.value)}
                       placeholder="..."
                       readOnly={!isEditingProfile}
                       className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"

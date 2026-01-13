@@ -52,6 +52,7 @@ export async function updateMe(userId: string, data: UpdateMeBodyType) {
   // Apply normalization to nullable fields
   updateData.location = normalizeNullableString(data.location);
   updateData.currentRole = normalizeNullableString(data.currentRole);
+  updateData.currentCompany = normalizeNullableString(data.currentCompany);
   updateData.linkedInUrl = normalizeNullableString(data.linkedInUrl);
   updateData.githubUrl = normalizeNullableString(data.githubUrl);
   updateData.portfolioUrl = normalizeNullableString(data.portfolioUrl);

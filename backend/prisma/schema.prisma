@@ -15,6 +15,7 @@ model User {
 
   // Profile fields
   location     String?
+  currentCompany  String?
   currentRole  String?
   skills       String[] @default([])
   linkedInUrl  String?
