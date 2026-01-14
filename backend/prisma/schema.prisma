@@ -39,6 +39,7 @@ model User {
 
   jobApplications JobApplication[]
   documents       Document[]
+  aiArtifacts     AiArtifact[]
 
   @@map("users")
 }
@@ -75,6 +76,7 @@ model JobApplication {
 
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   documents Document[]
+  aiArtifacts AiArtifact[]
 
   @@index([userId])
   @@index([status])
@@ -176,3 +178,22 @@ model ApplicationConnection {
   @@map("application_connections")
 }
 
+model AiArtifact {
+  id               String @id @default(cuid())
+  userId           String
+  jobApplicationId String
+
+  kind    String
+  payload Json
+  model   String
+
+  createdAt DateTime @default(now())
+
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobApplication JobApplication @relation(fields: [jobApplicationId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([jobApplicationId])
+  @@index([jobApplicationId, kind])
+  @@map("ai_artifacts")
+}
