@@ -49,11 +49,18 @@ export function ProfileConnectionsCard() {
   const [sortBy, setSortBy] = useState<ConnectionSortBy>("name");
   const [sortDir, setSortDir] = useState<ConnectionSortDir>("asc");
 
+  // Details (right pane)
+  const [detailsMode, setDetailsMode] = useState<"view" | "edit">("view");
+  const [isEditSaving, setIsEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  // The selected connection.
   const selected = useMemo(
     () => items.find((c) => c.id === selectedId) ?? null,
     [items, selectedId]
   );
 
+  // Ensures a selection is made.
   function ensureSelection(nextItems: Connection[]) {
     if (nextItems.length === 0) {
       setSelectedId(null);
@@ -65,6 +72,7 @@ export function ProfileConnectionsCard() {
     if (!stillExists) setSelectedId(nextItems[0].id);
   }
 
+  // Loads the preview of connections.
   async function loadPreview() {
     setIsPreviewLoading(true);
     setPreviewError(null);
@@ -87,6 +95,7 @@ export function ProfileConnectionsCard() {
     }
   }
 
+  // Loads all connections.
   async function loadAll() {
     setIsListLoading(true);
     setListError(null);
@@ -129,6 +138,7 @@ export function ProfileConnectionsCard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDialogOpen, sortBy, sortDir]);
 
+  // Handles the dialog open/close.
   function handleDialogOpenChange(next: boolean) {
     setIsDialogOpen(next);
 
@@ -139,9 +149,111 @@ export function ProfileConnectionsCard() {
     }
   }
 
+  // Subtitle for a connection.
   function subtitle(c: Connection) {
     return [c.title, c.company].filter(Boolean).join(" • ");
   }
+
+  // Edit draft state
+  const [editDraft, setEditDraft] = useState({
+    name: "",
+    company: "",
+    title: "",
+    email: "",
+    phone: "",
+    relationship: "",
+    location: "",
+    linkedInUrl: "",
+    notes: "",
+  });
+  
+  // Converts a Connection to an edit draft.
+  function toDraft(c: Connection) {
+    return {
+      name: c.name ?? "",
+      company: c.company ?? "",
+      title: c.title ?? "",
+      email: c.email ?? "",
+      phone: c.phone ?? "",
+      relationship: c.relationship ?? "",
+      location: c.location ?? "",
+      linkedInUrl: c.linkedInUrl ?? "",
+      notes: c.notes ?? "",
+    };
+  }
+
+  // Keep the edit draft in sync with the selected connection.
+  useEffect(() => {
+    if (!selected) {
+      setDetailsMode("view");
+      setEditError(null);
+      return;
+    }
+  
+    setDetailsMode("view");
+    setEditError(null);
+    setEditDraft(toDraft(selected));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]);
+
+  // Starts the edit mode.
+  function startDetailsEdit() {
+    if (!selected) return;
+    setEditError(null);
+    setDetailsMode("edit");
+  }
+  
+  // Cancels the edit mode.
+  function cancelDetailsEdit() {
+    if (!selected) return;
+    setEditError(null);
+    setEditDraft(toDraft(selected)); // revert draft back to last loaded selection
+    setDetailsMode("view");
+  }
+  
+  // Saves the changes to the connection.
+  async function handleSaveDetails() {
+    if (!selected) return;
+  
+    if (!editDraft.name.trim()) {
+      setEditError("Name is required.");
+      return;
+    }
+  
+    setIsEditSaving(true);
+    setEditError(null);
+  
+    try {
+      const payload = {
+        name: editDraft.name.trim(),
+        company: editDraft.company.trim() || undefined,
+        title: editDraft.title.trim() || undefined,
+        email: editDraft.email.trim() || undefined,
+        phone: editDraft.phone.trim() || undefined,
+        relationship: editDraft.relationship.trim() || undefined,
+        location: editDraft.location.trim() || undefined,
+        linkedInUrl: editDraft.linkedInUrl.trim() || undefined,
+        notes: editDraft.notes.trim() || undefined,
+      };
+  
+      const res = await connectionsApi.updateConnection(selected.id, payload);
+  
+      // Refresh list + preview so alpha ordering stays correct after edits.
+      await loadAll();
+      await loadPreview();
+  
+      // Keep selection on the edited connection.
+      setSelectedId(res.connection.id);
+  
+      setDetailsMode("view");
+    } catch (err) {
+      if (err instanceof ApiError) setEditError(err.message);
+      else setEditError("Failed to update connection.");
+    } finally {
+      setIsEditSaving(false);
+    }
+  }
+  
 
   return (
     <Card>
@@ -203,6 +315,7 @@ export function ProfileConnectionsCard() {
                   <Select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value as ConnectionSortBy)}
+                    disabled={detailsMode === "edit" || isEditSaving}
                   >
                     <option value="name">Name</option>
                     <option value="company">Company</option>
@@ -219,6 +332,7 @@ export function ProfileConnectionsCard() {
                   <Select
                     value={sortDir}
                     onChange={(e) => setSortDir(e.target.value as ConnectionSortDir)}
+                    disabled={detailsMode === "edit" || isEditSaving}
                   >
                     <option value="asc">Asc</option>
                     <option value="desc">Desc</option>
@@ -262,11 +376,12 @@ export function ProfileConnectionsCard() {
                             key={c.id}
                             type="button"
                             onClick={() => setSelectedId(c.id)}
+                            disabled={detailsMode === "edit" || isEditSaving}
                             className={cn(
-                              "w-full text-left px-3 py-2 hover:bg-muted/40",
-                              isSelected && "bg-muted/50"
+                              "w-full text-left px-3 py-2 hover:bg-muted/40 disabled:opacity-60 disabled:cursor-not-allowed",
+                              isSelected && "bg-muted/50",
                             )}
-                            title="View details"
+                            title={detailsMode === "edit" ? "Finish editing or cancel to switch." : "View details"}
                           >
                             <div className="truncate text-sm font-medium">{c.name}</div>
                             {subtitle(c) ? (
@@ -284,11 +399,48 @@ export function ProfileConnectionsCard() {
 
               {/* Right details */}
               <div className="rounded-md border overflow-hidden">
-                <div className="px-3 py-2 border-b text-sm font-medium">
-                  Details
+                
+                <div className="flex items-center justify-between gap-2 px-3 py-2 border-b">
+                  <div className="text-sm font-medium">Details</div>
+
+                  {detailsMode === "view" ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={startDetailsEdit}
+                      disabled={!selected || isListLoading}
+                    >
+                      Edit
+                    </Button>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Button type="button" size="sm" onClick={handleSaveDetails} disabled={isEditSaving}>
+                        {isEditSaving ? "Saving..." : "Save"}
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={cancelDetailsEdit}
+                        disabled={isEditSaving}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
+
                 <div className="h-[calc(55vh-41px)] overflow-auto p-4">
+                  {/* Error message */}
+                  {editError ? (
+                    <div className="rounded-md border px-3 py-2 text-sm text-destructive">
+                      {editError}
+                    </div>
+                  ) : null}
+
                   {!selected ? (
                     <div className="text-sm text-muted-foreground">
                       Select a connection from the left to view details.
@@ -307,50 +459,95 @@ export function ProfileConnectionsCard() {
                       <div className="grid gap-4">
                         <div className="grid gap-2">
                           <Label>Name</Label>
-                          <Input readOnly value={selected.name} />
+                          <Input
+                            value={editDraft.name}
+                            onChange={(e) => setEditDraft((d) => ({ ...d, name: e.target.value }))}
+                            readOnly={detailsMode !== "edit"}
+                            className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+                          />
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="grid gap-2">
                             <Label>Company</Label>
-                            <Input readOnly value={selected.company ?? ""} />
+                            <Input
+                              value={editDraft.company}
+                              onChange={(e) => setEditDraft((d) => ({ ...d, company: e.target.value }))}
+                              readOnly={detailsMode !== "edit"}
+                              className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+                            />
                           </div>
                           <div className="grid gap-2">
                             <Label>Title</Label>
-                            <Input readOnly value={selected.title ?? ""} />
+                            <Input
+                              value={editDraft.title}
+                              onChange={(e) => setEditDraft((d) => ({ ...d, title: e.target.value }))}
+                              readOnly={detailsMode !== "edit"}
+                              className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+                            />
                           </div>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="grid gap-2">
                             <Label>Email</Label>
-                            <Input readOnly value={selected.email ?? ""} />
+                            <Input
+                              value={editDraft.email}
+                              onChange={(e) => setEditDraft((d) => ({ ...d, email: e.target.value }))}
+                              readOnly={detailsMode !== "edit"}
+                              className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+                            />
                           </div>
                           <div className="grid gap-2">
                             <Label>Phone</Label>
-                            <Input readOnly value={selected.phone ?? ""} />
+                            <Input
+                              value={editDraft.phone}
+                              onChange={(e) => setEditDraft((d) => ({ ...d, phone: e.target.value }))}
+                              readOnly={detailsMode !== "edit"}
+                              className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+                            />
                           </div>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="grid gap-2">
                             <Label>Relationship</Label>
-                            <Input readOnly value={selected.relationship ?? ""} />
+                            <Input
+                              value={editDraft.relationship}
+                              onChange={(e) => setEditDraft((d) => ({ ...d, relationship: e.target.value }))}
+                              readOnly={detailsMode !== "edit"}
+                              className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+                            />
                           </div>
                           <div className="grid gap-2">
                             <Label>Location</Label>
-                            <Input readOnly value={selected.location ?? ""} />
+                            <Input
+                              value={editDraft.location}
+                              onChange={(e) => setEditDraft((d) => ({ ...d, location: e.target.value }))}
+                              readOnly={detailsMode !== "edit"}
+                              className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+                            />
                           </div>
                         </div>
 
                         <div className="grid gap-2">
                           <Label>LinkedIn URL</Label>
-                          <Input readOnly value={selected.linkedInUrl ?? ""} />
+                          <Input
+                            value={editDraft.linkedInUrl}
+                            onChange={(e) => setEditDraft((d) => ({ ...d, linkedInUrl: e.target.value }))}
+                            readOnly={detailsMode !== "edit"}
+                            className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+                          />
                         </div>
 
                         <div className="grid gap-2">
                           <Label>Notes</Label>
-                          <Textarea readOnly value={selected.notes ?? ""} />
+                          <Textarea
+                            value={editDraft.notes}
+                            onChange={(e) => setEditDraft((d) => ({ ...d, notes: e.target.value }))}
+                            readOnly={detailsMode !== "edit"}
+                            className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
+                          />
                         </div>
                       </div>
                     </div>
