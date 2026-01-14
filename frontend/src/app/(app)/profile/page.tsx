@@ -5,6 +5,7 @@ import { apiFetch, ApiError } from "@/lib/api/client";
 import { routes } from "@/lib/api/routes";
 import type { MeResponse, UpdateMeRequest } from "@/types/api";
 import { useAuth } from "@/hooks/useAuth";
+import { UserProfileCard } from "@/components/profile/UserProfileCard";
 import { JobSearchPreferencesCard } from "@/components/profile/JobSearchPreferencesCard";
 import { ProfileConnectionsCard } from "@/components/profile/ProfileConnectionsCard";
 import { BaseResumeCard } from "@/components/profile/BaseResumeCard";
@@ -513,134 +514,30 @@ export default function ProfilePage() {
           
           {/* Left: Profile section */}
           <div className="lg:col-span-7">
-            <Card>
-              <CardHeader>
-                <CardTitle>Profile</CardTitle>
-                <CardDescription>
-                  Signed in as <span className="font-medium">{user?.email}</span>
-                </CardDescription>
-
-                {/* Profile edit mode: show edit button */}
-                {!isEditingProfile ? (
-                    <CardAction>
-                      <Button type="button" variant="outline" size="sm" onClick={startProfileEdit}>
-                        Edit
-                      </Button>
-                    </CardAction>
-                  ) : null}
-                </CardHeader>
-
-                <CardContent className="space-y-4">
-                <form className="space-y-4" onSubmit={handleProfileSave}>
-                  <div className="space-y-1">
-                    <Label htmlFor="name">Name</Label>
-                    <Input
-                      id="name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      readOnly={!isEditingProfile}
-                      className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label htmlFor="location">Location</Label>
-                    <Input
-                      id="location"
-                      value={location}
-                      onChange={(e) => setLocation(e.target.value)}
-                      placeholder="..."
-                      readOnly={!isEditingProfile}
-                      className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label htmlFor="currentCompany">Current company</Label>
-                    <Input
-                      id="currentCompany"
-                      value={currentCompany}
-                      onChange={(e) => setCurrentCompany(e.target.value)}
-                      placeholder="..."
-                      readOnly={!isEditingProfile}
-                      className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label htmlFor="currentRole">Current role</Label>
-                    <Input
-                      id="currentRole"
-                      value={currentRole}
-                      onChange={(e) => setCurrentRole(e.target.value)}
-                      placeholder="..."
-                      readOnly={!isEditingProfile}
-                      className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label htmlFor="skills">Skills (comma-separated)</Label>
-                    <Input
-                      id="skills"
-                      value={skillsInput}
-                      onChange={(e) => setSkillsInput(e.target.value)}
-                      placeholder="..."
-                      readOnly={!isEditingProfile}
-                      className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label htmlFor="linkedInUrl">LinkedIn URL</Label>
-                    <Input
-                      id="linkedInUrl"
-                      value={linkedInUrl}
-                      onChange={(e) => setLinkedInUrl(e.target.value)}
-                      placeholder="..."
-                      readOnly={!isEditingProfile}
-                      className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label htmlFor="githubUrl">GitHub URL</Label>
-                    <Input
-                      id="githubUrl"
-                      value={githubUrl}
-                      onChange={(e) => setGithubUrl(e.target.value)}
-                      placeholder="..."
-                      readOnly={!isEditingProfile}
-                      className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label htmlFor="portfolioUrl">Portfolio URL</Label>
-                    <Input
-                      id="portfolioUrl"
-                      value={portfolioUrl}
-                      onChange={(e) => setPortfolioUrl(e.target.value)}
-                      placeholder="..."
-                      readOnly={!isEditingProfile}
-                      className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-                    />
-                  </div>
-
-                  {isEditingProfile ? (
-                    <div className="flex gap-2">
-                      <Button type="submit" disabled={isSaving}>
-                        {isSaving ? "Saving..." : "Save"}
-                      </Button>
-
-                      <Button type="button" variant="outline" onClick={cancelProfileEdit} disabled={isSaving}>
-                        Cancel
-                      </Button>
-                    </div>
-                  ) : null}
-                </form>
-              </CardContent>
-            </Card>
+            <UserProfileCard
+              email={user?.email ?? "—"}
+              isEditing={isEditingProfile}
+              isSaving={isSaving}
+              onStartEdit={startProfileEdit}
+              onCancelEdit={cancelProfileEdit}
+              onSave={handleProfileSave}
+              name={name}
+              setName={setName}
+              location={location}
+              setLocation={setLocation}
+              currentCompany={currentCompany}
+              setCurrentCompany={setCurrentCompany}
+              currentRole={currentRole}
+              setCurrentRole={setCurrentRole}
+              skillsText={skillsInput}
+              setSkillsText={setSkillsInput}
+              linkedInUrl={linkedInUrl}
+              setLinkedInUrl={setLinkedInUrl}
+              githubUrl={githubUrl}
+              setGithubUrl={setGithubUrl}
+              portfolioUrl={portfolioUrl}
+              setPortfolioUrl={setPortfolioUrl}
+            />
           </div>
         
 
