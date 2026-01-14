@@ -1,120 +1,335 @@
-# Career-Tracker Backend (API)
+# Career-Tracker — Backend (Fastify API)
 
-Fastify + TypeScript REST API for Career-Tracker. Provides JWT auth, user-scoped job application CRUD, consistent response shapes, validation, rate limiting, and repeatable k6 performance benchmarks.
+Fastify + TypeScript API powering Career-Tracker. All data access is **user-scoped** (JWT → `req.user.id`), and core list endpoints return a stable paginated shape.
 
----
-
-## Tech Stack
-
-- **Runtime:** Node.js, TypeScript
-- **Web framework:** Fastify
-- **Database:** PostgreSQL
-- **ORM:** Prisma
-- **Validation / DTOs:** TypeBox schemas + TS types
-- **Auth:** JWT (Bearer token)
-- **Security:** rate limiting on auth routes, user-scoped data access
-- **Logging / Errors:** centralized error handler, structured logs
-- **Performance testing:** k6 (safe summary exports saved to repo)
+This README documents the current backend architecture, key endpoints, and the Documents v1 + Connections modules that were added after the early MVP.
 
 ---
 
-## Key Features
+## Tech stack
 
-### Authentication + Security
-- **POST `/api/v1/auth/login`** returns JWT
-- Protected routes use a `requireAuth` preHandler that attaches `req.user`
-- **Rate limiting** applied to auth endpoints to reduce brute-force attempts
-- All application operations are **scoped to the authenticated user** (no cross-user access)
-
-### Job Applications
-- **Create:** `POST /api/v1/applications`
-- **List:** `GET /api/v1/applications`
-  - Supports pagination + sorting + filters:
-    - `page`, `pageSize`
-    - `sortBy=updatedAt|createdAt|company`
-    - `sortDir=asc|desc`
-    - `status`
-    - `q` (searches company/position)
-  - Returns a stable shape:
-    ```json
-    {
-      "items": [...],
-      "page": 1,
-      "pageSize": 20,
-      "total": 200,
-      "totalPages": 10
-    }
-    ```
-- **Read one:** `GET /api/v1/applications/:id`
-- **Update (PATCH semantics):** `PATCH /api/v1/applications/:id`
-  - Only applies fields the client actually provided
-  - Date strings can be converted to `Date` for Prisma
-- **Delete:** `DELETE /api/v1/applications/:id`
-
-### Consistency + Correctness Notes
-- Listing uses a **Prisma transaction** to keep `count + items` consistent during pagination:
-  - prevents “total changed while paging” weirdness under write load
-- Update uses a user-scoped approach (e.g., `updateMany` with `{ id, userId }`) so ownership is always enforced.
+- Fastify + TypeScript
+- Prisma + PostgreSQL
+- TypeBox (runtime request validation + derived TS types)
+- JWT auth (`Authorization: Bearer <token>`)
+- Documents v1: `@fastify/multipart` + Google Cloud Storage private bucket + signed URLs
 
 ---
 
-## Project Setup
+## Folder structure + module pattern
 
-### Prerequisites
-- Node.js (LTS recommended)
-- PostgreSQL running locally or via Docker
-- Prisma CLI available via `npx prisma ...`
+Backend follows a simple “modules” pattern:
 
-### Environment Variables
-Create a `.env`:
-- `DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DB"`
-- `JWT_SECRET="your_long_random_secret"`
-- `PORT=3002` (optional)
+```
 
-### Install + Run
-```bash
-npm install
-npx prisma generate
-npx prisma migrate dev
-npm run dev
+backend/
+app.ts                      # fastify app + plugin + route mounting
+server.ts                   # boots server + loads .env.local (dev)
+lib/
+prisma.ts                 # Prisma client singleton
+env.ts                    # minimal env validation (fail fast)
+gcs.ts                    # GCS config parsing + Storage client (ADC)
+middleware/
+auth.ts                   # requireAuth (JWT -> req.user)
+error-handler.ts          # consistent API errors + 404 handler
+modules/
+auth/                     # login/register/me
+user/                     # profile endpoints
+applications/             # CRUD + list + app-level docs + app-level connections
+documents/                # doc download/delete + base resume endpoints
+connections/              # global connections CRUD/list/search
+debug/                    # dev-only routes (seed)
+
 ````
 
-Server should start on:
-
-* `http://localhost:3002` (example)
-* API base: `http://localhost:3002/api/v1`
+Convention:
+- `*.routes.ts` = routing + request parsing + response shaping
+- `*.service.ts` = Prisma + business rules
+- `*.schemas.ts` = TypeBox request schemas
+- `*.dto.ts` = shared “public select shapes” + service input types
 
 ---
 
-## API Quickstart (Postman)
+## Auth + request model
 
-1. Login:
+### JWT auth
+Middleware:
+- `middleware/auth.ts` (`requireAuth`)
 
-* `POST /api/v1/auth/login`
-* Body:
+Behavior:
+- Requires `Authorization: Bearer <token>`
+- Verifies token with `JWT_SECRET`
+- Attaches `{ id, email }` to `req.user`
 
-  ```json
-  { "email": "seed_metrics@example.com", "password": "Password123!" }
-  ```
+### Consistent errors
+Global handlers:
+- `middleware/error-handler.ts`
 
-2. Use the JWT:
+Response shape is intentionally simple:
+```json
+{ "message": "..." }
+````
 
-* Add header:
+* `AppError` → uses its status code + message (logged as warn)
+* Validation / 4xx → returned consistently (logged as warn)
+* Unexpected → `500 { message: "Internal Server Error" }` (logged as error)
 
-  * `Authorization: Bearer <token>`
+---
 
-3. List applications:
+## Route mounting + base paths
 
-* `GET /api/v1/applications?page=1&pageSize=20&sortBy=updatedAt&sortDir=desc`
+Mounted in `backend/app.ts`:
+
+* Health: `GET /health`
+* Auth: `/api/v1/auth`
+* Users: `/api/v1/users`
+* Applications: `/api/v1/applications`
+* Documents: `/api/v1/documents`
+* Connections: `/api/v1/connections`
+* Debug: `/api/debug/*` (only when `ENABLE_DEBUG_ROUTES="true"`)
+
+---
+
+## Core endpoints
+
+### Auth
+
+* `POST /api/v1/auth/register` (rate-limited)
+* `POST /api/v1/auth/login` (rate-limited)
+* `GET  /api/v1/auth/me`
+
+### User / Profile
+
+* `GET   /api/v1/users/me`
+* `PATCH /api/v1/users/me`
+
+### Applications (table-first UX)
+
+* `POST   /api/v1/applications`
+* `GET    /api/v1/applications`
+* `GET    /api/v1/applications/:id`
+* `PATCH  /api/v1/applications/:id`
+* `DELETE /api/v1/applications/:id`
+
+**List query params** (see `modules/applications/applications.schemas.ts`):
+
+* Filters:
+
+  * `q` (search company/position)
+  * `status`
+  * `jobType`
+  * `workMode`
+  * `isFavorite=true|false`
+* Pagination:
+
+  * `page`, `pageSize`
+* Sorting:
+
+  * `sortBy` (ex: `updatedAt`, `createdAt`, `company`, `position`, `dateApplied`, `isFavorite`, etc.)
+  * `sortDir=asc|desc`
+
+Response shape:
+
+```json
+{
+  "items": [],
+  "page": 1,
+  "pageSize": 20,
+  "total": 200,
+  "totalPages": 10
+}
+```
+
+---
+
+## Documents v1
+
+Documents v1 are **real file uploads** to a **private GCS bucket**, with short-lived signed URLs for access.
+
+### Application documents (attach to a job application)
+
+Routes live under `modules/applications/applications.routes.ts`:
+
+* `GET  /api/v1/applications/:id/documents`
+
+  * Returns `{ documents: Document[] }`
+* `POST /api/v1/applications/:id/documents`
+
+  * `multipart/form-data` with one `file`
+  * Optional query param: `?kind=RESUME|COVER_LETTER|OTHER`
+  * Uploads file → writes GCS object → creates `Document` row
+  * Touches `JobApplication.updatedAt` (so recency ordering updates immediately)
+  * Returns `201 { document: Document }`
+
+Server-side safeguards:
+
+* Max docs per application is capped (guardrail)
+* File size is enforced via Fastify multipart limits + truncation check
+* Allowed MIME types default to PDF/TXT (configurable via env)
+
+### Download + delete (by document id)
+
+Routes live under `modules/documents/documents.routes.ts`:
+
+* `GET /api/v1/documents/:id/download`
+
+  * Returns a signed URL:
+
+    ```json
+    { "downloadUrl": "https://..." }
+    ```
+  * Optional query: `?disposition=inline|attachment`
+
+* `DELETE /api/v1/documents/:id`
+
+  * Deletes GCS object (best-effort) + deletes DB row
+  * Touches parent application `updatedAt` if the doc belonged to an application
+
+### GCS configuration
+
+Config helper:
+
+* `lib/gcs.ts`
+
+Env vars used:
+
+* `GCS_BUCKET` (**required** for uploads)
+* `GCS_KEY_PREFIX` (optional; ex: `dev` / `prod` to separate keys)
+* `GCS_MAX_UPLOAD_BYTES` (default ~10MB)
+* `GCS_SIGNED_URL_TTL_SECONDS` (default ~10 minutes)
+* `GCS_ALLOWED_MIME_TYPES` (optional; defaults to `application/pdf,text/plain`)
+
+Auth to GCS:
+
+* In Cloud Run: uses **Application Default Credentials** (runtime service account)
+* Local dev: set `GOOGLE_APPLICATION_CREDENTIALS` to a service account JSON if needed
+
+---
+
+## Connections (global + attach to applications)
+
+### Global connections (CRUD + list/search)
+
+Routes live under `modules/connections/connections.routes.ts`:
+
+* `POST   /api/v1/connections`
+* `GET    /api/v1/connections`
+* `GET    /api/v1/connections/:id`
+* `PATCH  /api/v1/connections/:id`
+* `DELETE /api/v1/connections/:id`
+
+List/search query params (see `modules/connections/connections.schemas.ts`):
+
+* `q` (text search across key fields)
+* field filters: `name`, `company`, `relationship`
+* `status` (boolean-safe; `false` is preserved)
+* pagination: `page`, `pageSize`
+* sorting: `sortBy`, `sortDir`
+
+Returns the same paginated shape as applications list.
+
+### Attach/detach connections to an application
+
+Routes live under `modules/applications/applications.routes.ts`:
+
+* `GET    /api/v1/applications/:id/connections`
+
+  * Returns `{ connections: ConnectionWithAttachedAt[] }`
+  * Backend flattens join rows into `{ ...connectionFields, attachedAt }`
+
+* `POST   /api/v1/applications/:id/connections/:connectionId`
+
+  * Upserts the join row (idempotent attach)
+  * Touches `JobApplication.updatedAt`
+
+* `DELETE /api/v1/applications/:id/connections/:connectionId`
+
+  * Deletes the join row if present
+  * Touches `JobApplication.updatedAt`
+
+---
+
+## Local development
+
+### 1) Start Postgres (Docker)
+
+From repo root:
+
+```bash
+docker compose -f infra/docker-compose.dev.yml up -d
+```
+
+This exposes Postgres on `localhost:5437`.
+
+### 2) Environment files (important)
+
+* `backend/.env` is mainly for Prisma tooling (Prisma doesn’t read `.env.local`)
+* `backend/.env.local` is loaded by `backend/server.ts` for runtime (dev)
+
+Minimum required runtime vars:
+
+```env
+DATABASE_URL="postgresql://postgres:postgres@localhost:5437/career_tracker?schema=public"
+JWT_SECRET="dev_change_me"
+```
+
+If using Documents v1 locally:
+
+```env
+GCS_BUCKET="your-private-bucket-name"
+GCS_KEY_PREFIX="dev"
+GCS_MAX_UPLOAD_BYTES="10485760"
+GCS_SIGNED_URL_TTL_SECONDS="600"
+# optional:
+# GCS_ALLOWED_MIME_TYPES="application/pdf,text/plain"
+```
+
+CORS (comma-separated):
+
+```env
+CORS_ORIGIN="http://localhost:3000"
+```
+
+### 3) Install + migrate + run
+
+From `backend/`:
+
+```bash
+npm install
+npm run db:generate
+npm run db:migrate
+npm run dev
+```
+
+Server defaults to:
+
+* `http://localhost:3002`
+* health: `GET /health`
+
+---
+
+## Debug routes (dev-only)
+
+Mounted only when:
+
+```env
+ENABLE_DEBUG_ROUTES="true"
+```
+
+* `POST /api/debug/seed` — local seeding helper (kept out of prod by flag)
+
+---
+
+## Deployment notes (Cloud Run style)
+
+* Cloud Run provides `PORT` (often `8080`) — backend reads `process.env.PORT`
+* Set `CORS_ORIGIN` to your deployed frontend origin(s) only
+* For GCS: ensure the Cloud Run service account has access to the bucket (read/write/delete)
+* For Cloud SQL: use a Cloud SQL connector / unix socket + a Cloud Run–friendly `DATABASE_URL`
 
 ---
 
 ## Benchmarks (k6)
-
-### Why we store “safe exports”
-
-k6’s default full JSON summaries can include `setup_data` (which can contain your JWT token).
-So the benchmark scripts export a **safe JSON** that stores only the metrics we care about.
 
 Saved results live in:
 
@@ -144,68 +359,7 @@ All runs below were executed locally with:
 | PATCH /applications/:id |     200 |         - | 10 VUs / 20s | ~22.70ms | ~28.40ms | ~44.4 req/s |
 | PATCH /applications/:id |    1000 |         - | 10 VUs / 20s | ~22.82ms | ~29.13ms | ~44.4 req/s |
 
-> Note: These are **local** benchmarks (good for iteration). The next step for “resume-grade” numbers is re-running the same suite after deployment (Cloud Run + Cloud SQL).
-
+> Note: These are **local** benchmarks 
 ---
 
-## What’s Next (Backend Improvements)
-
-Productionizing / polish:
-
-* Deploy to **Cloud Run + Cloud SQL**
-* Re-run the same k6 suite to capture **production-like** p50/p95 + throughput
-* Add CI (lint/typecheck + migrations sanity)
-* Add deeper observability (request tracing, structured error codes, metrics export)
-* Expand test coverage (integration tests for core endpoints)
-
-## TODO / Next (Backend)
-
-* **Deploy + prod parity**
-
-  * Deploy API (Cloud Run/Render/Fly) + managed Postgres; re-run k6 against prod-like infra and record results.
-  * Add DB migrations workflow + environment config checklist.
-
-* **Auth & security**
-
-  * Refresh tokens + token rotation (optional), logout/invalidate, “remember me”.
-  * Password reset flow + email verification (optional).
-  * Tighten rate-limit strategy (separate limits for login/register/reset; key by IP + email).
-
-* **Validation & errors**
-
-  * Standardize error shape for all failures (validation, auth, not found, rate limit).
-  * Improve 429 messaging/headers for client UX (Retry-After, consistent response body).
-
-* **Data model / querying**
-
-  * Add indexes based on real queries (e.g., `(userId, updatedAt)`, `(userId, status)`).
-  * Add more filters (date ranges, status multi-select, company/position exact match).
-  * Cursor-based pagination (optional) for large datasets.
-
-* **Testing & quality**
-
-  * Add unit tests for services + route tests (happy path + auth + validation).
-  * CI checks (lint, typecheck, tests) + simple coverage reporting.
-
-* **Observability**
-
-  * Structured logging (requestId/userId), request timing, and error alerts.
-  * Basic health checks + metrics endpoint (optional).
-
-* **API polish**
-
-  * OpenAPI/Swagger docs (Fastify plugin) generated from schemas.
-  * Response DTO consistency across all routes (select-only, no leaks).
-
-* **Nice-to-haves**
-
-  * Bulk operations (bulk status update, bulk delete).
-  * Export endpoints (CSV/JSON), import, and “archive” instead of delete.
-
-
----
-
-_Frontend work can start now — the backend surface is stable enough.  
-Last updated: 2025-12-18_
-
-
+*Last updated: 2026-01-14*
