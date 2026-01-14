@@ -5,7 +5,7 @@ import { applicationsApi } from "@/lib/api/applications";
 import { connectionsApi } from "@/lib/api/connections";
 import { useConnectionAutocomplete } from "@/hooks/useConnectionAutocomplete";
 
-import { useEffect, useMemo,useState } from "react";
+import { useCallback, useEffect, useMemo,useState } from "react";
 import { Link2, Plus,Trash2, UserRound, Mail } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -156,18 +156,10 @@ export function ApplicationConnectionsSection({
   const { items: suggestions, isLoading: isSuggestLoading } =
     useConnectionAutocomplete(addDraft.name, (isAddOpen && !selectedExisting));
   
-
-
-  // Fetch attached connections whenever the drawer opens or application changes
-  useEffect(() => {
-    if (!open) return;
-    if (!applicationId) return;
-
-    refresh();
-  }, [open, applicationId]);
-
   // refresh: refreshes the list of connections attached to the application.
-  async function refresh() {
+  const refresh = useCallback(async () => {
+    if (!applicationId) return;
+  
     setIsLoading(true);
     try {
       setErrorMessage(null);
@@ -180,7 +172,16 @@ export function ApplicationConnectionsSection({
     } finally {
       setIsLoading(false);
     }
-  }
+  }, [applicationId]);
+  
+  // refresh the connections when the drawer opens or application changes
+  useEffect(() => {
+    if (!open) return;
+    if (!applicationId) return;
+  
+    refresh();
+  }, [open, applicationId, refresh]);
+  
 
   // starts the add connection dialog.
   function startAdd() {
