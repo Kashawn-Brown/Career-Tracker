@@ -17,22 +17,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { documentsApi } from "@/lib/api/documents";
 import { Alert } from "@/components/ui/alert";
 import type { Document, WorkMode } from "@/types/api";
-import { Textarea } from "@/components/ui/textarea";
-import { Select } from "@/components/ui/select";
-import { workModeLabel } from "@/lib/applications/presentation";
 
 // ProfilePage: view + edit minimal profile fields via GET/PATCH /users/me.
 export default function ProfilePage() {
@@ -105,12 +94,6 @@ export default function ProfilePage() {
   function arraysEqual(a: string[], b: string[]) {
     if (a.length !== b.length) return false;
     return a.every((v, i) => v === b[i]);
-  }
-
-  function safeDocId(doc: Document): number {
-    const raw = doc.id;
-    const n = typeof raw === "number" ? raw : Number(raw);
-    return Number.isFinite(n) ? n : -1;
   }
 
   // Loading the profile on mount (& depending on setCurrentUser)
@@ -260,16 +243,6 @@ export default function ProfilePage() {
       setIsSaving(false);
     }
   }
-
-
-  // Starts the base resume edit mode.
-  function startResumeEdit() {
-    setResumeErrorMessage(null);
-    setSuccessMessage(null);
-    setResumeFile(null);
-    if (resumeFileInputRef.current) resumeFileInputRef.current.value = "";
-    setIsEditingResume(true);
-  }
   
   // Cancels the base resume edit mode.
   function cancelResumeEdit() {
@@ -278,26 +251,6 @@ export default function ProfilePage() {
     setResumeErrorMessage(null);
     setSuccessMessage(null);
     setIsEditingResume(false);
-  }
-
-  // Opens the base resume in a new tab.
-  async function handleResumeOpen() {
-    if (!baseResume) return;
-  
-    const id = safeDocId(baseResume);
-    if (id < 0) {
-      setResumeErrorMessage("Invalid resume id.");
-      return;
-    }
-  
-    try {
-      setResumeErrorMessage(null);
-      const res = await documentsApi.getDownloadUrl(id);
-      window.open(res.downloadUrl, "_blank", "noopener,noreferrer");
-    } catch (err) {
-      if (err instanceof ApiError) setResumeErrorMessage(err.message);
-      else setResumeErrorMessage("Failed to open resume.");
-    }
   }
 
   // Saves/replaces the base resume file.
