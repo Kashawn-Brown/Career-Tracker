@@ -72,7 +72,23 @@ export default function RegisterPage() {
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {errorMessage ? <Alert variant="destructive">{errorMessage}</Alert> : null}
+      {errorMessage ? (
+        <div className="relative">
+          <Alert variant="destructive" className="pr-10">
+            {errorMessage}
+          </Alert>
+
+          <button
+            type="button"
+            onClick={() => setErrorMessage(null)}
+            className="absolute right-2 top-2 rounded-md px-2 py-1 opacity-70 hover:bg-black/5 hover:opacity-100"
+            aria-label="Dismiss message"
+            title="Dismiss"
+          >
+            ×
+          </button>
+        </div>
+      ) : null}
 
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-2">

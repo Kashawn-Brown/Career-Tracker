@@ -5,31 +5,13 @@ import { apiFetch, ApiError } from "@/lib/api/client";
 import { routes } from "@/lib/api/routes";
 import type { MeResponse, UpdateMeRequest } from "@/types/api";
 import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { UserProfileCard } from "@/components/profile/UserProfileCard";
+import { JobSearchPreferencesCard } from "@/components/profile/JobSearchPreferencesCard";
+import { ProfileConnectionsCard } from "@/components/profile/ProfileConnectionsCard";
+import { BaseResumeCard } from "@/components/profile/BaseResumeCard";
 import { documentsApi } from "@/lib/api/documents";
 import { Alert } from "@/components/ui/alert";
 import type { Document, WorkMode } from "@/types/api";
-import { Textarea } from "@/components/ui/textarea";
-import { Select } from "@/components/ui/select";
-import { workModeLabel } from "@/lib/applications/presentation";
 
 // ProfilePage: view + edit minimal profile fields via GET/PATCH /users/me.
 export default function ProfilePage() {
@@ -57,6 +39,7 @@ export default function ProfilePage() {
   const [name, setName] = useState(user?.name ?? "");
   const [location, setLocation] = useState(user?.location ?? "");
   const [currentRole, setCurrentRole] = useState(user?.currentRole ?? "");
+  const [currentCompany, setCurrentCompany] = useState(user?.currentCompany ?? "");
   const [skillsInput, setSkillsInput] = useState((user?.skills ?? []).join(", "));
   const [linkedInUrl, setLinkedInUrl] = useState(user?.linkedInUrl ?? "");
   const [githubUrl, setGithubUrl] = useState(user?.githubUrl ?? "");
@@ -103,12 +86,6 @@ export default function ProfilePage() {
     return a.every((v, i) => v === b[i]);
   }
 
-  function safeDocId(doc: Document): number {
-    const raw = doc.id;
-    const n = typeof raw === "number" ? raw : Number(raw);
-    return Number.isFinite(n) ? n : -1;
-  }
-
   // Loading the profile on mount (& depending on setCurrentUser)
   useEffect(() => {
     async function load() {
@@ -127,6 +104,7 @@ export default function ProfilePage() {
         setName(res.user.name ?? "");
         setLocation(toDisplayString(res.user.location));
         setCurrentRole(toDisplayString(res.user.currentRole));
+        setCurrentCompany(toDisplayString(res.user.currentCompany));
         setSkillsInput((res.user.skills ?? []).join(", "));
         setLinkedInUrl(toDisplayString(res.user.linkedInUrl));
         setGithubUrl(toDisplayString(res.user.githubUrl));
@@ -179,6 +157,7 @@ export default function ProfilePage() {
     setName(user?.name ?? "");
     setLocation(toDisplayString(user?.location));
     setCurrentRole(toDisplayString(user?.currentRole));
+    setCurrentCompany(toDisplayString(user?.currentCompany));
     setSkillsInput((user?.skills ?? []).join(", "));
     setLinkedInUrl(toDisplayString(user?.linkedInUrl));
     setGithubUrl(toDisplayString(user?.githubUrl));
@@ -208,6 +187,7 @@ export default function ProfilePage() {
 
     if (location !== toDisplayString(user?.location)) payload.location = location;
     if (currentRole !== toDisplayString(user?.currentRole)) payload.currentRole = currentRole;
+    if (currentCompany !== toDisplayString(user?.currentCompany)) payload.currentCompany = currentCompany;
 
     const nextSkills = parseSkills(skillsInput);
     const currentSkills = user?.skills ?? [];
@@ -238,6 +218,7 @@ export default function ProfilePage() {
       setName(res.user.name ?? "");
       setLocation(toDisplayString(res.user.location));
       setCurrentRole(toDisplayString(res.user.currentRole));
+      setCurrentCompany(toDisplayString(res.user.currentCompany));
       setSkillsInput((res.user.skills ?? []).join(", "));
       setLinkedInUrl(toDisplayString(res.user.linkedInUrl));
       setGithubUrl(toDisplayString(res.user.githubUrl));
@@ -252,16 +233,6 @@ export default function ProfilePage() {
       setIsSaving(false);
     }
   }
-
-
-  // Starts the base resume edit mode.
-  function startResumeEdit() {
-    setResumeErrorMessage(null);
-    setSuccessMessage(null);
-    setResumeFile(null);
-    if (resumeFileInputRef.current) resumeFileInputRef.current.value = "";
-    setIsEditingResume(true);
-  }
   
   // Cancels the base resume edit mode.
   function cancelResumeEdit() {
@@ -270,26 +241,6 @@ export default function ProfilePage() {
     setResumeErrorMessage(null);
     setSuccessMessage(null);
     setIsEditingResume(false);
-  }
-
-  // Opens the base resume in a new tab.
-  async function handleResumeOpen() {
-    if (!baseResume) return;
-  
-    const id = safeDocId(baseResume);
-    if (id < 0) {
-      setResumeErrorMessage("Invalid resume id.");
-      return;
-    }
-  
-    try {
-      setResumeErrorMessage(null);
-      const res = await documentsApi.getDownloadUrl(id);
-      window.open(res.downloadUrl, "_blank", "noopener,noreferrer");
-    } catch (err) {
-      if (err instanceof ApiError) setResumeErrorMessage(err.message);
-      else setResumeErrorMessage("Failed to open resume.");
-    }
   }
 
   // Saves/replaces the base resume file.
@@ -493,409 +444,133 @@ export default function ProfilePage() {
   return (
     <div className="mx-auto max-w-screen-xl px-4 py-6 sm:px-6 lg:px-8">
       <div className="space-y-6">
-        {hasMessages ? (
-          <div className="space-y-2">
-            {errorMessage ? <Alert variant="destructive">{errorMessage}</Alert> : null}
-            {resumeErrorMessage ? <Alert variant="warning">{resumeErrorMessage}</Alert> : null}
-            {successMessage ? <Alert variant="success">{successMessage}</Alert> : null}
-          </div>
-        ) : null}
+      {hasMessages ? (
+        <div className="space-y-2">
+          {errorMessage ? (
+            <div className="relative">
+              <Alert variant="destructive" className="pr-10">
+                {errorMessage}
+              </Alert>
+              <button
+                type="button"
+                onClick={() => setErrorMessage(null)}
+                className="absolute right-2 top-2 rounded-md px-2 py-1 opacity-70 hover:bg-black/5 hover:opacity-100"
+                aria-label="Dismiss message"
+                title="Dismiss"
+              >
+                ×
+              </button>
+            </div>
+          ) : null}
+
+          {resumeErrorMessage ? (
+            <div className="relative">
+              <Alert variant="warning" className="pr-10">
+                {resumeErrorMessage}
+              </Alert>
+              <button
+                type="button"
+                onClick={() => setResumeErrorMessage(null)}
+                className="absolute right-2 top-2 rounded-md px-2 py-1 opacity-70 hover:bg-black/5 hover:opacity-100"
+                aria-label="Dismiss message"
+                title="Dismiss"
+              >
+                ×
+              </button>
+            </div>
+          ) : null}
+
+          {successMessage ? (
+            <div className="relative">
+              <Alert variant="success" className="pr-10">
+                {successMessage}
+              </Alert>
+              <button
+                type="button"
+                onClick={() => setSuccessMessage(null)}
+                className="absolute right-2 top-2 rounded-md px-2 py-1 opacity-70 hover:bg-black/5 hover:opacity-100"
+                aria-label="Dismiss message"
+                title="Dismiss"
+              >
+                ×
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
         <div className="grid gap-6 lg:grid-cols-12 lg:items-start">
           
           {/* Left: Profile section */}
           <div className="lg:col-span-7">
-            <Card>
-              <CardHeader>
-                <CardTitle>Profile</CardTitle>
-                <CardDescription>
-                  Signed in as <span className="font-medium">{user?.email}</span>
-                </CardDescription>
-
-                {/* Profile edit mode: show edit button */}
-                {!isEditingProfile ? (
-                    <CardAction>
-                      <Button type="button" variant="outline" size="sm" onClick={startProfileEdit}>
-                        Edit
-                      </Button>
-                    </CardAction>
-                  ) : null}
-                </CardHeader>
-
-                <CardContent className="space-y-4">
-                <form className="space-y-4" onSubmit={handleProfileSave}>
-                  <div className="space-y-1">
-                    <Label htmlFor="name">Name</Label>
-                    <Input
-                      id="name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      readOnly={!isEditingProfile}
-                      className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label htmlFor="location">Location</Label>
-                    <Input
-                      id="location"
-                      value={location}
-                      onChange={(e) => setLocation(e.target.value)}
-                      placeholder="..."
-                      readOnly={!isEditingProfile}
-                      className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label htmlFor="currentRole">Current role</Label>
-                    <Input
-                      id="currentRole"
-                      value={currentRole}
-                      onChange={(e) => setCurrentRole(e.target.value)}
-                      placeholder="..."
-                      readOnly={!isEditingProfile}
-                      className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label htmlFor="skills">Skills (comma-separated)</Label>
-                    <Input
-                      id="skills"
-                      value={skillsInput}
-                      onChange={(e) => setSkillsInput(e.target.value)}
-                      placeholder="..."
-                      readOnly={!isEditingProfile}
-                      className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label htmlFor="linkedInUrl">LinkedIn URL</Label>
-                    <Input
-                      id="linkedInUrl"
-                      value={linkedInUrl}
-                      onChange={(e) => setLinkedInUrl(e.target.value)}
-                      placeholder="..."
-                      readOnly={!isEditingProfile}
-                      className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label htmlFor="githubUrl">GitHub URL</Label>
-                    <Input
-                      id="githubUrl"
-                      value={githubUrl}
-                      onChange={(e) => setGithubUrl(e.target.value)}
-                      placeholder="..."
-                      readOnly={!isEditingProfile}
-                      className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label htmlFor="portfolioUrl">Portfolio URL</Label>
-                    <Input
-                      id="portfolioUrl"
-                      value={portfolioUrl}
-                      onChange={(e) => setPortfolioUrl(e.target.value)}
-                      placeholder="..."
-                      readOnly={!isEditingProfile}
-                      className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-                    />
-                  </div>
-
-                  {isEditingProfile ? (
-                    <div className="flex gap-2">
-                      <Button type="submit" disabled={isSaving}>
-                        {isSaving ? "Saving..." : "Save"}
-                      </Button>
-
-                      <Button type="button" variant="outline" onClick={cancelProfileEdit} disabled={isSaving}>
-                        Cancel
-                      </Button>
-                    </div>
-                  ) : null}
-                </form>
-              </CardContent>
-            </Card>
+            <UserProfileCard
+              email={user?.email ?? "—"}
+              isEditing={isEditingProfile}
+              isSaving={isSaving}
+              onStartEdit={startProfileEdit}
+              onCancelEdit={cancelProfileEdit}
+              onSave={handleProfileSave}
+              name={name}
+              setName={setName}
+              location={location}
+              setLocation={setLocation}
+              currentCompany={currentCompany}
+              setCurrentCompany={setCurrentCompany}
+              currentRole={currentRole}
+              setCurrentRole={setCurrentRole}
+              skillsText={skillsInput}
+              setSkillsText={setSkillsInput}
+              linkedInUrl={linkedInUrl}
+              setLinkedInUrl={setLinkedInUrl}
+              githubUrl={githubUrl}
+              setGithubUrl={setGithubUrl}
+              portfolioUrl={portfolioUrl}
+              setPortfolioUrl={setPortfolioUrl}
+            />
           </div>
         
 
           {/* Right: secondary cards stacked */}
           <div className="space-y-6 lg:col-span-5">
             {/* Job search preferences section */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Job Search Preferences</CardTitle>
-                <CardDescription>
-                  Used later for AI tailoring (titles, locations, keywords, preferred arrangement).
-                </CardDescription>
-
-                <CardAction>
-                  <Dialog open={isJobSearchDialogOpen} onOpenChange={handleJobSearchDialogOpenChange}>
-                    <DialogTrigger asChild>
-                      <Button type="button" variant="outline" size="sm">
-                        View / Edit
-                      </Button>
-                    </DialogTrigger>
-
-                    <DialogContent className="max-w-2xl">
-                      <div className="flex items-start justify-between gap-4">
-                        <DialogHeader>
-                          <DialogTitle>Job Search Preferences</DialogTitle>
-                          <DialogDescription>
-                            View first. Click Edit to make changes, then Save to persist.
-                          </DialogDescription>
-                        </DialogHeader>
-
-                        {!isEditingJobSearch ? (
-                          <Button type="button" variant="outline" size="sm" onClick={startJobSearchEdit}>
-                            Edit
-                          </Button>
-                        ) : null}
-                      </div>
-
-                      <form className="mt-4 space-y-4" onSubmit={handleJobSearchSave}>
-                        <div className="space-y-1">
-                          <Label htmlFor="jobSearchTitlesText">Target titles (comma-separated)</Label>
-                          <Input
-                            id="jobSearchTitlesText"
-                            value={jobSearchTitlesText}
-                            onChange={(e) => setJobSearchTitlesText(e.target.value)}
-                            placeholder="e.g., Backend Engineer, SRE, DevOps, ..."
-                            readOnly={!isEditingJobSearch}
-                            className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-                          />
-                        </div>
-
-                        <div className="space-y-1">
-                          <Label htmlFor="jobSearchLocationsText">Preferred locations (comma-separated)</Label>
-                          <Input
-                            id="jobSearchLocationsText"
-                            value={jobSearchLocationsText}
-                            onChange={(e) => setJobSearchLocationsText(e.target.value)}
-                            placeholder="e.g., Toronto, USA, Ottawa, ..."
-                            readOnly={!isEditingJobSearch}
-                            className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-                          />
-                        </div>
-
-                        <div className="space-y-1">
-                          <Label htmlFor="jobSearchWorkMode">Preferred work arrangement</Label>
-                          <Select
-                            id="jobSearchWorkMode"
-                            value={jobSearchWorkMode}
-                            onChange={(e) => setJobSearchWorkMode(e.target.value as WorkMode)}
-                            disabled={!isEditingJobSearch}
-                          >
-                            <option value="UNKNOWN">Any</option>
-                            <option value="REMOTE">Remote</option>
-                            <option value="HYBRID">Hybrid</option>
-                            <option value="ONSITE">On-site</option>
-                          </Select>
-                        </div>
-
-                        <div className="space-y-1">
-                          <Label htmlFor="jobSearchKeywordsText">Keywords (comma-separated)</Label>
-                          <Input
-                            id="jobSearchKeywordsText"
-                            value={jobSearchKeywordsText}
-                            onChange={(e) => setJobSearchKeywordsText(e.target.value)}
-                            placeholder="e.g., AWS, Kubernetes, Terraform, Java, ..."
-                            readOnly={!isEditingJobSearch}
-                            className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-                          />
-                        </div>
-
-                        <div className="space-y-1">
-                          <Label htmlFor="jobSearchSummary">Short summary</Label>
-                          <Textarea
-                            id="jobSearchSummary"
-                            value={jobSearchSummary}
-                            onChange={(e) => setJobSearchSummary(e.target.value)}
-                            placeholder="A few lines about what you’re targeting and what you’re strong at..."
-                            readOnly={!isEditingJobSearch}
-                            className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-                          />
-                        </div>
-
-                        {isEditingJobSearch ? (
-                          <div className="flex items-center justify-end gap-2 pt-2">
-                            <Button type="button" variant="outline" onClick={cancelJobSearchEdit}>
-                              Cancel
-                            </Button>
-                            <Button type="submit" disabled={isJobSearchSaving}>
-                              {isJobSearchSaving ? "Saving..." : "Save"}
-                            </Button>
-                          </div>
-                        ) : null}
-                      </form>
-                    </DialogContent>
-                  </Dialog>
-                </CardAction>
-              </CardHeader>
-
-              {/* Compact summary (keeps page from being a long stack of forms) */}
-              <CardContent className="space-y-2 text-sm">
-                <div className="grid gap-1">
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-muted-foreground">Work arrangement</span>
-                    <span className="truncate font-medium">
-                      {jobSearchWorkMode === "UNKNOWN" ? "Any" : workModeLabel(jobSearchWorkMode)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-muted-foreground">Titles</span>
-                    <span className="truncate font-medium" title={jobSearchTitlesText}>
-                      {jobSearchTitlesText.trim() ? jobSearchTitlesText : "—"}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-muted-foreground">Locations</span>
-                    <span className="truncate font-medium" title={jobSearchLocationsText}>
-                      {jobSearchLocationsText.trim() ? jobSearchLocationsText : "—"}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-muted-foreground">Keywords</span>
-                    <span className="truncate font-medium" title={jobSearchKeywordsText}>
-                      {jobSearchKeywordsText.trim() ? jobSearchKeywordsText : "—"}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="text-muted-foreground">
-                  {jobSearchSummary.trim() ? jobSearchSummary : "No summary set yet."}
-                </div>
-              </CardContent>
-            </Card>
+            <JobSearchPreferencesCard
+              isDialogOpen={isJobSearchDialogOpen}
+              onDialogOpenChange={handleJobSearchDialogOpenChange}
+              isEditing={isEditingJobSearch}
+              onStartEdit={startJobSearchEdit}
+              onCancelEdit={cancelJobSearchEdit}
+              isSaving={isJobSearchSaving}
+              onSave={handleJobSearchSave}
+              titlesText={jobSearchTitlesText}
+              setTitlesText={setJobSearchTitlesText}
+              locationsText={jobSearchLocationsText}
+              setLocationsText={setJobSearchLocationsText}
+              keywordsText={jobSearchKeywordsText}
+              setKeywordsText={setJobSearchKeywordsText}
+              summary={jobSearchSummary}
+              setSummary={setJobSearchSummary}
+              workMode={jobSearchWorkMode}
+              setWorkMode={setJobSearchWorkMode}
+            />
 
 
+
+            {/* Connections section */}
+            <ProfileConnectionsCard />
 
             {/* Base resume section */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Base Resume</CardTitle>
-                <CardDescription>
-                  Upload your current resume once, then reuse it across applications.
-                </CardDescription>
+            <BaseResumeCard
+              isDialogOpen={isResumeDialogOpen}
+              onDialogOpenChange={handleResumeDialogOpenChange}
+              hasBaseResume={!!baseResume}
+              isSaving={isResumeSaving}
+              onSave={handleResumeSave}
+              isDeleting={isResumeDeleting}
+              onDelete={handleResumeDelete}
+              selectedFile={resumeFile}
+              onFileChange={setResumeFile}
+            />
 
-                <CardAction>
-                  <Dialog open={isResumeDialogOpen} onOpenChange={handleResumeDialogOpenChange}>
-                    <DialogTrigger asChild>
-                      <Button type="button" variant="outline" size="sm">
-                        View / Edit
-                      </Button>
-                    </DialogTrigger>
-
-                    <DialogContent className="max-w-2xl">
-                      <div className="flex items-start justify-between gap-4">
-                        <DialogHeader>
-                          <DialogTitle>Base Resume</DialogTitle>
-                          <DialogDescription>
-                            Click Edit to replace. Delete removes the saved resume.
-                          </DialogDescription>
-                        </DialogHeader>
-
-                        <div className="flex gap-2">
-                          {baseResume && !isEditingResume ? (
-                            <Button type="button" variant="outline" size="sm" onClick={handleResumeOpen}>
-                              Open
-                            </Button>
-                          ) : null}
-
-                          {!isEditingResume ? (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={startResumeEdit}
-                              disabled={!baseResume}
-                            >
-                              Edit
-                            </Button>
-                          ) : null}
-
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="sm"
-                            onClick={handleResumeDelete}
-                            disabled={!baseResume || isResumeDeleting}
-                          >
-                            {isResumeDeleting ? "Deleting..." : "Delete"}
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 text-sm text-muted-foreground">
-                        {baseResume ? (
-                          <>
-                            Current: <span className="font-medium">{baseResume.originalName}</span>
-                          </>
-                        ) : (
-                          "No base resume saved yet."
-                        )}
-                      </div>
-
-                      <form className="mt-4 space-y-4" onSubmit={handleResumeSave}>
-                        <div className="space-y-1">
-                          <Label htmlFor="resumeFile">Resume file</Label>
-                          <Input
-                            id="resumeFile"
-                            ref={resumeFileInputRef}
-                            type="file"
-                            accept=".pdf,.txt,application/pdf,text/plain"
-                            disabled={!isEditingResume}
-                            onChange={(e) => setResumeFile(e.target.files?.[0] ?? null)}
-                          />
-                          <div className="text-xs text-muted-foreground">Accepted: PDF, TXT • up to 10MB</div>
-                        </div>
-
-                        {isEditingResume ? (
-                          <div className="flex items-center justify-end gap-2 pt-2">
-                            {baseResume ? (
-                              <Button type="button" variant="outline" onClick={cancelResumeEdit} disabled={isResumeSaving}>
-                                Cancel
-                              </Button>
-                            ) : null}
-
-                            <Button type="submit" disabled={isResumeSaving || !resumeFile}>
-                              {isResumeSaving
-                                ? "Saving..."
-                                : baseResume
-                                ? "Replace base resume"
-                                : "Save base resume"}
-                            </Button>
-                          </div>
-                        ) : null}
-                      </form>
-                    </DialogContent>
-                  </Dialog>
-                </CardAction>
-              </CardHeader>
-
-              <CardContent className="text-sm text-muted-foreground">
-                {baseResume ? (
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="truncate">
-                      Current: <span className="font-medium">{baseResume.originalName}</span>
-                    </div>
-                    <Button type="button" variant="outline" size="sm" onClick={handleResumeOpen}>
-                      Open
-                    </Button>
-                  </div>
-                ) : (
-                  "No base resume saved yet."
-                )}
-              </CardContent>
-            </Card>
 
           </div>
         </div>

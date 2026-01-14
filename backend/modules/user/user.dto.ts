@@ -12,6 +12,7 @@ export const userSelect = {
   // Profile fields
   location: true,
   currentRole: true,
+  currentCompany: true,
   skills: true,
   linkedInUrl: true,
   githubUrl: true,

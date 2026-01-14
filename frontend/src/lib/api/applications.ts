@@ -1,6 +1,14 @@
 import { apiFetch } from "@/lib/api/client";
 import { routes } from "@/lib/api/routes";
-import type { OkResponse, UpdateApplicationRequest, ListApplicationsParams, ApplicationsListResponse, Application, CreateApplicationRequest } from "@/types/api";
+import type { 
+  OkResponse, 
+  UpdateApplicationRequest, 
+  ListApplicationsParams, 
+  ApplicationsListResponse, 
+  Application, 
+  CreateApplicationRequest,
+  ListApplicationConnectionsResponse,
+} from "@/types/api";
 
 //
 type ApplicationEnvelope = { application: Application };
@@ -87,5 +95,36 @@ export const applicationsApi = {
    */
   remove(id: string) {
     return apiFetch<OkResponse>(routes.applications.byId(id), { method: "DELETE" });
+  },
+
+
+
+  /** ---- Application <-> Connection ---- */
+
+  /**
+   * List the connections attached to an application.
+   */
+  listApplicationConnections(applicationId: string) {
+    return apiFetch<ListApplicationConnectionsResponse>(routes.applications.connections.list(applicationId), {
+      method: "GET",
+    });
+  },
+
+  /**
+   * Attach a connection to an application.
+   */
+  attachConnectionToApplication(applicationId: string, connectionId: string) {
+    return apiFetch<OkResponse>(routes.applications.connections.create(applicationId, connectionId), {
+      method: "POST",
+    });
+  },
+
+  /**
+   * Remove a connection from an application.
+   */
+  removeConnectionFromApplication(applicationId: string, connectionId: string) {
+    return apiFetch<OkResponse>(routes.applications.connections.delete(applicationId, connectionId), {
+      method: "DELETE",
+    });
   },
 };

@@ -25,6 +25,11 @@ export const routes = {
       upload: (applicationId: string, kind: string) =>
         `/applications/${applicationId}/documents?kind=${encodeURIComponent(kind)}`,
     },
+    connections: {
+      list: (applicationId: string) => `/applications/${applicationId}/connections`,
+      create: (applicationId: string, connectionId: string) => `/applications/${applicationId}/connections/${connectionId}`,
+      delete: (applicationId: string, connectionId: string) => `/applications/${applicationId}/connections/${connectionId}`,
+    },
   },
   documents: {
     baseResume: () => "/documents/base-resume",
@@ -39,6 +44,13 @@ export const routes = {
       const disposition = opts?.disposition;
       return disposition ? `${base}?disposition=${disposition}` : base;
     },
+  },
+  connections: {
+    list: () => "/connections",
+    byId: (id: string) => `/connections/${id}`,
+    create: () => "/connections",
+    update: (id: string) => `/connections/${id}`,
+    delete: (id: string) => `/connections/${id}`,
   },
 
 } as const;

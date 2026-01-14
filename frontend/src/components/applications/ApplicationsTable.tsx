@@ -111,7 +111,23 @@ export function ApplicationsTable({
 
   return (
     <div className="space-y-2">
-      {rowError ? ( <Alert variant="destructive" className="py-2">{rowError}</Alert> ) : null}
+      {rowError ? (
+        <div className="relative">
+          <Alert variant="destructive" className="py-2 pr-10">
+            {rowError}
+          </Alert>
+
+          <button
+            type="button"
+            onClick={() => setRowError(null)}
+            className="absolute right-2 top-2 rounded-md px-2 py-1 opacity-70 hover:bg-black/5 hover:opacity-100"
+            aria-label="Dismiss message"
+            title="Dismiss"
+          >
+            ×
+          </button>
+        </div>
+      ) : null}
 
       <div className="overflow-x-auto rounded-md border">
         <table className="w-full text-sm">
