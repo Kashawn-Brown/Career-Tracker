@@ -4,180 +4,127 @@
 
 # Career-Tracker
 
+Career-Tracker is a personal job application tracker built around a fast, **table-first Applications** view (Excel/Notion-style) and a **right-side details drawer** for safe viewing/editing.
 
-
-Career-Tracker is a full-stack **job application manager** built to replace messy spreadsheets, scattered notes, and lost job links with a single, focused workspace. It centralizes applications, statuses, documents, contacts, and analytics so job seekers can see exactly where they stand and what to do next.
-
-Under the hood it uses a typed Fastify + Postgres API and a React/Next.js frontend with secure auth, robust validation, and fast, filterable tables. 
-
-AI assistance is part of the planned roadmap: parsing job descriptions into structured fields, summarizing postings, assessing resume fit, and generating tailored cover-letter drafts, all backed by CI/CD and runtime metrics.
+The design goal is simple: **scanning stays instant** in the table, while richer details (documents, connections, notes) live in the drawer and dialogs—without cluttering the grid.
 
 ---
 
-## Architecture overview
+## Live Demo (Production)
 
-**Modules:**
-- `frontend/`  
-  Next.js App Router app (TypeScript + Tailwind). Auth + protected routes, Applications dashboard, Profile + Base Resume metadata.
+- **App (Vercel):** https://career-tracker-frontend-ten.vercel.app
+- **Backend:** Deployed on **Google Cloud Run (GCP)** (private API; frontend calls it via `NEXT_PUBLIC_API_BASE_URL`)
+- **Database:** **Cloud SQL (Postgres)**
+- **File storage:** **Google Cloud Storage (private bucket)** with **short-lived signed URLs**
 
-- `backend/`  
-  Fastify + TypeScript REST API with JWT auth, rate limiting, TypeBox validation, and user-scoped CRUD for applications. Uses Prisma + PostgreSQL.
+---
 
-- `infra/`  
-  Local development infrastructure (Docker Compose Postgres).
+## What you can do
 
-**Key technologies:**
-- Next.js (App Router), React, TypeScript, Tailwind CSS
-- Fastify, TypeScript, TypeBox validation
+### Applications (table-first + safety model)
+- Browse applications in a fast table (sort/filter/paginate, hide/show columns)
+- Open an application in the **details drawer** (view-first by default)
+- Enter **explicit Edit mode** to make changes, then **Save/Cancel** safely
+- Destructive actions are gated/confirmed to prevent accidental changes
+
+### Documents v1 (real uploads)
+- Upload **PDF/TXT** attachments to a **private Google Cloud Storage bucket**
+- Download via **short-lived signed URLs**
+- Delete removes both the **DB row + the GCS object**
+- PDF preview uses a lightweight **iframe overlay** (outside the drawer)
+
+### Connections (people / recruiters / referrals)
+- Create and manage Connections globally (people you interact with)
+- Attach/detach connections to specific applications (intentional confirm flow)
+- Manage connections from Profile via a 2-pane “View all connections” modal
+
+---
+
+## Architecture overview (high level)
+
+**Modules**
+- `frontend/` — Next.js (App Router) + TypeScript + Tailwind (table + drawer UX, dialogs/overlays)
+- `backend/` — Fastify + TypeScript API (Prisma + Postgres, user-scoped endpoints)
+- `infra/` — local dev infra (Docker Compose Postgres)
+- `k6/` — local performance benchmarks
+- `frontend_legacy/`, `backend_legacy/` — legacy reference only (not the active codepath)
+
+**Tech stack**
+- Next.js (App Router), React, TypeScript, Tailwind CSS, shadcn/ui (Radix)
+- Fastify, TypeScript, TypeBox schemas
 - Prisma + PostgreSQL
-- JWT auth + rate limiting
-- k6 load testing (local)
+- Google Cloud Storage (private bucket + signed URLs)
+
+> Detailed docs:
+> - Frontend: `frontend/README.md`
+> - Backend: `backend/README.md`
 
 ---
 
-## Backend (API)
-- Built a **Fastify + TypeScript** REST API with **JWT auth**, **rate limiting**, and **TypeBox validation**
-- Implemented **user-scoped CRUD** for job applications with **pagination, sorting, status filters, and search**
-- Used **Prisma + PostgreSQL**, including transactional pagination (`count + items`) for consistent list results under write load
-- Load tested with **k6** (10 VUs, 20s, local):  
-  - `GET /applications` p95 **~13-20ms** on **200–1000** records  
-  - `POST /applications` p95 **~18-22ms**  
-  - `PATCH /applications/:id` p95 **~28-30ms**  
-  - **0% request failures** across runs  
-
-## Frontend (Web)
-- Built a **Next.js (App Router) + TypeScript** frontend with **Tailwind** and light shadcn/ui usage
-- Implemented auth flow end-to-end (register/login/logout) with **refresh-safe rehydration** via `GET /users/me`
-- Added protected routing using route groups: `(public)` auth pages vs `(app)` authenticated pages
-- Applications dashboard: list/create/update status/delete + basic search/filter/sort/reset
-- Profile page: update name + Base Resume metadata CRUD (MVP: URL/metadata only)
-
----
-
-## Running locally
+## Running locally (quickstart)
 
 ### Prerequisites
 - Node.js 18+
-- A PostgreSQL instance (Docker + Docker Compose)
+- Docker + Docker Compose (for Postgres)
 
 ### Quickstart
-1. Install:
+1) Install deps (repo root):
 ```bash
 npm install
 ````
 
-2. Start Postgres (local dev):
+2. Start Postgres:
 
 ```bash
 docker compose -f infra/docker-compose.dev.yml up -d
 ```
 
-3. Backend env (`backend/.env`):
+3. Configure env:
 
-```env
-DATABASE_URL=postgresql://...
-JWT_SECRET=your_dev_secret
-CORS_ORIGIN=http://localhost:3000
-```
-
-4. Frontend env (`frontend/.env.local`):
+* Backend: `backend/.env` (see `backend/.env.example` + `backend/README.md`)
+* Frontend: `frontend/.env.local`
 
 ```env
 NEXT_PUBLIC_API_BASE_URL=http://localhost:3002/api/v1
 ```
 
-5. Run backend + frontend:
+4. Run both:
 
 ```bash
 npm run dev
 ```
 
-Default ports: frontend `3000`, backend `3002`.
+Default ports:
 
-Frontend: [http://localhost:3000](http://localhost:3000)
-API: [http://localhost:3002/api/v1](http://localhost:3002/api/v1)
+* Frontend: `http://localhost:3000`
+* Backend: `http://localhost:3002` (API base: `/api/v1`)
+
+> Note: Documents uploads require GCS config + credentials (details in `backend/README.md`).
+
+---
+
+## Deployment
+
+### Frontend — Vercel
+- Deploys from `frontend/` (Next.js App Router)
+- **Public URL:** https://career-tracker-frontend-ten.vercel.app
+- Env var:
+  - `NEXT_PUBLIC_API_BASE_URL` = `https://<CLOUD_RUN_SERVICE_URL>/api/v1`
+
+### Backend — Google Cloud Platform (GCP)
+- **Cloud Run** (Fastify API in `backend/`)
+- **Cloud SQL (Postgres)** for the database
+- **Secret Manager** for sensitive env vars (e.g., `DATABASE_URL`, `JWT_SECRET`)
+- **Cloud Storage (GCS)** private bucket for Documents v1 (signed URLs for download)
 
 ---
 
-# Deployment
-
-## Backend (GCP) - Production
-
-### What’s deployed
-- Backend runs on **Cloud Run**
-- Database is **Cloud SQL (Postgres)**
-- Deploy pipeline: **Cloud Build trigger** -> Docker build -> Artifact Registry -> Cloud Run deploy
-
-### Required secrets (Secret Manager -> injected into Cloud Run)
-- `DATABASE_URL`
-- `JWT_SECRET`
-
-### Required non-secret env vars (Cloud Run)
-- `NODE_ENV=production`
-- `ENABLE_DEBUG_ROUTES=false`
-- `CORS_ORIGIN`
-
-### Quick verification tests (Postman)
-Base URL: `https://<CLOUD_RUN_URL>`
-
-1) `GET /health` -> `200 { "ok": true }`
-2) `POST /api/v1/auth/login` -> `200 { user, token }`
-3) `GET /api/v1/auth/me` (Authorization: Bearer <token>) -> `200`
-4) `POST /api/v1/applications` (Authorization header) -> `201`
-
-### Where to debug in GCP (UI)
-- Cloud Run -> Service -> **Logs** (runtime errors)
-- Cloud Run -> Service -> **Revisions / Variables & Secrets** (env + secrets)
-- Cloud SQL -> Instance -> **Databases** (DB status)
-- Secret Manager -> **Secrets** (DATABASE_URL / JWT_SECRET)
-
-## Frontend (Vercel) - Production
-
-### What’s deployed
-- Frontend is deployed on **Vercel** from the `frontend/` directory (monorepo)
-- Production URL: https://career-tracker-frontend-ten.vercel.app
-
-### Required environment variables (Vercel)
-Set in: Vercel Project → Settings → Environment Variables
-
-- `NEXT_PUBLIC_API_BASE_URL`
-  - Value: `https://<CLOUD_RUN_BACKEND_URL>/api/v1`
-  - Applied to: **Production + Preview** (All Environments)
-
-### CI/CD behavior
-- Pushes to `main` → Vercel **Production** deployment
-- Pull Requests → Vercel **Preview** deployments (auto)
-
-### Quick verification
-1) Open the deployed site
-2) Sign up / log in
-3) Confirm Applications page loads and CRUD works
-
-### CORS note (backend requirement)
-Browser requests require the backend to allow the frontend origin:
-- Cloud Run env var `CORS_ORIGIN` must include:
-  - `http://localhost:3000`
-  - `https://career-tracker-frontend-ten.vercel.app`
-
----
-  
-## Monitoring / Health
-
-### Backend uptime check
-- `/health` endpoint is monitored with an uptime check
-- If `/health` fails, investigate:
-  - Cloud Run logs
-  - Cloud SQL instance health
-  - Secret Manager env injection (DATABASE_URL/JWT_SECRET)
-  
----
-  
 ## Quick links
 
-- Frontend docs: `frontend/README.md`
-- Backend docs: `backend/README.md`
-- Benchmarks: `k6/benchmarks/README.md`
+* Frontend docs: `frontend/README.md`
+* Backend docs: `backend/README.md`
+* Benchmarks: `k6/benchmarks/README.md`
 
 ---
 
-_Last updated: 2025-12-27_
+*Last updated: 2026-01-14*
