@@ -7,6 +7,7 @@ import type { MeResponse, UpdateMeRequest } from "@/types/api";
 import { useAuth } from "@/hooks/useAuth";
 import { JobSearchPreferencesCard } from "@/components/profile/JobSearchPreferencesCard";
 import { ProfileConnectionsCard } from "@/components/profile/ProfileConnectionsCard";
+import { BaseResumeCard } from "@/components/profile/BaseResumeCard";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -672,123 +673,18 @@ export default function ProfilePage() {
             <ProfileConnectionsCard />
 
             {/* Base resume section */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Base Resume</CardTitle>
-                <CardDescription>
-                  Upload your current resume once, then reuse it across applications.
-                </CardDescription>
+            <BaseResumeCard
+              isDialogOpen={isResumeDialogOpen}
+              onDialogOpenChange={handleResumeDialogOpenChange}
+              hasBaseResume={!!baseResume}
+              isSaving={isResumeSaving}
+              onSave={handleResumeSave}
+              isDeleting={isResumeDeleting}
+              onDelete={handleResumeDelete}
+              selectedFile={resumeFile}
+              onFileChange={setResumeFile}
+            />
 
-                <CardAction>
-                  <Dialog open={isResumeDialogOpen} onOpenChange={handleResumeDialogOpenChange}>
-                    <DialogTrigger asChild>
-                      <Button type="button" variant="outline" size="sm">
-                        View / Edit
-                      </Button>
-                    </DialogTrigger>
-
-                    <DialogContent className="max-w-2xl">
-                      <div className="flex items-start justify-between gap-4">
-                        <DialogHeader>
-                          <DialogTitle>Base Resume</DialogTitle>
-                          <DialogDescription>
-                            Click Edit to replace. Delete removes the saved resume.
-                          </DialogDescription>
-                        </DialogHeader>
-
-                        <div className="flex gap-2">
-                          {baseResume && !isEditingResume ? (
-                            <Button type="button" variant="outline" size="sm" onClick={handleResumeOpen}>
-                              Open
-                            </Button>
-                          ) : null}
-
-                          {!isEditingResume ? (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={startResumeEdit}
-                              disabled={!baseResume}
-                            >
-                              Edit
-                            </Button>
-                          ) : null}
-
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="sm"
-                            onClick={handleResumeDelete}
-                            disabled={!baseResume || isResumeDeleting}
-                          >
-                            {isResumeDeleting ? "Deleting..." : "Delete"}
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 text-sm text-muted-foreground">
-                        {baseResume ? (
-                          <>
-                            Current: <span className="font-medium">{baseResume.originalName}</span>
-                          </>
-                        ) : (
-                          "No base resume saved yet."
-                        )}
-                      </div>
-
-                      <form className="mt-4 space-y-4" onSubmit={handleResumeSave}>
-                        <div className="space-y-1">
-                          <Label htmlFor="resumeFile">Resume file</Label>
-                          <Input
-                            id="resumeFile"
-                            ref={resumeFileInputRef}
-                            type="file"
-                            accept=".pdf,.txt,application/pdf,text/plain"
-                            disabled={!isEditingResume}
-                            onChange={(e) => setResumeFile(e.target.files?.[0] ?? null)}
-                          />
-                          <div className="text-xs text-muted-foreground">Accepted: PDF, TXT • up to 10MB</div>
-                        </div>
-
-                        {isEditingResume ? (
-                          <div className="flex items-center justify-end gap-2 pt-2">
-                            {baseResume ? (
-                              <Button type="button" variant="outline" onClick={cancelResumeEdit} disabled={isResumeSaving}>
-                                Cancel
-                              </Button>
-                            ) : null}
-
-                            <Button type="submit" disabled={isResumeSaving || !resumeFile}>
-                              {isResumeSaving
-                                ? "Saving..."
-                                : baseResume
-                                ? "Replace base resume"
-                                : "Save base resume"}
-                            </Button>
-                          </div>
-                        ) : null}
-                      </form>
-                    </DialogContent>
-                  </Dialog>
-                </CardAction>
-              </CardHeader>
-
-              <CardContent className="text-sm text-muted-foreground">
-                {baseResume ? (
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="truncate">
-                      Current: <span className="font-medium">{baseResume.originalName}</span>
-                    </div>
-                    <Button type="button" variant="outline" size="sm" onClick={handleResumeOpen}>
-                      Open
-                    </Button>
-                  </div>
-                ) : (
-                  "No base resume saved yet."
-                )}
-              </CardContent>
-            </Card>
 
           </div>
         </div>
