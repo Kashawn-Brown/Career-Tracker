@@ -5,6 +5,7 @@ import { apiFetch, ApiError } from "@/lib/api/client";
 import { routes } from "@/lib/api/routes";
 import type { MeResponse, UpdateMeRequest } from "@/types/api";
 import { useAuth } from "@/hooks/useAuth";
+import { JobSearchPreferencesCard } from "@/components/profile/JobSearchPreferencesCard";
 import { ProfileConnectionsCard } from "@/components/profile/ProfileConnectionsCard";
 import { Button } from "@/components/ui/button";
 import {
@@ -645,154 +646,26 @@ export default function ProfilePage() {
           {/* Right: secondary cards stacked */}
           <div className="space-y-6 lg:col-span-5">
             {/* Job search preferences section */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Job Search Preferences</CardTitle>
-                <CardDescription>
-                  Used later for AI tailoring (titles, locations, keywords, preferred arrangement).
-                </CardDescription>
+            <JobSearchPreferencesCard
+              isDialogOpen={isJobSearchDialogOpen}
+              onDialogOpenChange={handleJobSearchDialogOpenChange}
+              isEditing={isEditingJobSearch}
+              onStartEdit={startJobSearchEdit}
+              onCancelEdit={cancelJobSearchEdit}
+              isSaving={isJobSearchSaving}
+              onSave={handleJobSearchSave}
+              titlesText={jobSearchTitlesText}
+              setTitlesText={setJobSearchTitlesText}
+              locationsText={jobSearchLocationsText}
+              setLocationsText={setJobSearchLocationsText}
+              keywordsText={jobSearchKeywordsText}
+              setKeywordsText={setJobSearchKeywordsText}
+              summary={jobSearchSummary}
+              setSummary={setJobSearchSummary}
+              workMode={jobSearchWorkMode}
+              setWorkMode={setJobSearchWorkMode}
+            />
 
-                <CardAction>
-                  <Dialog open={isJobSearchDialogOpen} onOpenChange={handleJobSearchDialogOpenChange}>
-                    <DialogTrigger asChild>
-                      <Button type="button" variant="outline" size="sm">
-                        View / Edit
-                      </Button>
-                    </DialogTrigger>
-
-                    <DialogContent className="max-w-2xl">
-                      <div className="flex items-start justify-between gap-4">
-                        <DialogHeader>
-                          <DialogTitle>Job Search Preferences</DialogTitle>
-                          <DialogDescription>
-                            View first. Click Edit to make changes, then Save to persist.
-                          </DialogDescription>
-                        </DialogHeader>
-
-                        {!isEditingJobSearch ? (
-                          <Button type="button" variant="outline" size="sm" onClick={startJobSearchEdit}>
-                            Edit
-                          </Button>
-                        ) : null}
-                      </div>
-
-                      <form className="mt-4 space-y-4" onSubmit={handleJobSearchSave}>
-                        <div className="space-y-1">
-                          <Label htmlFor="jobSearchTitlesText">Target titles (comma-separated)</Label>
-                          <Input
-                            id="jobSearchTitlesText"
-                            value={jobSearchTitlesText}
-                            onChange={(e) => setJobSearchTitlesText(e.target.value)}
-                            placeholder="e.g., Backend Engineer, SRE, DevOps, ..."
-                            readOnly={!isEditingJobSearch}
-                            className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-                          />
-                        </div>
-
-                        <div className="space-y-1">
-                          <Label htmlFor="jobSearchLocationsText">Preferred locations (comma-separated)</Label>
-                          <Input
-                            id="jobSearchLocationsText"
-                            value={jobSearchLocationsText}
-                            onChange={(e) => setJobSearchLocationsText(e.target.value)}
-                            placeholder="e.g., Toronto, USA, Ottawa, ..."
-                            readOnly={!isEditingJobSearch}
-                            className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-                          />
-                        </div>
-
-                        <div className="space-y-1">
-                          <Label htmlFor="jobSearchWorkMode">Preferred work arrangement</Label>
-                          <Select
-                            id="jobSearchWorkMode"
-                            value={jobSearchWorkMode}
-                            onChange={(e) => setJobSearchWorkMode(e.target.value as WorkMode)}
-                            disabled={!isEditingJobSearch}
-                          >
-                            <option value="UNKNOWN">Any</option>
-                            <option value="REMOTE">Remote</option>
-                            <option value="HYBRID">Hybrid</option>
-                            <option value="ONSITE">On-site</option>
-                          </Select>
-                        </div>
-
-                        <div className="space-y-1">
-                          <Label htmlFor="jobSearchKeywordsText">Keywords (comma-separated)</Label>
-                          <Input
-                            id="jobSearchKeywordsText"
-                            value={jobSearchKeywordsText}
-                            onChange={(e) => setJobSearchKeywordsText(e.target.value)}
-                            placeholder="e.g., AWS, Kubernetes, Terraform, Java, ..."
-                            readOnly={!isEditingJobSearch}
-                            className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-                          />
-                        </div>
-
-                        <div className="space-y-1">
-                          <Label htmlFor="jobSearchSummary">Short summary</Label>
-                          <Textarea
-                            id="jobSearchSummary"
-                            value={jobSearchSummary}
-                            onChange={(e) => setJobSearchSummary(e.target.value)}
-                            placeholder="A few lines about what you’re targeting and what you’re strong at..."
-                            readOnly={!isEditingJobSearch}
-                            className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
-                          />
-                        </div>
-
-                        {isEditingJobSearch ? (
-                          <div className="flex items-center justify-end gap-2 pt-2">
-                            <Button type="button" variant="outline" onClick={cancelJobSearchEdit}>
-                              Cancel
-                            </Button>
-                            <Button type="submit" disabled={isJobSearchSaving}>
-                              {isJobSearchSaving ? "Saving..." : "Save"}
-                            </Button>
-                          </div>
-                        ) : null}
-                      </form>
-                    </DialogContent>
-                  </Dialog>
-                </CardAction>
-              </CardHeader>
-
-              {/* Compact summary (keeps page from being a long stack of forms) */}
-              <CardContent className="space-y-2 text-sm">
-                <div className="grid gap-1">
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-muted-foreground">Work arrangement</span>
-                    <span className="truncate font-medium">
-                      {jobSearchWorkMode === "UNKNOWN" ? "Any" : workModeLabel(jobSearchWorkMode)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-muted-foreground">Titles</span>
-                    <span className="truncate font-medium" title={jobSearchTitlesText}>
-                      {jobSearchTitlesText.trim() ? jobSearchTitlesText : "—"}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-muted-foreground">Locations</span>
-                    <span className="truncate font-medium" title={jobSearchLocationsText}>
-                      {jobSearchLocationsText.trim() ? jobSearchLocationsText : "—"}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-muted-foreground">Keywords</span>
-                    <span className="truncate font-medium" title={jobSearchKeywordsText}>
-                      {jobSearchKeywordsText.trim() ? jobSearchKeywordsText : "—"}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="text-muted-foreground">
-                  {jobSearchSummary.trim() ? jobSearchSummary : "No summary set yet."}
-                </div>
-              </CardContent>
-            </Card>
 
 
             {/* Connections section */}
