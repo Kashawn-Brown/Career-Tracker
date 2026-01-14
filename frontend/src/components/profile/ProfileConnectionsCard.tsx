@@ -27,6 +27,19 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Plus } from "lucide-react";
+
+const EMPTY_DRAFT = {
+  name: "",
+  company: "",
+  title: "",
+  email: "",
+  phone: "",
+  relationship: "",
+  location: "",
+  linkedInUrl: "",
+  notes: "",
+};
 
 // ProfileConnectionsCard: small preview on Profile + view-all dialog (2-pane list + details).
 export function ProfileConnectionsCard() {
@@ -44,6 +57,7 @@ export function ProfileConnectionsCard() {
 
   // Selection (right pane)
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
 
   // Sorting (default alpha)
   const [sortBy, setSortBy] = useState<ConnectionSortBy>("name");
@@ -53,6 +67,9 @@ export function ProfileConnectionsCard() {
   const [detailsMode, setDetailsMode] = useState<"view" | "edit">("view");
   const [isEditSaving, setIsEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  // Edit draft state
+  const [editDraft, setEditDraft] = useState({ ...EMPTY_DRAFT });
+
 
   // The selected connection.
   const selected = useMemo(
@@ -140,32 +157,40 @@ export function ProfileConnectionsCard() {
 
   // Handles the dialog open/close.
   function handleDialogOpenChange(next: boolean) {
+    // Don’t allow closing mid-save (prevents weird half-saved UI state)
+    if (!next && isEditSaving) return;
+  
+    // If currently editing, confirm discard
+    if (!next && (detailsMode === "edit" || isCreating)) {
+      const ok = window.confirm("Discard changes?");
+      if (!ok) return;
+    }
+  
     setIsDialogOpen(next);
-
+  
     if (!next) {
-      // Reset list-only transient UI on close.
+      // IMPORTANT: reset edit state so reopening is always view-first
+      setDetailsMode("view");
+      setEditError(null);
+      setIsCreating(false);
+      setEditDraft({ ...EMPTY_DRAFT });
+
+      // Reset selection + list so open triggers a clean reload/selection
+      setSelectedId(null);
+      setItems([]);
+      setTotal(0);
+  
+      // Existing cleanup
       setListError(null);
       setIsListLoading(false);
     }
   }
+  
 
   // Subtitle for a connection.
   function subtitle(c: Connection) {
     return [c.title, c.company].filter(Boolean).join(" • ");
   }
-
-  // Edit draft state
-  const [editDraft, setEditDraft] = useState({
-    name: "",
-    company: "",
-    title: "",
-    email: "",
-    phone: "",
-    relationship: "",
-    location: "",
-    linkedInUrl: "",
-    notes: "",
-  });
   
   // Converts a Connection to an edit draft.
   function toDraft(c: Connection) {
@@ -184,6 +209,8 @@ export function ProfileConnectionsCard() {
 
   // Keep the edit draft in sync with the selected connection.
   useEffect(() => {
+    if (isCreating) return; // don't blow away the create draft
+  
     if (!selected) {
       setDetailsMode("view");
       setEditError(null);
@@ -194,7 +221,7 @@ export function ProfileConnectionsCard() {
     setEditError(null);
     setEditDraft(toDraft(selected));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId]);
+  }, [selectedId, isCreating]);
 
   // Starts the edit mode.
   function startDetailsEdit() {
@@ -253,6 +280,67 @@ export function ProfileConnectionsCard() {
       setIsEditSaving(false);
     }
   }
+
+  // Starts the create connection mode.
+  function startCreateConnection() {
+    setEditError(null);
+    setDetailsMode("view"); // create is separate from edit
+    setIsCreating(true);
+    setEditDraft({ ...EMPTY_DRAFT });
+  }
+  
+  // Cancels the create connection mode.
+  function cancelCreateConnection() {
+    setEditError(null);
+    setIsCreating(false);
+  
+    // If something is selected, go back to its view draft.
+    if (selected) setEditDraft(toDraft(selected));
+    else setEditDraft({ ...EMPTY_DRAFT });
+  }
+  
+  // Handles the creation of a connection.
+  async function handleCreateConnection() {
+    if (!editDraft.name.trim()) {
+      setEditError("Name is required.");
+      return;
+    }
+  
+    setIsEditSaving(true);
+    setEditError(null);
+  
+    try {
+      const payload = {
+        name: editDraft.name.trim(),
+        company: editDraft.company.trim() || undefined,
+        title: editDraft.title.trim() || undefined,
+        email: editDraft.email.trim() || undefined,
+        phone: editDraft.phone.trim() || undefined,
+        relationship: editDraft.relationship.trim() || undefined,
+        location: editDraft.location.trim() || undefined,
+        linkedInUrl: editDraft.linkedInUrl.trim() || undefined,
+        notes: editDraft.notes.trim() || undefined,
+        // NOTE: intentionally not using status
+      };
+  
+      const res = await connectionsApi.createConnection(payload);
+  
+      // Exit create mode first so the UI goes back to normal.
+      setIsCreating(false);
+      setDetailsMode("view");
+  
+      // Reload + select the new connection.
+      await loadAll();
+      await loadPreview();
+      setSelectedId(res.connection.id);
+    } catch (err) {
+      if (err instanceof ApiError) setEditError(err.message);
+      else setEditError("Failed to create connection.");
+    } finally {
+      setIsEditSaving(false);
+    }
+  }
+  
   
 
   return (
@@ -351,12 +439,25 @@ export function ProfileConnectionsCard() {
             <div className="mt-4 grid gap-4 md:grid-cols-[320px_1fr] h-[55vh]">
               {/* Left list */}
               <div className="rounded-md border overflow-hidden">
-                <div className="px-3 py-2 border-b text-sm font-medium">
-                  Connections
-                  <div className="text-xs text-muted-foreground float-right">
-                    {isListLoading ? "Loading..." : `${total} total`}
+                <div className="flex items-center justify-between gap-2 px-3 py-2 border-b">
+                  <div className="flex items-center gap-2">
+                    <div className="text-sm font-medium">Connections</div>
+                    <div className="text-xs text-muted-foreground">
+                      {isListLoading ? "Loading..." : `${total} total`}
+                    </div>
                   </div>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={startCreateConnection}
+                    disabled={detailsMode === "edit" || isCreating || isEditSaving}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                  </Button>
                 </div>
+
 
                 <div className="h-[calc(55vh-41px)] overflow-auto">
                   {isListLoading ? (
@@ -376,7 +477,7 @@ export function ProfileConnectionsCard() {
                             key={c.id}
                             type="button"
                             onClick={() => setSelectedId(c.id)}
-                            disabled={detailsMode === "edit" || isEditSaving}
+                            disabled={detailsMode === "edit" || isEditSaving || isCreating}
                             className={cn(
                               "w-full text-left px-3 py-2 hover:bg-muted/40 disabled:opacity-60 disabled:cursor-not-allowed",
                               isSelected && "bg-muted/50",
@@ -403,7 +504,28 @@ export function ProfileConnectionsCard() {
                 <div className="flex items-center justify-between gap-2 px-3 py-2 border-b">
                   <div className="text-sm font-medium">Details</div>
 
-                  {detailsMode === "view" ? (
+                  {isCreating ? (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleCreateConnection}
+                        disabled={isEditSaving}
+                      >
+                        {isEditSaving ? "Creating..." : "Add Connection"}
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={cancelCreateConnection}
+                        disabled={isEditSaving}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : detailsMode === "view" ? (
                     <Button
                       type="button"
                       variant="outline"
@@ -430,6 +552,7 @@ export function ProfileConnectionsCard() {
                       </Button>
                     </div>
                   )}
+
                 </div>
 
 
@@ -441,19 +564,28 @@ export function ProfileConnectionsCard() {
                     </div>
                   ) : null}
 
-                  {!selected ? (
+                  {!selected && !isCreating ? (
                     <div className="text-sm text-muted-foreground">
                       Select a connection from the left to view details.
                     </div>
                   ) : (
                     <div className="space-y-4">
                       <div className="space-y-1">
-                        <div className="text-base font-semibold">{selected.name}</div>
-                        {subtitle(selected) ? (
-                          <div className="text-sm text-muted-foreground">
-                            {subtitle(selected)}
-                          </div>
-                        ) : null}
+                        {isCreating ? (
+                          <>
+                            <div className="text-base font-semibold">New connection</div>
+                            <div className="text-sm text-muted-foreground">
+                              Fill out the details and click Create.
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="text-base font-semibold">{selected?.name}</div>
+                            {selected && subtitle(selected) ? (
+                              <div className="text-sm text-muted-foreground">{subtitle(selected)}</div>
+                            ) : null}
+                          </>
+                        )}
                       </div>
 
                       <div className="grid gap-4">
@@ -462,7 +594,7 @@ export function ProfileConnectionsCard() {
                           <Input
                             value={editDraft.name}
                             onChange={(e) => setEditDraft((d) => ({ ...d, name: e.target.value }))}
-                            readOnly={detailsMode !== "edit"}
+                            readOnly={detailsMode !== "edit" && !isCreating}
                             className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
                           />
                         </div>
@@ -473,7 +605,7 @@ export function ProfileConnectionsCard() {
                             <Input
                               value={editDraft.company}
                               onChange={(e) => setEditDraft((d) => ({ ...d, company: e.target.value }))}
-                              readOnly={detailsMode !== "edit"}
+                              readOnly={detailsMode !== "edit" && !isCreating}
                               className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
                             />
                           </div>
@@ -482,7 +614,7 @@ export function ProfileConnectionsCard() {
                             <Input
                               value={editDraft.title}
                               onChange={(e) => setEditDraft((d) => ({ ...d, title: e.target.value }))}
-                              readOnly={detailsMode !== "edit"}
+                              readOnly={detailsMode !== "edit" && !isCreating}
                               className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
                             />
                           </div>
@@ -494,7 +626,7 @@ export function ProfileConnectionsCard() {
                             <Input
                               value={editDraft.email}
                               onChange={(e) => setEditDraft((d) => ({ ...d, email: e.target.value }))}
-                              readOnly={detailsMode !== "edit"}
+                              readOnly={detailsMode !== "edit" && !isCreating}
                               className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
                             />
                           </div>
@@ -503,7 +635,7 @@ export function ProfileConnectionsCard() {
                             <Input
                               value={editDraft.phone}
                               onChange={(e) => setEditDraft((d) => ({ ...d, phone: e.target.value }))}
-                              readOnly={detailsMode !== "edit"}
+                              readOnly={detailsMode !== "edit" && !isCreating}
                               className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
                             />
                           </div>
@@ -515,7 +647,7 @@ export function ProfileConnectionsCard() {
                             <Input
                               value={editDraft.relationship}
                               onChange={(e) => setEditDraft((d) => ({ ...d, relationship: e.target.value }))}
-                              readOnly={detailsMode !== "edit"}
+                              readOnly={detailsMode !== "edit" && !isCreating}
                               className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
                             />
                           </div>
@@ -524,7 +656,7 @@ export function ProfileConnectionsCard() {
                             <Input
                               value={editDraft.location}
                               onChange={(e) => setEditDraft((d) => ({ ...d, location: e.target.value }))}
-                              readOnly={detailsMode !== "edit"}
+                              readOnly={detailsMode !== "edit" && !isCreating}
                               className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
                             />
                           </div>
@@ -535,7 +667,7 @@ export function ProfileConnectionsCard() {
                           <Input
                             value={editDraft.linkedInUrl}
                             onChange={(e) => setEditDraft((d) => ({ ...d, linkedInUrl: e.target.value }))}
-                            readOnly={detailsMode !== "edit"}
+                            readOnly={detailsMode !== "edit" && !isCreating}
                             className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
                           />
                         </div>
@@ -545,7 +677,7 @@ export function ProfileConnectionsCard() {
                           <Textarea
                             value={editDraft.notes}
                             onChange={(e) => setEditDraft((d) => ({ ...d, notes: e.target.value }))}
-                            readOnly={detailsMode !== "edit"}
+                            readOnly={detailsMode !== "edit" && !isCreating}
                             className="read-only:bg-muted/30 read-only:text-muted-foreground read-only:cursor-default"
                           />
                         </div>
