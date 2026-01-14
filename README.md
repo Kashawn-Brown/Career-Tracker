@@ -61,6 +61,12 @@ The design goal is simple: **scanning stays instant** in the table, while richer
 
 ---
 
+### Repo notes
+
+- **Prisma source of truth:** `backend/prisma/schema.prisma` (schema + migrations live under `backend/prisma/`)
+- `frontend_legacy/` and `backend_legacy/` are **archived reference only** (not part of builds or deployments)
+
+---
 ## Running locally (quickstart)
 
 ### Prerequisites

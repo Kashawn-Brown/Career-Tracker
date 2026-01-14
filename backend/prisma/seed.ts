@@ -1,3 +1,9 @@
+/** DEPRECATED: This script is no longer used.
+ * NEEDS TO BE UPDATED TO THE NEW SCHEMA.
+ * 
+ * THIS IS FOR THE LEGACY SCHEMA.
+ */
+
 /**
  * Seed data for local dev + performance testing.
  * - Creates/updates a dedicated seed user
