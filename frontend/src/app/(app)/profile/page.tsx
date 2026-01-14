@@ -501,13 +501,60 @@ export default function ProfilePage() {
   return (
     <div className="mx-auto max-w-screen-xl px-4 py-6 sm:px-6 lg:px-8">
       <div className="space-y-6">
-        {hasMessages ? (
-          <div className="space-y-2">
-            {errorMessage ? <Alert variant="destructive">{errorMessage}</Alert> : null}
-            {resumeErrorMessage ? <Alert variant="warning">{resumeErrorMessage}</Alert> : null}
-            {successMessage ? <Alert variant="success">{successMessage}</Alert> : null}
-          </div>
-        ) : null}
+      {hasMessages ? (
+        <div className="space-y-2">
+          {errorMessage ? (
+            <div className="relative">
+              <Alert variant="destructive" className="pr-10">
+                {errorMessage}
+              </Alert>
+              <button
+                type="button"
+                onClick={() => setErrorMessage(null)}
+                className="absolute right-2 top-2 rounded-md px-2 py-1 opacity-70 hover:bg-black/5 hover:opacity-100"
+                aria-label="Dismiss message"
+                title="Dismiss"
+              >
+                ×
+              </button>
+            </div>
+          ) : null}
+
+          {resumeErrorMessage ? (
+            <div className="relative">
+              <Alert variant="warning" className="pr-10">
+                {resumeErrorMessage}
+              </Alert>
+              <button
+                type="button"
+                onClick={() => setResumeErrorMessage(null)}
+                className="absolute right-2 top-2 rounded-md px-2 py-1 opacity-70 hover:bg-black/5 hover:opacity-100"
+                aria-label="Dismiss message"
+                title="Dismiss"
+              >
+                ×
+              </button>
+            </div>
+          ) : null}
+
+          {successMessage ? (
+            <div className="relative">
+              <Alert variant="success" className="pr-10">
+                {successMessage}
+              </Alert>
+              <button
+                type="button"
+                onClick={() => setSuccessMessage(null)}
+                className="absolute right-2 top-2 rounded-md px-2 py-1 opacity-70 hover:bg-black/5 hover:opacity-100"
+                aria-label="Dismiss message"
+                title="Dismiss"
+              >
+                ×
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
         <div className="grid gap-6 lg:grid-cols-12 lg:items-start">
           

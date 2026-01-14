@@ -186,8 +186,18 @@ export function ApplicationDocumentsSection({
     <div className="space-y-4">
       {/* Error message */}
       {errorMessage ? (
-        <div className="rounded-md border px-3 py-2 text-sm text-destructive">
+        <div className="relative rounded-md border px-3 py-2 pr-10 text-sm text-destructive">
           {errorMessage}
+
+          <button
+            type="button"
+            onClick={() => setErrorMessage(null)}
+            className="absolute right-2 top-2 rounded-md px-2 py-1 opacity-70 hover:bg-black/5 hover:opacity-100"
+            aria-label="Dismiss message"
+            title="Dismiss"
+          >
+            ×
+          </button>
         </div>
       ) : null}
 
