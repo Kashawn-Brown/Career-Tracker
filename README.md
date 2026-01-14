@@ -10,6 +10,15 @@ The design goal is simple: **scanning stays instant** in the table, while richer
 
 ---
 
+## Live Demo (Production)
+
+- **App (Vercel):** https://career-tracker-frontend-ten.vercel.app
+- **Backend:** Deployed on **Google Cloud Run (GCP)** (private API; frontend calls it via `NEXT_PUBLIC_API_BASE_URL`)
+- **Database:** **Cloud SQL (Postgres)**
+- **File storage:** **Google Cloud Storage (private bucket)** with **short-lived signed URLs**
+
+---
+
 ## What you can do
 
 ### Applications (table-first + safety model)
@@ -96,13 +105,17 @@ Default ports:
 
 ## Deployment
 
-* Backend is designed for Cloud Run + Cloud SQL (Postgres)
-* Frontend is designed for Vercel
+### Frontend — Vercel
+- Deploys from `frontend/` (Next.js App Router)
+- **Public URL:** https://career-tracker-frontend-ten.vercel.app
+- Env var:
+  - `NEXT_PUBLIC_API_BASE_URL` = `https://<CLOUD_RUN_SERVICE_URL>/api/v1`
 
-Deployment wiring and required environment variables are documented in:
-
-* `backend/README.md` (API + GCS + env vars)
-* `frontend/README.md` (frontend env vars + runtime behavior)
+### Backend — Google Cloud Platform (GCP)
+- **Cloud Run** (Fastify API in `backend/`)
+- **Cloud SQL (Postgres)** for the database
+- **Secret Manager** for sensitive env vars (e.g., `DATABASE_URL`, `JWT_SECRET`)
+- **Cloud Storage (GCS)** private bucket for Documents v1 (signed URLs for download)
 
 ---
 

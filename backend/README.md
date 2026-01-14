@@ -276,7 +276,7 @@ JWT_SECRET="dev_change_me"
 If using Documents v1 locally:
 
 ```env
-GCS_BUCKET="your-private-bucket-name"
+GCS_BUCKET="private-bucket-name"
 GCS_KEY_PREFIX="dev"
 GCS_MAX_UPLOAD_BYTES="10485760"
 GCS_SIGNED_URL_TTL_SECONDS="600"
@@ -323,7 +323,7 @@ ENABLE_DEBUG_ROUTES="true"
 ## Deployment notes (Cloud Run style)
 
 * Cloud Run provides `PORT` (often `8080`) — backend reads `process.env.PORT`
-* Set `CORS_ORIGIN` to your deployed frontend origin(s) only
+* Set `CORS_ORIGIN` to the deployed frontend origin(s) only
 * For GCS: ensure the Cloud Run service account has access to the bucket (read/write/delete)
 * For Cloud SQL: use a Cloud SQL connector / unix socket + a Cloud Run–friendly `DATABASE_URL`
 

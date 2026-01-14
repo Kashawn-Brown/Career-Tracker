@@ -198,7 +198,7 @@ npm run start:frontend
 
 ## Deployment notes
 
-* Set `NEXT_PUBLIC_API_BASE_URL` to your deployed backend API base (example: `https://<api-host>/api/v1`)
+* Set `NEXT_PUBLIC_API_BASE_URL` to the deployed backend API base (example: `https://<api-host>/api/v1`)
 * Deploy as a standard Next.js app (Vercel recommended)
 
 ---
