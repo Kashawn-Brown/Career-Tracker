@@ -9,17 +9,6 @@ import { UserProfileCard } from "@/components/profile/UserProfileCard";
 import { JobSearchPreferencesCard } from "@/components/profile/JobSearchPreferencesCard";
 import { ProfileConnectionsCard } from "@/components/profile/ProfileConnectionsCard";
 import { BaseResumeCard } from "@/components/profile/BaseResumeCard";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { documentsApi } from "@/lib/api/documents";
 import { Alert } from "@/components/ui/alert";
 import type { Document, WorkMode } from "@/types/api";
