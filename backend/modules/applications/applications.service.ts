@@ -1,7 +1,7 @@
 import { ApplicationStatus, JobType, WorkMode, Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { AppError } from "../../errors/app-error.js";
-import { applicationSelect, applicationConnectionSelect } from "./applications.dto.js";
+import { applicationSelect, applicationConnectionSelect, applicationListSelect } from "./applications.dto.js";
 import type { CreateApplicationInput, UpdateApplicationInput, ListApplicationsParams } from "./applications.dto.js";
 
 
@@ -95,7 +95,7 @@ export async function listApplications(params: ListApplicationsParams) {
       orderBy: [{ [sortBy]: sortDir }, { updatedAt: "desc" }],
       skip,
       take: pageSize,  // how many rows to take/return
-      select: applicationSelect,
+      select: applicationListSelect,
     }),
   ]);
 

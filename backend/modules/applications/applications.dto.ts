@@ -31,9 +31,11 @@ export const applicationSelect = {
   
 } as const;
 
+// Lightweight select for list views (keeps table fast)
 export const applicationListSelect = {
   id: true,
   userId: false,
+  
   company: true,
   position: true,
   location: true,
