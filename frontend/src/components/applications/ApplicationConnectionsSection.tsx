@@ -139,6 +139,8 @@ export function ApplicationConnectionsSection({
   const [isAddSaving, setIsAddSaving] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
 
+  const [isNameFocused, setIsNameFocused] = useState(false);
+
   // ---- Connection Details states ----
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [activeConnection, setActiveConnection] = useState<ApplicationConnection | null>(null);
@@ -154,7 +156,10 @@ export function ApplicationConnectionsSection({
   // suggestions: the suggestions for the connection to be added.
   // isSuggestLoading: whether the suggestions are loading.
   const { items: suggestions, isLoading: isSuggestLoading } =
-    useConnectionAutocomplete(addDraft.name, (isAddOpen && !selectedExisting));
+    useConnectionAutocomplete(addDraft.name, (isAddOpen && !selectedExisting && isNameFocused));
+
+  // showSuggestions: whether to show the suggestions.
+  const showSuggestions = isAddOpen && !selectedExisting && isNameFocused && addDraft.name.trim().length >= 2;
   
   // refresh: refreshes the list of connections attached to the application.
   const refresh = useCallback(async () => {
@@ -189,6 +194,7 @@ export function ApplicationConnectionsSection({
     setSelectedExisting(null);
     setAddDraft(emptyDraft());
     setIsAddOpen(true);
+    // setIsNameFocused(false);
   }
 
   // closes the add connection dialog.
@@ -197,6 +203,7 @@ export function ApplicationConnectionsSection({
     setAddError(null);
     setSelectedExisting(null);
     setAddDraft(emptyDraft());
+    setIsNameFocused(false);
   }
 
   // applies a suggestion for the connection to be added.
@@ -204,6 +211,7 @@ export function ApplicationConnectionsSection({
     setAddError(null);
     setSelectedExisting(c);
     setAddDraft(toDraft(c)); // fill + lock fields until user confirms
+    setIsNameFocused(false);
   }
 
   // uses a different person for the connection to be added.
@@ -662,7 +670,7 @@ export function ApplicationConnectionsSection({
             <div className="rounded-md border px-3 py-2 text-sm flex items-center justify-between mb-4 mt-4">
               <div>
                 Add existing: <span className="font-medium">{selectedExisting.name}</span>
-                <span className="text-xs text-muted-foreground"> • {selectedExisting.company ?? ""}</span>
+                <span className="text-xs text-muted-foreground">{selectedExisting.company ? "• " + selectedExisting.company : ""}</span>
               </div>
               <Button type="button" variant="ghost" size="sm" onClick={useDifferentPerson}>
                 Not this person?
@@ -679,13 +687,15 @@ export function ApplicationConnectionsSection({
 
               <div className="relative">
                 <Input
+                  onFocus={() => setIsNameFocused(true)}
+                  onBlur={() => setIsNameFocused(false)}
                   value={addDraft.name}
                   onChange={(e) => setAddDraft((p) => ({ ...p, name: e.target.value }))}
                   placeholder="e.g., John Doe"
                   disabled={!!selectedExisting}
                 />
 
-                {!selectedExisting && addDraft.name.trim().length >= 2 ? (
+                {showSuggestions ? (
                   <div className="absolute z-50 mt-1 w-full rounded-md border bg-background shadow">
                     {isSuggestLoading ? (
                       <div className="px-3 py-2 text-xs text-muted-foreground">Searching…</div>
@@ -704,6 +714,7 @@ export function ApplicationConnectionsSection({
                           key={c.id}
                           type="button"
                           disabled={alreadyAdded}
+                          onMouseDown={(e) => e.preventDefault()}
                           onClick={() => applySuggestion(c)}
                           className={`flex w-full flex-col gap-0.5 px-3 py-2 text-left hover:bg-muted ${
                             alreadyAdded ? "opacity-50 cursor-not-allowed" : ""
