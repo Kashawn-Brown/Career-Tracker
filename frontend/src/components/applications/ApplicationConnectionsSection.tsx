@@ -389,7 +389,6 @@ export function ApplicationConnectionsSection({
             {connections.map((c) => {
 
               const titleLine = [c.title, c.company].filter(Boolean).join(" • ");
-              const metaLine = [c.relationship, c.location].filter(Boolean).join(" • ");
 
               return (
                 <div
@@ -406,12 +405,6 @@ export function ApplicationConnectionsSection({
                     {titleLine ? (
                       <div className="text-xs text-muted-foreground truncate">
                         {titleLine}
-                      </div>
-                    ) : null}
-
-                    {metaLine ? (
-                      <div className="text-xs text-muted-foreground truncate">
-                        {metaLine}
                       </div>
                     ) : null}
                   </div>
