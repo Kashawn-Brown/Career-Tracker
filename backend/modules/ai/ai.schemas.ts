@@ -28,6 +28,7 @@ export const ApplicationDraftSchema = Type.Object(
 
     salaryText: Type.Optional(Type.String({ maxLength: 200 })),
     jobLink: Type.Optional(Type.String({ maxLength: 2048 })),
+    tagsText: Type.Optional(Type.String({ maxLength: 500 })),
   },
   { additionalProperties: false }
 );

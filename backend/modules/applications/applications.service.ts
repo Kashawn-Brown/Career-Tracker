@@ -202,7 +202,7 @@ export async function deleteApplication(userId: string, id: string) {
 }
 
 
-/** CONNECTIONS : */
+//----------------- CONNECTIONS -----------------
 
 /**
  * Lists the connections for an application.
@@ -306,6 +306,54 @@ export async function detachConnectionFromApplication(
 
   return { ok: true };
 }
+
+
+//----------------- AI ARTIFACTS -----------------
+
+// AI artifacts are used to store the results of AI-generated content.
+
+/**
+ * Creates a new AI artifact for an application.
+ */
+export async function createAiArtifact(args: {
+  userId: string;
+  jobApplicationId: string;
+  kind: "JD_EXTRACT_V1";  // The type of AI artifact. (hardcoded for now)
+  payload: unknown;
+  model: string;
+}) {
+  return prisma.aiArtifact.create({
+    data: {
+      userId: args.userId,
+      jobApplicationId: args.jobApplicationId,
+      kind: args.kind,
+      payload: args.payload as any,
+      model: args.model,
+    },
+  });
+}
+
+/**
+ * Lists the AI artifacts for an application.
+ */
+export async function listAiArtifacts(args: {
+  userId: string;
+  jobApplicationId: string;
+  kind?: "JD_EXTRACT_V1";  // The type of AI artifact. (hardcoded for now)
+}) {
+  // ensures the application exists + belongs to the user (consistent with your other routes)
+  await getApplicationById(args.jobApplicationId, args.userId);
+
+  return prisma.aiArtifact.findMany({
+    where: {
+      userId: args.userId,
+      jobApplicationId: args.jobApplicationId,
+      ...(args.kind ? { kind: args.kind } : {}),  // Optional filter by kind (can send multiple kinds to list multiple artifacts (later))
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
 
 
 // Helper to normalize nullable string fields

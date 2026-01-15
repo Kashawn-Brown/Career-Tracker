@@ -19,6 +19,7 @@ export type ApplicationFromJdResponse = {
 
     salaryText?: string;
     jobLink?: string;
+    tagsText?: string;
   };
   ai: {
     jdSummary: string;
@@ -55,6 +56,7 @@ export const ApplicationFromJdJsonObject = {
         "jobTypeDetails",
         "salaryText",
         "jobLink",
+        "tagsText",
       ],
       properties: {
         company: { type: ["string", "null"] },
@@ -81,6 +83,7 @@ export const ApplicationFromJdJsonObject = {
 
         salaryText: { type: ["string", "null"] },
         jobLink: { type: ["string", "null"] },
+        tagsText: { type: ["string", "null"] },
       },
     },
     ai: {
@@ -153,6 +156,7 @@ export function normalizeApplicationFromJdResponse(raw: ApplicationFromJdRespons
 
       salaryText: cleanString(extracted.salaryText),
       jobLink: cleanString(extracted.jobLink),
+      tagsText: cleanString(extracted.tagsText),
     },
     ai: {
       jdSummary: cleanString(raw.ai?.jdSummary) ?? "(No summary provided)",

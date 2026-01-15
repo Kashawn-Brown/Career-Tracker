@@ -31,6 +31,33 @@ export const applicationSelect = {
   
 } as const;
 
+export const applicationListSelect = {
+  id: true,
+  userId: false,
+  company: true,
+  position: true,
+  location: true,
+  locationDetails: false,
+  status: true,
+  dateApplied: true,
+  
+  jobType: true,
+  jobTypeDetails: false,
+  workMode: true,
+  workModeDetails: false,
+  salaryText: true,
+  isFavorite: true,
+  
+  jobLink: true,
+  description: false,
+  notes: false,
+  tagsText: false,
+
+  createdAt: true,
+  updatedAt: true,
+  
+} as const;
+
 
 /**
  * Centralized “public” shapes returned to API clients for connections attached to applications.

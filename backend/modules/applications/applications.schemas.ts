@@ -174,6 +174,28 @@ export const ApplicationConnectionParams = Type.Object(
 );
 
 
+
+/** AI ARTIFACTS : */
+
+export const AiArtifactKindSchema = Type.Union([
+  Type.Literal("JD_EXTRACT_V1"),
+]);
+
+export const GenerateAiArtifactBody = Type.Object(
+  {
+    kind: AiArtifactKindSchema,
+  },
+  { additionalProperties: false }
+);
+
+export const ListAiArtifactsQuery = Type.Object(
+  {
+    kind: Type.Optional(AiArtifactKindSchema),
+  },
+  { additionalProperties: false }
+);
+
+
 // TS types derived from the schemas (keeps TS and validation in sync)
 // Gives real TS types that matches the schema exactly
 export type CreateApplicationBodyType = Static<typeof CreateApplicationBody>;
@@ -182,7 +204,8 @@ export type ApplicationIdParamsType = Static<typeof ApplicationIdParams>;
 export type UpdateApplicationBodyType = Static<typeof UpdateApplicationBody>;
 export type ApplicationStatusType = Static<typeof ApplicationStatusSchema>;
 
-
 export type UploadApplicationDocumentQueryType = Static<typeof UploadApplicationDocumentQuery>;
 
+export type GenerateAiArtifactBodyType = Static<typeof GenerateAiArtifactBody>;
+export type ListAiArtifactsQueryType = Static<typeof ListAiArtifactsQuery>;
 

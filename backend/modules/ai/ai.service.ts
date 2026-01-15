@@ -74,7 +74,20 @@ function buildSystemPrompt(): string {
     "- Do NOT invent details (e.g., hybrid days, contract length) unless explicitly stated.",
     "- jdSummary: 2–4 sentences in your own words. Must cover: (1) what the role does (key responsibilities), (2) key stack/tools if present, (3) must-have requirements if present, (4) location/work arrangement if present. Do NOT just copy sentences from the JD.",
     "- noteworthyNotes: 4–8 short bullets spanning responsibilities, stack/tools, requirements, and any constraints (visa, schedule, on-call, etc.). Avoid repeating jdSummary.",
-    "- warnings: ONLY critical missing/unclear info the user would care about (company unclear, title unclear, location/work arrangement unclear, hybrid/onsite schedule not specified, job type unclear, salary vague). If none, return an empty array.",
+    "Field semantics (do NOT mix these):",
+    "- location = a geographic place only (country/city/region). Never use 'Remote/Hybrid/Onsite' as location.",
+    "- workMode = one of REMOTE | HYBRID | ONSITE (only if explicitly stated).",
+    "- locationDetails = qualifiers about where/when: e.g. 'Remote within Canada', '3 days onsite', 'occasional team meetups', time zone, travel.",
+    "- workModeDetails = schedule expectations: days onsite, cadence, flexibility, etc. If not stated, omit.",
+    "- jobTypeDetails = extra job type constraints ONLY if stated (contract length, hours, shift, on-call, travel). If not stated, omit.",
+    "",
+    "Tags:",
+    "- tagsText: 5–10 short keyword tags inferred ONLY from explicit JD text (stack, domain, constraints). Examples: 'Node.js, TypeScript, Fastify, PostgreSQL, Prisma, JWT, CI/CD, GCP, Remote, Redis, Observability'.",
+    "- Do not invent tags for tools/tech not mentioned.",
+    "",
+    "Warnings:",
+    "- warnings should include missing/unclear critical user-facing info: company missing, title missing, location unclear, workMode unclear, salary missing, visa/eligibility unclear if mentioned but not specified.",
+
   ].join("\n");
 }
 
