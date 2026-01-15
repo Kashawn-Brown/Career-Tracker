@@ -43,31 +43,65 @@ export const ApplicationFromJdJsonObject = {
     extracted: {
       type: "object",
       additionalProperties: false,
+      // strict mode expects required to include every property key
+      required: [
+        "company",
+        "position",
+        "location",
+        "locationDetails",
+        "workMode",
+        "workModeDetails",
+        "jobType",
+        "jobTypeDetails",
+        "salaryText",
+        "jobLink",
+      ],
       properties: {
-        company: { type: "string" },
-        position: { type: "string" },
+        company: { type: ["string", "null"] },
+        position: { type: ["string", "null"] },
 
-        location: { type: "string" },
-        locationDetails: { type: "string" },
+        location: { type: ["string", "null"] },
+        locationDetails: { type: ["string", "null"] },
 
-        workMode: { type: "string", enum: WORK_MODE_VALUES },
-        workModeDetails: { type: "string" },
+        workMode: {
+            anyOf: [
+                { type: "string", enum: WORK_MODE_VALUES },
+                { type: "null" },
+            ],
+        },
+        workModeDetails: { type: ["string", "null"] },
 
-        jobType: { type: "string", enum: JOB_TYPE_VALUES },
-        jobTypeDetails: { type: "string" },
+        jobType: {
+        anyOf: [
+            { type: "string", enum: JOB_TYPE_VALUES },
+            { type: "null" },
+        ],
+        },
+        jobTypeDetails: { type: ["string", "null"] },
 
-        salaryText: { type: "string" },
-        jobLink: { type: "string" },
+        salaryText: { type: ["string", "null"] },
+        jobLink: { type: ["string", "null"] },
       },
     },
     ai: {
       type: "object",
       additionalProperties: false,
-      required: ["jdSummary", "noteworthyNotes"],
+      // strict mode expects required to include every property key
+      required: ["jdSummary", "noteworthyNotes", "warnings"],
       properties: {
-        jdSummary: { type: "string" },
-        noteworthyNotes: { type: "array", items: { type: "string" } },
-        warnings: { type: "array", items: { type: "string" } },
+        jdSummary: { type: ["string", "null"] },
+        noteworthyNotes: {
+          anyOf: [
+            { type: "array", items: { type: "string" } },
+            { type: "null" },
+          ],
+        },
+        warnings: {
+          anyOf: [
+            { type: "array", items: { type: "string" } },
+            { type: "null" },
+          ],
+        },
       },
     },
   },

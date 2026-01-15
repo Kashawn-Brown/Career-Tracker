@@ -22,7 +22,7 @@ export async function buildApplicationDraftFromJd(jdText: string): Promise<Appli
   const openai = getOpenAIClient();
   const model = getOpenAIModel();
 
-  try {
+  // try {
     // Make the OpenAI request.
     const resp = await openai.responses.create({
       model,
@@ -46,10 +46,10 @@ export async function buildApplicationDraftFromJd(jdText: string): Promise<Appli
 
     const parsed = safeJsonParse<ApplicationFromJdResponse>(outputText);
     return normalizeApplicationFromJdResponse(parsed);
-  } catch (err) {
+  // } catch (err) {
     // Treat OpenAI failures as a dependency error (not a user input error)
-    throw new AppError("AI request failed", 502);
-  }
+    // throw new AppError("AI request failed", 502);
+  // }
 }
 
 
@@ -71,8 +71,10 @@ function buildSystemPrompt(): string {
     "Rules:",
     "- If a field is not clearly present, omit it (do NOT guess).",
     "- Prefer omitting workMode/jobType rather than using UNKNOWN.",
-    "- noteworthyNotes: short, concrete bullets (stack, seniority, responsibilities, must-haves, work policy, visa, etc.).",
-    "- warnings: missing/unclear critical info (company unclear, location unclear, etc.).",
+    "- Do NOT invent details (e.g., hybrid days, contract length) unless explicitly stated.",
+    "- jdSummary: 2–4 sentences in your own words. Must cover: (1) what the role does (key responsibilities), (2) key stack/tools if present, (3) must-have requirements if present, (4) location/work arrangement if present. Do NOT just copy sentences from the JD.",
+    "- noteworthyNotes: 4–8 short bullets spanning responsibilities, stack/tools, requirements, and any constraints (visa, schedule, on-call, etc.). Avoid repeating jdSummary.",
+    "- warnings: ONLY critical missing/unclear info the user would care about (company unclear, title unclear, location/work arrangement unclear, hybrid/onsite schedule not specified, job type unclear, salary vague). If none, return an empty array.",
   ].join("\n");
 }
 
