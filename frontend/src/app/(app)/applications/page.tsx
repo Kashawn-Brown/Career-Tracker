@@ -585,9 +585,16 @@ export default function ApplicationsPage() {
             onSort={handleHeaderSortClick}
             onChanged={() => setReloadKey((k) => k + 1)}
             visibleColumns={visibleColumns}
-            onRowClick={(application) => {
-              setSelectedApplication(application);
-              setDetailsOpen(true);
+            onRowClick={async (row) => {
+              try {
+                setErrorMessage(null);
+                const fullApplication = await applicationsApi.get(row.id);
+                setSelectedApplication(fullApplication);
+                setDetailsOpen(true);
+              } catch (err) {
+                if (err instanceof ApiError) setErrorMessage(err.message);
+                else setErrorMessage("Failed to load application details. Please try again.");
+              }
             }}
           />
         )}
