@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { aiApi } from "@/lib/api/ai";
 import { applicationsApi } from "@/lib/api/applications";
@@ -29,7 +29,6 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const [showMore, setShowMore] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
 
   // Editable fields (prefilled after generate)
@@ -60,12 +59,41 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
 
   const canGenerate = jdText.trim().length > 0 && !isGenerating && !isSubmitting;
 
-  const extractedNotesText = useMemo(() => {
-    const bullets = draft?.extracted.notes ?? [];
-    // Keep the “pseudo list” feel in a plain textarea
-    return bullets.map((s) => `- ${s}`).join("\n");
-  }, [draft]);
+  // Reset to initial state
+  function resetToInitial() {
+    setErrorMessage(null);
+  
+    setJdText("");
+    setDraft(null);
+  
+    setCompany("");
+    setPosition("");
+    setApplicationStatus("WISHLIST");
+  
+    setJobType("UNKNOWN");
+    setJobTypeDetails("");
+  
+    setWorkMode("UNKNOWN");
+    setWorkModeDetails("");
+  
+    setLocation("");
+    setLocationDetails("");
+  
+    setSalaryText("");
+    setJobLink("");
+    setTagsText("");
+  
+    setNotes("");
+    setShowSummary(false);
+  }
+  
+  // Reset to initial state
+  function handleReset() {
+    resetToInitial();
+  }
+  
 
+  // Generate draft from job description
   async function handleGenerate() {
     setErrorMessage(null);
 
@@ -111,6 +139,7 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
     }
   }
 
+  // Create application from draft
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setErrorMessage(null);
@@ -155,31 +184,10 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
 
       await applicationsApi.create(payload);
 
-      // Reset + refresh
-      setJdText("");
-      setDraft(null);
+      // Reset to initial state
+      resetToInitial();
 
-      setCompany("");
-      setPosition("");
-      setApplicationStatus("WISHLIST");
-
-      setJobType("UNKNOWN");
-      setJobTypeDetails("");
-
-      setWorkMode("UNKNOWN");
-      setWorkModeDetails("");
-
-      setLocation("");
-      setLocationDetails("");
-
-      setSalaryText("");
-      setJobLink("");
-      setTagsText("");
-
-      setNotes("");
-      setShowMore(false);
-      setShowSummary(false);
-
+      // Refresh list
       onCreated();
     } catch (err) {
       if (err instanceof ApiError) setErrorMessage(err.message);
@@ -199,10 +207,18 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
           id="jd"
           value={jdText}
           onChange={(e) => setJdText(e.target.value)}
+          // readOnly={draft !== null}
+          disabled={draft !== null}
           placeholder={`Paste the full job description here...  We'll extract the relevant information for you!`}
           className="min-h-[140px]"
         />
-        <div className="flex justify-end mt-4">
+        <div className="flex justify-end mt-4 gap-2">
+          {draft ? (
+            <Button type="button" variant="outline" onClick={handleReset} disabled={isGenerating || isSubmitting}>
+              Reset
+            </Button>
+          ) : null}
+
           <Button type="button" onClick={handleGenerate} disabled={!canGenerate || draft !== null}>
             {isGenerating ? "Generating..." : "Generate draft"}
           </Button>

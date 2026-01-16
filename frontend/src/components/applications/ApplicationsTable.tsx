@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Application, ApplicationListItem, ApplicationSortBy, ApplicationSortDir } from "@/types/api";
+import type { ApplicationListItem, ApplicationSortBy, ApplicationSortDir } from "@/types/api";
 import { applicationsApi } from "@/lib/api/applications";
 import { ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
