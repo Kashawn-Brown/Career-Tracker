@@ -342,7 +342,7 @@ export async function listAiArtifacts(args: {
   kind?: "JD_EXTRACT_V1";  // The type of AI artifact. (hardcoded for now)
 }) {
   // ensures the application exists + belongs to the user (consistent with your other routes)
-  await getApplicationById(args.jobApplicationId, args.userId);
+  await getApplicationById(args.userId, args.jobApplicationId);
 
   return prisma.aiArtifact.findMany({
     where: {
