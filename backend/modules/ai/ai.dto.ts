@@ -133,6 +133,12 @@ function cleanStringArray(v: unknown, max: number): string[] {
     .slice(0, max);
 }
 
+// Helper function to clean an enum. (trim and remove if not in allowed values)
+function cleanEnum<T extends string>(v: unknown, allowed: readonly T[]): T | undefined {
+    if (typeof v !== "string") return undefined;
+    const trimmed = v.trim() as T;
+    return allowed.includes(trimmed) ? trimmed : undefined;
+  }
 /**
  * Normalize the AI response so the UI doesn't get noisy values.
  * - trims strings
@@ -151,10 +157,10 @@ export function normalizeApplicationFromJdResponse(raw: ApplicationFromJdRespons
       location: cleanString(extracted.location),
       locationDetails: cleanString(extracted.locationDetails),
 
-      workMode: extracted.workMode === WorkMode.UNKNOWN ? undefined : extracted.workMode,
+      workMode: cleanEnum(extracted.workMode, WORK_MODE_VALUES),
       workModeDetails: cleanString(extracted.workModeDetails),
 
-      jobType: extracted.jobType === JobType.UNKNOWN ? undefined : extracted.jobType,
+      jobType: cleanEnum(extracted.jobType, JOB_TYPE_VALUES),
       jobTypeDetails: cleanString(extracted.jobTypeDetails),
 
       salaryText: cleanString(extracted.salaryText),
@@ -168,6 +174,8 @@ export function normalizeApplicationFromJdResponse(raw: ApplicationFromJdRespons
       warnings: cleanStringArray(raw.ai?.warnings, 10) || undefined,
     },
   };
+
+  
 
   // Remove undefined keys to keep the payload clean.
   Object.keys(normalized.extracted).forEach((k) => {

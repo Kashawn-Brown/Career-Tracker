@@ -227,8 +227,8 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
           {/* Summary (optional/collapsible) */}
           <Collapsible open={showSummary} onOpenChange={setShowSummary}>
             <CollapsibleTrigger asChild>
-              <Button type="button" variant="outline" className="w-full justify-between">
-                Summary
+              <Button type="button" variant="outline" className="w-full justify-between bg-gray-400 text-white hover:bg-gray-400">
+                <span className="font-medium">Summary</span>
                 {showSummary ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
               </Button>
             </CollapsibleTrigger>

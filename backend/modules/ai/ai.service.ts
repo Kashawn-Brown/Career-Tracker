@@ -45,6 +45,8 @@ export async function buildApplicationDraftFromJd(jdText: string): Promise<Appli
     const outputText = resp.output_text;
 
     const parsed = safeJsonParse<ApplicationFromJdResponse>(outputText);
+    // console.log("HERE IS THE OUTPUT (PRE-NORMALIZATION):", parsed);
+
     return normalizeApplicationFromJdResponse(parsed);
   // } catch (err) {
     // Treat OpenAI failures as a dependency error (not a user input error)
@@ -76,9 +78,9 @@ function buildSystemPrompt(): string {
     "- notes: 5–10 short bullets spanning responsibilities, stack/tools, requirements, and any constraints (visa, schedule, on-call, etc.). Avoid repeating jdSummary.",
     "Field semantics (do NOT mix these):",
     "- location = a geographic place only (country/city/region). Never use 'Remote/Hybrid/Onsite' as location.",
-    "- workMode = one of REMOTE | HYBRID | ONSITE (only if explicitly stated).",
-    "- locationDetails = qualifiers about where/when: e.g. 'Remote within Canada', '3 days onsite', 'occasional team meetups', time zone, travel.",
-    "- workModeDetails = schedule expectations: days onsite, cadence, flexibility, etc. If not stated, omit.",
+    "- workMode = ENUMS: workMode must be exactly 'REMOTE' | 'HYBRID' | 'ONSITE' (uppercase) or omitted. (ONLY if explicitly stated; must be EXACT uppercase enum).",
+    "- locationDetails = geographic constraints/alternatives/specifics ONLY (e.g. '1235 Main St.', 'Open to 5 locations within Canada', 'Toronto or Montreal', 'Must reside in Ontario', time zone). Do NOT put days/week or schedule here (e.g. DO NOT put 'Hybrid — 2 days/week in office'). Omit and leave blank if no LOCATION info (DO NOT PUT INFO ABOUT HYBRID WORK, ETC. INTO LOCATIONDETAILS).",
+    "- workModeDetails = schedule/cadence expectations: days onsite, cadence, flexibility, etc. (e.g. 'Hybrid: 3 days/week in office', 'Remote-first with quarterly onsite'). If not stated, omit.",
     "- jobTypeDetails = extra job type constraints ONLY if stated (contract length, hours, shift, on-call, travel). If not stated, omit.",
     "",
     "Tags:",
@@ -86,7 +88,9 @@ function buildSystemPrompt(): string {
     "- Do not invent tags for tools/tech not mentioned.",
     "",
     "Warnings:",
-    "- warnings should include missing/unclear critical user-facing info: company missing, title missing, location unclear, workMode unclear, salary missing, visa/eligibility unclear if mentioned but not specified.",
+    "- return [] unless (a) critical info is missing/unclear OR (b) the JD states an explicit constraint/disqualifier (no visa sponsorship, must be enrolled, must graduate after X, citizenship/clearance required, location eligibility constraints, etc.).",
+    "- If a constraint/disqualifier is present, add it as a warning string (e.g., 'No visa sponsorship').",
+    "- If a constraint/disqualifier is present, include add the end of notes too as a bullet starting with 'Constraint: ...'.",
 
   ].join("\n");
 }
