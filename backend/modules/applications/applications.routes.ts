@@ -356,6 +356,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
         userId,
         jobApplicationId: id,
         kind: query.kind,
+        all: query.all,
       });
 
       return reply.status(200).send(artifacts);

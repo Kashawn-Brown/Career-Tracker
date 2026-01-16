@@ -191,6 +191,7 @@ export const GenerateAiArtifactBody = Type.Object(
 export const ListAiArtifactsQuery = Type.Object(
   {
     kind: Type.Optional(AiArtifactKindSchema),
+    all: Type.Optional(Type.Boolean()),
   },
   { additionalProperties: false }
 );

@@ -322,6 +322,30 @@ export async function createAiArtifact(args: {
   payload: unknown;
   model: string;
 }) {
+  // Keeping all versions for now
+  // // Keep only 1 (most recent) artifact per kind per application.
+  // return prisma.$transaction(async (db) => {
+    
+  //   // Delete all existing artifacts for this kind and application.
+  //   await db.aiArtifact.deleteMany({
+  //     where: {
+  //       userId: args.userId,
+  //       jobApplicationId: args.jobApplicationId,
+  //       kind: args.kind,
+  //     },
+  //   });
+
+  //   return db.aiArtifact.create({
+  //     data: {
+  //       userId: args.userId,
+  //       jobApplicationId: args.jobApplicationId,
+  //       kind: args.kind,
+  //       payload: args.payload as any,
+  //       model: args.model,
+  //     },
+  //   });
+  // });
+  
   return prisma.aiArtifact.create({
     data: {
       userId: args.userId,
@@ -340,8 +364,9 @@ export async function listAiArtifacts(args: {
   userId: string;
   jobApplicationId: string;
   kind?: "JD_EXTRACT_V1";  // The type of AI artifact. (hardcoded for now)
+  all?: boolean; // when true, return full history of artifacts for this kind and application
 }) {
-  // ensures the application exists + belongs to the user (consistent with your other routes)
+  // Ensures the application exists + belongs to the user
   await getApplicationById(args.userId, args.jobApplicationId);
 
   return prisma.aiArtifact.findMany({
@@ -351,6 +376,7 @@ export async function listAiArtifacts(args: {
       ...(args.kind ? { kind: args.kind } : {}),  // Optional filter by kind (can send multiple kinds to list multiple artifacts (later))
     },
     orderBy: { createdAt: "desc" },
+    take: args.all ? undefined : 1, // Default: return latest only
   });
 }
 
