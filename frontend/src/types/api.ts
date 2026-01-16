@@ -345,3 +345,35 @@ export type ConnectionResponse = {
 };
 
 
+// --- AI DTOs: matches backend ---
+
+export type ApplicationDraftExtracted = {
+  company?: string;
+  position?: string;
+
+  location?: string;
+  locationDetails?: string;
+
+  workMode?: WorkMode;
+  workModeDetails?: string;
+
+  jobType?: JobType;
+  jobTypeDetails?: string;
+
+  salaryText?: string;
+  jobLink?: string;
+  tagsText?: string;
+
+  // Notes the AI extracted from JD (array of bullets)
+  notes?: string[];
+};
+
+export type ApplicationDraftAi = {
+  jdSummary: string;
+  warnings?: string[];
+};
+
+export type ApplicationDraftResponse = {
+  extracted: ApplicationDraftExtracted;
+  ai: ApplicationDraftAi;
+};

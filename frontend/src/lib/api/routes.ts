@@ -52,5 +52,8 @@ export const routes = {
     update: (id: string) => `/connections/${id}`,
     delete: (id: string) => `/connections/${id}`,
   },
+  ai: {
+    applicationFromJd: () => "/ai/application-from-jd",
+  },
 
 } as const;
