@@ -17,7 +17,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Star } from "lucide-react";
 
 export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => void }) {
   // Job description input + draft
@@ -52,6 +52,8 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
 
   const [notes, setNotes] = useState("");
 
+  const [isFavorite, setIsFavorite] = useState(false);
+
   function toOptionalTrimmed(value: string) {
     const trimmed = value.trim();
     return trimmed.length === 0 ? undefined : trimmed;
@@ -84,6 +86,8 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
     setTagsText("");
   
     setNotes("");
+
+    setIsFavorite(false);
     setShowSummary(false);
   }
   
@@ -175,6 +179,8 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
       jobLink: toOptionalTrimmed(jobLink),
       tagsText: toOptionalTrimmed(tagsText),
 
+      isFavorite: isFavorite,
+
       // Match Manual behavior: if user flips to APPLIED, set dateApplied
       dateApplied: applicationStatus === "APPLIED" ? new Date().toISOString() : undefined,
     };
@@ -255,14 +261,32 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
 
           {/* Editable extracted fields */}
           <div className="grid gap-x-6 gap-y-6 md:grid-cols-12">
-            <div className="space-y-2 md:col-span-6">
+            <div className="space-y-2 md:col-span-5">
               <Label htmlFor="company">Company</Label>
               <Input id="company" value={company} onChange={(e) => setCompany(e.target.value)} />
             </div>
 
-            <div className="space-y-2 md:col-span-6">
+            <div className="space-y-2 md:col-span-5">
               <Label htmlFor="position">Position</Label>
               <Input id="position" value={position} onChange={(e) => setPosition(e.target.value)} />
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="isFavorite">Favorite</Label>
+              <label className="flex h-9 items-center gap-2 rounded-md border px-3 text-sm">
+                <input
+                  id="isFavorite"
+                  type="checkbox"
+                  checked={isFavorite}
+                  onChange={(e) => {
+                    setIsFavorite(e.target.checked);
+                  }}
+                  className="h-4 w-4"
+                />
+                <span className="flex items-center gap-1">
+                  <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" /> Favorite
+                </span>
+              </label>
             </div>
 
             <div className="space-y-2 md:col-span-4">
