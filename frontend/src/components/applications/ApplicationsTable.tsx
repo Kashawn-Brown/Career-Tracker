@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Application, ApplicationSortBy, ApplicationSortDir } from "@/types/api";
+import type { ApplicationListItem, ApplicationSortBy, ApplicationSortDir } from "@/types/api";
 import { applicationsApi } from "@/lib/api/applications";
 import { ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
@@ -74,14 +74,14 @@ export function ApplicationsTable({
   visibleColumns, // the columns to display
   onRowClick,  // a callback to tell the parent: "Row clicked, open details drawer"
 }: {
-  items: Application[];
+  items: ApplicationListItem[];
   sortBy: ApplicationSortBy;
   sortDir: ApplicationSortDir;
   isDefaultSort: boolean;
   onSort: (nextSortBy: ApplicationSortBy) => void;
   onChanged: () => void;
   visibleColumns: ApplicationColumnId[];
-  onRowClick?: (application: Application) => void;
+  onRowClick?: (application: ApplicationListItem) => void;
 }) {
   const [rowError, setRowError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);      // stores the ID of the row currently being updated/deleted

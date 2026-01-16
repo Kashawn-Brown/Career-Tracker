@@ -7,6 +7,7 @@ import type { Application, ApplicationsListResponse, UpdateApplicationRequest, A
 import { STATUS_FILTER_OPTIONS, JOB_TYPE_FILTER_OPTIONS, WORK_MODE_FILTER_OPTIONS, statusLabel, jobTypeLabel, workModeLabel } from "@/lib/applications/presentation";
 import { ApplicationsTable } from "@/components/applications/ApplicationsTable";
 import { CreateApplicationForm } from "@/components/applications/CreateApplicationForm";
+import { CreateApplicationFromJdForm } from "@/components/applications/CreateApplicationFromJdForm";
 import { ApplicationDetailsDrawer } from "@/components/applications/ApplicationDetailsDrawer";
 import { ColumnsControl } from "@/components/applications/ColumnsControl";
 import { APPLICATION_COLUMNS_STORAGE_KEY, DEFAULT_VISIBLE_APPLICATION_COLUMNS, normalizeVisibleColumns, type ApplicationColumnId} from "@/lib/applications/tableColumns";
@@ -97,6 +98,10 @@ export default function ApplicationsPage() {
 
   // State to force re-fetch
   const [reloadKey, setReloadKey] = useState(0);
+
+  // Add mode: "manual" for manual application creation, "jd" for JD-based application creation (using AI)
+  const [addMode, setAddMode] = useState<"manual" | "jd">("manual");
+
 
   // Fetching applications when the page first mounts (& again whenever page or pageSize changes or reloadKey is changed)
   useEffect(() => {
@@ -374,6 +379,7 @@ export default function ApplicationsPage() {
               </CollapsibleTrigger>
             </div>            
           </div>
+          
           <div>
             <p className="text-sm text-muted-foreground">
               Manage all your job applications: search, filter, update, improve all in one place.
@@ -381,19 +387,49 @@ export default function ApplicationsPage() {
           </div>
 
           {/* Add application section */}
-          <CollapsibleContent className="mt-4">
+          <CollapsibleContent className="mt-4">           
             <Card>
               <CardHeader className="border-b">
                 <CardTitle>Add application</CardTitle>
                 <CardDescription>Create a new job application record.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <CreateApplicationForm
-                  onCreated={() => {
-                    setPage(1);
-                    refreshList();
-                  }}
-                />
+                {/* Add mode selector */}
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={addMode === "manual" ? "secondary" : "outline"}
+                    onClick={() => setAddMode("manual")}
+                  >
+                    Manual
+                  </Button>
+
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={addMode === "jd" ? "secondary" : "outline"}
+                    onClick={() => setAddMode("jd")}
+                  >
+                    Via Job Description
+                  </Button>
+                </div>
+                
+                {addMode === "manual" ? (
+                  <CreateApplicationForm
+                    onCreated={() => {
+                      setPage(1);
+                      refreshList();
+                    }}
+                  />
+                ) : (
+                  <CreateApplicationFromJdForm
+                    onCreated={() => {
+                      setPage(1);
+                      refreshList();
+                    }}
+                  />
+                )}
               </CardContent>
             </Card> 
           </CollapsibleContent>
@@ -585,9 +621,16 @@ export default function ApplicationsPage() {
             onSort={handleHeaderSortClick}
             onChanged={() => setReloadKey((k) => k + 1)}
             visibleColumns={visibleColumns}
-            onRowClick={(application) => {
-              setSelectedApplication(application);
-              setDetailsOpen(true);
+            onRowClick={async (row) => {
+              try {
+                setErrorMessage(null);
+                const fullApplication = await applicationsApi.get(row.id);
+                setSelectedApplication(fullApplication);
+                setDetailsOpen(true);
+              } catch (err) {
+                if (err instanceof ApiError) setErrorMessage(err.message);
+                else setErrorMessage("Failed to load application details. Please try again.");
+              }
             }}
           />
         )}

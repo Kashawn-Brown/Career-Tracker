@@ -88,6 +88,50 @@ function EditRow({
 }
 
 /**
+ * Simple expand/collapse for large pre-wrapped text blocks.
+ * Keeps the drawer scan-friendly while still letting users read the full content.
+ */
+function ExpandableText({
+  text,
+  collapsedMaxHeightClass = "max-h-40",
+  minCharsToEnable = 350,
+}: {
+  text: string;
+  collapsedMaxHeightClass?: string;
+  minCharsToEnable?: number;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const canExpand = text.trim().length >= minCharsToEnable;
+
+  return (
+    <div className="space-y-2">
+      <div
+        className={[
+          "whitespace-pre-wrap",
+          expanded || !canExpand ? "" : `${collapsedMaxHeightClass} overflow-hidden`,
+        ].join(" ")}
+      >
+        {text}
+      </div>
+
+      {canExpand ? (
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs text-muted-foreground"
+            onClick={() => setExpanded((prev) => !prev)}
+          >
+          {expanded ? "Show less" : "Show more"}
+        </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
  * The draft of the application details being edited
  * Same as Application, but with inputs for the fields
  */
@@ -851,7 +895,11 @@ export function ApplicationDetailsDrawer({
             <Section title="Notes">
               {!isEditing ? (
                 application.notes ? (
-                  <div className="whitespace-pre-wrap">{application.notes}</div>
+                  <ExpandableText
+                    key={`${application.id}-notes`}
+                    text={application.notes}
+                    collapsedMaxHeightClass="max-h-32"
+                  />
                 ) : (
                   <span className="text-muted-foreground">No notes</span>
                 )

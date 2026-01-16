@@ -1,7 +1,7 @@
 import { ApplicationStatus, JobType, WorkMode, Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { AppError } from "../../errors/app-error.js";
-import { applicationSelect, applicationConnectionSelect } from "./applications.dto.js";
+import { applicationSelect, applicationConnectionSelect, applicationListSelect } from "./applications.dto.js";
 import type { CreateApplicationInput, UpdateApplicationInput, ListApplicationsParams } from "./applications.dto.js";
 
 
@@ -95,7 +95,7 @@ export async function listApplications(params: ListApplicationsParams) {
       orderBy: [{ [sortBy]: sortDir }, { updatedAt: "desc" }],
       skip,
       take: pageSize,  // how many rows to take/return
-      select: applicationSelect,
+      select: applicationListSelect,
     }),
   ]);
 
@@ -202,7 +202,7 @@ export async function deleteApplication(userId: string, id: string) {
 }
 
 
-/** CONNECTIONS : */
+//----------------- CONNECTIONS -----------------
 
 /**
  * Lists the connections for an application.
@@ -306,6 +306,80 @@ export async function detachConnectionFromApplication(
 
   return { ok: true };
 }
+
+
+//----------------- AI ARTIFACTS -----------------
+
+// AI artifacts are used to store the results of AI-generated content.
+
+/**
+ * Creates a new AI artifact for an application.
+ */
+export async function createAiArtifact(args: {
+  userId: string;
+  jobApplicationId: string;
+  kind: "JD_EXTRACT_V1";  // The type of AI artifact. (hardcoded for now)
+  payload: unknown;
+  model: string;
+}) {
+  // Keeping all versions for now
+  // // Keep only 1 (most recent) artifact per kind per application.
+  // return prisma.$transaction(async (db) => {
+    
+  //   // Delete all existing artifacts for this kind and application.
+  //   await db.aiArtifact.deleteMany({
+  //     where: {
+  //       userId: args.userId,
+  //       jobApplicationId: args.jobApplicationId,
+  //       kind: args.kind,
+  //     },
+  //   });
+
+  //   return db.aiArtifact.create({
+  //     data: {
+  //       userId: args.userId,
+  //       jobApplicationId: args.jobApplicationId,
+  //       kind: args.kind,
+  //       payload: args.payload as any,
+  //       model: args.model,
+  //     },
+  //   });
+  // });
+  
+  return prisma.aiArtifact.create({
+    data: {
+      userId: args.userId,
+      jobApplicationId: args.jobApplicationId,
+      kind: args.kind,
+      payload: args.payload as any,
+      model: args.model,
+    },
+  });
+}
+
+/**
+ * Lists the AI artifacts for an application.
+ */
+export async function listAiArtifacts(args: {
+  userId: string;
+  jobApplicationId: string;
+  kind?: "JD_EXTRACT_V1";  // The type of AI artifact. (hardcoded for now)
+  all?: boolean; // when true, return full history of artifacts for this kind and application
+}) {
+  // Ensures the application exists + belongs to the user
+  await getApplicationById(args.userId, args.jobApplicationId);
+
+  return prisma.aiArtifact.findMany({
+    where: {
+      userId: args.userId,
+      jobApplicationId: args.jobApplicationId,
+      ...(args.kind ? { kind: args.kind } : {}),  // Optional filter by kind (can send multiple kinds to list multiple artifacts (later))
+    },
+    orderBy: { createdAt: "desc" },
+    take: args.all ? undefined : 1, // Default: return latest only
+  });
+}
+
 
 
 // Helper to normalize nullable string fields

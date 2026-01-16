@@ -118,8 +118,28 @@ export type Application = {
   updatedAt: string;
 };
 
+export type ApplicationListItem = {
+  id: string;
+  company: string;
+  position: string;
+  status: ApplicationStatus;
 
-export type ApplicationsListResponse = Paginated<Application>;
+  location: string | null;
+
+  jobType: JobType;
+  workMode: WorkMode;
+
+  salaryText: string | null;
+  isFavorite: boolean;
+
+  dateApplied: string | null;
+  jobLink: string | null;
+
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ApplicationsListResponse = Paginated<ApplicationListItem>;
 
 export type ListApplicationsParams = {
   page: number;
@@ -325,3 +345,35 @@ export type ConnectionResponse = {
 };
 
 
+// --- AI DTOs: matches backend ---
+
+export type ApplicationDraftExtracted = {
+  company?: string;
+  position?: string;
+
+  location?: string;
+  locationDetails?: string;
+
+  workMode?: WorkMode;
+  workModeDetails?: string;
+
+  jobType?: JobType;
+  jobTypeDetails?: string;
+
+  salaryText?: string;
+  jobLink?: string;
+  tagsText?: string;
+
+  // Notes the AI extracted from JD (array of bullets)
+  notes?: string[];
+};
+
+export type ApplicationDraftAi = {
+  jdSummary: string;
+  warnings?: string[];
+};
+
+export type ApplicationDraftResponse = {
+  extracted: ApplicationDraftExtracted;
+  ai: ApplicationDraftAi;
+};

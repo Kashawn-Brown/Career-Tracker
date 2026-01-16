@@ -50,7 +50,7 @@ export const CreateApplicationBody = Type.Object(
     salaryText: Type.Optional(Type.String({ maxLength: 200 })),
 
     jobLink: Type.Optional(Type.String({ maxLength: 2048 })),
-    description: Type.Optional(Type.String({ maxLength: 20000 })),
+    description: Type.Optional(Type.String({ maxLength: 100_000 })),
     notes: Type.Optional(Type.String({ maxLength: 20000 })),
     tagsText: Type.Optional(Type.String({ maxLength: 500 })),
   },
@@ -133,7 +133,7 @@ export const UpdateApplicationBody = Type.Object(
     isFavorite: Type.Optional(Type.Boolean()),
     jobLink: Type.Optional(Type.String({ maxLength: 2048 })),
     tagsText: Type.Optional(Type.String({ maxLength: 500 })),
-    description: Type.Optional(Type.String({ maxLength: 20000 })),
+    description: Type.Optional(Type.String({ maxLength: 100_000 })),
     notes: Type.Optional(Type.String({ maxLength: 20000 })),
   },
   { additionalProperties: false }
@@ -174,6 +174,29 @@ export const ApplicationConnectionParams = Type.Object(
 );
 
 
+
+/** AI ARTIFACTS : */
+
+export const AiArtifactKindSchema = Type.Union([
+  Type.Literal("JD_EXTRACT_V1"),
+]);
+
+export const GenerateAiArtifactBody = Type.Object(
+  {
+    kind: AiArtifactKindSchema,
+  },
+  { additionalProperties: false }
+);
+
+export const ListAiArtifactsQuery = Type.Object(
+  {
+    kind: Type.Optional(AiArtifactKindSchema),
+    all: Type.Optional(Type.Boolean()),
+  },
+  { additionalProperties: false }
+);
+
+
 // TS types derived from the schemas (keeps TS and validation in sync)
 // Gives real TS types that matches the schema exactly
 export type CreateApplicationBodyType = Static<typeof CreateApplicationBody>;
@@ -182,7 +205,8 @@ export type ApplicationIdParamsType = Static<typeof ApplicationIdParams>;
 export type UpdateApplicationBodyType = Static<typeof UpdateApplicationBody>;
 export type ApplicationStatusType = Static<typeof ApplicationStatusSchema>;
 
-
 export type UploadApplicationDocumentQueryType = Static<typeof UploadApplicationDocumentQuery>;
 
+export type GenerateAiArtifactBodyType = Static<typeof GenerateAiArtifactBody>;
+export type ListAiArtifactsQueryType = Static<typeof ListAiArtifactsQuery>;
 

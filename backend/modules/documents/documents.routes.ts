@@ -45,71 +45,69 @@ export async function documentsRoutes(app: FastifyInstance) {
     return DocumentsService.deleteBaseResume(userId);
   });
 
-    /**
-   * Documents v1:
+  /**
    * Get a short-lived signed download URL for an application document.
    */
-    app.get(
-      "/:id/download",
-      {
-        preHandler: [requireAuth],
-        schema: { params: DocumentIdParams, querystring: DocumentDownloadQuery },
-      },
-      async (req) => {
+  app.get(
+    "/:id/download",
+    {
+      preHandler: [requireAuth],
+      schema: { params: DocumentIdParams, querystring: DocumentDownloadQuery },
+    },
+    async (req) => {
 
-        const userId = req.user!.id;
-        const { id } = req.params as DocumentIdParamsType;
-  
-        const doc = await DocumentsService.getApplicationDocumentById(userId, id);
-  
-        const cfg = getGcsConfig();
-        const bucket = getStorageClient().bucket(cfg.bucketName);
+      const userId = req.user!.id;
+      const { id } = req.params as DocumentIdParamsType;
 
-        // Get the disposition from the query string
-        const { disposition = "inline" } = (req.query as DocumentDownloadQueryType) ?? {};
+      const doc = await DocumentsService.getApplicationDocumentById(userId, id);
 
-        // Build the safe name for the document
-        const safeName = (doc.originalName ?? "document")
-        .replace(/[\r\n"]/g, "")
-        .slice(0, 150);
+      const cfg = getGcsConfig();
+      const bucket = getStorageClient().bucket(cfg.bucketName);
+
+      // Get the disposition from the query string
+      const { disposition = "inline" } = (req.query as DocumentDownloadQueryType) ?? {};
+
+      // Build the safe name for the document
+      const safeName = (doc.originalName ?? "document")
+      .replace(/[\r\n"]/g, "")
+      .slice(0, 150);
+
+      const [downloadUrl] = await bucket.file(doc.storageKey).getSignedUrl({
+        version: "v4",
+        action: "read",
+        expires: Date.now() + cfg.signedUrlTtlSeconds * 1000,
+        // Controls “open in browser” vs “force download”
+        responseDisposition: `${disposition}; filename="${safeName}"`,
+      });
+
+      return { downloadUrl };
+    }
+  );
   
-        const [downloadUrl] = await bucket.file(doc.storageKey).getSignedUrl({
-          version: "v4",
-          action: "read",
-          expires: Date.now() + cfg.signedUrlTtlSeconds * 1000,
-          // Controls “open in browser” vs “force download”
-          responseDisposition: `${disposition}; filename="${safeName}"`,
-        });
-  
-        return { downloadUrl };
-      }
-    );
-  
-    /**
-     * Documents v1:
-     * Delete an application document (GCS object + DB row).
-     */
-    app.delete(
-      "/:id",
-      {
-        preHandler: [requireAuth],
-        schema: { params: DocumentIdParams },
-      },
-      async (req) => {
-        const userId = req.user!.id;
-        const { id } = req.params as DocumentIdParamsType;
-  
-        const doc = await DocumentsService.getApplicationDocumentById(userId, id);
-  
-        const cfg = getGcsConfig();
-        const bucket = getStorageClient().bucket(cfg.bucketName);
-  
-        // Best-effort object deletion (ignore if already gone)
-        await bucket.file(doc.storageKey).delete({ ignoreNotFound: true });
-  
-        return DocumentsService.deleteDocumentById(userId, id);
-      }
-    );
+  /**
+   * Delete an application document (GCS object + DB row).
+   */
+  app.delete(
+    "/:id",
+    {
+      preHandler: [requireAuth],
+      schema: { params: DocumentIdParams },
+    },
+    async (req) => {
+      const userId = req.user!.id;
+      const { id } = req.params as DocumentIdParamsType;
+
+      const doc = await DocumentsService.getApplicationDocumentById(userId, id);
+
+      const cfg = getGcsConfig();
+      const bucket = getStorageClient().bucket(cfg.bucketName);
+
+      // Best-effort object deletion (ignore if already gone)
+      await bucket.file(doc.storageKey).delete({ ignoreNotFound: true });
+
+      return DocumentsService.deleteDocumentById(userId, id);
+    }
+  );
   
 }
 
