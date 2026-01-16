@@ -29,6 +29,8 @@ export const ApplicationDraftSchema = Type.Object(
     salaryText: Type.Optional(Type.String({ maxLength: 200 })),
     jobLink: Type.Optional(Type.String({ maxLength: 2048 })),
     tagsText: Type.Optional(Type.String({ maxLength: 500 })),
+
+    notes: Type.Optional(Type.Array(Type.String({ maxLength: 300 }), { maxItems: 20 })),
   },
   { additionalProperties: false }
 );
@@ -54,9 +56,6 @@ export const ApplicationDraftResponse = Type.Object(
     ai: Type.Object(
       {
         jdSummary: Type.String({ minLength: 1, maxLength: 2000 }),
-        noteworthyNotes: Type.Array(Type.String({ minLength: 1, maxLength: 300 }), {
-          maxItems: 20,
-        }),
         warnings: Type.Optional(
           Type.Array(Type.String({ minLength: 1, maxLength: 300 }), { maxItems: 10 })
         ),

@@ -73,7 +73,7 @@ function buildSystemPrompt(): string {
     "- Prefer omitting workMode/jobType rather than using UNKNOWN.",
     "- Do NOT invent details (e.g., hybrid days, contract length) unless explicitly stated.",
     "- jdSummary: 2–4 sentences in your own words. Must cover: (1) what the role does (key responsibilities), (2) key stack/tools if present, (3) must-have requirements if present, (4) location/work arrangement if present. Do NOT just copy sentences from the JD.",
-    "- noteworthyNotes: 4–8 short bullets spanning responsibilities, stack/tools, requirements, and any constraints (visa, schedule, on-call, etc.). Avoid repeating jdSummary.",
+    "- notes: 5–10 short bullets spanning responsibilities, stack/tools, requirements, and any constraints (visa, schedule, on-call, etc.). Avoid repeating jdSummary.",
     "Field semantics (do NOT mix these):",
     "- location = a geographic place only (country/city/region). Never use 'Remote/Hybrid/Onsite' as location.",
     "- workMode = one of REMOTE | HYBRID | ONSITE (only if explicitly stated).",

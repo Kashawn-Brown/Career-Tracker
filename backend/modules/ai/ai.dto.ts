@@ -20,10 +20,11 @@ export type ApplicationFromJdResponse = {
     salaryText?: string;
     jobLink?: string;
     tagsText?: string;
+
+    notes?: string[];
   };
   ai: {
     jdSummary: string;
-    noteworthyNotes: string[];
     warnings?: string[];
   };
 };
@@ -57,6 +58,7 @@ export const ApplicationFromJdJsonObject = {
         "salaryText",
         "jobLink",
         "tagsText",
+        "notes",
       ],
       properties: {
         company: { type: ["string", "null"] },
@@ -84,21 +86,22 @@ export const ApplicationFromJdJsonObject = {
         salaryText: { type: ["string", "null"] },
         jobLink: { type: ["string", "null"] },
         tagsText: { type: ["string", "null"] },
+
+        notes: {
+          anyOf: [
+            { type: "array", items: { type: "string" } },
+            { type: "null" },
+          ],
+        },
       },
     },
     ai: {
       type: "object",
       additionalProperties: false,
       // strict mode expects required to include every property key
-      required: ["jdSummary", "noteworthyNotes", "warnings"],
+      required: ["jdSummary", "warnings"],
       properties: {
         jdSummary: { type: ["string", "null"] },
-        noteworthyNotes: {
-          anyOf: [
-            { type: "array", items: { type: "string" } },
-            { type: "null" },
-          ],
-        },
         warnings: {
           anyOf: [
             { type: "array", items: { type: "string" } },
@@ -157,10 +160,11 @@ export function normalizeApplicationFromJdResponse(raw: ApplicationFromJdRespons
       salaryText: cleanString(extracted.salaryText),
       jobLink: cleanString(extracted.jobLink),
       tagsText: cleanString(extracted.tagsText),
+
+      notes: cleanStringArray(extracted.notes, 20),
     },
     ai: {
       jdSummary: cleanString(raw.ai?.jdSummary) ?? "(No summary provided)",
-      noteworthyNotes: cleanStringArray(raw.ai?.noteworthyNotes, 20),
       warnings: cleanStringArray(raw.ai?.warnings, 10) || undefined,
     },
   };
