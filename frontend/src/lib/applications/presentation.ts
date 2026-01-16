@@ -7,10 +7,10 @@ import type { ApplicationStatus, JobType, WorkMode } from "@/types/api";
 
 // Status options
 export const STATUS_OPTIONS: Array<{ value: ApplicationStatus; label: string }> = [
-    { value: "WISHLIST", label: "Wishlist" },
+    { value: "WISHLIST", label: "Interested" },
     { value: "APPLIED", label: "Applied" },
     { value: "INTERVIEW", label: "Interviewing" },
-    { value: "OFFER", label: "Offer" },
+    { value: "OFFER", label: "Offer Received" },
     { value: "REJECTED", label: "Rejected" },
     { value: "WITHDRAWN", label: "Withdrawn" },
   ];
