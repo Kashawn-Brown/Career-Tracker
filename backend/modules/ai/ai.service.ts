@@ -90,7 +90,7 @@ function buildSystemPrompt(): string {
     "Warnings:",
     "- return [] unless (a) critical info is missing/unclear OR (b) the JD states an explicit constraint/disqualifier (no visa sponsorship, must be enrolled, must graduate after X, citizenship/clearance required, location eligibility constraints, etc.).",
     "- If a constraint/disqualifier is present, add it as a warning string (e.g., 'No visa sponsorship').",
-    "- If a constraint/disqualifier is present, include add the end of notes too as a bullet starting with 'Constraint: ...'.",
+    "- If a constraint/disqualifier is present, include add the end of notes too as a bullet starting with 'Constraint: Requires/Restrictions/Disqualifiers etc. ...'.",
 
   ].join("\n");
 }
