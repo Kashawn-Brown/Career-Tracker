@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { documentsApi } from "@/lib/api/documents";
 
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -41,6 +42,9 @@ type Props = {
   onFileChange: (file: File | null) => void;
 
   fileInputRef: React.RefObject<HTMLInputElement | null>;
+
+  resumeErrorMessage: string | null;
+  onClearResumeError: () => void;
 };
 
 export function BaseResumeCard({
@@ -61,6 +65,9 @@ export function BaseResumeCard({
   onFileChange,
 
   fileInputRef,
+
+  resumeErrorMessage,
+  onClearResumeError,
 }: Props) {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -147,8 +154,28 @@ export function BaseResumeCard({
 
           {/* Upload / replace dialog */}
           <Dialog open={isDialogOpen} onOpenChange={onDialogOpenChange}>
-            <DialogContent className="max-w-xl">
-              {/* pr-10 reserves space so the Radix close (X) never overlaps header content */}
+            <DialogContent className="max-w-xl" onInteractOutside={(e) => e.preventDefault()}>
+              
+              {/* Error message */}
+              {resumeErrorMessage ? (
+                <div className="fixed inset-x-0 top-[-35%] z-[60] flex justify-center px-4">
+                  <div className="relative w-full max-w-xl">
+                    <Alert variant="destructive" className="pr-10 shadow-lg">
+                      {resumeErrorMessage}
+                    </Alert>
+                    <button
+                      type="button"
+                      onClick={onClearResumeError}
+                      className="absolute right-2 top-2 rounded-md px-2 py-1 opacity-70 hover:bg-black/5 hover:opacity-100"
+                      aria-label="Dismiss message"
+                      title="Dismiss"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
               <div className="pr-10">
                 <DialogHeader>
                   <DialogTitle>
@@ -302,6 +329,8 @@ export function BaseResumeCard({
             )}
           </div>
         </DialogContent>
+
+        
       </Dialog>
     </Card>
   );

@@ -387,7 +387,7 @@ export function ProfileConnectionsCard() {
 
         {/* View-all dialog (2-pane) */}
         <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
-          <DialogContent className="max-w-5xl max-h-[80vh] overflow-hidden">
+          <DialogContent className="max-w-5xl max-h-[80vh] overflow-hidden"  onInteractOutside={(e) => e.preventDefault()}>
             <DialogHeader>
               <DialogTitle>All connections</DialogTitle>
               <DialogDescription>

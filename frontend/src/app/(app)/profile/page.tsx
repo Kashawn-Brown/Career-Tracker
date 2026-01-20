@@ -445,7 +445,7 @@ export default function ProfilePage() {
     }
   }
   
-  const hasMessages = !!(errorMessage || resumeErrorMessage || successMessage);
+  const hasMessages = !!(errorMessage || successMessage);
 
   // TODO: If base resume exists, switch to 2-col layout and render first-page preview thumbnail.
 
@@ -475,23 +475,6 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={() => setErrorMessage(null)}
-                className="absolute right-2 top-2 rounded-md px-2 py-1 opacity-70 hover:bg-black/5 hover:opacity-100"
-                aria-label="Dismiss message"
-                title="Dismiss"
-              >
-                ×
-              </button>
-            </div>
-          ) : null}
-
-          {resumeErrorMessage ? (
-            <div className="relative">
-              <Alert variant="warning" className="pr-10">
-                {resumeErrorMessage}
-              </Alert>
-              <button
-                type="button"
-                onClick={() => setResumeErrorMessage(null)}
                 className="absolute right-2 top-2 rounded-md px-2 py-1 opacity-70 hover:bg-black/5 hover:opacity-100"
                 aria-label="Dismiss message"
                 title="Dismiss"
@@ -592,6 +575,8 @@ export default function ProfilePage() {
               selectedFile={resumeFile}
               onFileChange={setResumeFile}
               fileInputRef={resumeFileInputRef}
+              resumeErrorMessage={resumeErrorMessage}
+              onClearResumeError={() => setResumeErrorMessage(null)}
             />
 
 
