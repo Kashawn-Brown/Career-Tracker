@@ -136,6 +136,7 @@ enum DocumentKind {
   RESUME
   COVER_LETTER
   OTHER
+  CAREER_HISTORY
 }
 
 
