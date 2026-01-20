@@ -1,7 +1,8 @@
-import { DocumentKind, Prisma } from "@prisma/client";
+import { DocumentKind } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { documentSelect } from "./documents.dto.js";
-import type { upsertBaseResumeInput, CreateApplicationDocumentInput } from "./documents.dto.js";
+import type { UploadBaseResumeArgs, CreateApplicationDocumentInput } from "./documents.dto.js";
+import { uploadStreamToGcs, deleteGcsObject, isAllowedMimeType } from "../../lib/storage.js";
 import { AppError } from "../../errors/app-error.js";
 
 
@@ -12,54 +13,81 @@ import { AppError } from "../../errors/app-error.js";
  * Base resume rule:
  * - One BASE_RESUME document per user.
  * - If a new one is added, replace the previous.
- * - Keep User.baseResumeUrl in sync for quick access.
  */
 
+// ------------------ BASE RESUME ------------------
 
 /**
- * Creates/Updates the base resume for the current user.
- * Requires JWT.
+ * Uploads a new base resume for the current user.
+ * 
+ * - The file is uploaded to GCS first, then the metadata is persisted to the database.
+ * - url is stored as null (download is via signed URL endpoint when needed).
  */
-export async function upsertBaseResume(userId: string, input: upsertBaseResumeInput) {
-  
-  // Need to use transaction to do multiple db operations at once
-  // 1. delete old base resume -> 2. create the new base resume -> 3. update users.baseResumeUrl
-  return prisma.$transaction(async (db: Prisma.TransactionClient) => {
-    
-    // Delete existing base resume doc
-    await db.document.deleteMany({
-      where: { userId, kind: DocumentKind.BASE_RESUME },
+export async function uploadBaseResume(args: UploadBaseResumeArgs) {
+  const { userId, stream, filename, mimeType, isTruncated } = args;
+
+  if (!isAllowedMimeType(mimeType)) {
+    throw new AppError(`Unsupported file type: ${mimeType}`, 400);
+  }
+
+  const newKey = buildBaseResumeStorageKey(userId, mimeType);
+
+  // Upload to GCS first (so DB never points to a non-existent file)
+  const { sizeBytes } = await uploadStreamToGcs({
+    storageKey: newKey,
+    stream,
+    contentType: mimeType,
+    isTruncated,
+  });
+
+  // Fetch the old key (if any) to delete after the DB commit
+  const existing = await prisma.document.findFirst({
+    where: { userId, kind: DocumentKind.BASE_RESUME },
+    select: { id: true, storageKey: true },
+  });
+
+  try {
+    // Replace behavior: only one base resume per user
+    const created = await prisma.$transaction(async (db) => {
+      
+      // Delete the old base resume document
+      await db.document.deleteMany({
+        where: { userId, kind: DocumentKind.BASE_RESUME },
+      });
+
+      // Create the new base resume document
+      return db.document.create({
+        data: {
+          userId,
+          kind: DocumentKind.BASE_RESUME,
+          url: null,
+          storageKey: newKey,
+          originalName: filename,
+          mimeType,
+          size: sizeBytes,
+        },
+        select: documentSelect,
+      });
     });
 
-
-    // Create the new document 
-    const created = await db.document.create({
-      data: {
-        userId,
-        kind: DocumentKind.BASE_RESUME,
-        url: input.url,
-        originalName: input.originalName,
-        mimeType: input.mimeType,
-        size: input.size,
-        storageKey: input.storageKey ?? `base-resume/${userId}`,   // If not provided yet, just store something predictable for now.
-      },
-      select: documentSelect,
-    });
-
-    // Keep a convenient pointer on the user row
-    await db.user.update({
-      where: { id: userId },
-      data: { baseResumeUrl: input.url },
-    });
+    // Best-effort cleanup: delete the old base resume from GCS if it exists and is not the new one
+    if (existing?.storageKey && existing.storageKey !== newKey) {
+      await deleteGcsObject(existing.storageKey);
+    }
 
     return created;
-  });
+
+  } catch (err) {
+    // Compensate: DB failed after upload → delete new blob
+    await deleteGcsObject(newKey);
+    throw err;
+  }
 }
 
 /**
  * Gets the base resume document for the current user.
- * Null if none.
- * Requires JWT.
+ * 
+ * Returns null if none.
  */
 export async function getBaseResume(userId: string) {
   return prisma.document.findFirst({
@@ -70,28 +98,33 @@ export async function getBaseResume(userId: string) {
 }
 
 /**
- * Removes the base resume document for the current user.
- * Requires JWT.
+ * Deletes the base resume document (GCS object + DB row).
  */
 export async function deleteBaseResume(userId: string) {
-  return prisma.$transaction(async (db) => {
-    await db.document.deleteMany({
-      where: { userId, kind: DocumentKind.BASE_RESUME },
-    });
-
-    // remove the users pointer to the base resume as there is now none
-    await db.user.update({
-      where: { id: userId },
-      data: { baseResumeUrl: null },
-    });
-
-    return { ok: true };
+  
+  // Find the existing base resume document
+  const existing = await prisma.document.findFirst({
+    where: { userId, kind: DocumentKind.BASE_RESUME },
+    select: { storageKey: true },
   });
+
+  // Delete the document from the database
+  await prisma.document.deleteMany({
+    where: { userId, kind: DocumentKind.BASE_RESUME },
+  });
+
+  // Delete the GCS object if it exists
+  if (existing?.storageKey) {
+    await deleteGcsObject(existing.storageKey);
+  }
+
+  return { ok: true };
 }
 
 
+// ------------------ APPLICATION DOCUMENTS ------------------
+
 /**
- * Documents v1:
  * Counts the documents for a given application.
  */
 export async function countApplicationDocuments(userId: string, jobApplicationId: string) {
@@ -101,7 +134,6 @@ export async function countApplicationDocuments(userId: string, jobApplicationId
 }
 
 /**
- * Documents v1:
  * Lists the documents for a given application.
  */
 export async function listApplicationDocuments(userId: string, jobApplicationId: string) {
@@ -113,7 +145,6 @@ export async function listApplicationDocuments(userId: string, jobApplicationId:
 }
 
 /**
- * Documents v1:
  * Creates a new document for a given application.
  */
 export async function createApplicationDocument(
@@ -156,7 +187,6 @@ export async function createApplicationDocument(
 }
 
 /**
- * Documents v1:
  * Fetch an application-attached document owned by the user.
  * (Excludes BASE_RESUME and requires jobApplicationId.)
  */
@@ -188,8 +218,9 @@ export async function getApplicationDocumentById(userId: string, documentId: str
 }
 
 /**
- * Documents v1:
- * Delete the document row (ownership already verified before calling this).
+ * Delete a document attached to an application.
+ * 
+ * Ownership verified before calling this function.
  */
 export async function deleteDocumentById(userId: string, documentId: string) {
   
@@ -200,7 +231,7 @@ export async function deleteDocumentById(userId: string, documentId: string) {
       select: {jobApplicationId: true},
     });
 
-    // Only "touch" application if this doc belongs to one.
+    // Update the application updatedAt to keep the last updated time.
     if (deleted.jobApplicationId) {
       
       const result = await db.jobApplication.updateMany({
@@ -218,3 +249,13 @@ export async function deleteDocumentById(userId: string, documentId: string) {
 }
 
 
+
+
+// ------------------ HELPER FUNCTIONS ------------------
+
+function buildBaseResumeStorageKey(userId: string, mimeType: string) {
+  const ext = mimeType === "application/pdf" ? ".pdf" : mimeType === "text/plain" ? ".txt" : "";
+  const prefix = (process.env.GCS_KEY_PREFIX ?? "").trim();
+  const base = `users/${userId}/base-resume/base-resume${ext}`;
+  return prefix ? `${prefix}/${base}` : base;
+}
