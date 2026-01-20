@@ -188,6 +188,8 @@ model AiArtifact {
   payload Json
   model   String
 
+  sourceDocumentId Int?
+
   createdAt DateTime @default(now())
 
   user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
