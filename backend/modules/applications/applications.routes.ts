@@ -268,7 +268,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const userId = req.user!.id;
       const { id } = req.params as ApplicationIdParamsType;
-      const { kind } = req.body as GenerateAiArtifactBodyType;
+      const { kind, sourceDocumentId = undefined } = req.body as GenerateAiArtifactBodyType;
 
       // Ensure app exists and belongs to user (also gives us description)
       const application = await ApplicationsService.getApplicationById(userId, id);

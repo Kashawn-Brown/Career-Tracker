@@ -185,6 +185,9 @@ export const AiArtifactKindSchema = Type.Union([
 export const GenerateAiArtifactBody = Type.Object(
   {
     kind: AiArtifactKindSchema,
+
+    // Optional override document id for Phase E AI artifacts
+    sourceDocumentId: Type.Optional(Type.Integer({ minimum: 1 })),
   },
   { additionalProperties: false }
 );
