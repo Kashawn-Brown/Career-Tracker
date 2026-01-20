@@ -9,12 +9,15 @@ import { Input } from "@/components/ui/input";
 type Props = {
   application: Application;
   baseResumeExists: boolean;
+
+  useOverride: boolean;
+  overrideFile: File | null;
+  onToggleOverride: (checked: boolean) => void;
+  onOverrideFile: (file: File | null) => void;
 };
 
-export function AiToolsSection({ application, baseResumeExists }: Props) {
-  const [useOverride, setUseOverride] = useState(false);
-  const [overrideFile, setOverrideFile] = useState<File | null>(null);
-
+export function AiToolsSection({ application, baseResumeExists, useOverride, overrideFile, onToggleOverride, onOverrideFile }: Props) {
+  
   const hasJd = useMemo(() => {
     const jd = application.description?.trim();
     return Boolean(jd && jd.length > 0);
@@ -57,13 +60,13 @@ export function AiToolsSection({ application, baseResumeExists }: Props) {
             type="checkbox"
             checked={useOverride}
             onChange={(e) => {
-              setUseOverride(e.target.checked);
+              onToggleOverride(e.target.checked);
               // Reset file when toggling off to keep behavior predictable
-              if (!e.target.checked) setOverrideFile(null);
+              if (!e.target.checked) onOverrideFile(null);
             }}
           />
           <label htmlFor="ai-use-override" className="text-sm">
-            Use another file for this run
+            Use a different file for this run
           </label>
         </div>
 
@@ -72,7 +75,7 @@ export function AiToolsSection({ application, baseResumeExists }: Props) {
             <Input
               type="file"
               accept=".pdf,.txt"
-              onChange={(e) => setOverrideFile(e.target.files?.[0] ?? null)}
+              onChange={(e) => onOverrideFile(e.target.files?.[0] ?? null)}
             />
             <div className="text-xs text-muted-foreground">
               This file will be uploaded and attached to this application when you run a tool.

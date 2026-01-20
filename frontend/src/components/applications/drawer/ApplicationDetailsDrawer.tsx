@@ -235,6 +235,9 @@ export function ApplicationDetailsDrawer({
   // Whether the base resume exists for the current user
   const [baseResumeExists, setBaseResumeExists] = useState(false);
 
+  const [useAiOverride, setUseAiOverride] = useState(false);
+  const [aiOverrideFile, setAiOverrideFile] = useState<File | null>(null);
+
 
   // keep the drawer’s draft in sync with the selected application.
   useEffect(() => {
@@ -275,6 +278,7 @@ export function ApplicationDetailsDrawer({
 
   }, [open, application, isEditing]);
 
+  // Checks if the base resume exists for the current user
   useEffect(() => {
     let cancelled = false;
   
@@ -292,6 +296,12 @@ export function ApplicationDetailsDrawer({
       cancelled = true;
     };
   }, []);
+
+  // Resets the AI override state when the application changes
+  useEffect(() => {
+    setUseAiOverride(false);
+    setAiOverrideFile(null);
+  }, [application?.id]);
 
   // Starts the edit mode.
   function startEdit() {
@@ -979,7 +989,17 @@ export function ApplicationDetailsDrawer({
             </Section>
 
             <Section title="AI Tools">
-              <AiToolsSection application={application} baseResumeExists={baseResumeExists} />
+              <AiToolsSection 
+              application={application} 
+              baseResumeExists={baseResumeExists} 
+              useOverride={useAiOverride}
+              overrideFile={aiOverrideFile}
+              onToggleOverride={(checked) => {
+                setUseAiOverride(checked);
+                if (!checked) setAiOverrideFile(null);
+              }}
+              onOverrideFile={setAiOverrideFile}
+            />
             </Section>
           </div>
         )}
