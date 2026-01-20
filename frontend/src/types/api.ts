@@ -227,7 +227,7 @@ export type GetBaseResumeResponse = {
 };
 
 // UpsertBaseResumeResponse: backend returns { document: Document }.
-export type UpsertBaseResumeResponse = {
+export type UploadBaseResumeResponse = {
   baseResume: Document;
 };
 

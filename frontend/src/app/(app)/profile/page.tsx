@@ -257,7 +257,7 @@ export default function ProfilePage() {
     try {
       setIsResumeSaving(true);
   
-      const res = await documentsApi.upsertBaseResume(resumeFile);
+      const res = await documentsApi.uploadBaseResume(resumeFile);
   
       setBaseResume(res.baseResume);
       setResumeFile(null);

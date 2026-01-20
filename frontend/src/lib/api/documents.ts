@@ -4,7 +4,7 @@ import { routes } from "@/lib/api/routes";
 import type {
   OkResponse,
   GetBaseResumeResponse,
-  UpsertBaseResumeResponse,
+  UploadBaseResumeResponse,
   GetDocumentDownloadUrlResponse,
 } from "@/types/api";
 
@@ -18,13 +18,13 @@ export const documentsApi = {
   },
 
   // Creates/replaces the base resume metadata for the logged-in user
-  upsertBaseResume(file: File): Promise<UpsertBaseResumeResponse> {
+  uploadBaseResume(file: File): Promise<UploadBaseResumeResponse> {
       
     // Create a FormData object to send the file to the backend.
     const form = new FormData();
     form.append("file", file);
 
-    return apiFetch<UpsertBaseResumeResponse>(routes.documents.baseResume(), {
+    return apiFetch<UploadBaseResumeResponse>(routes.documents.baseResume(), {
       method: "POST",
       body: form,
     });
