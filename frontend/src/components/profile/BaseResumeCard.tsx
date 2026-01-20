@@ -17,12 +17,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import type { Document } from "@/types/api";
 
 type Props = {
   isDialogOpen: boolean;
   onDialogOpenChange: (nextOpen: boolean) => void;
 
-  hasBaseResume: boolean;
+  baseResume: Document | null;
 
   isSaving: boolean;
   onSave: (e: React.FormEvent) => void;
@@ -30,15 +31,19 @@ type Props = {
   isDeleting: boolean;
   onDelete: () => void;
 
+  onDownload: () => void;
+
   selectedFile: File | null;
   onFileChange: (file: File | null) => void;
+
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
 };
 
 export function BaseResumeCard({
   isDialogOpen,
   onDialogOpenChange,
 
-  hasBaseResume,
+  baseResume,
 
   isSaving,
   onSave,
@@ -46,8 +51,12 @@ export function BaseResumeCard({
   isDeleting,
   onDelete,
 
+  onDownload,
+
   selectedFile,
   onFileChange,
+
+  fileInputRef  
 }: Props) {
   return (
     <Card>
@@ -71,7 +80,7 @@ export function BaseResumeCard({
                 <DialogHeader>
                   <DialogTitle>Base Resume</DialogTitle>
                   <DialogDescription>
-                    {hasBaseResume
+                    {baseResume
                       ? "Choose a new file to replace the saved resume."
                       : "No base resume saved yet. Upload one to start."}
                   </DialogDescription>
@@ -93,24 +102,45 @@ export function BaseResumeCard({
                   </div>
                 </div>
 
-                <div className="flex items-center justify-end gap-2 pt-2">
-                  {hasBaseResume ? (
+                {/* Actions row (Dialog footer) */}
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                  {/* Cancel / Close */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => onDialogOpenChange(false)}
+                    disabled={isSaving || isDeleting}
+                  >
+                    Cancel
+                  </Button>
+
+                  {/* Download: only if we already have a saved base resume */}
+                  {baseResume ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={onDownload}
+                      disabled={isSaving || isDeleting}
+                    >
+                      Download
+                    </Button>
+                  ) : null}
+
+                  {/* Delete: only if we already have a saved base resume */}
+                  {baseResume ? (
                     <Button
                       type="button"
                       variant="destructive"
                       onClick={onDelete}
-                      disabled={isDeleting || isSaving}
+                      disabled={isSaving || isDeleting}
                     >
-                      {isDeleting ? "Deleting..." : "Delete"}
+                      Delete
                     </Button>
                   ) : null}
 
-                  <Button
-                    type="submit"
-                    disabled={isSaving || isDeleting || !selectedFile}
-                    title={!selectedFile ? "Choose a file first" : undefined}
-                  >
-                    {isSaving ? "Saving..." : "Save base resume"}
+                  {/* Save / Upload */}
+                  <Button type="submit" disabled={isSaving || isDeleting || !selectedFile}>
+                    {isSaving ? "Saving..." : "Save"}
                   </Button>
                 </div>
               </form>
@@ -120,7 +150,7 @@ export function BaseResumeCard({
       </CardHeader>
 
       <CardContent className="text-sm">
-        {hasBaseResume ? (
+        {baseResume ? (
           <div className="text-muted-foreground">A base resume is saved.</div>
         ) : (
           <div className="text-muted-foreground">No base resume saved yet.</div>
