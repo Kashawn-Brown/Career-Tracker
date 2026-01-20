@@ -273,6 +273,27 @@ export default function ProfilePage() {
       setIsResumeSaving(false);
     }
   }
+
+  async function handleResumeDownload() {
+    if (!baseResume) return;
+  
+    const id =
+      typeof baseResume.id === "string" ? Number(baseResume.id) : baseResume.id;
+  
+    if (!Number.isFinite(id)) {
+      setResumeErrorMessage("Invalid resume id.");
+      return;
+    }
+  
+    try {
+      const res = await documentsApi.getDownloadUrl(id, { disposition: "attachment" });
+      window.open(res.downloadUrl, "_blank");
+    } catch (err) {
+      if (err instanceof ApiError) setResumeErrorMessage(err.message);
+      else setResumeErrorMessage("Failed to download base resume.");
+    }
+  }
+  
   
 
   // Deletes the base resume file.
@@ -562,13 +583,15 @@ export default function ProfilePage() {
             <BaseResumeCard
               isDialogOpen={isResumeDialogOpen}
               onDialogOpenChange={handleResumeDialogOpenChange}
-              hasBaseResume={!!baseResume}
+              baseResume={baseResume}
               isSaving={isResumeSaving}
               onSave={handleResumeSave}
               isDeleting={isResumeDeleting}
               onDelete={handleResumeDelete}
+              onDownload={handleResumeDownload}
               selectedFile={resumeFile}
               onFileChange={setResumeFile}
+              fileInputRef={resumeFileInputRef}
             />
 
 
