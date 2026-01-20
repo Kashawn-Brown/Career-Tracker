@@ -1,21 +1,114 @@
 import { DocumentKind } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { documentSelect } from "./documents.dto.js";
-import type { UploadBaseResumeArgs, CreateApplicationDocumentInput } from "./documents.dto.js";
-import { uploadStreamToGcs, deleteGcsObject, isAllowedMimeType } from "../../lib/storage.js";
+import type { UploadBaseResumeArgs, UploadApplicationDocumentArgs, CreateApplicationDocumentInput } from "./documents.dto.js";
+import { uploadStreamToGcs, deleteGcsObject, isAllowedMimeType, getSignedReadUrl } from "../../lib/storage.js";
+import type { SignedUrlDisposition } from "../../lib/storage.js";
 import { AppError } from "../../errors/app-error.js";
-
 
 
 /**
  * Service Layer
- * 
- * Base resume rule:
- * - One BASE_RESUME document per user.
- * - If a new one is added, replace the previous.
  */
 
+
+/**
+ * Fetches a document by ID.
+ */
+export async function getDocumentById(userId: string, documentId: string) {
+  
+  // Validate the document id
+  const id = Number(documentId);
+  if (!Number.isFinite(id)) {
+    throw new AppError("Invalid document id.", 400);
+  }
+
+  // Fetch the document from the database
+  const doc = await prisma.document.findFirst({
+    where: { id: parseInt(documentId), userId },
+    select: {
+      ...documentSelect,
+      storageKey: true,
+      jobApplicationId: true,
+    },
+  });
+
+  if (!doc) {
+    throw new AppError("Document not found.", 404);
+  }
+
+  return doc;
+}
+
+/**
+ * Gets a short-lived signed download URL for a document by ID.
+ */
+export async function getDocumentDownloadUrl(args: {
+  userId: string;
+  documentId: string;
+  disposition?: SignedUrlDisposition;
+}) {
+  const { userId, documentId, disposition } = args;
+
+  const doc = await getDocumentById(userId, documentId);
+
+  const downloadUrl = await getSignedReadUrl({
+    storageKey: doc.storageKey,
+    filename: doc.originalName ?? "document",
+    disposition: disposition ?? "inline",
+  });
+
+  return { downloadUrl };
+}
+
+/**
+ * Deletes a document by ID (GCS object + DB row).
+ * 
+ * Workflow:
+ * 1) delete the document from the database
+ * 2) update the application updatedAt (if applicable)
+ * 3) delete the GCS object
+ */
+export async function deleteDocumentById(userId: string, documentId: string) {
+  
+  // Fetch the document from the database
+  const doc = await getDocumentById(userId, documentId);
+
+  // Delete document + update application updatedAt (if applicable)
+  const result = await prisma.$transaction(async (db) => {
+    
+    // Delete the document from the database
+    const deleted = await db.document.delete({ 
+      where: { id: parseInt(documentId), userId },
+      select: {jobApplicationId: true},
+    });
+
+    // Update the application updatedAt (if applicable)
+    if (deleted.jobApplicationId) {
+      await db.jobApplication.update({
+        where: { id: deleted.jobApplicationId, userId },
+        data: { updatedAt: new Date() },
+      });
+    }
+
+    return { ok: true };    
+  });
+
+  // Delete the GCS object
+  await deleteGcsObject(doc.storageKey);
+
+  return result;
+}
+
+
+
 // ------------------ BASE RESUME ------------------
+
+/**
+ * Base resume rule:
+ * - One BASE_RESUME document per user.
+ */
+
 
 /**
  * Uploads a new base resume for the current user.
@@ -97,40 +190,85 @@ export async function getBaseResume(userId: string) {
   });
 }
 
-/**
- * Deletes the base resume document (GCS object + DB row).
- */
-export async function deleteBaseResume(userId: string) {
-  
-  // Find the existing base resume document
-  const existing = await prisma.document.findFirst({
-    where: { userId, kind: DocumentKind.BASE_RESUME },
-    select: { storageKey: true },
-  });
-
-  // Delete the document from the database
-  await prisma.document.deleteMany({
-    where: { userId, kind: DocumentKind.BASE_RESUME },
-  });
-
-  // Delete the GCS object if it exists
-  if (existing?.storageKey) {
-    await deleteGcsObject(existing.storageKey);
-  }
-
-  return { ok: true };
-}
 
 
 // ------------------ APPLICATION DOCUMENTS ------------------
 
+// Maximum number of documents per application
+const MAX_DOCS_PER_APPLICATION = 25;
+
 /**
- * Counts the documents for a given application.
+ * Uploads a document and attaches it to an application.
+ * 
+ * Workflow:
+ * 1) validate inputs
+ * 2) upload to GCS
+ * 3) write DB row (+ update application updatedAt)
+ * 4) if DB fails -> delete uploaded object (compensation)
  */
-export async function countApplicationDocuments(userId: string, jobApplicationId: string) {
-  return prisma.document.count({
-    where: { userId, jobApplicationId },
+export async function uploadApplicationDocument(args: UploadApplicationDocumentArgs) {
+  const { userId, jobApplicationId, kind, stream, filename, mimeType, isTruncated } = args;
+
+  // Just a sanity check to prevent BASE_RESUME from being uploaded to an application
+  if (kind === DocumentKind.BASE_RESUME) {
+    throw new AppError("BASE_RESUME is not allowed for application attachments.", 400);
+  }
+
+  // Guardrail against too many attachments
+  const currentCount = await countApplicationDocuments(userId, jobApplicationId);
+  if (currentCount >= MAX_DOCS_PER_APPLICATION) {
+    throw new AppError(`Document limit reached (${MAX_DOCS_PER_APPLICATION}).`, 400);
+  }
+
+  if (!isAllowedMimeType(mimeType)) {
+    throw new AppError(`Unsupported file type: ${mimeType}`, 400);
+  }
+
+  const storageKey = buildApplicationDocumentStorageKey(userId, jobApplicationId, filename);
+
+  // Upload to GCS first (so DB never points to a non-existent file)
+  const { sizeBytes } = await uploadStreamToGcs({
+    storageKey,
+    stream,
+    contentType: mimeType,
+    isTruncated,
   });
+
+  try {
+    
+    // Create the document in the database
+    const created = await prisma.$transaction(async (db) => {
+    
+      const doc = await db.document.create({
+        data: {
+          userId,
+          jobApplicationId,
+          kind,
+          storageKey,
+          originalName: filename,
+          mimeType,
+          size: sizeBytes,
+          url: null,
+        },
+        select: documentSelect,
+      });
+  
+      // Update the application updatedAt to keep the last updated time.
+      await db.jobApplication.update({
+        where: { id: jobApplicationId, userId },
+        data: { updatedAt: new Date() },
+      });
+  
+      return doc;
+    });
+
+    return created;
+    
+  } catch (err) {
+    // DB failed after upload -> delete blob (compensation)
+    await deleteGcsObject(storageKey);
+    throw err;
+  }
 }
 
 /**
@@ -145,117 +283,39 @@ export async function listApplicationDocuments(userId: string, jobApplicationId:
 }
 
 /**
- * Creates a new document for a given application.
+ * Counts the number of documents for a given application.
  */
-export async function createApplicationDocument(
-  userId: string,
-  jobApplicationId: string,
-  input: CreateApplicationDocumentInput
-) {
-  if (input.kind === DocumentKind.BASE_RESUME) {
-    throw new AppError("BASE_RESUME is not allowed for application attachments.", 400);
-  }
-
-  return prisma.$transaction(async (db) => {
-    
-    const created = await db.document.create({
-      data: {
-        userId,
-        jobApplicationId,
-        kind: input.kind,
-        storageKey: input.storageKey,
-        originalName: input.originalName,
-        mimeType: input.mimeType,
-        size: input.size,
-        url: null,
-      },
-      select: documentSelect,
-    });
-
-    // Update the application updatedAt to keep the last updated time.
-    const result = await db.jobApplication.updateMany({
-      where: { id: jobApplicationId, userId },
-      data: { updatedAt: new Date() },
-    });
-
-    if (result.count === 0) {
-      throw new AppError("Application not found", 404);
-    }
-
-    return created;
+export async function countApplicationDocuments(userId: string, jobApplicationId: string) {
+  return prisma.document.count({
+    where: { userId, jobApplicationId },
   });
 }
-
-/**
- * Fetch an application-attached document owned by the user.
- * (Excludes BASE_RESUME and requires jobApplicationId.)
- */
-export async function getApplicationDocumentById(userId: string, documentId: string) {
-  const doc = await prisma.document.findFirst({
-    where: {
-      id: parseInt(documentId),
-      userId,
-      jobApplicationId: { not: null },
-      kind: { not: DocumentKind.BASE_RESUME },
-    },
-    select: {
-      ...documentSelect,
-      storageKey: true,
-      jobApplicationId: true,
-    },
-  });
-
-  if (!doc) {
-    throw new AppError("Document not found.", 404);
-  }
-
-  if (!doc.storageKey) {
-    // Should never happen for application uploads, but keeps the behavior safe.
-    throw new AppError("Document is missing storageKey.", 500);
-  }
-
-  return doc;
-}
-
-/**
- * Delete a document attached to an application.
- * 
- * Ownership verified before calling this function.
- */
-export async function deleteDocumentById(userId: string, documentId: string) {
-  
-  return prisma.$transaction(async (db) => {
-    
-    const deleted = await db.document.delete({ 
-      where: { id: parseInt(documentId), userId },
-      select: {jobApplicationId: true},
-    });
-
-    // Update the application updatedAt to keep the last updated time.
-    if (deleted.jobApplicationId) {
-      
-      const result = await db.jobApplication.updateMany({
-        where: { id: deleted.jobApplicationId, userId },
-        data: { updatedAt: new Date() },
-      });
-
-      if (result.count === 0) {
-        throw new AppError("Application not found", 404);
-      }
-    }
-
-    return { ok: true };    
-  });
-}
-
 
 
 
 // ------------------ HELPER FUNCTIONS ------------------
 
+
+// Helper function to build a storage key for the base resume
 function buildBaseResumeStorageKey(userId: string, mimeType: string) {
   const ext = mimeType === "application/pdf" ? ".pdf" : mimeType === "text/plain" ? ".txt" : "";
   const prefix = (process.env.GCS_KEY_PREFIX ?? "").trim();
   const base = `users/${userId}/base-resume/base-resume${ext}`;
+  return prefix ? `${prefix}/${base}` : base;
+}
+
+// Helper function to build a storage key for a document
+function buildApplicationDocumentStorageKey(userId: string, applicationId: string, originalName: string) {
+  const id = crypto.randomUUID();
+
+  const dot = originalName.lastIndexOf(".");
+  const ext = dot !== -1 ? originalName.slice(dot).toLowerCase() : "";
+  const safeExt = ext.length > 0 && ext.length <= 10 ? ext : "";
+
+  // Get the key prefix from the environment variable
+  const prefix = (process.env.GCS_KEY_PREFIX ?? "").trim();
+  const base = `users/${userId}/applications/${applicationId}/${id}${safeExt}`;
+
+  // If prefix is set (dev/prod), keep keys clearly separated.
   return prefix ? `${prefix}/${base}` : base;
 }
