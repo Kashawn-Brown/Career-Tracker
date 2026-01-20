@@ -1,7 +1,7 @@
 import { DocumentKind } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { documentSelect } from "./documents.dto.js";
-import type { UploadBaseResumeArgs, UploadApplicationDocumentArgs, CreateApplicationDocumentInput } from "./documents.dto.js";
+import type { UploadBaseResumeArgs, UploadApplicationDocumentArgs } from "./documents.dto.js";
 import { uploadStreamToGcs, deleteGcsObject, isAllowedMimeType, getSignedReadUrl } from "../../lib/storage.js";
 import type { SignedUrlDisposition } from "../../lib/storage.js";
 import { AppError } from "../../errors/app-error.js";
@@ -51,6 +51,9 @@ export async function getDocumentDownloadUrl(args: {
   const { userId, documentId, disposition } = args;
 
   const doc = await getDocumentById(userId, documentId);
+  if (!doc) {
+    throw new AppError("Document not found.", 404);
+  }
 
   const downloadUrl = await getSignedReadUrl({
     storageKey: doc.storageKey,
@@ -179,8 +182,6 @@ export async function uploadBaseResume(args: UploadBaseResumeArgs) {
 
 /**
  * Gets the base resume document for the current user.
- * 
- * Returns null if none.
  */
 export async function getBaseResume(userId: string) {
   return prisma.document.findFirst({
@@ -188,6 +189,31 @@ export async function getBaseResume(userId: string) {
     orderBy: { createdAt: "desc" },
     select: documentSelect,
   });
+}
+
+/**
+ * Deletes the base resume document for the current user.
+ */
+export async function deleteBaseResume(userId: string) {
+  
+  // Fetch the document from the database
+  const doc = await getBaseResume(userId);
+  if (!doc) {
+    throw new AppError("Base resume not found.", 404);
+  }
+
+  return deleteDocumentById(userId, doc.id.toString());
+}
+
+/**
+ * Gets the download URL for the base resume for the current user.
+ */
+export async function getBaseResumeDownloadUrl(userId: string, disposition?: SignedUrlDisposition) {
+  const doc = await getBaseResume(userId);
+  if (!doc) {
+    throw new AppError("Base resume not found.", 404);
+  }
+  return getDocumentDownloadUrl({ userId, documentId: doc.id.toString(), disposition });
 }
 
 
