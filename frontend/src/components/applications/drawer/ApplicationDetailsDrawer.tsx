@@ -6,8 +6,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { STATUS_OPTIONS, JOB_TYPE_OPTIONS, WORK_MODE_OPTIONS, statusLabel, jobTypeLabel, workModeLabel } from "@/lib/applications/presentation";
 import { dateAppliedFormat, toDateInputValue, dateInputToIso, todayInputValue } from "@/lib/applications/dates";
 import { parseTags, serializeTags, splitTagInput } from "@/lib/applications/tags";
-import { ApplicationDocumentsSection } from "@/components/applications/ApplicationDocumentsSection";
-import { ApplicationConnectionsSection } from "@/components/applications/ApplicationConnectionsSection";
+import { ApplicationDocumentsSection } from "@/components/applications/drawer/ApplicationDocumentsSection";
+import { ApplicationConnectionsSection } from "@/components/applications/drawer/ApplicationConnectionsSection";
+import { AiToolsSection } from "@/components/applications/drawer/AiToolsSection";
 import { documentsApi } from "@/lib/api/documents";
 import { ApiError } from "@/lib/api/client";
 import { Input } from "@/components/ui/input";
@@ -231,6 +232,10 @@ export function ApplicationDetailsDrawer({
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
 
+  // Whether the base resume exists for the current user
+  const [baseResumeExists, setBaseResumeExists] = useState(false);
+
+
   // keep the drawer’s draft in sync with the selected application.
   useEffect(() => {
 
@@ -269,6 +274,24 @@ export function ApplicationDetailsDrawer({
     lastAppIdRef.current = nextId;
 
   }, [open, application, isEditing]);
+
+  useEffect(() => {
+    let cancelled = false;
+  
+    async function checkBaseResume() {
+      try {
+        await documentsApi.getBaseResume(); // if you have this
+        if (!cancelled) setBaseResumeExists(true);
+      } catch (err) {
+        if (!cancelled) setBaseResumeExists(false);
+      }
+    }
+  
+    checkBaseResume();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Starts the edit mode.
   function startEdit() {
@@ -955,10 +978,8 @@ export function ApplicationDetailsDrawer({
               />
             </Section>
 
-            <Section title="AI">
-              <span className="text-muted-foreground">
-                Coming soon: summary, fit rating, and tailored docs.
-              </span>
+            <Section title="AI Tools">
+              <AiToolsSection application={application} baseResumeExists={baseResumeExists} />
             </Section>
           </div>
         )}

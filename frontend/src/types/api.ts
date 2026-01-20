@@ -217,6 +217,7 @@ export type Document = {
   originalName: string;
   mimeType: string;
   size: number | null | undefined;
+  jobApplicationId: string | null | undefined;
   createdAt: string; // JSON-serialized Date from backend
   updatedAt: string; // JSON-serialized Date from backend
 };
