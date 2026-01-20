@@ -1,7 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import { requireAuth } from "../../middleware/auth.js";
-import { UpsertBaseResumeBody } from "./documents.schemas.js";
-import type { UpsertBaseResumeBodyType } from "./documents.schemas.js";
+import { Transform } from "node:stream";
+import { pipeline } from "node:stream/promises";
+import { AppError } from "../../errors/app-error.js";
 import * as DocumentsService from "./documents.service.js";
 import { getGcsConfig, getStorageClient } from "../../lib/gcs.js";
 import { DocumentIdParams, DocumentDownloadQuery } from "./documents.schemas.js";
@@ -11,34 +12,42 @@ import type { DocumentIdParamsType, DocumentDownloadQueryType } from "./document
 export async function documentsRoutes(app: FastifyInstance) {
 
   /**
-   * Gets the current base resume metadata for the current user.
-   * Requires JWT.
+   * Gets the current base resume for the current user.
    */
   app.get("/base-resume", { preHandler: [requireAuth] }, async (req) => {
     const userId = req.user!.id;
     const doc = await DocumentsService.getBaseResume(userId);
-    return { document: doc };
+    return { baseResume: doc };
   });
 
   /**
-   * Create/replace base resume metadata for the current user.
-   * Requires JWT.
+   * Create/replace the base resume file for the current user.
    */
-  app.post(
-    "/base-resume",
-    { preHandler: [requireAuth], schema: { body: UpsertBaseResumeBody } },
-    async (req, reply) => {
+  app.post("/base-resume", { preHandler: [requireAuth] }, async (req, reply) => {
       const userId = req.user!.id;
-      const body = req.body as UpsertBaseResumeBodyType;
 
-      const doc = await DocumentsService.upsertBaseResume(userId, body);
-      return reply.status(201).send({ document: doc });
+      // Get the file from the request
+      const data = await req.file();
+      if (!data) {
+        throw new AppError("No file uploaded.", 400);
+      }
+
+      const created = await DocumentsService.uploadBaseResume({
+        userId,
+        stream: data.file,
+        filename: data.filename,
+        mimeType: data.mimetype,
+        
+        // If the file is too large, fastify-multipart sets truncated to true
+        isTruncated: (data.file as any).truncated === true,
+      });
+
+      return reply.status(201).send({ baseResume: created });
     }
   );
 
   /**
    * Delete base resume for the current user.
-   * Requires JWT.
    */
   app.delete("/base-resume", { preHandler: [requireAuth] }, async (req) => {
     const userId = req.user!.id;
@@ -108,7 +117,42 @@ export async function documentsRoutes(app: FastifyInstance) {
       return DocumentsService.deleteDocumentById(userId, id);
     }
   );
-  
+
+
+  // ---------------- HELPER FUNCTIONS ----------------
+
+
+  // Helper function to check if a mime type is allowed
+  function mimeAllowed(allowed: unknown, mimetype: string) {
+    if (Array.isArray(allowed)) return allowed.includes(mimetype);
+    if (allowed instanceof Set) return allowed.has(mimetype);
+    return false;
+}
+
+// Helper function to build a deterministic storage key for the base resume
+function buildBaseResumeStorageKey(userId: string, mimetype: string) {
+  const ext = mimetype === "application/pdf" ? ".pdf" : mimetype === "text/plain" ? ".txt" : "";
+
+  const prefix = (process.env.GCS_KEY_PREFIX ?? "").trim();
+  const base = `users/${userId}/base-resume/base-resume${ext}`;
+
+  return prefix ? `${prefix}/${base}` : base;
+}
+
+// Helper function to count the number of bytes in a stream
+function createByteCounter() {
+  let bytes = 0;
+
+  const stream = new Transform({
+    transform(chunk, _enc, cb) {
+      bytes += chunk.length;
+      cb(null, chunk);
+    },
+  });
+
+  return { stream, getBytes: () => bytes };
 }
 
 
+
+}
