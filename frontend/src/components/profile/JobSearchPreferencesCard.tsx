@@ -84,7 +84,7 @@ export function JobSearchPreferencesCard({
               </Button>
             </DialogTrigger>
 
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-2xl"  onInteractOutside={(e) => e.preventDefault()}>
               {/* pr-10 reserves space so the Radix close (X) never overlaps the Edit button */}
               <div className="flex items-start justify-between gap-4 pr-10">
                 <DialogHeader>
