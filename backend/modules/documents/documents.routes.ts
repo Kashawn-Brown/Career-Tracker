@@ -1,14 +1,9 @@
 import type { FastifyInstance } from "fastify";
 import { requireAuth } from "../../middleware/auth.js";
-import { Transform } from "node:stream";
-import { pipeline } from "node:stream/promises";
 import { AppError } from "../../errors/app-error.js";
 import * as DocumentsService from "./documents.service.js";
-import { getGcsConfig, getStorageClient } from "../../lib/gcs.js";
 import { DocumentIdParams, DocumentDownloadQuery } from "./documents.schemas.js";
 import type { DocumentIdParamsType, DocumentDownloadQueryType } from "./documents.schemas.js";
-import { DocumentKind } from "@prisma/client";
-import { SignedUrlDisposition } from "../../lib/storage.js";
 
 export async function documentsRoutes(app: FastifyInstance) {
 

@@ -15,7 +15,6 @@ import type { CreateApplicationInput, UpdateApplicationInput, ListApplicationsPa
 
 /**
  * Creates a new Application for the current user.
- * Requires JWT.
  */
 export async function createApplication(input: CreateApplicationInput) {
   return prisma.jobApplication.create({
@@ -54,7 +53,6 @@ export async function createApplication(input: CreateApplicationInput) {
 /**
  * Lists the current users applications. 
  * Supports pagination + sorting + filtering.
- * Requires JWT.
  */
 export async function listApplications(params: ListApplicationsParams) {
 
@@ -110,9 +108,7 @@ export async function listApplications(params: ListApplicationsParams) {
 
 
 /**
- * Fetch one application for the current user.
- * Include userId in the filter so users can't access someone else's data.
- * Requires JWT.
+ * Fetch a single application for the current user.
  */
 export async function getApplicationById(userId: string, id: string) {
   const app = await prisma.jobApplication.findFirst({
@@ -128,8 +124,6 @@ export async function getApplicationById(userId: string, id: string) {
 
 /**
  * Partial update of an application that belongs to the current user.
- * Uses updateMany to be able to filter by (id + userId) without requiring a compound unique constraint.
- * Requires JWT.
  */
 export async function updateApplication(userId: string, id: string, input: UpdateApplicationInput) {
   const data: any = {};
@@ -186,7 +180,6 @@ export async function updateApplication(userId: string, id: string, input: Updat
 
 /**
  * Delete an application that belongs to the current user.
- * Requires JWT.
  */
 export async function deleteApplication(userId: string, id: string) {
   // Use deleteMany to include userId in filter (prevents leaking)
@@ -381,6 +374,7 @@ export async function listAiArtifacts(args: {
 }
 
 
+//----------------- HELPER FUNCTIONS -----------------
 
 // Helper to normalize nullable string fields
 const normalizeNullableString = (value: string | undefined) => {
