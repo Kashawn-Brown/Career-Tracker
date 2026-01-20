@@ -5,13 +5,9 @@ import type { CreateApplicationBodyType, ListApplicationsQueryType, ApplicationI
 import * as ApplicationsService from "./applications.service.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { AppError } from "../../errors/app-error.js";
-import { getGcsConfig, getStorageClient } from "../../lib/gcs.js";
 import * as DocumentsService from "../documents/documents.service.js";
 import * as AiService from "../ai/ai.service.js";
 import { DocumentKind } from "@prisma/client";
-import crypto from "node:crypto";
-import { Transform } from "node:stream";
-import { pipeline } from "node:stream/promises";
 
 
 export async function applicationsRoutes(app: FastifyInstance) {
@@ -331,44 +327,4 @@ export async function applicationsRoutes(app: FastifyInstance) {
     }
   );
 
-
-
-  // ---------------- HELPER FUNCTIONS ----------------
-
-  // Helper function to count the number of bytes in a stream
-  function createByteCounter() {
-    let bytes = 0;
-  
-    const stream = new Transform({
-      transform(chunk, _enc, cb) {
-        bytes += chunk.length;
-        cb(null, chunk);
-      },
-    });
-  
-    return { stream, getBytes: () => bytes };
-  }
-  
-  // Helper function to build a storage key for a document
-  function buildStorageKey(userId: string, applicationId: string, originalName: string) {
-    const id = crypto.randomUUID();
-  
-    const dot = originalName.lastIndexOf(".");
-    const ext = dot !== -1 ? originalName.slice(dot).toLowerCase() : "";
-    const safeExt = ext.length > 0 && ext.length <= 10 ? ext : "";
-
-    // Get the key prefix from the environment variable
-    const prefix = (process.env.GCS_KEY_PREFIX ?? "").trim();
-    const base = `users/${userId}/applications/${applicationId}/${id}${safeExt}`;
-  
-    // If prefix is set (dev/prod), keep keys clearly separated.
-    return prefix ? `${prefix}/${base}` : base;
-  }
-  
-  // Helper function to check if a mime type is allowed
-  function mimeAllowed(allowed: unknown, mimetype: string) {
-    if (Array.isArray(allowed)) return allowed.includes(mimetype);
-    if (allowed instanceof Set) return allowed.has(mimetype);
-    return false;
-  }
 }

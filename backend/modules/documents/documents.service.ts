@@ -5,7 +5,7 @@ import type { UploadBaseResumeArgs, UploadApplicationDocumentArgs } from "./docu
 import { uploadStreamToGcs, deleteGcsObject, isAllowedMimeType, getSignedReadUrl } from "../../lib/storage.js";
 import type { SignedUrlDisposition } from "../../lib/storage.js";
 import { AppError } from "../../errors/app-error.js";
-
+import crypto from "node:crypto";
 
 /**
  * Service Layer
@@ -81,15 +81,18 @@ export async function deleteDocumentById(userId: string, documentId: string) {
   const result = await prisma.$transaction(async (db) => {
     
     // Delete the document from the database
-    const deleted = await db.document.delete({ 
+    const deleted = await db.document.deleteMany({ 
       where: { id: parseInt(documentId), userId },
-      select: {jobApplicationId: true},
     });
 
+    if (deleted.count === 0) {
+      throw new AppError("Document not found.", 404);
+    }
+
     // Update the application updatedAt (if applicable)
-    if (deleted.jobApplicationId) {
-      await db.jobApplication.update({
-        where: { id: deleted.jobApplicationId, userId },
+    if (doc.jobApplicationId) {
+      await db.jobApplication.updateMany({
+        where: { id: doc.jobApplicationId, userId },
         data: { updatedAt: new Date() },
       });
     }
@@ -280,10 +283,15 @@ export async function uploadApplicationDocument(args: UploadApplicationDocumentA
       });
   
       // Update the application updatedAt to keep the last updated time.
-      await db.jobApplication.update({
+      const updated = await db.jobApplication.updateMany({
         where: { id: jobApplicationId, userId },
         data: { updatedAt: new Date() },
       });
+
+      if (updated.count === 0) {
+        // Important: prevents attaching docs to someone else's application
+        throw new AppError("Application not found.", 404);
+      }
   
       return doc;
     });

@@ -28,7 +28,7 @@ export async function documentsRoutes(app: FastifyInstance) {
           disposition,
         });
   
-        return { downloadUrl };
+        return downloadUrl;
       }
     );
 
@@ -103,8 +103,8 @@ export async function documentsRoutes(app: FastifyInstance) {
   app.get("/base-resume/download", { preHandler: [requireAuth] }, async (req) => {
     const userId = req.user!.id;
     const { disposition } = req.query as DocumentDownloadQueryType;
-    const doc = await DocumentsService.getBaseResumeDownloadUrl(userId, disposition);
-    return { baseResume: doc };
+    const downloadUrl = await DocumentsService.getBaseResumeDownloadUrl(userId, disposition);
+    return downloadUrl;
   });
 
 }
