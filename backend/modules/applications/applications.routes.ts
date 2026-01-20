@@ -165,7 +165,9 @@ export async function applicationsRoutes(app: FastifyInstance) {
    * Upload a document to an application
    * 
    * multipart/form-data with a single file field.
-   * Optional kind via querystring: ?kind=RESUME|COVER_LETTER|OTHER
+   * Optional kind via querystring: ?kind=RESUME|COVER_LETTER|CAREER_HISTORY|OTHER
+   * 
+   * CAREER_HISTORY is Phase E AI-only (not exposed in normal user upload UI).
    */
   app.post(
     "/:id/documents",

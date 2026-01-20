@@ -147,6 +147,7 @@ export const UpdateApplicationBody = Type.Object(
 export const ApplicationDocumentKindSchema = Type.Union([
   Type.Literal("RESUME"),
   Type.Literal("COVER_LETTER"),
+  Type.Literal("CAREER_HISTORY"),  // (AI Only)
   Type.Literal("OTHER"),
 ]);
 
