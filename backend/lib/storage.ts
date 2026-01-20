@@ -117,6 +117,48 @@ export async function deleteGcsObject(storageKey: string): Promise<void> {
   }
 }
 
+
+/**
+ * Downloads a GCS object into memory as a Buffer.
+ *
+ * Used for server-side processing (ex: PDF/TXT -> text extraction).
+ * Guarded by maxBytes to avoid pulling very large files into memory.
+ */
+export async function downloadGcsObjectToBuffer(opts: {
+  storageKey: string;
+  maxBytes?: number;
+}): Promise<Buffer> {
+  const cfg = getGcsConfig();
+  const bucket = getStorageClient().bucket(cfg.bucketName);
+  const file = bucket.file(opts.storageKey);
+
+  const maxBytes = opts.maxBytes ?? cfg.maxUploadBytes;
+
+  // Best-effort size check (metadata can be missing in some edge cases)
+  const [meta] = await file.getMetadata();
+  const size = Number(meta.size ?? 0);
+  if (Number.isFinite(size) && size > maxBytes) {
+    throw new AppError(`File too large to process. Max is ${maxBytes} bytes.`, 413);
+  }
+
+  const [buf] = await file.download();
+
+  // Safety check in case metadata was missing/incorrect.
+  if (buf.length > maxBytes) {
+    throw new AppError(`File too large to process. Max is ${maxBytes} bytes.`, 413);
+  }
+
+  return buf;
+}
+
+
+
+
+
+
+// ---------------- HELPER FUNCTIONS ----------------
+
+
 /**
  * Server-side MIME enforcement.
  * 
