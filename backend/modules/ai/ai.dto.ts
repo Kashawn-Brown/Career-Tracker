@@ -1,5 +1,7 @@
 import { JobType, WorkMode } from "@prisma/client";
 
+// ------------------- EXTRACT JOB DESCRIPTION -------------------
+
 /**
  * Type for the application draft from a job description.
  */

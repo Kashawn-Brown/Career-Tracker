@@ -207,7 +207,7 @@ export type UpdateApplicationRequest = {
 
 // --- Document DTOs: matches backend ---
 
-export type DocumentKind = "BASE_RESUME" | "RESUME" | "COVER_LETTER" | "OTHER";
+export type DocumentKind = "BASE_RESUME" | "RESUME" | "COVER_LETTER" | "OTHER" | "CAREER_HISTORY";
 
 // Document: minimal document shape returned by backend (BASE_RESUME only for MVP).
 export type Document = {

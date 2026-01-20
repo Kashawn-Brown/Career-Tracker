@@ -16,7 +16,9 @@ import type { Document, DocumentKind } from "@/types/api";
 
 type ApplicationDocumentKind = Exclude<DocumentKind, "BASE_RESUME">;
 
-const DOC_KIND_OPTIONS: Array<{ value: ApplicationDocumentKind; label: string }> =
+type UploadableDocumentKind = Exclude<ApplicationDocumentKind, "CAREER_HISTORY">;
+
+const DOC_KIND_OPTIONS: Array<{ value: UploadableDocumentKind; label: string }> =
   [
     { value: "RESUME", label: "Resume" },
     { value: "COVER_LETTER", label: "Cover Letter" },
@@ -27,6 +29,7 @@ const DOC_KIND_LABEL: Record<ApplicationDocumentKind, string> = {
   RESUME: "Resume",
   COVER_LETTER: "Cover Letter",
   OTHER: "Other",
+  CAREER_HISTORY: "Career History (AI Fit)",
 };
 
 function safeDocId(doc: Document): number {
@@ -53,7 +56,7 @@ export function ApplicationDocumentsSection({
   const [docs, setDocs] = useState<Document[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const [kind, setKind] = useState<ApplicationDocumentKind>("RESUME");
+  const [kind, setKind] = useState<UploadableDocumentKind>("RESUME");
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -296,7 +299,7 @@ export function ApplicationDocumentsSection({
               <Select
                 value={kind}
                 onChange={(e) =>
-                  setKind(e.target.value as ApplicationDocumentKind)
+                  setKind(e.target.value as UploadableDocumentKind)
                 }
               >
                 {DOC_KIND_OPTIONS.map((o) => (
