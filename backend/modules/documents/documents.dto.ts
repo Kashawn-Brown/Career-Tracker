@@ -2,6 +2,7 @@ import { DocumentKind } from "@prisma/client";
 
 export const documentSelect = {
   id: true,
+  userId: true,
   kind: true,
   url: true,
   originalName: true,
@@ -11,21 +12,27 @@ export const documentSelect = {
   updatedAt: true,
 }
 
-
-export type upsertBaseResumeInput = {
-  url: string;
-  originalName: string;
+/**
+ * Base Resume upsert input.
+ *
+ * - The file is uploaded to GCS first, then the metadata is persisted to the database.
+ * - url is stored as null (download is via signed URL endpoint when needed).
+ */
+export type UploadBaseResumeArgs = {
+  userId: string;
+  stream: NodeJS.ReadableStream;
+  filename: string;
   mimeType: string;
-  size?: number;
-  storageKey?: string;
+  isTruncated?: boolean;
 };
 
-
-// 
-export type CreateApplicationDocumentInput = {
+// Upload application document input.
+export type UploadApplicationDocumentArgs = {
+  userId: string;
+  jobApplicationId: string;
   kind: DocumentKind;
-  storageKey: string;
-  originalName: string;
+  stream: NodeJS.ReadableStream;
+  filename: string;
   mimeType: string;
-  size?: number;
+  isTruncated?: boolean;
 };
