@@ -297,6 +297,10 @@ export async function applicationsRoutes(app: FastifyInstance) {
         return reply.status(201).send(artifact);
       }
 
+      if (kind === "FIT_V1") {
+        throw new AppError("FIT_V1 not implemented yet.", 501);
+      }
+
       throw new AppError(`Unsupported AI artifact kind: ${kind}`, 400);
     }
   );

@@ -9,6 +9,14 @@ import { JobType, WorkMode } from "@prisma/client";
 export const WorkModeSchema = Type.Enum(WorkMode);
 export const JobTypeSchema = Type.Enum(JobType);
 
+export const AiArtifactKindSchema = Type.Union([
+  Type.Literal("JD_EXTRACT_V1"),
+  Type.Literal("FIT_V1"),
+]);
+
+
+// ------------------- EXTRACT JOB DESCRIPTION -------------------
+
 /**
  * Schema for the extracted fields from the job description.
  */
@@ -66,5 +74,7 @@ export const ApplicationDraftResponse = Type.Object(
   { additionalProperties: false }
 );
 
+
+// export type AiArtifactKindType = Static<typeof AiArtifactKindSchema>;
 export type JdBodyType = Static<typeof JdBody>;
 export type ApplicationDraftResponseType = Static<typeof ApplicationDraftResponse>;
