@@ -8,7 +8,7 @@ import { dateAppliedFormat, toDateInputValue, dateInputToIso, todayInputValue } 
 import { parseTags, serializeTags, splitTagInput } from "@/lib/applications/tags";
 import { ApplicationDocumentsSection } from "@/components/applications/drawer/ApplicationDocumentsSection";
 import { ApplicationConnectionsSection } from "@/components/applications/drawer/ApplicationConnectionsSection";
-import { AiToolsSection } from "@/components/applications/drawer/AiToolsSection";
+import { ApplicationAiToolsSection } from "@/components/applications/drawer/ApplicationAiToolsSection";
 import { documentsApi } from "@/lib/api/documents";
 import { ApiError } from "@/lib/api/client";
 import { Input } from "@/components/ui/input";
@@ -989,7 +989,7 @@ export function ApplicationDetailsDrawer({
             </Section>
 
             <Section title="AI Tools">
-              <AiToolsSection 
+              <ApplicationAiToolsSection 
               application={application} 
               baseResumeExists={baseResumeExists} 
               useOverride={useAiOverride}

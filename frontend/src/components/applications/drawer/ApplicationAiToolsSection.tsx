@@ -16,7 +16,7 @@ type Props = {
   onOverrideFile: (file: File | null) => void;
 };
 
-export function AiToolsSection({ application, baseResumeExists, useOverride, overrideFile, onToggleOverride, onOverrideFile }: Props) {
+export function ApplicationAiToolsSection({ application, baseResumeExists, useOverride, overrideFile, onToggleOverride, onOverrideFile }: Props) {
   
   const hasJd = useMemo(() => {
     const jd = application.description?.trim();
