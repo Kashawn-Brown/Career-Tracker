@@ -1,10 +1,8 @@
 import { AppError } from "../../errors/app-error.js";
-import { getOpenAIClient, getOpenAIModel } from "./openai.js";
-import {
-  ApplicationFromJdJsonObject,
-  normalizeApplicationFromJdResponse,
-  type ApplicationFromJdResponse,
-} from "./ai.dto.js";
+import { getOpenAIClient, getOpenAIModel, getJdExtractOpenAIModel } from "./openai.js";
+import { ApplicationFromJdJsonObject, normalizeApplicationFromJdResponse, FitV1JsonObject, normalizeFitV1Response } from "./ai.dto.js";
+import type { ApplicationFromJdResponse, FitV1Response } from "./ai.dto.js";
+
 
 /**
  * Service layer for the AI module:
@@ -13,14 +11,15 @@ import {
  */
 
 /**
- * Turns pasted JD text into an application draft response.
+ * JD_EXTRACT_V1: Turns pasted JD text into an application draft response.
+ * 
  * No DB writes.
  */
 export async function buildApplicationDraftFromJd(jdText: string): Promise<ApplicationFromJdResponse> {
   
   // Get the OpenAI client and model.
   const openai = getOpenAIClient();
-  const model = getOpenAIModel();
+  const model = getJdExtractOpenAIModel();
 
   // try {
     // Make the OpenAI request.
@@ -55,6 +54,47 @@ export async function buildApplicationDraftFromJd(jdText: string): Promise<Appli
 }
 
 
+/**
+ * Generates FIT_V1 using canonical JD text + extracted candidate-history text.
+ * No DB writes.
+ */
+export async function buildFitV1(jdText: string, candidateText: string): Promise<FitV1Response> {
+  const jd = (jdText ?? "").trim();
+  const candidate = (candidateText ?? "").trim();
+
+  if (!jd) throw new AppError("Job description is missing.", 400);
+  if (!candidate) throw new AppError("Candidate history is missing.", 400);
+
+
+  const openai = getOpenAIClient();
+  const model = getOpenAIModel();
+
+  const resp = await openai.responses.create({
+    model,
+    input: [
+      { role: "system", content: buildFitSystemPrompt() },
+      { role: "user", content: buildFitUserPrompt(jd, candidate) },
+    ],
+    text: {
+      format: {
+        type: "json_schema",
+        name: "fit_v1",
+        strict: true,
+        schema: FitV1JsonObject,
+      },
+    },
+    // Keep output bounded
+    max_output_tokens: 700,
+  });
+
+  const parsed = safeJsonParse<FitV1Response>(resp.output_text);
+  return normalizeFitV1Response(parsed);
+}
+
+
+
+
+
 
 
 
@@ -63,7 +103,7 @@ export async function buildApplicationDraftFromJd(jdText: string): Promise<Appli
 // ------------ HELPER FUNCTIONS ------------
 
 /**
- * Build the system prompt for the AI request.
+ * Build the system prompt for the AI request to extract the job description.
  */
 function buildSystemPrompt(): string {
   return [
@@ -95,6 +135,44 @@ function buildSystemPrompt(): string {
 
   ].join("\n");
 }
+
+/**
+ * Build the system prompt for the AI request to evaluate the candidate-to-job fit.
+ * 
+ * buildFitSystemPrompt() is used to build the system prompt for the AI request with the instructions for the AI on how to evaluate the fit.
+ * 
+ * buildFitUserPrompt() is used to build the user prompt for the AI request with the job description and candidate history text.
+ */
+function buildFitSystemPrompt(): string {
+  return [
+    "You evaluate candidate-to-job fit using ONLY the provided job description and candidate history text.",
+    "Return ONLY JSON matching the provided schema.",
+    "",
+    "Rules:",
+    "- Do NOT invent skills, years, or experiences not present in the candidate text.",
+    "- Do NOT invent requirements not present in the job description.",
+    "- Keep bullets concise and actionable.",
+    "- score: 0–100 (higher = stronger fit).",
+    "- confidence: low/medium/high based on how clearly the texts support the score.",
+    "",
+    "Output guidelines:",
+    "- strengths: 5–10 concrete matches (skills/experience that directly map to JD).",
+    "- gaps: 5–10 meaningful missing areas (requirements not evidenced in candidate text).",
+    "- keywordGaps: specific missing keywords/tools from the JD (max 15).",
+    "- recommendedEdits: resume improvement suggestions (max 10) grounded in candidate text (rewording, reordering, emphasizing).",
+    "- questionsToAsk: strong interview/recruiter questions tailored to unclear areas (max 5).",
+  ].join("\n");
+}
+function buildFitUserPrompt(jdText: string, candidateText: string): string {
+  return [
+    "JOB DESCRIPTION (canonical):",
+    jdText,
+    "",
+    "CANDIDATE HISTORY (extracted):",
+    candidateText,
+  ].join("\n");
+}
+
 
 /**
  * Parse a JSON string safely.
