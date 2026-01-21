@@ -59,154 +59,38 @@ export async function buildApplicationDraftFromJd(jdText: string): Promise<Appli
  * Generates FIT_V1 using canonical JD text + extracted candidate-history text.
  * No DB writes.
  */
-// export async function buildFitV1(jdText: string, candidateText: string): Promise<FitV1Response> {
-//   const jd = (jdText ?? "").trim();
-//   const candidate = (candidateText ?? "").trim();
-
-//   if (!jd) throw new AppError("Job description is missing.", 400);
-//   if (!candidate) throw new AppError("Candidate history is missing.", 400);
-
-
-//   const openai = getOpenAIClient();
-//   const model = getOpenAIModel();
-
-//   const resp = await openai.responses.create({
-//     model,
-//     input: [
-//       { role: "system", content: buildFitSystemPrompt() },
-//       { role: "user", content: buildFitUserPrompt(jd, candidate) },
-//     ],
-//     text: {
-//       format: {
-//         type: "json_schema",
-//         name: "fit_v1",
-//         strict: true,
-//         schema: FitV1JsonObject,
-//       },
-//     },
-//     // Keep output bounded
-//     max_output_tokens: 2500,
-//   });
-
-//   const parsed = safeJsonParse<FitV1Response>(resp.output_text);
-//   return normalizeFitV1Response(parsed);
-// }
-
-// buildFitV1 with logging context
-export async function buildFitV1(
-  jdText: string,
-  candidateText: string,
-  ctx: AiLogCtx = {}
-): Promise<FitV1Response> {
+export async function buildFitV1(jdText: string, candidateText: string): Promise<FitV1Response> {
   const jd = (jdText ?? "").trim();
   const candidate = (candidateText ?? "").trim();
 
   if (!jd) throw new AppError("Job description is missing.", 400);
   if (!candidate) throw new AppError("Candidate history is missing.", 400);
 
+
   const openai = getOpenAIClient();
   const model = getOpenAIModel();
 
-  const log = ctx.log ?? console;
-
-  // Try once with normal budget, then retry once with a higher cap if we got an incomplete/empty response.
-  const attempts = [2500, 3500];
-
-  let lastErr: unknown;
-
-  for (let i = 0; i < attempts.length; i++) {
-    const max_output_tokens = attempts[i];
-
-    const resp = await openai.responses.create({
-      model,
-      input: [
-        { role: "system", content: buildFitSystemPrompt() },
-        { role: "user", content: buildFitUserPrompt(jd, candidate) },
-      ],
-      text: {
-        format: {
-          type: "json_schema",
-          name: "fit_v1",
-          strict: true,
-          schema: FitV1JsonObject,
-        },
+  const resp = await openai.responses.create({
+    model,
+    input: [
+      { role: "system", content: buildFitSystemPrompt() },
+      { role: "user", content: buildFitUserPrompt(jd, candidate) },
+    ],
+    text: {
+      format: {
+        type: "json_schema",
+        name: "fit_v1",
+        strict: true,
+        schema: FitV1JsonObject,
       },
-      // Reduce randomness → fewer “weird” outputs
-      temperature: 0.2,
-      max_output_tokens,
-    });
+    },
+    // Keep output bounded
+    max_output_tokens: 2500,
+  });
 
-    const summary = summarizeOpenAIResponse(resp);
-    const refusal = extractRefusalFromOpenAIResponse(resp);
-    const raw = extractTextFromOpenAIResponse(resp);
-
-    const shouldDebugLog =
-      isAiDebugEnabled() || refusal || !raw.trim() || summary.status !== "completed";
-
-    if (shouldDebugLog) {
-      log.warn?.("[ai.fit] OpenAI response debug", {
-        model,
-        attempt: i + 1,
-        max_output_tokens,
-        summary,
-        refusalPreview: refusal ? refusal.slice(0, 800) : null,
-        rawLen: raw.length,
-        rawHead: raw.slice(0, 500),
-        rawTail: raw.slice(-500),
-        outputPreview: previewOutputItems(resp),
-      });
-    }
-
-    // Hard fail on refusal (this is the “why is it refusing” answer, in logs)
-    if (refusal) {
-      lastErr = new AppError(`AI refused the request: ${refusal.slice(0, 200)}`, 502);
-      break;
-    }
-
-    // If not completed, retry only if it looks like a token cap/incomplete situation
-    if (summary.status !== "completed") {
-      lastErr = new AppError(
-        `AI response not completed (${summary.status}${summary.incompleteDetails?.reason ? `: ${summary.incompleteDetails.reason}` : ""}).`,
-        502
-      );
-
-      const isTokenCap =
-        summary.incompleteDetails?.reason === "max_output_tokens" || summary.outputTextLen === 0;
-
-      if (isTokenCap && i < attempts.length - 1) continue;
-      break;
-    }
-
-    if (!raw.trim()) {
-      lastErr = new AppError("AI returned empty output.", 502);
-      // Retry once with the larger cap
-      if (i < attempts.length - 1) continue;
-      break;
-    }
-
-    try {
-      const parsed = safeJsonParse<FitV1Response>(raw);
-      return normalizeFitV1Response(parsed);
-    } catch (err) {
-      lastErr = err;
-      // If parse failed on first attempt, retry once with larger cap (sometimes the model truncates)
-      if (i < attempts.length - 1) continue;
-      break;
-    }
-  }
-
-  // If we get here, we failed both attempts
-  throw lastErr instanceof Error
-    ? lastErr
-    : new AppError("AI fit generation failed.", 502);
+  const parsed = safeJsonParse<FitV1Response>(resp.output_text);
+  return normalizeFitV1Response(parsed);
 }
-
-
-
-
-
-
-
 
 
 
@@ -255,13 +139,19 @@ function buildExtractJdSystemPrompt(): string {
  */
 function buildFitSystemPrompt(): string {
   return [
-    "You evaluate candidate-to-job fit using ONLY the provided job description and candidate history text.",
+    "You are generating an informational candidate-to-job fit summary for the candidate (NOT a hiring decision).",
+    "Evaluate fit using ONLY the provided job description and candidate history text.",
     "Return ONLY JSON matching the provided schema. No markdown. No extra keys.",
+    "",
+    "Safety + privacy rules:",
+    "- Do NOT use or mention protected traits (age, race, gender, religion, disability, etc.), even if present in the text.",
+    "- Do NOT output any personal contact info or identifiers (email, phone, address, links). If a snippet contains any, redact it as '[REDACTED]'.",
+    "- Keep evidence snippets short (<= 12 words) and only from candidate text. Never quote the JD verbatim.",
     "",
     "Truthfulness rules:",
     "- Only claim a skill/experience if it is explicitly stated in the candidate text.",
     "- If something seems likely but is NOT explicit, you MAY mention it only as 'Inferred (not explicit): ...' and you MUST NOT use it to justify a higher score or 'high' confidence.",
-    "- Do not copy long phrases from the JD; paraphrase. Evidence snippets must be short (<= 12 words).",
+    "- Do not invent requirements not present in the JD.",
     "",
     "Scoring rubric (0–100):",
     "- 90–100: clear evidence of most must-haves + strong directly relevant experience.",
@@ -271,10 +161,10 @@ function buildFitSystemPrompt(): string {
     "Confidence:",
     "- high only when the texts clearly support the score; medium when key items are unclear; low when evidence is thin.",
     "",
-    "Output constraints (keep it tight and non-redundant):",
-    "- strengths: 5–7 items. strengths[0] MUST be a 1–2 sentence overall fit summary.",
+    "Output constraints (tight + non-redundant):",
+    "- strengths: 5–7 items. strengths[0] MUST be a 1–2 sentence overall fit summary (skills-based, no protected traits).",
     "  Each remaining item format: '<match> — Evidence: <candidate snippet> — Why: <why it matters>' (max 2 sentences).",
-    "- gaps: 5–7 items. gaps[0] MUST be a 1–2 sentence summary of the biggest blockers / what would raise the score most.",
+    "- gaps: 5–7 items. gaps[0] MUST be a 1–2 sentence summary of biggest blockers / what would raise the score most.",
     "  Each remaining item format: '<gap> — Impact: <why> — Fast path: <quick action>' (max 2 sentences).",
     "- keywordGaps: 8–12 UNIQUE items. Include missing tools/tech AND derived concepts when relevant.",
     "  Prefer (1) tools/tech/platforms, then (2) architecture/process concepts. Mark inferred items as 'Inferred (not explicit): ...'.",
@@ -283,8 +173,12 @@ function buildFitSystemPrompt(): string {
     "  Focus on clarifying gaps, expectations, success criteria, stack, and what strong performance looks like.",
     "",
     "Avoid repetition across fields. If something appears as a gap, don't restate it as a keyword gap unless the keyword adds specificity.",
+    "",
+    "If you cannot comply for any reason, still return valid JSON with:",
+    "- score: 0, confidence: 'low', and strengths[0]/gaps[0] explaining that the output could not be generated from the provided text.",
   ].join("\n");
 }
+
 
 function buildFitUserPrompt(jdText: string, candidateText: string): string {
   return [
@@ -372,145 +266,4 @@ function safeJsonParse<T>(raw: string | null | undefined): T {
   });
 
   throw new AppError("AI returned invalid JSON", 502);
-}
-
-
-
-// -------------- HELPER FUNCTIONS FOR LOGGING --------------
-
-type AiLogCtx = { log?: FastifyBaseLogger; reqId?: string };
-
-function summarizeText(text: string, snippetLen = 240) {
-  const t = String(text ?? "");
-  const head = t.slice(0, snippetLen);
-  const tail = t.length > snippetLen ? t.slice(-snippetLen) : "";
-  return {
-    len: t.length,
-    hasFence: t.includes("```"),
-    firstChar: t[0] ?? "",
-    lastChar: t[t.length - 1] ?? "",
-    head,
-    tail,
-  };
-}
-
-function summarizeResponse(resp: any) {
-  const output = Array.isArray(resp?.output) ? resp.output : [];
-  return {
-    responseId: resp?.id,
-    model: resp?.model,
-    outputTextLen: typeof resp?.output_text === "string" ? resp.output_text.length : null,
-    outputItems: output.map((item: any) => ({
-      type: item?.type,
-      contentTypes: Array.isArray(item?.content) ? item.content.map((c: any) => c?.type) : [],
-    })),
-    usage: resp?.usage, // helpful for token/cost debugging
-  };
-}
-
-/**
- * Prefer resp.output_text, but fall back to scanning resp.output for content items.
- * Also detect refusal content when present.
- */
-function extractResponseText(resp: any): { text: string; refusal?: string } {
-  const direct = typeof resp?.output_text === "string" ? resp.output_text : "";
-  if (direct.trim()) return { text: direct };
-
-  const output = Array.isArray(resp?.output) ? resp.output : [];
-  let text = "";
-  let refusal = "";
-
-  for (const item of output) {
-    if (item?.type !== "message" || !Array.isArray(item?.content)) continue;
-
-    for (const c of item.content) {
-      if ((c?.type === "output_text" || c?.type === "text") && typeof c?.text === "string") {
-        text += c.text;
-      }
-      if (c?.type === "refusal" && typeof c?.refusal === "string") {
-        refusal += c.refusal;
-      }
-    }
-  }
-
-  return { text, refusal: refusal || undefined };
-}
-
-function isAiDebugEnabled(): boolean {
-  return (process.env.AI_DEBUG ?? "").toLowerCase() === "true";
-}
-
-function summarizeOpenAIResponse(resp: any) {
-  const output = Array.isArray(resp?.output) ? resp.output : [];
-  return {
-    responseId: resp?.id,
-    status: resp?.status,
-    model: resp?.model,
-    outputTextLen: typeof resp?.output_text === "string" ? resp.output_text.length : 0,
-    outputItems: output.map((item: any) => ({
-      type: item?.type,
-      role: item?.role,
-      contentTypes: Array.isArray(item?.content) ? item.content.map((c: any) => c?.type) : [],
-    })),
-    incompleteDetails: resp?.incomplete_details ?? null,
-    usage: resp?.usage ?? null,
-  };
-}
-
-function extractTextFromOpenAIResponse(resp: any): string {
-  const direct = typeof resp?.output_text === "string" ? resp.output_text.trim() : "";
-  if (direct) return direct;
-
-  const output = Array.isArray(resp?.output) ? resp.output : [];
-  const chunks: string[] = [];
-
-  for (const item of output) {
-    const content = Array.isArray(item?.content) ? item.content : [];
-    for (const c of content) {
-      // common text shapes we’ve seen
-      if (typeof c?.text === "string" && c.text.trim()) chunks.push(c.text);
-      if (typeof c?.output_text === "string" && c.output_text.trim()) chunks.push(c.output_text);
-
-      // refusal shape (if present)
-      if (typeof c?.refusal === "string" && c.refusal.trim()) {
-        // Don’t throw here (yet). Just capture for debugging if you want.
-        chunks.push(`REFUSAL: ${c.refusal}`);
-      }
-    }
-  }
-
-  return chunks.join("\n").trim();
-}
-
-
-function extractRefusalFromOpenAIResponse(resp: any): string | null {
-  const output = Array.isArray(resp?.output) ? resp.output : [];
-  for (const item of output) {
-    const contents = Array.isArray(item?.content) ? item.content : [];
-    for (const c of contents) {
-      // Most common: { type: "refusal", refusal: "..." } OR content item with a refusal string
-      if (typeof c?.refusal === "string" && c.refusal.trim()) return c.refusal.trim();
-
-      // Just in case the SDK uses a slightly different shape
-      if (c?.type === "refusal" && typeof c?.text === "string" && c.text.trim()) return c.text.trim();
-    }
-  }
-  return null;
-}
-
-function previewOutputItems(resp: any) {
-  const output = Array.isArray(resp?.output) ? resp.output : [];
-  return output.slice(0, 6).map((item: any) => {
-    const contents = Array.isArray(item?.content) ? item.content : [];
-    return {
-      type: item?.type,
-      role: item?.role,
-      contentTypes: contents.map((c: any) => c?.type).filter(Boolean),
-      contentPreview: contents.slice(0, 3).map((c: any) => ({
-        type: c?.type,
-        text: typeof c?.text === "string" ? c.text.slice(0, 250) : undefined,
-        refusal: typeof c?.refusal === "string" ? c.refusal.slice(0, 250) : undefined,
-      })),
-    };
-  });
 }
