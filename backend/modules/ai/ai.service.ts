@@ -84,7 +84,7 @@ export async function buildFitV1(jdText: string, candidateText: string): Promise
       },
     },
     // Keep output bounded
-    max_output_tokens: 1500,
+    max_output_tokens: 2500,
   });
 
   const parsed = safeJsonParse<FitV1Response>(resp.output_text);
