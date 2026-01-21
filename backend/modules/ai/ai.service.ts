@@ -2,6 +2,7 @@ import { AppError } from "../../errors/app-error.js";
 import { getOpenAIClient, getOpenAIModel, getJdExtractOpenAIModel } from "./openai.js";
 import { ApplicationFromJdJsonObject, normalizeApplicationFromJdResponse, FitV1JsonObject, normalizeFitV1Response } from "./ai.dto.js";
 import type { ApplicationFromJdResponse, FitV1Response } from "./ai.dto.js";
+import type { FastifyBaseLogger } from "fastify";
 
 
 /**
@@ -26,7 +27,7 @@ export async function buildApplicationDraftFromJd(jdText: string): Promise<Appli
     const resp = await openai.responses.create({
       model,
       input: [
-        { role: "system", content: buildSystemPrompt() }, // The system prompt.
+        { role: "system", content: buildExtractJdSystemPrompt() }, // The system prompt.
         { role: "user", content: jdText }, // The pasted JD text.
       ],
       text: {
@@ -58,13 +59,50 @@ export async function buildApplicationDraftFromJd(jdText: string): Promise<Appli
  * Generates FIT_V1 using canonical JD text + extracted candidate-history text.
  * No DB writes.
  */
-export async function buildFitV1(jdText: string, candidateText: string): Promise<FitV1Response> {
+// export async function buildFitV1(jdText: string, candidateText: string): Promise<FitV1Response> {
+//   const jd = (jdText ?? "").trim();
+//   const candidate = (candidateText ?? "").trim();
+
+//   if (!jd) throw new AppError("Job description is missing.", 400);
+//   if (!candidate) throw new AppError("Candidate history is missing.", 400);
+
+
+//   const openai = getOpenAIClient();
+//   const model = getOpenAIModel();
+
+//   const resp = await openai.responses.create({
+//     model,
+//     input: [
+//       { role: "system", content: buildFitSystemPrompt() },
+//       { role: "user", content: buildFitUserPrompt(jd, candidate) },
+//     ],
+//     text: {
+//       format: {
+//         type: "json_schema",
+//         name: "fit_v1",
+//         strict: true,
+//         schema: FitV1JsonObject,
+//       },
+//     },
+//     // Keep output bounded
+//     max_output_tokens: 2500,
+//   });
+
+//   const parsed = safeJsonParse<FitV1Response>(resp.output_text);
+//   return normalizeFitV1Response(parsed);
+// }
+
+// buildFitV1 with logging context
+export async function buildFitV1(
+  jdText: string,
+  candidateText: string,
+  ctx: AiLogCtx = {}
+): Promise<FitV1Response> {
   const jd = (jdText ?? "").trim();
   const candidate = (candidateText ?? "").trim();
 
   if (!jd) throw new AppError("Job description is missing.", 400);
   if (!candidate) throw new AppError("Candidate history is missing.", 400);
-
 
   const openai = getOpenAIClient();
   const model = getOpenAIModel();
@@ -83,14 +121,49 @@ export async function buildFitV1(jdText: string, candidateText: string): Promise
         schema: FitV1JsonObject,
       },
     },
-    // Keep output bounded
     max_output_tokens: 2500,
   });
 
-  const parsed = safeJsonParse<FitV1Response>(resp.output_text);
-  return normalizeFitV1Response(parsed);
-}
+  const extracted = extractResponseText(resp);
 
+  // If the API returned a refusal (or non-text output), log what happened.
+  if (extracted.refusal) {
+    ctx.log?.warn(
+      {
+        reqId: ctx.reqId,
+        ...summarizeResponse(resp),
+        refusal: summarizeText(extracted.refusal, 240),
+      },
+      "[ai.fit] model refusal"
+    );
+    throw new AppError("AI refused the request.", 502);
+  }
+
+  // If we got no text at all, log the full response shape.
+  if (!extracted.text.trim()) {
+    ctx.log?.warn(
+      { reqId: ctx.reqId, ...summarizeResponse(resp) },
+      "[ai.fit] empty output text"
+    );
+    throw new AppError("AI returned empty output.", 502);
+  }
+
+  // Parse + if invalid, log a snippet of the raw model output.
+  try {
+    const parsed = safeJsonParse<FitV1Response>(extracted.text);
+    return normalizeFitV1Response(parsed);
+  } catch (err) {
+    ctx.log?.warn(
+      {
+        reqId: ctx.reqId,
+        ...summarizeResponse(resp),
+        text: summarizeText(extracted.text, 320),
+      },
+      "[ai.fit] invalid JSON from model"
+    );
+    throw err;
+  }
+}
 
 
 
@@ -105,7 +178,7 @@ export async function buildFitV1(jdText: string, candidateText: string): Promise
 /**
  * Build the system prompt for the AI request to extract the job description.
  */
-function buildSystemPrompt(): string {
+function buildExtractJdSystemPrompt(): string {
   return [
     "You extract structured fields from a pasted job description.",
     "Return ONLY JSON matching the provided schema.",
@@ -264,3 +337,64 @@ function safeJsonParse<T>(raw: string | null | undefined): T {
   throw new AppError("AI returned invalid JSON", 502);
 }
 
+
+
+// -------------- HELPER FUNCTIONS FOR LOGGING --------------
+
+type AiLogCtx = { log?: FastifyBaseLogger; reqId?: string };
+
+function summarizeText(text: string, snippetLen = 240) {
+  const t = String(text ?? "");
+  const head = t.slice(0, snippetLen);
+  const tail = t.length > snippetLen ? t.slice(-snippetLen) : "";
+  return {
+    len: t.length,
+    hasFence: t.includes("```"),
+    firstChar: t[0] ?? "",
+    lastChar: t[t.length - 1] ?? "",
+    head,
+    tail,
+  };
+}
+
+function summarizeResponse(resp: any) {
+  const output = Array.isArray(resp?.output) ? resp.output : [];
+  return {
+    responseId: resp?.id,
+    model: resp?.model,
+    outputTextLen: typeof resp?.output_text === "string" ? resp.output_text.length : null,
+    outputItems: output.map((item: any) => ({
+      type: item?.type,
+      contentTypes: Array.isArray(item?.content) ? item.content.map((c: any) => c?.type) : [],
+    })),
+    usage: resp?.usage, // helpful for token/cost debugging
+  };
+}
+
+/**
+ * Prefer resp.output_text, but fall back to scanning resp.output for content items.
+ * Also detect refusal content when present.
+ */
+function extractResponseText(resp: any): { text: string; refusal?: string } {
+  const direct = typeof resp?.output_text === "string" ? resp.output_text : "";
+  if (direct.trim()) return { text: direct };
+
+  const output = Array.isArray(resp?.output) ? resp.output : [];
+  let text = "";
+  let refusal = "";
+
+  for (const item of output) {
+    if (item?.type !== "message" || !Array.isArray(item?.content)) continue;
+
+    for (const c of item.content) {
+      if ((c?.type === "output_text" || c?.type === "text") && typeof c?.text === "string") {
+        text += c.text;
+      }
+      if (c?.type === "refusal" && typeof c?.refusal === "string") {
+        refusal += c.refusal;
+      }
+    }
+  }
+
+  return { text, refusal: refusal || undefined };
+}
