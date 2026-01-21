@@ -29,6 +29,7 @@ export async function getDocumentById(userId: string, documentId: string) {
     where: { id: parseInt(documentId), userId },
     select: {
       ...documentSelect,
+      storageKey: true,   // internal-only
       jobApplicationId: true,
     },
   });
@@ -190,7 +191,7 @@ export async function getBaseResume(userId: string) {
   return prisma.document.findFirst({
     where: { userId, kind: DocumentKind.BASE_RESUME },
     orderBy: { createdAt: "desc" },
-    select: documentSelect,
+    select: {...documentSelect, storageKey: true},
   });
 }
 
