@@ -124,45 +124,30 @@ export async function buildFitV1(
     max_output_tokens: 2500,
   });
 
-  const extracted = extractResponseText(resp);
+  const summary = summarizeOpenAIResponse(resp);
+  const raw = extractTextFromOpenAIResponse(resp);
 
-  // If the API returned a refusal (or non-text output), log what happened.
-  if (extracted.refusal) {
-    ctx.log?.warn(
-      {
-        reqId: ctx.reqId,
-        ...summarizeResponse(resp),
-        refusal: summarizeText(extracted.refusal, 240),
-      },
-      "[ai.fit] model refusal"
-    );
-    throw new AppError("AI refused the request.", 502);
+  if (isAiDebugEnabled()) {
+    console.log({
+      msg: "[ai.fit] openai response summary",
+      ...summary,
+    });
+    console.log({
+      msg: "[ai.fit] raw output (truncated)",
+      responseId: resp?.id,
+      rawLen: raw.length,
+      rawHead: raw.slice(0, 800),
+      rawTail: raw.slice(-800),
+    });
   }
-
-  // If we got no text at all, log the full response shape.
-  if (!extracted.text.trim()) {
-    ctx.log?.warn(
-      { reqId: ctx.reqId, ...summarizeResponse(resp) },
-      "[ai.fit] empty output text"
-    );
+  
+  if (!raw.trim()) {
+    // This is the key debugging moment: we’ll now have summary + output shape in logs
     throw new AppError("AI returned empty output.", 502);
   }
-
-  // Parse + if invalid, log a snippet of the raw model output.
-  try {
-    const parsed = safeJsonParse<FitV1Response>(extracted.text);
-    return normalizeFitV1Response(parsed);
-  } catch (err) {
-    ctx.log?.warn(
-      {
-        reqId: ctx.reqId,
-        ...summarizeResponse(resp),
-        text: summarizeText(extracted.text, 320),
-      },
-      "[ai.fit] invalid JSON from model"
-    );
-    throw err;
-  }
+  
+  const parsed = safeJsonParse<FitV1Response>(raw);
+  return normalizeFitV1Response(parsed);
 }
 
 
@@ -398,3 +383,51 @@ function extractResponseText(resp: any): { text: string; refusal?: string } {
 
   return { text, refusal: refusal || undefined };
 }
+
+function isAiDebugEnabled(): boolean {
+  return (process.env.AI_DEBUG ?? "").toLowerCase() === "true";
+}
+
+function summarizeOpenAIResponse(resp: any) {
+  const output = Array.isArray(resp?.output) ? resp.output : [];
+  return {
+    responseId: resp?.id,
+    status: resp?.status,
+    model: resp?.model,
+    outputTextLen: typeof resp?.output_text === "string" ? resp.output_text.length : 0,
+    outputItems: output.map((item: any) => ({
+      type: item?.type,
+      role: item?.role,
+      contentTypes: Array.isArray(item?.content) ? item.content.map((c: any) => c?.type) : [],
+    })),
+    incompleteDetails: resp?.incomplete_details ?? null,
+    usage: resp?.usage ?? null,
+  };
+}
+
+function extractTextFromOpenAIResponse(resp: any): string {
+  const direct = typeof resp?.output_text === "string" ? resp.output_text.trim() : "";
+  if (direct) return direct;
+
+  const output = Array.isArray(resp?.output) ? resp.output : [];
+  const chunks: string[] = [];
+
+  for (const item of output) {
+    const content = Array.isArray(item?.content) ? item.content : [];
+    for (const c of content) {
+      // common text shapes we’ve seen
+      if (typeof c?.text === "string" && c.text.trim()) chunks.push(c.text);
+      if (typeof c?.output_text === "string" && c.output_text.trim()) chunks.push(c.output_text);
+
+      // refusal shape (if present)
+      if (typeof c?.refusal === "string" && c.refusal.trim()) {
+        // Don’t throw here (yet). Just capture for debugging if you want.
+        chunks.push(`REFUSAL: ${c.refusal}`);
+      }
+    }
+  }
+
+  return chunks.join("\n").trim();
+}
+
+
