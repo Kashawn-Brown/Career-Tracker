@@ -312,7 +312,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
         });
 
         // Generate FIT payload
-        const payload = await AiService.buildFitV1(application.description, candidate.text, { log: req.log, reqId: req.id });
+        const payload = await AiService.buildFitV1(application.description, candidate.text);
 
         // Store artifact (record which doc was used)
         const artifact = await ApplicationsService.createAiArtifact({
