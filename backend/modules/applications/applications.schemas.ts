@@ -147,6 +147,7 @@ export const UpdateApplicationBody = Type.Object(
 export const ApplicationDocumentKindSchema = Type.Union([
   Type.Literal("RESUME"),
   Type.Literal("COVER_LETTER"),
+  Type.Literal("CAREER_HISTORY"),  // (AI Only)
   Type.Literal("OTHER"),
 ]);
 
@@ -179,11 +180,15 @@ export const ApplicationConnectionParams = Type.Object(
 
 export const AiArtifactKindSchema = Type.Union([
   Type.Literal("JD_EXTRACT_V1"),
+  Type.Literal("FIT_V1"),
 ]);
 
 export const GenerateAiArtifactBody = Type.Object(
   {
     kind: AiArtifactKindSchema,
+
+    // Optional override document id for Phase E AI artifacts
+    sourceDocumentId: Type.Optional(Type.Integer({ minimum: 1 })),
   },
   { additionalProperties: false }
 );
@@ -210,3 +215,4 @@ export type UploadApplicationDocumentQueryType = Static<typeof UploadApplication
 export type GenerateAiArtifactBodyType = Static<typeof GenerateAiArtifactBody>;
 export type ListAiArtifactsQueryType = Static<typeof ListAiArtifactsQuery>;
 
+export type AiArtifactKindType = Static<typeof AiArtifactKindSchema>;

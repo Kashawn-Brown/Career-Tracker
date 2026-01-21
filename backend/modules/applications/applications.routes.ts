@@ -165,7 +165,9 @@ export async function applicationsRoutes(app: FastifyInstance) {
    * Upload a document to an application
    * 
    * multipart/form-data with a single file field.
-   * Optional kind via querystring: ?kind=RESUME|COVER_LETTER|OTHER
+   * Optional kind via querystring: ?kind=RESUME|COVER_LETTER|CAREER_HISTORY|OTHER
+   * 
+   * CAREER_HISTORY is Phase E AI-only (not exposed in normal user upload UI).
    */
   app.post(
     "/:id/documents",
@@ -266,7 +268,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const userId = req.user!.id;
       const { id } = req.params as ApplicationIdParamsType;
-      const { kind } = req.body as GenerateAiArtifactBodyType;
+      const { kind, sourceDocumentId = undefined } = req.body as GenerateAiArtifactBodyType;
 
       // Ensure app exists and belongs to user (also gives us description)
       const application = await ApplicationsService.getApplicationById(userId, id);
@@ -292,6 +294,36 @@ export async function applicationsRoutes(app: FastifyInstance) {
         });
 
         // Return the AI artifact.
+        return reply.status(201).send(artifact);
+      }
+
+      if (kind === "FIT_V1") {
+        
+        // Needs canonical JD text
+        if (!application.description || application.description.trim().length === 0) {
+          throw new AppError("Application is missing a job description.", 400);
+        }
+
+        // Resolve candidate-history text (Base Resume by default, override allowed)
+        const candidate = await DocumentsService.getCandidateTextOrThrow({
+          userId,
+          jobApplicationId: id,
+          sourceDocumentId,
+        });
+
+        // Generate FIT payload
+        const payload = await AiService.buildFitV1(application.description, candidate.text);
+
+        // Store artifact (record which doc was used)
+        const artifact = await ApplicationsService.createAiArtifact({
+          userId,
+          jobApplicationId: id,
+          kind,
+          payload,
+          model: getOpenAIModel(), 
+          sourceDocumentId: candidate.documentIdUsed,
+        });
+
         return reply.status(201).send(artifact);
       }
 

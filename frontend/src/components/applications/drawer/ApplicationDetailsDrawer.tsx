@@ -6,8 +6,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { STATUS_OPTIONS, JOB_TYPE_OPTIONS, WORK_MODE_OPTIONS, statusLabel, jobTypeLabel, workModeLabel } from "@/lib/applications/presentation";
 import { dateAppliedFormat, toDateInputValue, dateInputToIso, todayInputValue } from "@/lib/applications/dates";
 import { parseTags, serializeTags, splitTagInput } from "@/lib/applications/tags";
-import { ApplicationDocumentsSection } from "@/components/applications/ApplicationDocumentsSection";
-import { ApplicationConnectionsSection } from "@/components/applications/ApplicationConnectionsSection";
+import { ApplicationDocumentsSection } from "@/components/applications/drawer/ApplicationDocumentsSection";
+import { ApplicationConnectionsSection } from "@/components/applications/drawer/ApplicationConnectionsSection";
+import { ApplicationAiToolsSection } from "@/components/applications/drawer/ApplicationAiToolsSection";
 import { documentsApi } from "@/lib/api/documents";
 import { ApiError } from "@/lib/api/client";
 import { Input } from "@/components/ui/input";
@@ -231,6 +232,16 @@ export function ApplicationDetailsDrawer({
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
 
+  // Base resume document
+  const [baseResume, setBaseResume] = useState<Document | null>(null);
+  const baseResumeExists = Boolean(baseResume);
+  const baseResumeId = baseResume ? Number(baseResume.id) : null;
+
+
+  const [useAiOverride, setUseAiOverride] = useState(false);
+  const [aiOverrideFile, setAiOverrideFile] = useState<File | null>(null);
+
+
   // keep the drawer’s draft in sync with the selected application.
   useEffect(() => {
 
@@ -269,6 +280,35 @@ export function ApplicationDetailsDrawer({
     lastAppIdRef.current = nextId;
 
   }, [open, application, isEditing]);
+
+  // Loads the base resume document for the current user
+  useEffect(() => {
+    let cancelled = false;
+  
+    async function loadBaseResume() {
+      if (!open) return;
+  
+      try {
+        const res = await documentsApi.getBaseResume();
+        if (!cancelled) setBaseResume(res.baseResume ?? null);
+      } catch {
+        if (!cancelled) setBaseResume(null);
+      }
+    }
+  
+    loadBaseResume();
+  
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+  
+
+  // Resets the AI override state when the application changes
+  useEffect(() => {
+    setUseAiOverride(false);
+    setAiOverrideFile(null);
+  }, [application?.id]);
 
   // Starts the edit mode.
   function startEdit() {
@@ -955,10 +995,20 @@ export function ApplicationDetailsDrawer({
               />
             </Section>
 
-            <Section title="AI">
-              <span className="text-muted-foreground">
-                Coming soon: summary, fit rating, and tailored docs.
-              </span>
+            <Section title="AI Tools">
+              <ApplicationAiToolsSection 
+              application={application} 
+              baseResumeExists={baseResumeExists} 
+              baseResumeId={baseResumeId}
+              useOverride={useAiOverride}
+              overrideFile={aiOverrideFile}
+              onToggleOverride={(checked) => {
+                setUseAiOverride(checked);
+                if (!checked) setAiOverrideFile(null);
+              }}
+              onOverrideFile={setAiOverrideFile}
+              onDocumentsChanged={onDocumentsChanged}
+            />
             </Section>
           </div>
         )}

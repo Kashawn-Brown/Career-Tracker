@@ -8,6 +8,7 @@ export const documentSelect = {
   originalName: true,
   mimeType: true,
   size: true,
+  jobApplicationId: true,
   createdAt: true,
   updatedAt: true,
 }

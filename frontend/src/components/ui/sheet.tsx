@@ -34,9 +34,9 @@ type SheetSide = "right" | "left";
 
 const sheetContentVariants: Record<SheetSide, string> = {
   right:
-    "inset-y-0 right-0 h-full w-3/4 sm:max-w-lg border-l data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right",
+    "inset-y-0 right-0 h-full w-3/4 sm:max-w-xl border-l data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right",
   left:
-    "inset-y-0 left-0 h-full w-3/4 sm:max-w-lg border-r data-[state=open]:slide-in-from-left data-[state=closed]:slide-out-to-left",
+    "inset-y-0 left-0 h-full w-3/4 sm:max-w-xl border-r data-[state=open]:slide-in-from-left data-[state=closed]:slide-out-to-left",
 };
 
 const SheetContent = React.forwardRef<

@@ -3,6 +3,7 @@ import { prisma } from "../../lib/prisma.js";
 import { AppError } from "../../errors/app-error.js";
 import { applicationSelect, applicationConnectionSelect, applicationListSelect } from "./applications.dto.js";
 import type { CreateApplicationInput, UpdateApplicationInput, ListApplicationsParams } from "./applications.dto.js";
+import type { AiArtifactKindType } from "./applications.schemas.js";
 
 
 /**
@@ -311,9 +312,10 @@ export async function detachConnectionFromApplication(
 export async function createAiArtifact(args: {
   userId: string;
   jobApplicationId: string;
-  kind: "JD_EXTRACT_V1";  // The type of AI artifact. (hardcoded for now)
+  kind: AiArtifactKindType;
   payload: unknown;
   model: string;
+  sourceDocumentId?: number;
 }) {
   // Keeping all versions for now
   // // Keep only 1 (most recent) artifact per kind per application.
@@ -346,6 +348,7 @@ export async function createAiArtifact(args: {
       kind: args.kind,
       payload: args.payload as any,
       model: args.model,
+      sourceDocumentId: args.sourceDocumentId ?? null,
     },
   });
 }
@@ -356,7 +359,7 @@ export async function createAiArtifact(args: {
 export async function listAiArtifacts(args: {
   userId: string;
   jobApplicationId: string;
-  kind?: "JD_EXTRACT_V1";  // The type of AI artifact. (hardcoded for now)
+  kind?: AiArtifactKindType; // Type of AI artifact
   all?: boolean; // when true, return full history of artifacts for this kind and application
 }) {
   // Ensures the application exists + belongs to the user

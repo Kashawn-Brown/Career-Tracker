@@ -2,10 +2,11 @@ import { DocumentKind } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { documentSelect } from "./documents.dto.js";
 import type { UploadBaseResumeArgs, UploadApplicationDocumentArgs } from "./documents.dto.js";
-import { uploadStreamToGcs, deleteGcsObject, isAllowedMimeType, getSignedReadUrl } from "../../lib/storage.js";
+import { uploadStreamToGcs, deleteGcsObject, isAllowedMimeType, getSignedReadUrl, downloadGcsObjectToBuffer } from "../../lib/storage.js";
 import type { SignedUrlDisposition } from "../../lib/storage.js";
 import { AppError } from "../../errors/app-error.js";
 import crypto from "node:crypto";
+import { extractTextFromBuffer } from "../../lib/text-extraction.js";
 
 /**
  * Service Layer
@@ -28,7 +29,7 @@ export async function getDocumentById(userId: string, documentId: string) {
     where: { id: parseInt(documentId), userId },
     select: {
       ...documentSelect,
-      storageKey: true,
+      storageKey: true,   // internal-only
       jobApplicationId: true,
     },
   });
@@ -190,7 +191,7 @@ export async function getBaseResume(userId: string) {
   return prisma.document.findFirst({
     where: { userId, kind: DocumentKind.BASE_RESUME },
     orderBy: { createdAt: "desc" },
-    select: documentSelect,
+    select: {...documentSelect, storageKey: true},
   });
 }
 
@@ -324,6 +325,87 @@ export async function countApplicationDocuments(userId: string, jobApplicationId
     where: { userId, jobApplicationId },
   });
 }
+
+
+
+const MAX_CANDIDATE_TEXT_CHARS = 60_000;
+const MIN_PDF_EXTRACT_CHARS = 200;
+
+export type CandidateTextResult = {
+  text: string;
+  documentIdUsed: number;
+  source: "BASE" | "OVERRIDE";
+  filename: string;
+  updatedAt: Date;
+  mimeType: string;
+};
+
+/**
+ * Resolves the "candidate history" text used for Phase E AI tools.
+ *
+ * Rules:
+ * - Default: Base Resume (required).
+ * - Optional override: a CAREER_HISTORY document attached to THIS application.
+ * - Always extracts text server-side (PDF/TXT only).
+ */
+export async function getCandidateTextOrThrow(args: {
+  userId: string;
+  jobApplicationId: string;
+  sourceDocumentId?: number;
+}): Promise<CandidateTextResult> {
+  const { userId, jobApplicationId, sourceDocumentId } = args;
+
+  // 1) Choose the document to use (override or base)
+  // If sourceDocumentId is provided, use the override document.
+  // Otherwise, use the base resume document.
+  const doc = sourceDocumentId
+    ? await getDocumentById(userId, sourceDocumentId.toString())
+    : await getBaseResume(userId);
+
+  // Base resume or override document must be found
+  if (!doc) {
+    throw new AppError(sourceDocumentId ? "Document not found." : "Base resume not found.", 404);
+  }
+
+  // Override must be our AI-only kind, and must be attached to this application
+  if (sourceDocumentId && doc.kind !== DocumentKind.CAREER_HISTORY) {
+    throw new AppError("Invalid override document kind. Expected CAREER_HISTORY.", 400);
+  }
+  
+  // Override must be attached to this application
+  if (sourceDocumentId && doc.jobApplicationId !== jobApplicationId) {
+    throw new AppError("Invalid override document. It must be attached to this application.", 400);
+  } 
+
+
+  // 2) Download bytes from GCS (server-side) 
+  const buffer = await downloadGcsObjectToBuffer({ storageKey: doc.storageKey });
+
+  // 3) Extract + sanitize + cap text
+  const text = await extractTextFromBuffer({
+    buffer,
+    mimeType: doc.mimeType,
+    maxChars: MAX_CANDIDATE_TEXT_CHARS,
+  });
+
+  // 4) Guardrail: PDFs can extract empty/garbage text (common with scanned PDFs)
+  if (doc.mimeType === "application/pdf" && text.length < MIN_PDF_EXTRACT_CHARS) {
+    throw new AppError(
+      "Could not extract meaningful text from the PDF. Try a text-based PDF or upload a TXT file.",
+      400
+    );
+  }
+
+  return {
+    text,
+    documentIdUsed: doc.id,
+    source: sourceDocumentId ? "OVERRIDE" : "BASE",
+    filename: doc.originalName ?? "document",
+    updatedAt: doc.updatedAt,
+    mimeType: doc.mimeType,
+  };
+}
+
 
 
 

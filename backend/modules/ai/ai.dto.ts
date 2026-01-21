@@ -1,5 +1,7 @@
 import { JobType, WorkMode } from "@prisma/client";
 
+// ------------------- EXTRACT JOB DESCRIPTION -------------------
+
 /**
  * Type for the application draft from a job description.
  */
@@ -113,9 +115,7 @@ export const ApplicationFromJdJsonObject = {
   },
 } as const;
 
-
-
-// ------------ HELPER FUNCTIONS ------------
+// ------------ EXTRACT JOB DESCRIPTION HELPER FUNCTIONS ------------
 
 // Helper function to clean a string. (trim and remove empty strings)
 function cleanString(v: unknown): string | undefined {
@@ -175,8 +175,6 @@ export function normalizeApplicationFromJdResponse(raw: ApplicationFromJdRespons
     },
   };
 
-  
-
   // Remove undefined keys to keep the payload clean.
   Object.keys(normalized.extracted).forEach((k) => {
     const key = k as keyof typeof normalized.extracted;
@@ -185,3 +183,97 @@ export function normalizeApplicationFromJdResponse(raw: ApplicationFromJdRespons
 
   return normalized;
 }
+
+
+
+// ---------------- FIT_V1 ----------------
+
+export type FitConfidence = "low" | "medium" | "high";
+
+export type FitV1Response = {
+  score: number; // 0–100
+  confidence: FitConfidence;
+  strengths: string[];
+  gaps: string[];
+  keywordGaps: string[];
+  recommendedEdits: string[];
+  questionsToAsk: string[];
+};
+
+export const FitV1JsonObject = {
+  type: "object",
+  additionalProperties: false,
+  required: [
+    "score",
+    "confidence",
+    "strengths",
+    "gaps",
+    "keywordGaps",
+    "recommendedEdits",
+    "questionsToAsk",
+  ],
+  properties: {
+    score: { type: "number" },
+    confidence: { type: "string", enum: ["low", "medium", "high"] },
+    strengths: { type: "array", items: { type: "string" }, maxItems: 10 },
+    gaps: { type: "array", items: { type: "string" }, maxItems: 10 },
+    keywordGaps: { type: "array", items: { type: "string" }, maxItems: 15 },
+    recommendedEdits: { type: "array", items: { type: "string" }, maxItems: 10 },
+    questionsToAsk: { type: "array", items: { type: "string" }, maxItems: 5 },
+  },
+} as const;
+
+
+// ------------ FIT_V1 HELPER FUNCTIONS ------------
+
+// Helper: clamp score into 0–100 (and round)
+function clampFitScore(v: unknown): number {
+  const n = typeof v === "number" && Number.isFinite(v) ? v : 0;
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+// Helper: normalize confidence with safe fallback
+function cleanFitConfidence(v: unknown): FitConfidence {
+  if (v === "low" || v === "medium" || v === "high") return v;
+  return "medium";
+}
+
+// Helper: dedupe (case-insensitive) while keeping order + cap
+function dedupeAndCap(items: string[], max: number): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+
+  for (const item of items) {
+    const key = item.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+    if (out.length >= max) break;
+  }
+
+  return out;
+}
+
+/**
+ * Normalizes FIT_V1 output to be stable and UI-friendly:
+ * - clamps score 0–100
+ * - trims and removes empty strings
+ * - dedupes obvious duplicates
+ * - caps list sizes
+ */
+export function normalizeFitV1Response(raw: FitV1Response): FitV1Response {
+  return {
+    score: clampFitScore(raw.score),
+    confidence: cleanFitConfidence(raw.confidence),
+    strengths: dedupeAndCap(cleanStringArray(raw.strengths, 20), 7),
+    gaps: dedupeAndCap(cleanStringArray(raw.gaps, 20), 7),
+    keywordGaps: dedupeAndCap(cleanStringArray(raw.keywordGaps, 30), 12),
+    recommendedEdits: dedupeAndCap(cleanStringArray(raw.recommendedEdits, 20), 7),
+    questionsToAsk: dedupeAndCap(cleanStringArray(raw.questionsToAsk, 20), 5),
+  };
+}
+
+
+
+
+

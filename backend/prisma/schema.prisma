@@ -136,6 +136,7 @@ enum DocumentKind {
   RESUME
   COVER_LETTER
   OTHER
+  CAREER_HISTORY
 }
 
 
@@ -186,6 +187,8 @@ model AiArtifact {
   kind    String
   payload Json
   model   String
+
+  sourceDocumentId Int?
 
   createdAt DateTime @default(now())
 

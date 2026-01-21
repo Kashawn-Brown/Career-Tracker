@@ -25,11 +25,30 @@ export const routes = {
       upload: (applicationId: string, kind: string) =>
         `/applications/${applicationId}/documents?kind=${encodeURIComponent(kind)}`,
     },
+
     connections: {
       list: (applicationId: string) => `/applications/${applicationId}/connections`,
       create: (applicationId: string, connectionId: string) => `/applications/${applicationId}/connections/${connectionId}`,
       delete: (applicationId: string, connectionId: string) => `/applications/${applicationId}/connections/${connectionId}`,
     },
+
+    aiArtifacts: {
+      list: (
+        applicationId: string,
+        args?: { kind?: string; all?: boolean }
+      ) => {
+        const base = `/applications/${applicationId}/ai-artifacts`;
+    
+        const params = new URLSearchParams();
+        if (args?.kind) params.set("kind", args.kind);
+        if (args?.all) params.set("all", "true");
+    
+        const queryString = params.toString();
+        return queryString ? `${base}?${queryString}` : base;
+      },
+    
+      create: (applicationId: string) => `/applications/${applicationId}/ai-artifacts`,
+    }
   },
   documents: {
     baseResume: () => "/documents/base-resume",
@@ -38,10 +57,10 @@ export const routes = {
     // Get a download URL for a document. (Optional disposition query param for "open in browser" vs "force download")
     download: (
       documentId: number | string,
-      opts?: { disposition?: "inline" | "attachment" }
+      args?: { disposition?: "inline" | "attachment" }
     ) => {
       const base = `/documents/${documentId}/download`;
-      const disposition = opts?.disposition;
+      const disposition = args?.disposition;
       return disposition ? `${base}?disposition=${disposition}` : base;
     },
   },

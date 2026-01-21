@@ -8,6 +8,8 @@ import type {
   Application, 
   CreateApplicationRequest,
   ListApplicationConnectionsResponse,
+  AiArtifactKind,
+  AiArtifact,
 } from "@/types/api";
 
 //
@@ -127,4 +129,24 @@ export const applicationsApi = {
       method: "DELETE",
     });
   },
+
+
+
+  /** ---- AI Artifacts ---- */
+
+  generateAiArtifact(applicationId: string, body: { kind: AiArtifactKind; sourceDocumentId?: number }) {
+    return apiFetch<AiArtifact>(routes.applications.aiArtifacts.create(applicationId), {
+      method: "POST",
+      body,
+    });
+  },
+  
+  listAiArtifacts(applicationId: string, args?: { kind?: AiArtifactKind; all?: boolean }) {
+    return apiFetch<AiArtifact[]>(routes.applications.aiArtifacts.list(applicationId, args), {
+      method: "GET",
+    });
+  },
+  
+
+  
 };

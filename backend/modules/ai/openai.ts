@@ -7,6 +7,7 @@ import OpenAI from "openai";
 
 let client: OpenAI | null = null;
 
+// Get the OpenAI client.
 export function getOpenAIClient(): OpenAI {
   const apiKey = process.env.OPENAI_API_KEY;
   
@@ -19,6 +20,12 @@ export function getOpenAIClient(): OpenAI {
   return client;
 }
 
+// Get the OpenAI model.
 export function getOpenAIModel(): string {
   return process.env.OPENAI_MODEL?.trim() || "gpt-5-mini";
+}
+
+// Get the OpenAI model for JD extraction. (uses gpt-4o-mini model)
+export function getJdExtractOpenAIModel(): string {
+  return process.env.OPENAI_MODEL_JD_EXTRACT?.trim() || "gpt-4o-mini";
 }

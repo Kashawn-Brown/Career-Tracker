@@ -8,7 +8,7 @@ import { STATUS_FILTER_OPTIONS, JOB_TYPE_FILTER_OPTIONS, WORK_MODE_FILTER_OPTION
 import { ApplicationsTable } from "@/components/applications/ApplicationsTable";
 import { CreateApplicationForm } from "@/components/applications/CreateApplicationForm";
 import { CreateApplicationFromJdForm } from "@/components/applications/CreateApplicationFromJdForm";
-import { ApplicationDetailsDrawer } from "@/components/applications/ApplicationDetailsDrawer";
+import { ApplicationDetailsDrawer } from "@/components/applications/drawer/ApplicationDetailsDrawer";
 import { ColumnsControl } from "@/components/applications/ColumnsControl";
 import { APPLICATION_COLUMNS_STORAGE_KEY, DEFAULT_VISIBLE_APPLICATION_COLUMNS, normalizeVisibleColumns, type ApplicationColumnId} from "@/lib/applications/tableColumns";
 import { Button } from "@/components/ui/button";
