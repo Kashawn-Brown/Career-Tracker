@@ -315,6 +315,7 @@ export async function createAiArtifact(args: {
   kind: AiArtifactKindType;
   payload: unknown;
   model: string;
+  sourceDocumentId?: number;
 }) {
   // Keeping all versions for now
   // // Keep only 1 (most recent) artifact per kind per application.
@@ -347,6 +348,7 @@ export async function createAiArtifact(args: {
       kind: args.kind,
       payload: args.payload as any,
       model: args.model,
+      sourceDocumentId: args.sourceDocumentId ?? null,
     },
   });
 }

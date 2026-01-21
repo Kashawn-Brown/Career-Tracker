@@ -298,7 +298,33 @@ export async function applicationsRoutes(app: FastifyInstance) {
       }
 
       if (kind === "FIT_V1") {
-        throw new AppError("FIT_V1 not implemented yet.", 501);
+        
+        // Needs canonical JD text
+        if (!application.description || application.description.trim().length === 0) {
+          throw new AppError("Application is missing a job description.", 400);
+        }
+
+        // Resolve candidate-history text (Base Resume by default, override allowed)
+        const candidate = await DocumentsService.getCandidateTextOrThrow({
+          userId,
+          jobApplicationId: id,
+          sourceDocumentId,
+        });
+
+        // Generate FIT payload
+        const payload = await AiService.buildFitV1(application.description, candidate.text);
+
+        // Store artifact (record which doc was used)
+        const artifact = await ApplicationsService.createAiArtifact({
+          userId,
+          jobApplicationId: id,
+          kind,
+          payload,
+          model: getOpenAIModel(), 
+          sourceDocumentId: candidate.documentIdUsed,
+        });
+
+        return reply.status(201).send(artifact);
       }
 
       throw new AppError(`Unsupported AI artifact kind: ${kind}`, 400);
