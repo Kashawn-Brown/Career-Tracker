@@ -232,8 +232,11 @@ export function ApplicationDetailsDrawer({
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
 
-  // Whether the base resume exists for the current user
-  const [baseResumeExists, setBaseResumeExists] = useState(false);
+  // Base resume document
+  const [baseResume, setBaseResume] = useState<Document | null>(null);
+  const baseResumeExists = Boolean(baseResume);
+  const baseResumeId = baseResume ? Number(baseResume.id) : null;
+
 
   const [useAiOverride, setUseAiOverride] = useState(false);
   const [aiOverrideFile, setAiOverrideFile] = useState<File | null>(null);
@@ -278,24 +281,28 @@ export function ApplicationDetailsDrawer({
 
   }, [open, application, isEditing]);
 
-  // Checks if the base resume exists for the current user
+  // Loads the base resume document for the current user
   useEffect(() => {
     let cancelled = false;
   
-    async function checkBaseResume() {
+    async function loadBaseResume() {
+      if (!open) return;
+  
       try {
-        await documentsApi.getBaseResume(); // if you have this
-        if (!cancelled) setBaseResumeExists(true);
-      } catch (err) {
-        if (!cancelled) setBaseResumeExists(false);
+        const res = await documentsApi.getBaseResume();
+        if (!cancelled) setBaseResume(res.baseResume ?? null);
+      } catch {
+        if (!cancelled) setBaseResume(null);
       }
     }
   
-    checkBaseResume();
+    loadBaseResume();
+  
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [open]);
+  
 
   // Resets the AI override state when the application changes
   useEffect(() => {
@@ -992,6 +999,7 @@ export function ApplicationDetailsDrawer({
               <ApplicationAiToolsSection 
               application={application} 
               baseResumeExists={baseResumeExists} 
+              baseResumeId={baseResumeId}
               useOverride={useAiOverride}
               overrideFile={aiOverrideFile}
               onToggleOverride={(checked) => {
@@ -999,6 +1007,7 @@ export function ApplicationDetailsDrawer({
                 if (!checked) setAiOverrideFile(null);
               }}
               onOverrideFile={setAiOverrideFile}
+              onDocumentsChanged={onDocumentsChanged}
             />
             </Section>
           </div>
