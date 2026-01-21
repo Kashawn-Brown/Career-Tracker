@@ -346,7 +346,9 @@ export type ConnectionResponse = {
 };
 
 
-// --- AI DTOs: matches backend ---
+// --- AI Artifacts DTOs: matches backend ---
+
+export type AiArtifactKind = "JD_EXTRACT_V1" | "FIT_V1";
 
 export type ApplicationDraftExtracted = {
   company?: string;
@@ -378,3 +380,32 @@ export type ApplicationDraftResponse = {
   extracted: ApplicationDraftExtracted;
   ai: ApplicationDraftAi;
 };
+
+
+export type FitConfidence = "low" | "medium" | "high";
+
+export type FitV1Payload = {
+  score: number; // 0–100
+  confidence: FitConfidence;
+
+  strengths: string[];
+  gaps: string[];
+  keywordGaps: string[];
+  recommendedEdits: string[];
+  questionsToAsk: string[];
+};
+
+export type AiArtifact<TPayload = unknown> = {
+  id: string;
+  userId: string;
+  jobApplicationId: string;
+
+  kind: AiArtifactKind;
+  payload: TPayload;
+
+  model: string;
+  sourceDocumentId: number | null;
+
+  createdAt: string;
+};
+
