@@ -107,48 +107,100 @@ export async function buildFitV1(
   const openai = getOpenAIClient();
   const model = getOpenAIModel();
 
-  const resp = await openai.responses.create({
-    model,
-    input: [
-      { role: "system", content: buildFitSystemPrompt() },
-      { role: "user", content: buildFitUserPrompt(jd, candidate) },
-    ],
-    text: {
-      format: {
-        type: "json_schema",
-        name: "fit_v1",
-        strict: true,
-        schema: FitV1JsonObject,
+  const log = ctx.log ?? console;
+
+  // Try once with normal budget, then retry once with a higher cap if we got an incomplete/empty response.
+  const attempts = [2500, 3500];
+
+  let lastErr: unknown;
+
+  for (let i = 0; i < attempts.length; i++) {
+    const max_output_tokens = attempts[i];
+
+    const resp = await openai.responses.create({
+      model,
+      input: [
+        { role: "system", content: buildFitSystemPrompt() },
+        { role: "user", content: buildFitUserPrompt(jd, candidate) },
+      ],
+      text: {
+        format: {
+          type: "json_schema",
+          name: "fit_v1",
+          strict: true,
+          schema: FitV1JsonObject,
+        },
       },
-    },
-    max_output_tokens: 2500,
-  });
-
-  const summary = summarizeOpenAIResponse(resp);
-  const raw = extractTextFromOpenAIResponse(resp);
-
-  if (isAiDebugEnabled()) {
-    console.log({
-      msg: "[ai.fit] openai response summary",
-      ...summary,
+      // Reduce randomness → fewer “weird” outputs
+      temperature: 0.2,
+      max_output_tokens,
     });
-    console.log({
-      msg: "[ai.fit] raw output (truncated)",
-      responseId: resp?.id,
-      rawLen: raw.length,
-      rawHead: raw.slice(0, 800),
-      rawTail: raw.slice(-800),
-    });
+
+    const summary = summarizeOpenAIResponse(resp);
+    const refusal = extractRefusalFromOpenAIResponse(resp);
+    const raw = extractTextFromOpenAIResponse(resp);
+
+    const shouldDebugLog =
+      isAiDebugEnabled() || refusal || !raw.trim() || summary.status !== "completed";
+
+    if (shouldDebugLog) {
+      log.warn?.("[ai.fit] OpenAI response debug", {
+        model,
+        attempt: i + 1,
+        max_output_tokens,
+        summary,
+        refusalPreview: refusal ? refusal.slice(0, 800) : null,
+        rawLen: raw.length,
+        rawHead: raw.slice(0, 500),
+        rawTail: raw.slice(-500),
+        outputPreview: previewOutputItems(resp),
+      });
+    }
+
+    // Hard fail on refusal (this is the “why is it refusing” answer, in logs)
+    if (refusal) {
+      lastErr = new AppError(`AI refused the request: ${refusal.slice(0, 200)}`, 502);
+      break;
+    }
+
+    // If not completed, retry only if it looks like a token cap/incomplete situation
+    if (summary.status !== "completed") {
+      lastErr = new AppError(
+        `AI response not completed (${summary.status}${summary.incompleteDetails?.reason ? `: ${summary.incompleteDetails.reason}` : ""}).`,
+        502
+      );
+
+      const isTokenCap =
+        summary.incompleteDetails?.reason === "max_output_tokens" || summary.outputTextLen === 0;
+
+      if (isTokenCap && i < attempts.length - 1) continue;
+      break;
+    }
+
+    if (!raw.trim()) {
+      lastErr = new AppError("AI returned empty output.", 502);
+      // Retry once with the larger cap
+      if (i < attempts.length - 1) continue;
+      break;
+    }
+
+    try {
+      const parsed = safeJsonParse<FitV1Response>(raw);
+      return normalizeFitV1Response(parsed);
+    } catch (err) {
+      lastErr = err;
+      // If parse failed on first attempt, retry once with larger cap (sometimes the model truncates)
+      if (i < attempts.length - 1) continue;
+      break;
+    }
   }
-  
-  if (!raw.trim()) {
-    // This is the key debugging moment: we’ll now have summary + output shape in logs
-    throw new AppError("AI returned empty output.", 502);
-  }
-  
-  const parsed = safeJsonParse<FitV1Response>(raw);
-  return normalizeFitV1Response(parsed);
+
+  // If we get here, we failed both attempts
+  throw lastErr instanceof Error
+    ? lastErr
+    : new AppError("AI fit generation failed.", 502);
 }
+
 
 
 
@@ -431,3 +483,34 @@ function extractTextFromOpenAIResponse(resp: any): string {
 }
 
 
+function extractRefusalFromOpenAIResponse(resp: any): string | null {
+  const output = Array.isArray(resp?.output) ? resp.output : [];
+  for (const item of output) {
+    const contents = Array.isArray(item?.content) ? item.content : [];
+    for (const c of contents) {
+      // Most common: { type: "refusal", refusal: "..." } OR content item with a refusal string
+      if (typeof c?.refusal === "string" && c.refusal.trim()) return c.refusal.trim();
+
+      // Just in case the SDK uses a slightly different shape
+      if (c?.type === "refusal" && typeof c?.text === "string" && c.text.trim()) return c.text.trim();
+    }
+  }
+  return null;
+}
+
+function previewOutputItems(resp: any) {
+  const output = Array.isArray(resp?.output) ? resp.output : [];
+  return output.slice(0, 6).map((item: any) => {
+    const contents = Array.isArray(item?.content) ? item.content : [];
+    return {
+      type: item?.type,
+      role: item?.role,
+      contentTypes: contents.map((c: any) => c?.type).filter(Boolean),
+      contentPreview: contents.slice(0, 3).map((c: any) => ({
+        type: c?.type,
+        text: typeof c?.text === "string" ? c.text.slice(0, 250) : undefined,
+        refusal: typeof c?.refusal === "string" ? c.refusal.slice(0, 250) : undefined,
+      })),
+    };
+  });
+}
