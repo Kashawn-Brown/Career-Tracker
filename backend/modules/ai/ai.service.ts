@@ -88,7 +88,47 @@ export async function buildFitV1(jdText: string, candidateText: string): Promise
     max_output_tokens: 2500,
   });
 
-  const parsed = safeJsonParse<FitV1Response>(resp.output_text);
+  const debug = summarizeOpenAIResponseForDebug(resp);
+  const outputText = (resp.output_text ?? "").trim();
+
+  const jdLen = jd.length;
+  const candidateLen = candidate.length;
+
+  const shouldDebugLog = process.env.AI_DEBUG === "true" || !outputText || debug.status !== "completed";
+  if (shouldDebugLog) {
+    const refusal = extractRefusalText(resp);
+
+    console.warn("[ai.fit] OpenAI response debug", {
+      jdLen,
+      candidateLen,
+      ...debug,
+      refusalPreview: refusal ? redactSample(refusal.slice(0, 200)) : null,
+      outputHead: outputText ? redactSample(outputText.slice(0, 200)) : null,
+      outputTail: outputText ? redactSample(outputText.slice(-200)) : null,
+    });
+  }
+
+  // If output_text is empty, classify it now (don’t let safeJsonParse hide the reason)
+  if (!outputText) {
+    const refusal = extractRefusalText(resp);
+
+    console.warn("[ai.fit] empty output_text classified", {
+      status: debug.status,
+      incompleteDetails: debug.incompleteDetails,
+      outputItems: debug.outputItems,
+      refusalPreview: refusal ? redactSample(refusal.slice(0, 200)) : null,
+    });
+
+    throw new AppError(
+      refusal
+        ? "AI refused the request (see logs for refusalPreview)."
+        : `AI returned empty output (status=${debug.status ?? "unknown"}).`,
+      502
+    );
+  }
+
+
+  const parsed = safeJsonParse<FitV1Response>(outputText);
   return normalizeFitV1Response(parsed);
 }
 
@@ -266,4 +306,35 @@ function safeJsonParse<T>(raw: string | null | undefined): T {
   });
 
   throw new AppError("AI returned invalid JSON", 502);
+}
+
+function summarizeOpenAIResponseForDebug(resp: any) {
+  const output = Array.isArray(resp?.output) ? resp.output : [];
+
+  return {
+    id: resp?.id,
+    status: resp?.status,
+    model: resp?.model,
+    outputTextLen: typeof resp?.output_text === "string" ? resp.output_text.length : 0,
+    incompleteDetails: resp?.incomplete_details ?? null,
+    usage: resp?.usage ?? null,
+    outputItems: output.map((item: any) => ({
+      type: item?.type,
+      role: item?.role,
+      contentTypes: Array.isArray(item?.content) ? item.content.map((c: any) => c?.type).filter(Boolean) : [],
+    })),
+  };
+}
+
+function extractRefusalText(resp: any): string | null {
+  const output = Array.isArray(resp?.output) ? resp.output : [];
+  for (const item of output) {
+    const content = Array.isArray(item?.content) ? item.content : [];
+    for (const c of content) {
+      if (typeof c?.refusal === "string" && c.refusal.trim()) return c.refusal.trim();
+      // Some shapes embed refusal as text under a refusal-type content item
+      if (c?.type === "refusal" && typeof c?.text === "string" && c.text.trim()) return c.text.trim();
+    }
+  }
+  return null;
 }
