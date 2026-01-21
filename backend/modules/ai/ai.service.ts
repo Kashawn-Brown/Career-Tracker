@@ -84,7 +84,7 @@ export async function buildFitV1(jdText: string, candidateText: string): Promise
       },
     },
     // Keep output bounded
-    max_output_tokens: 700,
+    max_output_tokens: 1500,
   });
 
   const parsed = safeJsonParse<FitV1Response>(resp.output_text);
@@ -177,12 +177,77 @@ function buildFitUserPrompt(jdText: string, candidateText: string): string {
 /**
  * Parse a JSON string safely.
  */
-function safeJsonParse<T>(text: string): T {
-  try {
-    return JSON.parse(text) as T;
-  } catch {
-    // This should be rare because we're using strict json_schema output,
-    // but it keeps errors predictable if the dependency misbehaves.
+function redactSample(s: string) {
+  // Redact letters/numbers to avoid leaking content in logs while keeping JSON structure visible
+  return s.replace(/[A-Za-z0-9]/g, "x");
+}
+
+function stripJsonFences(text: string) {
+  const m = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  return (m?.[1] ?? text).trim();
+}
+
+function tryExtractJsonSubstring(text: string) {
+  const t = text.trim();
+
+  // Prefer object extraction
+  const objStart = t.indexOf("{");
+  const objEnd = t.lastIndexOf("}");
+  if (objStart !== -1 && objEnd !== -1 && objEnd > objStart) {
+    return t.slice(objStart, objEnd + 1);
+  }
+
+  // Fallback: array extraction
+  const arrStart = t.indexOf("[");
+  const arrEnd = t.lastIndexOf("]");
+  if (arrStart !== -1 && arrEnd !== -1 && arrEnd > arrStart) {
+    return t.slice(arrStart, arrEnd + 1);
+  }
+
+  return null;
+}
+
+function safeJsonParse<T>(raw: string | null | undefined): T {
+  const original = (raw ?? "").trim();
+
+  if (!original) {
+    console.warn("[ai] safeJsonParse: empty output_text");
     throw new AppError("AI returned invalid JSON", 502);
   }
+
+  // 1) Strip ```json fences if the model included them
+  const unfenced = stripJsonFences(original);
+
+  // 2) First parse attempt
+  try {
+    return JSON.parse(unfenced) as T;
+  } catch {
+    // continue
+  }
+
+  // 3) Second attempt: extract the largest JSON-looking substring
+  const extracted = tryExtractJsonSubstring(unfenced);
+  if (extracted) {
+    try {
+      return JSON.parse(extracted) as T;
+    } catch {
+      // continue
+    }
+  }
+
+  // 4) Log redacted previews for debugging (structure only, no content)
+  const head = redactSample(original.slice(0, 200));
+  const tail = redactSample(original.slice(-200));
+
+  console.warn("[ai] safeJsonParse failed", {
+    len: original.length,
+    hasFence: original.includes("```"),
+    firstChar: original[0],
+    lastChar: original[original.length - 1],
+    head,
+    tail,
+  });
+
+  throw new AppError("AI returned invalid JSON", 502);
 }
+
