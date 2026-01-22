@@ -78,9 +78,7 @@ export function ApplicationAiToolsSection({
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isRerunMode, setIsRerunMode] = useState(false);
 
-  const latestFit = fitArtifact ?? null; // adjust to your existing variable name
-
-  const usedDocLabel = latestFit ? latestFit.sourceDocumentId ? `Override (Doc #${latestFit.sourceDocumentId})` : "Base Resume" : "Base Resume";
+  const latestFit = fitArtifact ?? null;
 
 
 
@@ -223,8 +221,8 @@ export function ApplicationAiToolsSection({
         </div>
       </div>
 
-            {/* Summary-first view: once a fit exists, hide inputs until user chooses to rerun */}
-            {fitArtifact && !isRerunMode ? (
+      {/* Summary-first view: once a fit exists, hide inputs until user chooses to rerun */}
+      {fitArtifact && !isRerunMode ? (
         (() => {
           const p = fitArtifact.payload;
           const band = getFitBand(p.score);
@@ -233,7 +231,7 @@ export function ApplicationAiToolsSection({
             baseResumeId && fitArtifact.sourceDocumentId === baseResumeId
               ? "Base Resume"
               : fitArtifact.sourceDocumentId
-              ? `Doc #${fitArtifact.sourceDocumentId}`
+              ? `Override (Doc #${fitArtifact.sourceDocumentId})`
               : "Base Resume";
 
           return (

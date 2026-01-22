@@ -106,8 +106,8 @@ export function FitReportDialog({ open, onOpenChange, artifact, band, usedDocLab
 
         {/* Full sections */}
         <div className="space-y-6">
-          <SectionList title="Strengths" items={p.strengths} />
-          <SectionList title="Gaps" items={p.gaps} />
+          <SectionList title="Strengths" items={p.strengths?.slice(1)} />
+          <SectionList title="Gaps" items={p.gaps?.slice(1)} />
           <SectionList title="Keyword gaps" items={p.keywordGaps} />
           <SectionList title="Recommended resume edits" items={p.recommendedEdits} />
           <SectionList title="Questions to ask the employer" items={p.questionsToAsk} />
