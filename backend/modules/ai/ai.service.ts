@@ -91,6 +91,18 @@ export async function buildFitV1(jdText: string, candidateText: string): Promise
   // Get the token usage
   const usage = getTokenUsage(resp);
 
+  console.log(
+    JSON.stringify({
+      msg: "[ai.usage]",
+      tag: "fit_v1",
+      id: resp?.id ?? null,
+      model: resp?.model ?? null,
+      status: resp?.status ?? null,
+      incomplete_reason: resp?.incomplete_details?.reason ?? null,
+      usage,
+    })
+  );
+
   // Always log usage (cheap + super useful). Cloud Run will capture console.* logs.
   console.info("[ai.usage] fit_v1", {
     model: resp?.model ?? null,
@@ -218,14 +230,14 @@ function buildFitSystemPrompt(): string {
     "- high only when the texts clearly support the score; medium when key items are unclear; low when evidence is thin.",
     "",
     "Output constraints (tight + non-redundant):",
-    "- strengths: 5–7 items. strengths[0] MUST be a 1–2 sentence overall fit summary (skills-based, no protected traits).",
+    "- strengths: max 7 items. strengths[0] MUST be a 1–2 sentence overall fit summary (skills-based, no protected traits).",
     "  Each remaining item format: '<match> — Evidence: <candidate snippet> — Why: <why it matters>' (max 2 sentences).",
-    "- gaps: 5–7 items. gaps[0] MUST be a 1–2 sentence summary of biggest blockers / what would raise the score most.",
+    "- gaps: max 7 items. gaps[0] MUST be a 1–2 sentence summary of biggest blockers / what would raise the score most.",
     "  Each remaining item format: '<gap> — Impact: <why> — Fast path: <quick action>' (max 2 sentences).",
-    "- keywordGaps: 8–12 UNIQUE items. Include missing tools/tech AND derived concepts when relevant.",
+    "- keywordGaps: max 12 UNIQUE items. Include missing tools/tech AND derived concepts when relevant.",
     "  Prefer (1) tools/tech/platforms, then (2) architecture/process concepts. Mark inferred items as 'Inferred (not explicit): ...'.",
-    "- recommendedEdits: 5–7 items. Must be grounded in candidate text; do not invent metrics. Format: '<edit> — Why: <reason>'.",
-    "- questionsToAsk: up to 5 questions the CANDIDATE should ask the EMPLOYER (not questions asked to the candidate).",
+    "- recommendedEdits: max 7 items. Must be grounded in candidate text; do not invent metrics. Format: '<edit> — Why: <reason>'.",
+    "- questionsToAsk: max 5 questions the CANDIDATE should ask the EMPLOYER (not questions asked to the candidate).",
     "  Focus on clarifying gaps, expectations, success criteria, stack, and what strong performance looks like.",
     "",
     "Avoid repetition across fields. If something appears as a gap, don't restate it as a keyword gap unless the keyword adds specificity.",
