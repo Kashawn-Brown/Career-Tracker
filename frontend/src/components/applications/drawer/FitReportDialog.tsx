@@ -27,6 +27,7 @@ type Props = {
   usedDocLabel: string;
 };
 
+// List of sections
 function SectionList({ title, items }: { title: string; items?: string[] }) {
   if (!items?.length) return null;
 

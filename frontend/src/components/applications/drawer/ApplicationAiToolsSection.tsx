@@ -11,7 +11,7 @@ import { ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 import { FitReportDialog, type FitBand } from "@/components/applications/drawer/FitReportDialog";
 
-
+// Get the fit band based on the score
 function getFitBand(score: number): FitBand {
   if (score >= 85) {
     return {
@@ -80,6 +80,7 @@ export function ApplicationAiToolsSection({
 
 
 
+  // Load the latest fit artifact
   useEffect(() => {
     let cancelled = false;
   
@@ -112,7 +113,7 @@ export function ApplicationAiToolsSection({
   }, [application.id]);
   
 
-  
+  // Whether the job description is ready to be used
   const hasJd = useMemo(() => {
     const jd = application.description?.trim();
     return Boolean(jd && jd.length > 0);
@@ -208,7 +209,7 @@ export function ApplicationAiToolsSection({
         </div>
       ) : null}
 
-
+      {/* Job compatibility check section */}
       <div className="flex items-center justify-between">
         <div>
           <div className="text-sm font-medium">Job Compatibility Check</div>
@@ -320,7 +321,7 @@ export function ApplicationAiToolsSection({
             </div>
           </div>
 
-          {/* Source selection */}
+          {/* Override selection for the full history document */}
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <input
