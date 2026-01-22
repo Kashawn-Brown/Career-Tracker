@@ -44,7 +44,7 @@ function SectionList({ title, items }: { title: string; items?: string[] }) {
 
   return (
     <div className="space-y-2">
-      <div className="text-sm font-medium">{title}</div>
+      <div className="text-md font-medium">{title}</div>
       <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
         {items.map((item, i) => (
           <li key={i}>{item}</li>
@@ -105,19 +105,18 @@ export function FitReportDialog({ open, onOpenChange, artifact, band, usedDocLab
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[80vh] overflow-y-auto" style={dockedStyle}>
         <DialogHeader>
-          <DialogTitle>Compatibility Report</DialogTitle>
+          <DialogTitle className="text-2xl font-medium">Compatibility Report</DialogTitle>
           <DialogDescription>
-            <span className="font-medium text-foreground">Job:</span> {jobLabel}
+            <span className="text-md font-medium text-foreground">{jobLabel}</span>
+            <br/>
+            <span>Latest run: </span>{" "} {createdAtLabel ?? "Unknown"}
             {" • "}
-            <span className="font-medium text-foreground">Latest run:</span>{" "}
-            {createdAtLabel ?? "Unknown"}
-            {" • "}
-            <span className="font-medium text-foreground">Used:</span> {usedDocLabel}
+            <span>Used: </span> {" "} {usedDocLabel}
           </DialogDescription>
         </DialogHeader>
 
         {/* Top summary */}
-        <div className={cn("rounded-md border p-4 border-l-4", band.stripeClass)}>
+        <div className={cn("rounded-md border p-4 border-l-4 mt-4 mb-4", band.stripeClass)}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
@@ -167,7 +166,7 @@ export function FitReportDialog({ open, onOpenChange, artifact, band, usedDocLab
           <SectionList title="Questions to ask the employer" items={p.questionsToAsk} />
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="mt-8">
           <DialogClose asChild>
             <Button variant="outline">Close</Button>
           </DialogClose>
