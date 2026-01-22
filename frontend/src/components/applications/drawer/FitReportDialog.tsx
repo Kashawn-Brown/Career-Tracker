@@ -1,5 +1,5 @@
 "use client";
-
+import { useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { AiArtifact, FitV1Payload } from "@/types/api";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,15 @@ import {
   DialogTitle,
   DialogClose,
 } from "@/components/ui/dialog";
+
+// Selector for the application details drawer
+const DRAWER_SELECTOR = '[data-app-drawer="application-details"]';
+
+// Layout tuning
+const DOCK_PADDING_PX = 24;     // desired breathing room from edges
+const DOCK_MAX_WIDTH_PX = 960;  // cap modal width on big screens
+const DOCK_MIN_WIDTH_PX = 520;  // minimum width before overlap is allowed
+
 
 export type FitBand = {
   label: string;
@@ -44,6 +53,44 @@ function SectionList({ title, items }: { title: string; items?: string[] }) {
 }
 
 export function FitReportDialog({ open, onOpenChange, artifact, band, usedDocLabel }: Props) {
+
+  // Docking style for the dialog
+  const [dockedStyle, setDockedStyle] = useState<React.CSSProperties | undefined>(undefined);
+
+  // Compute the docking style for the dialog
+  useEffect(() => {
+    if (!open) return;
+  
+    const compute = () => {
+      const drawerEl = document.querySelector(DRAWER_SELECTOR) as HTMLElement | null;
+      const drawerRect = drawerEl?.getBoundingClientRect() ?? null;
+  
+      // Space available to the left of the drawer (or full viewport if not found)
+      const availableWidth = drawerRect ? drawerRect.left : window.innerWidth;
+  
+      // Center point in that available region
+      const centerX = Math.max(availableWidth / 2, DOCK_PADDING_PX);
+  
+      // Prefer shrinking to fit the available region; once too small, keep a min width (overlap allowed)
+      const preferredMax = Math.min(
+        DOCK_MAX_WIDTH_PX,
+        Math.max(availableWidth - DOCK_PADDING_PX * 2, 0)
+      );
+  
+      const maxWidth = Math.max(preferredMax, DOCK_MIN_WIDTH_PX);
+  
+      setDockedStyle({
+        left: `${centerX}px`,
+        maxWidth: `${maxWidth}px`,
+      });
+    };
+  
+    compute();
+    window.addEventListener("resize", compute);
+    return () => window.removeEventListener("resize", compute);
+  }, [open]);
+  
+
   const p = artifact.payload;
 
   const createdAtLabel = (() => {
@@ -54,7 +101,7 @@ export function FitReportDialog({ open, onOpenChange, artifact, band, usedDocLab
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-h-[80vh] overflow-y-auto" style={dockedStyle}>
         <DialogHeader>
           <DialogTitle>Compatibility Report</DialogTitle>
           <DialogDescription>
