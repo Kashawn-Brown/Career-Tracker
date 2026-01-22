@@ -85,7 +85,7 @@ export async function buildFitV1(jdText: string, candidateText: string): Promise
       },
     },
     // Keep output bounded
-    max_output_tokens: 2500,
+    max_output_tokens: 10000,
   });
 
   // Get the token usage
