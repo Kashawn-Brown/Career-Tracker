@@ -2,7 +2,11 @@ import { AppError } from "../../errors/app-error.js";
 import { getOpenAIClient, getOpenAIModel, getJdExtractOpenAIModel } from "./openai.js";
 import { ApplicationFromJdJsonObject, normalizeApplicationFromJdResponse, FitV1JsonObject, normalizeFitV1Response } from "./ai.dto.js";
 import type { ApplicationFromJdResponse, FitV1Response } from "./ai.dto.js";
-import type { FastifyBaseLogger } from "fastify";
+
+
+// Output bounds (cost-control later)
+const JD_EXTRACT_MAX_OUTPUT_TOKENS = 900;
+const FIT_MAX_OUTPUT_TOKENS = 10000;
 
 
 /**
@@ -13,63 +17,62 @@ import type { FastifyBaseLogger } from "fastify";
 
 /**
  * JD_EXTRACT_V1: Turns pasted JD text into an application draft response.
- * 
- * No DB writes.
  */
 export async function buildApplicationDraftFromJd(jdText: string): Promise<ApplicationFromJdResponse> {
   
   // Get the OpenAI client and model.
   const openai = getOpenAIClient();
   const model = getJdExtractOpenAIModel();
-
-  // try {
-    // Make the OpenAI request.
-    const resp = await openai.responses.create({
-      model,
-      input: [
-        { role: "system", content: buildExtractJdSystemPrompt() }, // The system prompt.
-        { role: "user", content: jdText }, // The pasted JD text.
-      ],
-      text: {
-        format: {
-          type: "json_schema",
-          name: "application_from_jd_v1",
-          strict: true,
-          schema: ApplicationFromJdJsonObject,
-        },
+  
+    
+  // Make the OpenAI request.
+  const resp = await openai.responses.create({
+    model,
+    input: [
+      { role: "system", content: buildExtractJdSystemPrompt() }, // The system prompt.
+      { role: "user", content: jdText }, // The pasted JD text.
+    ],
+    text: {
+      format: {
+        type: "json_schema",
+        name: "application_from_jd_v1",
+        strict: true,
+        schema: ApplicationFromJdJsonObject,
       },
-      // Guardrail: keep output bounded (cost + response size)
-      max_output_tokens: 900,
-    });
+    },
+    // Guardrail: keep output bounded (cost + response size)
+    max_output_tokens: JD_EXTRACT_MAX_OUTPUT_TOKENS,
+  });
 
-    const outputText = resp.output_text;
+  // Parse the output text into a JSON object
+  const parsed = parseJsonSchemaOutputOrThrow<ApplicationFromJdResponse>(resp, {
+    tag: "jd_extract_v1",
+    meta: { jdLen: jdText.length },
+  });
 
-    const parsed = safeJsonParse<ApplicationFromJdResponse>(outputText);
-    // console.log("HERE IS THE OUTPUT (PRE-NORMALIZATION):", parsed);
+  // Return the normalized response
+  return normalizeApplicationFromJdResponse(parsed);
 
-    return normalizeApplicationFromJdResponse(parsed);
-  // } catch (err) {
-    // Treat OpenAI failures as a dependency error (not a user input error)
-    // throw new AppError("AI request failed", 502);
-  // }
 }
 
 
 /**
- * Generates FIT_V1 using canonical JD text + extracted candidate-history text.
- * No DB writes.
+ *  FIT_V1: Generates a fit of compatibility between the candidate and the job description using the canonical JD text + extracted candidate-history text.
  */
 export async function buildFitV1(jdText: string, candidateText: string): Promise<FitV1Response> {
   const jd = (jdText ?? "").trim();
   const candidate = (candidateText ?? "").trim();
 
+  // Validate inputs
   if (!jd) throw new AppError("Job description is missing.", 400);
   if (!candidate) throw new AppError("Candidate history is missing.", 400);
 
 
+  // Get the OpenAI client and model.
   const openai = getOpenAIClient();
   const model = getOpenAIModel();
 
+  // Make the OpenAI request for the fit evaluation.
   const resp = await openai.responses.create({
     model,
     input: [
@@ -85,78 +88,17 @@ export async function buildFitV1(jdText: string, candidateText: string): Promise
       },
     },
     // Keep output bounded
-    max_output_tokens: 10000,
-  });
-
-  // Get the token usage
-  const usage = getTokenUsage(resp);
-
-  console.log(
-    JSON.stringify({
-      msg: "[ai.usage]",
-      tag: "fit_v1",
-      id: resp?.id ?? null,
-      model: resp?.model ?? null,
-      status: resp?.status ?? null,
-      incomplete_reason: resp?.incomplete_details?.reason ?? null,
-      usage,
-    })
-  );
-
-  // Always log usage (cheap + super useful). Cloud Run will capture console.* logs.
-  console.info("[ai.usage] fit_v1", {
-    model: resp?.model ?? null,
-    status: resp?.status ?? null,
-    incompleteReason: resp?.incomplete_details?.reason ?? null,
-    inputTokens: usage.input,
-    outputTokens: usage.output,
-    totalTokens: usage.total,
+    max_output_tokens: FIT_MAX_OUTPUT_TOKENS,
   });
 
 
-  // Get the debug information
-  const debug = classifyOpenAIResponse(resp);
-  const outputText = (resp.output_text ?? "").trim();
-  const refusal = extractRefusalText(resp);
-  const anyText = extractAnyTextPreview(resp);
+  // Parse the output text into a JSON object
+  const parsed = parseJsonSchemaOutputOrThrow<FitV1Response>(resp, {
+    tag: "fit_v1",
+    meta: { jdLen: jd.length, candidateLen: candidate.length },
+  });
 
-  const jdLen = jd.length;
-  const candidateLen = candidate.length;
-
-  const shouldDebugLog = process.env.AI_DEBUG === "true" || !outputText || debug.status !== "completed";
-  if (shouldDebugLog) {
-    console.warn("[ai.fit] response", {
-      jdLen: jd.length,
-      candidateLen: candidate.length,
-      ...debug,
-      refusalPreview: refusal ? redactSample(refusal.slice(0, 300)) : null,
-      anyTextPreview: anyText ? redactSample(anyText.slice(0, 300)) : null,
-      outputHead: outputText ? redactSample(outputText.slice(0, 300)) : null,
-      outputTail: outputText ? redactSample(outputText.slice(-300)) : null,
-    });
-  }
-
-  // Hard fail early with the REAL reason (this is what you need)
-  if (debug.status !== "completed") {
-    throw new AppError(
-      refusal
-        ? `AI refused the request (status=${debug.status}).`
-        : `AI did not complete (status=${debug.status}, reason=${debug.incompleteReason ?? "unknown"}, tokens=${usage.total} [in=${usage.input}, out=${usage.output}]).`,
-      502
-    );
-  }
-
-  // If output_text is empty, classify it now (don’t let safeJsonParse hide the reason)
-  if (!outputText) {
-    throw new AppError(
-      refusal
-        ? "AI refused the request (completed but refusal/empty output)."
-        : "AI completed but returned empty output_text.",
-      502
-    );
-  }
-
-  const parsed = safeJsonParse<FitV1Response>(outputText);
+  // Return the normalized response
   return normalizeFitV1Response(parsed);
 }
 
@@ -165,7 +107,7 @@ export async function buildFitV1(jdText: string, candidateText: string): Promise
 // ------------ HELPER FUNCTIONS ------------
 
 /**
- * Build the system prompt for the AI request to extract the job description.
+ * JdExtractV1: Build the system prompt for the AI request to extract the job description.
  */
 function buildExtractJdSystemPrompt(): string {
   return [
@@ -199,7 +141,7 @@ function buildExtractJdSystemPrompt(): string {
 }
 
 /**
- * Build the system prompt for the AI request to evaluate the candidate-to-job fit.
+ * FitV1: Build the system prompt for the AI request to evaluate the candidate-to-job fit.
  * 
  * buildFitSystemPrompt() is used to build the system prompt for the AI request with the instructions for the AI on how to evaluate the fit.
  * 
@@ -229,24 +171,31 @@ function buildFitSystemPrompt(): string {
     "Confidence:",
     "- high only when the texts clearly support the score; medium when key items are unclear; low when evidence is thin.",
     "",
-    "Output constraints (tight + non-redundant):",
-    "- strengths: max 7 items. strengths[0] MUST be a 1–2 sentence overall fit summary (skills-based, no protected traits).",
-    "  Each remaining item format: '<match> — Evidence: <candidate snippet> — Why: <why it matters>' (max 2 sentences).",
-    "- gaps: max 7 items. gaps[0] MUST be a 1–2 sentence summary of biggest blockers / what would raise the score most.",
-    "  Each remaining item format: '<gap> — Impact: <why> — Fast path: <quick action>' (max 2 sentences).",
-    "- keywordGaps: max 12 UNIQUE items. Include missing tools/tech AND derived concepts when relevant.",
-    "  Prefer (1) tools/tech/platforms, then (2) architecture/process concepts. Mark inferred items as 'Inferred (not explicit): ...'.",
-    "- recommendedEdits: max 7 items. Must be grounded in candidate text; do not invent metrics. Format: '<edit> — Why: <reason>'.",
-    "- questionsToAsk: max 5 questions the CANDIDATE should ask the EMPLOYER (not questions asked to the candidate).",
-    "  Focus on clarifying gaps, expectations, success criteria, stack, and what strong performance looks like.",
-    "",
-    "Avoid repetition across fields. If something appears as a gap, don't restate it as a keyword gap unless the keyword adds specificity.",
-    "",
-    "If you cannot comply for any reason, still return valid JSON with:",
-    "- score: 0, confidence: 'low', and strengths[0]/gaps[0] explaining that the output could not be generated from the provided text.",
+    "Writing style (make it read well):",
+  "- Write directly to the candidate in second-person (use 'you').",
+  "- Use complete sentences with natural flow; avoid robotic 'Evidence: ... — Why: ...' phrasing.",
+  "- Each list item must still be a SINGLE STRING (no sub-bullets). Keep each item max 2 sentences.",
+  "- You MAY mention a project name ONLY if it appears in the candidate text; otherwise say 'one of your projects'.",
+  "",
+  "Output constraints (tight + non-redundant):",
+  "- strengths: max 7 items.",
+  "  - strengths[0] MUST be a 2–3 sentence overall summary on the biggest stack/role alignments for the candidate in your own words (do NOT just quote the JD).",
+  "  - strengths[1..] rough format: '<Topic> — You have <relevant experience> (Evidence: \"<<=12 words from candidate>\"). <Optional: This matters because <why it helps for this role>>.'",
+  "- gaps: max 7 items.",
+  "  - gaps[0] MUST be a 2–3 sentence summary on the biggest blockers and what would raise the score most.",
+  "  - gaps[1..] rough format: '<Gap> — You do not show explicit evidence of <missing requirement>. <Optional: This matters because <impact>>. Fast path: <quick action/suggestion>.'",
+  "- keywordGaps: max 12 UNIQUE items. Include missing tools/tech AND derived concepts when relevant.",
+  "  Prefer (1) tools/tech/platforms, then (2) architecture/process concepts. Mark inferred items as 'Inferred (not explicit): ...'.",
+  "- recommendedEdits: max 7 items. Must be grounded in candidate text; do not invent metrics. Format: '<edit> — Why: <reason>'.",
+  "- questionsToAsk: max 5 questions the CANDIDATE should ask the EMPLOYER (not questions asked to the candidate).",
+  "  Focus on clarifying gaps, expectations, success criteria, stack, and what strong performance looks like.",
+  "",
+  "Avoid repetition across fields. If something appears as a gap, don't restate it as a keyword gap unless the keyword adds specificity.",
+  "",
+  "If you cannot comply for any reason, still return valid JSON with:",
+  "- score: 0, confidence: 'low', and strengths[0]/gaps[0] explaining that the output could not be generated from the provided text.",
   ].join("\n");
 }
-
 
 function buildFitUserPrompt(jdText: string, candidateText: string): string {
   return [
@@ -259,101 +208,75 @@ function buildFitUserPrompt(jdText: string, candidateText: string): string {
 }
 
 
+// Context for the AI parse operation.
+type AiParseContext = {
+  tag: string; // e.g. "fit_v1", "jd_extract_v1"
+  meta?: Record<string, unknown>; // e.g. { jdLen, candidateLen }
+};
+
+
 /**
- * Parse a JSON string safely.
+ * Parse the response from the AI request and throw an error if the response is invalid.
  */
-function redactSample(s: string) {
-  // Redact letters/numbers to avoid leaking content in logs while keeping JSON structure visible
-  return s.replace(/[A-Za-z0-9]/g, "x");
-}
+function parseJsonSchemaOutputOrThrow<T>(resp: any, ctx: AiParseContext): T {
+  
+  const usage = getTokenUsage(resp);
 
-function stripJsonFences(text: string) {
-  const m = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-  return (m?.[1] ?? text).trim();
-}
+  // Usage log (searchable in Cloud Run logs)
+  console.log(
+    JSON.stringify({
+      msg: "[ai.usage]",
+      tag: ctx.tag,
+      id: resp?.id ?? null,
+      model: resp?.model ?? null,
+      status: resp?.status ?? null,
+      incomplete_reason: resp?.incomplete_details?.reason ?? null,
+      usage,
+    })
+  );
 
-function tryExtractJsonSubstring(text: string) {
-  const t = text.trim();
+  const debug = classifyOpenAIResponse(resp);
+  const outputText = (resp.output_text ?? "").trim();
+  const refusal = extractRefusalText(resp);
+  const anyText = extractAnyTextPreview(resp);
 
-  // Prefer object extraction
-  const objStart = t.indexOf("{");
-  const objEnd = t.lastIndexOf("}");
-  if (objStart !== -1 && objEnd !== -1 && objEnd > objStart) {
-    return t.slice(objStart, objEnd + 1);
+  const shouldDebugLog =
+    process.env.AI_DEBUG === "true" || !outputText || debug.status !== "completed";
+
+  if (shouldDebugLog) {
+    console.warn(`[ai.${ctx.tag}] response`, {
+      ...(ctx.meta ?? {}),
+      ...debug,
+      refusalPreview: refusal ? redactSample(refusal.slice(0, 300)) : null,
+      anyTextPreview: anyText ? redactSample(anyText.slice(0, 300)) : null,
+      outputHead: outputText ? redactSample(outputText.slice(0, 300)) : null,
+      outputTail: outputText ? redactSample(outputText.slice(-300)) : null,
+    });
   }
 
-  // Fallback: array extraction
-  const arrStart = t.indexOf("[");
-  const arrEnd = t.lastIndexOf("]");
-  if (arrStart !== -1 && arrEnd !== -1 && arrEnd > arrStart) {
-    return t.slice(arrStart, arrEnd + 1);
+  // Hard fail early with the REAL reason
+  if (debug.status !== "completed") {
+    throw new AppError(
+      refusal
+        ? `AI refused the request (status=${debug.status}).`
+        : `AI did not complete (status=${debug.status}, reason=${debug.incompleteReason ?? "unknown"}, tokens=${usage.total} [in=${usage.input}, out=${usage.output}]).`,
+      502
+    );
   }
 
-  return null;
+  if (!outputText) {
+    throw new AppError(
+      refusal
+        ? "AI refused the request (completed but refusal/empty output)."
+        : "AI completed but returned empty output_text.",
+      502
+    );
+  }
+
+  return safeJsonParse<T>(outputText);
 }
 
-function safeJsonParse<T>(raw: string | null | undefined): T {
-  const original = (raw ?? "").trim();
-
-  if (!original) {
-    console.warn("[ai] safeJsonParse: empty output_text");
-    throw new AppError("AI returned invalid JSON", 502);
-  }
-
-  // 1) Strip ```json fences if the model included them
-  const unfenced = stripJsonFences(original);
-
-  // 2) First parse attempt
-  try {
-    return JSON.parse(unfenced) as T;
-  } catch {
-    // continue
-  }
-
-  // 3) Second attempt: extract the largest JSON-looking substring
-  const extracted = tryExtractJsonSubstring(unfenced);
-  if (extracted) {
-    try {
-      return JSON.parse(extracted) as T;
-    } catch {
-      // continue
-    }
-  }
-
-  // 4) Log redacted previews for debugging (structure only, no content)
-  const head = redactSample(original.slice(0, 200));
-  const tail = redactSample(original.slice(-200));
-
-  console.warn("[ai] safeJsonParse failed", {
-    len: original.length,
-    hasFence: original.includes("```"),
-    firstChar: original[0],
-    lastChar: original[original.length - 1],
-    head,
-    tail,
-  });
-
-  throw new AppError("AI returned invalid JSON", 502);
-}
-
-function summarizeOpenAIResponseForDebug(resp: any) {
-  const output = Array.isArray(resp?.output) ? resp.output : [];
-
-  return {
-    id: resp?.id,
-    status: resp?.status,
-    model: resp?.model,
-    outputTextLen: typeof resp?.output_text === "string" ? resp.output_text.length : 0,
-    incompleteDetails: resp?.incomplete_details ?? null,
-    usage: resp?.usage ?? null,
-    outputItems: output.map((item: any) => ({
-      type: item?.type,
-      role: item?.role,
-      contentTypes: Array.isArray(item?.content) ? item.content.map((c: any) => c?.type).filter(Boolean) : [],
-    })),
-  };
-}
-
+// Extract the refusal text from the response.
 function extractRefusalText(resp: any): string | null {
   const output = Array.isArray(resp?.output) ? resp.output : [];
   for (const item of output) {
@@ -367,6 +290,7 @@ function extractRefusalText(resp: any): string | null {
   return null;
 }
 
+// Extract any text preview from the response.
 function extractAnyTextPreview(resp: any): string | null {
   const output = Array.isArray(resp?.output) ? resp.output : [];
   for (const item of output) {
@@ -382,6 +306,7 @@ function extractAnyTextPreview(resp: any): string | null {
   return null;
 }
 
+// Classify the OpenAI response.
 function classifyOpenAIResponse(resp: any) {
   const status = resp?.status ?? "unknown";
   const reason = resp?.incomplete_details?.reason ?? null;
@@ -406,6 +331,84 @@ function classifyOpenAIResponse(resp: any) {
   };
 }
 
+
+/**
+ * Safely parse the JSON string into a JSON object.
+ */ 
+function safeJsonParse<T>(raw: string | null | undefined): T {
+  const original = (raw ?? "").trim();
+
+  if (!original) {
+    console.warn("[ai] safeJsonParse: empty output_text");
+    throw new AppError("AI returned invalid JSON", 502);
+  }
+
+  // Strip ```json fences if present
+  const unfenced = original.replace(/```(?:json)?\s*([\s\S]*?)\s*```/i, "$1").trim();
+
+  // First parse attempt
+  try {
+    return JSON.parse(unfenced) as T;
+  } catch {
+    // continue
+  }
+
+  // Second parse attempt: extract the largest JSON-looking substring
+  const extracted = tryExtractJsonSubstring(unfenced);
+  if (extracted) {
+    try {
+      return JSON.parse(extracted) as T;
+    } catch {
+      // continue
+    }
+  }
+
+  // Log redacted previews for debugging (structure only, no content)
+  const head = redactSample(original.slice(0, 200));
+  const tail = redactSample(original.slice(-200));
+
+  console.warn("[ai] safeJsonParse failed", {
+    len: original.length,
+    hasFence: original.includes("```"),
+    firstChar: original[0],
+    lastChar: original[original.length - 1],
+    head,
+    tail,
+  });
+
+  throw new AppError("AI returned invalid JSON", 502);
+}
+
+// Try to extract a JSON substring from the text.
+function tryExtractJsonSubstring(text: string) {
+  const t = text.trim();
+
+  // Prefer object extraction
+  const objStart = t.indexOf("{");
+  const objEnd = t.lastIndexOf("}");
+  if (objStart !== -1 && objEnd !== -1 && objEnd > objStart) {
+    return t.slice(objStart, objEnd + 1);
+  }
+
+  // Fallback: array extraction
+  const arrStart = t.indexOf("[");
+  const arrEnd = t.lastIndexOf("]");
+  if (arrStart !== -1 && arrEnd !== -1 && arrEnd > arrStart) {
+    return t.slice(arrStart, arrEnd + 1);
+  }
+
+  return null;
+}
+
+// Redact letters/numbers to avoid leaking content in logs while keeping JSON structure visible
+function redactSample(s: string) {
+  return s.replace(/[A-Za-z0-9]/g, "x");
+}
+
+
+/**
+ * Get the token usage from the response.
+ */
 function getTokenUsage(resp: any) {
   const u = resp?.usage ?? {};
   const input = u.input_tokens ?? u.prompt_tokens ?? 0;
@@ -413,3 +416,5 @@ function getTokenUsage(resp: any) {
   const total = u.total_tokens ?? (input + output);
   return { input, output, total, raw: u };
 }
+
+
