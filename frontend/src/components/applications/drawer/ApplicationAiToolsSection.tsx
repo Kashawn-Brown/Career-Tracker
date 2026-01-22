@@ -20,14 +20,14 @@ function getFitBand(score: number): FitBand {
       badgeClass: "border-green-200 bg-green-50 text-green-700",
     };
   }
-  if (score >= 60) {
+  if (score >= 70) {
     return {
       label: "Good fit",
       stripeClass: "border-l-emerald-500",
       badgeClass: "border-emerald-200 bg-emerald-50 text-emerald-700",
     };
   }
-  if (score >= 40) {
+  if (score >= 50) {
     return {
       label: "Mixed fit",
       stripeClass: "border-l-amber-500",
@@ -189,6 +189,7 @@ export function ApplicationAiToolsSection({
     }
   }
   
+  const jobLabel = [application.position, application.company].filter(Boolean).join(" @ ");
 
 
   return (
@@ -293,12 +294,14 @@ export function ApplicationAiToolsSection({
                 </Button>
               </div>
 
+              jobLabel={application.position ?? "Unknown"}
               <FitReportDialog
                 open={isDetailsOpen}
                 onOpenChange={setIsDetailsOpen}
                 artifact={fitArtifact}
                 band={band}
                 usedDocLabel={usedDocLabel}
+                jobLabel={jobLabel}
               />
             </div>
           );

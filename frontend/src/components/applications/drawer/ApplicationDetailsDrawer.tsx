@@ -544,7 +544,7 @@ export function ApplicationDetailsDrawer({
 
       
       {/* Application details */}
-      <SheetContent side="right" className="space-y-5 overflow-y-auto">
+      <SheetContent side="right" className="space-y-5 overflow-y-auto" data-app-drawer="application-details">
         <SheetHeader>
           <SheetTitle>{title}</SheetTitle>
           <SheetDescription>
