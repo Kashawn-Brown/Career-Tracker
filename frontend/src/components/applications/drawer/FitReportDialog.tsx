@@ -34,6 +34,8 @@ type Props = {
   artifact: AiArtifact<FitV1Payload>;
   band: FitBand;
   usedDocLabel: string;
+
+  jobLabel: string;
 };
 
 // List of sections
@@ -52,7 +54,7 @@ function SectionList({ title, items }: { title: string; items?: string[] }) {
   );
 }
 
-export function FitReportDialog({ open, onOpenChange, artifact, band, usedDocLabel }: Props) {
+export function FitReportDialog({ open, onOpenChange, artifact, band, usedDocLabel, jobLabel }: Props) {
 
   // Docking style for the dialog
   const [dockedStyle, setDockedStyle] = useState<React.CSSProperties | undefined>(undefined);
@@ -105,8 +107,12 @@ export function FitReportDialog({ open, onOpenChange, artifact, band, usedDocLab
         <DialogHeader>
           <DialogTitle>Compatibility Report</DialogTitle>
           <DialogDescription>
-            {createdAtLabel ? `Latest run: ${createdAtLabel} • ` : ""}
-            Used: {usedDocLabel}
+            <span className="font-medium text-foreground">Job:</span> {jobLabel}
+            {" • "}
+            <span className="font-medium text-foreground">Latest run:</span>{" "}
+            {createdAtLabel ?? "Unknown"}
+            {" • "}
+            <span className="font-medium text-foreground">Used:</span> {usedDocLabel}
           </DialogDescription>
         </DialogHeader>
 

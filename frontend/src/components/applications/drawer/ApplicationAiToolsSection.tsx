@@ -189,6 +189,7 @@ export function ApplicationAiToolsSection({
     }
   }
   
+  const jobLabel = [application.position, application.company].filter(Boolean).join(" @ ");
 
 
   return (
@@ -293,12 +294,14 @@ export function ApplicationAiToolsSection({
                 </Button>
               </div>
 
+              jobLabel={application.position ?? "Unknown"}
               <FitReportDialog
                 open={isDetailsOpen}
                 onOpenChange={setIsDetailsOpen}
                 artifact={fitArtifact}
                 band={band}
                 usedDocLabel={usedDocLabel}
+                jobLabel={jobLabel}
               />
             </div>
           );
