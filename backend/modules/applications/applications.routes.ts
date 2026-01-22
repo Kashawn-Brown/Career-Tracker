@@ -1,5 +1,5 @@
 import type { FastifyInstance, } from "fastify";
-import { getOpenAIModel } from "../ai/openai.js";
+import { getOpenAIModel, getJdExtractOpenAIModel } from "../ai/openai.js";
 import { CreateApplicationBody, ListApplicationsQuery, ApplicationIdParams, UpdateApplicationBody, UploadApplicationDocumentQuery, ApplicationConnectionParams, GenerateAiArtifactBody, ListAiArtifactsQuery } from "./applications.schemas.js";
 import type { CreateApplicationBodyType, ListApplicationsQueryType, ApplicationIdParamsType, UpdateApplicationBodyType, UploadApplicationDocumentQueryType, GenerateAiArtifactBodyType, ListAiArtifactsQueryType } from "./applications.schemas.js";
 import * as ApplicationsService from "./applications.service.js";
@@ -290,7 +290,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
           jobApplicationId: id,
           kind,
           payload,
-          model: getOpenAIModel(),
+          model: getJdExtractOpenAIModel(),
         });
 
         // Return the AI artifact.
@@ -314,7 +314,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
         // Generate FIT payload
         const payload = await AiService.buildFitV1(application.description, candidate.text);
 
-        // Store artifact (record which doc was used)
+        // Create the AI artifact (record which doc was used)
         const artifact = await ApplicationsService.createAiArtifact({
           userId,
           jobApplicationId: id,

@@ -341,15 +341,38 @@ export async function createAiArtifact(args: {
   //   });
   // });
   
-  return prisma.aiArtifact.create({
-    data: {
-      userId: args.userId,
-      jobApplicationId: args.jobApplicationId,
-      kind: args.kind,
-      payload: args.payload as any,
-      model: args.model,
-      sourceDocumentId: args.sourceDocumentId ?? null,
-    },
+  // Run in a transaction to ensure consistency
+  return prisma.$transaction(async (db) => {
+    
+    // Create the AI artifact
+    const artifact = await db.aiArtifact.create({
+      data: {
+        userId: args.userId,
+        jobApplicationId: args.jobApplicationId,
+        kind: args.kind,
+        payload: args.payload as any,
+        model: args.model,
+        sourceDocumentId: args.sourceDocumentId ?? null,
+      },
+    });
+
+    // If it's a FIT artifact, persist the latest score onto the application
+    if (args.kind === "FIT_V1") {
+      const score = extractFitScore(args.payload);
+
+      if (score !== null) {
+        await db.jobApplication.updateMany({
+          where: { id: args.jobApplicationId, userId: args.userId },
+          data: {
+            fitScore: score,
+            fitUpdatedAt: new Date(),
+          },
+        });
+      }
+    }
+
+    // Return the AI artifact
+    return artifact;
   });
 }
 
@@ -385,3 +408,14 @@ const normalizeNullableString = (value: string | undefined) => {
   const trimmed = value.trim();
   return trimmed.length === 0 ? null : trimmed;
 };
+
+// Helper to extract the fit score from the payload
+function extractFitScore(payload: unknown): number | null {
+  const score = (payload as any)?.score;
+
+  if (typeof score !== "number" || Number.isNaN(score)) return null;
+
+  // Clamp to 0–100 and round to an int for DB storage
+  const clamped = Math.max(0, Math.min(100, score));
+  return Math.round(clamped);
+}
