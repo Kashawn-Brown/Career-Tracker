@@ -26,6 +26,9 @@ export const applicationSelect = {
   notes: true,
   tagsText: true,
 
+  fitScore: true,
+  fitUpdatedAt: true,
+
   createdAt: true,
   updatedAt: true,
   

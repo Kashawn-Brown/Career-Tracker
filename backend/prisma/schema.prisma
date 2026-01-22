@@ -69,10 +69,13 @@ model JobApplication {
   notes        String?
   tagsText     String?
 
+  fitScore     Int?
+
   connections    ApplicationConnection[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  fitUpdatedAt DateTime?
 
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   documents Document[]
