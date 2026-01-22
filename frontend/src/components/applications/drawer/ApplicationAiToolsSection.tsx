@@ -78,9 +78,6 @@ export function ApplicationAiToolsSection({
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isRerunMode, setIsRerunMode] = useState(false);
 
-  const latestFit = fitArtifact ?? null;
-
-
 
 
   useEffect(() => {
