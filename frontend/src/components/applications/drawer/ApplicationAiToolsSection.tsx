@@ -8,6 +8,38 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api/client";
+import { cn } from "@/lib/utils";
+import { FitReportDialog, type FitBand } from "@/components/applications/drawer/FitReportDialog";
+
+// Get the fit band based on the score
+function getFitBand(score: number): FitBand {
+  if (score >= 85) {
+    return {
+      label: "Strong fit",
+      stripeClass: "border-l-green-500",
+      badgeClass: "border-green-200 bg-green-50 text-green-700",
+    };
+  }
+  if (score >= 60) {
+    return {
+      label: "Good fit",
+      stripeClass: "border-l-emerald-500",
+      badgeClass: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    };
+  }
+  if (score >= 40) {
+    return {
+      label: "Mixed fit",
+      stripeClass: "border-l-amber-500",
+      badgeClass: "border-amber-200 bg-amber-50 text-amber-800",
+    };
+  }
+  return {
+    label: "Weak fit",
+    stripeClass: "border-l-red-500",
+    badgeClass: "border-red-200 bg-red-50 text-red-700",
+  };
+}
 
 
 type Props = {
@@ -42,6 +74,13 @@ export function ApplicationAiToolsSection({
   const [isRunning, setIsRunning] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Details dialog state
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isRerunMode, setIsRerunMode] = useState(false);
+
+
+
+  // Load the latest fit artifact
   useEffect(() => {
     let cancelled = false;
   
@@ -74,7 +113,7 @@ export function ApplicationAiToolsSection({
   }, [application.id]);
   
 
-  
+  // Whether the job description is ready to be used
   const hasJd = useMemo(() => {
     const jd = application.description?.trim();
     return Boolean(jd && jd.length > 0);
@@ -136,6 +175,7 @@ export function ApplicationAiToolsSection({
       });
   
       setFitArtifact(created as AiArtifact<FitV1Payload>);
+      setIsRerunMode(false);
   
       // Optional: clear override after a successful run (keeps behavior predictable)
       onToggleOverride(false);
@@ -169,7 +209,7 @@ export function ApplicationAiToolsSection({
         </div>
       ) : null}
 
-
+      {/* Job compatibility check section */}
       <div className="flex items-center justify-between">
         <div>
           <div className="text-sm font-medium">Job Compatibility Check</div>
@@ -179,118 +219,176 @@ export function ApplicationAiToolsSection({
         </div>
       </div>
 
-      {/* Readiness */}
-      <div className="space-y-1 text-xs">
-        <div className="flex items-center justify-between">
-          <span>Job description</span>
-          <span className={hasJd ? "text-foreground" : "text-destructive"}>
-            {hasJd ? "Ready" : "Missing"}
-          </span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span>Base Resume</span>
-          <span className={baseResumeExists ? "text-foreground" : "text-muted-foreground"}>
-            {baseResumeExists ? "Saved" : "Not uploaded"}
-          </span>
-        </div>
-      </div>
+      {/* Summary-first view: once a fit exists, hide inputs until user chooses to rerun */}
+      {fitArtifact && !isRerunMode ? (
+        (() => {
+          const p = fitArtifact.payload;
+          const band = getFitBand(p.score);
 
-      {/* Source selection */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-2">
-          <input
-            id="ai-use-override"
-            type="checkbox"
-            checked={useOverride}
-            onChange={(e) => {
-              onToggleOverride(e.target.checked);
-              // Reset file when toggling off to keep behavior predictable
-              if (!e.target.checked) onOverrideFile(null);
-            }}
-          />
-          <label htmlFor="ai-use-override" className="text-sm">
-            Use a different file for this run
-          </label>
-        </div>
+          const usedDocLabel =
+            baseResumeId && fitArtifact.sourceDocumentId === baseResumeId
+              ? "Base Resume"
+              : fitArtifact.sourceDocumentId
+              ? `Override (Doc #${fitArtifact.sourceDocumentId})`
+              : "Base Resume";
 
-        {/* Override file input */}
-        {useOverride ? (
-          <div className="space-y-2">
-            <Input
-              type="file"
-              accept=".pdf,.txt"
-              onChange={(e) => onOverrideFile(e.target.files?.[0] ?? null)}
-            />
-            <div className="text-xs text-muted-foreground">
-              This file will be uploaded and attached to this application when you run the tool.
+          return (
+            <div className={cn("rounded-md border p-3 space-y-3 border-l-4", band.stripeClass)}>
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-medium">Latest result</div>
+                <div className="text-xs text-muted-foreground">
+                  Used doc: <span className="text-foreground">{usedDocLabel}</span>
+                </div>
+              </div>
+
+              <div className="flex items-end justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="text-3xl font-semibold">
+                    {p.score}
+                    <span className="text-sm font-normal text-muted-foreground"> / 100</span>
+                  </div>
+
+                  <div
+                    className={cn(
+                      "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium",
+                      band.badgeClass
+                    )}
+                  >
+                    {band.label}
+                  </div>
+                </div>
+
+                <div className="text-xs text-muted-foreground">
+                  Confidence: <span className="text-foreground">{p.confidence}</span>
+                </div>
+              </div>
+
+              {p.strengths?.[0] ? (
+                <div>
+                  <div className="text-xs font-medium mb-1">Strengths summary</div>
+                  <div className="text-sm text-muted-foreground">{p.strengths[0]}</div>
+                </div>
+              ) : null}
+
+              {p.gaps?.[0] ? (
+                <div>
+                  <div className="text-xs font-medium mb-1">Gaps summary</div>
+                  <div className="text-sm text-muted-foreground">{p.gaps[0]}</div>
+                </div>
+              ) : null}
+
+              <div className="pt-2 flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setIsDetailsOpen(true)}>
+                  See more
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setErrorMessage(null);
+                    setIsRerunMode(true);
+                  }}
+                >
+                  Re-run compatibility check
+                </Button>
+              </div>
+
+              <FitReportDialog
+                open={isDetailsOpen}
+                onOpenChange={setIsDetailsOpen}
+                artifact={fitArtifact}
+                band={band}
+                usedDocLabel={usedDocLabel}
+              />
             </div>
-          </div>
-        ) : (
-          <div className="text-xs text-muted-foreground">
-            Default: Base Resume (recommended).
-          </div>
-        )}
-      </div>
-
-      {/* Run button */}
-      <div className="pt-2 border-t space-y-2">
-        <Button
-          className="w-full"
-          disabled={!isReady || isRunning}
-          onClick={runFit}
-        >
-          {isRunning ? "Running..." : "Run Compatibility"}
-        </Button>
-
-        {isLoadingLatest ? (
-          <div className="text-xs text-muted-foreground">Loading latest result...</div>
-        ) : fitArtifact ? (
-          <div className="rounded-md border p-3 space-y-2">
+          );
+        })()
+      ) : (
+        <>
+          {/* Readiness */}
+          <div className="space-y-1 text-xs">
             <div className="flex items-center justify-between">
-              <div className="text-sm font-medium">Latest result</div>
-              <div className="text-xs text-muted-foreground">
-                Used doc:{" "}
-                {baseResumeId && fitArtifact.sourceDocumentId === baseResumeId
-                  ? "Base Resume"
-                  : `Doc #${fitArtifact.sourceDocumentId}`}
-              </div>
+              <span>Job description</span>
+              <span className={hasJd ? "text-foreground" : "text-destructive"}>
+                {hasJd ? "Ready" : "Missing"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Base Resume</span>
+              <span className={baseResumeExists ? "text-foreground" : "text-muted-foreground"}>
+                {baseResumeExists ? "Saved" : "Not uploaded"}
+              </span>
+            </div>
+          </div>
+
+          {/* Override selection for the full history document */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <input
+                id="ai-use-override"
+                type="checkbox"
+                checked={useOverride}
+                onChange={(e) => {
+                  onToggleOverride(e.target.checked);
+                  if (!e.target.checked) onOverrideFile(null);
+                }}
+              />
+              <label htmlFor="ai-use-override" className="text-sm">
+                Use a different file for this run
+              </label>
             </div>
 
-            <div className="flex items-end justify-between">
-              <div className="text-3xl font-semibold">
-                {fitArtifact.payload.score}
-                <span className="text-sm font-normal text-muted-foreground"> / 100</span>
+            {useOverride ? (
+              <div className="space-y-2">
+                <Input
+                  type="file"
+                  accept=".pdf,.txt"
+                  onChange={(e) => onOverrideFile(e.target.files?.[0] ?? null)}
+                />
+                <div className="text-xs text-muted-foreground">
+                  This file will be uploaded and attached to this application when you run the tool.
+                </div>
               </div>
+            ) : (
+              <div className="text-xs text-muted-foreground">Default: Base Resume (recommended).</div>
+            )}
+          </div>
+
+          {/* Run button */}
+          <div className="pt-2 border-t space-y-2">
+            <Button className="w-full" disabled={!isReady || isRunning} onClick={runFit}>
+              {isRunning ? "Running..." : "Run Compatibility"}
+            </Button>
+
+            {/* Replace-mode rerun: show Cancel ONLY when user chose rerun */}
+            {isRerunMode ? (
+              <Button
+                variant="outline"
+                className="w-full"
+                disabled={isRunning}
+                onClick={() => {
+                  setErrorMessage(null);
+                  setIsRerunMode(false);
+                }}
+              >
+                Cancel
+              </Button>
+            ) : null}
+
+            {isLoadingLatest ? (
+              <div className="text-xs text-muted-foreground">Loading latest result...</div>
+            ) : !fitArtifact ? (
               <div className="text-xs text-muted-foreground">
-                Confidence: {fitArtifact.payload.confidence}
+                No fit result yet. Run the tool to generate one.
               </div>
-            </div>
-
-            {/* Keep it scan-friendly: only show sections when non-empty */}
-            {fitArtifact.payload.strengths?.length ? (
-              <div>
-                <div className="text-xs font-medium mb-1">Strengths</div>
-                <ul className="list-disc pl-5 text-xs text-muted-foreground space-y-1">
-                  {fitArtifact.payload.strengths.map((s, i) => <li key={i}>{s}</li>)}
-                </ul>
+            ) : (
+              <div className="text-xs text-muted-foreground">
+                A previous result exists. Running again will generate a new latest result.
               </div>
-            ) : null}
-
-            {fitArtifact.payload.gaps?.length ? (
-              <div>
-                <div className="text-xs font-medium mb-1">Gaps</div>
-                <ul className="list-disc pl-5 text-xs text-muted-foreground space-y-1">
-                  {fitArtifact.payload.gaps.map((g, i) => <li key={i}>{g}</li>)}
-                </ul>
-              </div>
-            ) : null}
+            )}
           </div>
-        ) : (
-          <div className="text-xs text-muted-foreground">
-            No fit result yet. Run the tool to generate one.
-          </div>
-        )}
-      </div>
+        </>
+      )}
 
     </Card>
   );
