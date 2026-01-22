@@ -294,7 +294,6 @@ export function ApplicationAiToolsSection({
                 </Button>
               </div>
 
-              jobLabel={application.position ?? "Unknown"}
               <FitReportDialog
                 open={isDetailsOpen}
                 onOpenChange={setIsDetailsOpen}
