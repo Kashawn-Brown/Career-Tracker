@@ -88,6 +88,21 @@ export async function buildFitV1(jdText: string, candidateText: string): Promise
     max_output_tokens: 2500,
   });
 
+  // Get the token usage
+  const usage = getTokenUsage(resp);
+
+  // Always log usage (cheap + super useful). Cloud Run will capture console.* logs.
+  console.info("[ai.usage] fit_v1", {
+    model: resp?.model ?? null,
+    status: resp?.status ?? null,
+    incompleteReason: resp?.incomplete_details?.reason ?? null,
+    inputTokens: usage.input,
+    outputTokens: usage.output,
+    totalTokens: usage.total,
+  });
+
+
+  // Get the debug information
   const debug = classifyOpenAIResponse(resp);
   const outputText = (resp.output_text ?? "").trim();
   const refusal = extractRefusalText(resp);
@@ -114,7 +129,7 @@ export async function buildFitV1(jdText: string, candidateText: string): Promise
     throw new AppError(
       refusal
         ? `AI refused the request (status=${debug.status}).`
-        : `AI did not complete (status=${debug.status}, reason=${debug.incompleteReason ?? "unknown"}).`,
+        : `AI did not complete (status=${debug.status}, reason=${debug.incompleteReason ?? "unknown"}, tokens=${usage.total} [in=${usage.input}, out=${usage.output}]).`,
       502
     );
   }
@@ -377,4 +392,12 @@ function classifyOpenAIResponse(resp: any) {
     outputTextLen: typeof resp?.output_text === "string" ? resp.output_text.length : 0,
     usage: resp?.usage ?? null,
   };
+}
+
+function getTokenUsage(resp: any) {
+  const u = resp?.usage ?? {};
+  const input = u.input_tokens ?? u.prompt_tokens ?? 0;
+  const output = u.output_tokens ?? u.completion_tokens ?? 0;
+  const total = u.total_tokens ?? (input + output);
+  return { input, output, total, raw: u };
 }
