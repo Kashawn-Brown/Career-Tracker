@@ -88,45 +88,46 @@ export async function buildFitV1(jdText: string, candidateText: string): Promise
     max_output_tokens: 2500,
   });
 
-  const debug = summarizeOpenAIResponseForDebug(resp);
+  const debug = classifyOpenAIResponse(resp);
   const outputText = (resp.output_text ?? "").trim();
+  const refusal = extractRefusalText(resp);
+  const anyText = extractAnyTextPreview(resp);
 
   const jdLen = jd.length;
   const candidateLen = candidate.length;
 
   const shouldDebugLog = process.env.AI_DEBUG === "true" || !outputText || debug.status !== "completed";
   if (shouldDebugLog) {
-    const refusal = extractRefusalText(resp);
-
-    console.warn("[ai.fit] OpenAI response debug", {
-      jdLen,
-      candidateLen,
+    console.warn("[ai.fit] response", {
+      jdLen: jd.length,
+      candidateLen: candidate.length,
       ...debug,
-      refusalPreview: refusal ? redactSample(refusal.slice(0, 200)) : null,
-      outputHead: outputText ? redactSample(outputText.slice(0, 200)) : null,
-      outputTail: outputText ? redactSample(outputText.slice(-200)) : null,
+      refusalPreview: refusal ? redactSample(refusal.slice(0, 300)) : null,
+      anyTextPreview: anyText ? redactSample(anyText.slice(0, 300)) : null,
+      outputHead: outputText ? redactSample(outputText.slice(0, 300)) : null,
+      outputTail: outputText ? redactSample(outputText.slice(-300)) : null,
     });
   }
 
-  // If output_text is empty, classify it now (don’t let safeJsonParse hide the reason)
-  if (!outputText) {
-    const refusal = extractRefusalText(resp);
-
-    console.warn("[ai.fit] empty output_text classified", {
-      status: debug.status,
-      incompleteDetails: debug.incompleteDetails,
-      outputItems: debug.outputItems,
-      refusalPreview: refusal ? redactSample(refusal.slice(0, 200)) : null,
-    });
-
+  // Hard fail early with the REAL reason (this is what you need)
+  if (debug.status !== "completed") {
     throw new AppError(
       refusal
-        ? "AI refused the request (see logs for refusalPreview)."
-        : `AI returned empty output (status=${debug.status ?? "unknown"}).`,
+        ? `AI refused the request (status=${debug.status}).`
+        : `AI did not complete (status=${debug.status}, reason=${debug.incompleteReason ?? "unknown"}).`,
       502
     );
   }
 
+  // If output_text is empty, classify it now (don’t let safeJsonParse hide the reason)
+  if (!outputText) {
+    throw new AppError(
+      refusal
+        ? "AI refused the request (completed but refusal/empty output)."
+        : "AI completed but returned empty output_text.",
+      502
+    );
+  }
 
   const parsed = safeJsonParse<FitV1Response>(outputText);
   return normalizeFitV1Response(parsed);
@@ -337,4 +338,43 @@ function extractRefusalText(resp: any): string | null {
     }
   }
   return null;
+}
+
+function extractAnyTextPreview(resp: any): string | null {
+  const output = Array.isArray(resp?.output) ? resp.output : [];
+  for (const item of output) {
+    const content = Array.isArray(item?.content) ? item.content : [];
+    for (const c of content) {
+      // Most common: output_text items
+      if (typeof c?.text === "string" && c.text.trim()) return c.text.trim();
+
+      // Some shapes: refusal items
+      if (typeof c?.refusal === "string" && c.refusal.trim()) return c.refusal.trim();
+    }
+  }
+  return null;
+}
+
+function classifyOpenAIResponse(resp: any) {
+  const status = resp?.status ?? "unknown";
+  const reason = resp?.incomplete_details?.reason ?? null;
+  const error = resp?.error ?? null;
+
+  const outputItems = Array.isArray(resp?.output) ? resp.output : [];
+  const contentTypes = outputItems.flatMap((it: any) =>
+    Array.isArray(it?.content) ? it.content.map((c: any) => c?.type).filter(Boolean) : []
+  );
+
+  return {
+    id: resp?.id ?? null,
+    model: resp?.model ?? null,
+    status,
+    incompleteReason: reason,
+    incompleteDetails: resp?.incomplete_details ?? null,
+    error,
+    outputCount: outputItems.length,
+    contentTypes,
+    outputTextLen: typeof resp?.output_text === "string" ? resp.output_text.length : 0,
+    usage: resp?.usage ?? null,
+  };
 }
