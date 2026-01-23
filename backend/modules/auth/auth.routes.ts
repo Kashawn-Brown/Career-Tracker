@@ -4,6 +4,26 @@ import type { RegisterBodyType, LoginBodyType } from "./auth.schemas.js";
 import * as AuthService from "./auth.service.js";
 import { requireAuth } from "../../middleware/auth.js";
 
+const REFRESH_COOKIE_NAME = "career_tracker_refresh";
+
+// Local dev can't use Secure + SameSite=None on http://localhost,
+// but prod must use Secure + SameSite=None for cross-site cookies.
+/**
+ * Get the refresh cookie options.
+ */
+function getRefreshCookieOptions(expiresAt: Date) {
+  const isProd = process.env.NODE_ENV === "production";
+
+  return {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? "none" : "lax",
+    path: "/api/v1/auth",
+    expires: expiresAt,
+  } as const;
+}
+
+
 export async function authRoutes(app: FastifyInstance) {
 
   /**
@@ -22,7 +42,17 @@ export async function authRoutes(app: FastifyInstance) {
 
       // Retrieve token and return token from successful register
       const result = await AuthService.register(body.email, body.password, body.name);
-      return reply.status(201).send(result);
+
+      // Put refresh token in an httpOnly cookie (never in JSON response)
+      reply.setCookie(
+        REFRESH_COOKIE_NAME,
+        result.refreshToken,
+        getRefreshCookieOptions(result.expiresAt)
+      );
+      // Strip refreshToken before returning to client
+      const { refreshToken: _refresh, ...safe } = result;
+
+      return reply.status(201).send(safe);
     }
   );
 
@@ -41,7 +71,17 @@ export async function authRoutes(app: FastifyInstance) {
 
       // Retrieve token and return token from successful login
       const result = await AuthService.login(body.email, body.password);
-      return reply.send(result);
+      
+      // Put refresh token in an httpOnly cookie (never in JSON response)
+      reply.setCookie(
+        REFRESH_COOKIE_NAME,
+        result.refreshToken,
+        getRefreshCookieOptions(result.expiresAt)
+      );
+      // Strip refreshToken before returning to client
+      const { refreshToken: _refresh, expiresAt: _expiresAt, ...safe } = result;
+
+      return reply.send(safe);
     }
   );
 

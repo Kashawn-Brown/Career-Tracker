@@ -63,6 +63,7 @@ export type MeResponse = {
 export type AuthResponse = {
   user: AuthUser;
   token: string;
+  csrfToken: string;
 };
 
 export type LoginRequest = {

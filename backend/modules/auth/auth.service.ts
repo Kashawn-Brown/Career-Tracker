@@ -98,9 +98,15 @@ export async function register(email: string, password: string, name: string) {
     select: authUserSelect,
   });
 
-  // Issue and return token
+  // Create refresh session (raw tokens returned only to route for cookie-setting)
+  const session = await createAuthSession(user.id);
+  const { refreshToken, csrfToken, expiresAt } = session;
+
+  // Issue and return access token
   const token = signToken({ id: user.id, email: user.email });
-  return { user, token };
+
+  // Return the user, access token, refresh token, and csrf token
+  return { user, token, refreshToken, csrfToken, expiresAt};
 }
 
 
@@ -118,7 +124,12 @@ export async function login(email: string, password: string) {
   // Remove passwordHash from the user object
   const { passwordHash: _passwordHash, ...user } = userRecord;
 
-  // Issue and return token
+  // Create refresh session (raw tokens returned only to route for cookie-setting)
+  const session = await createAuthSession(user.id);
+  const { refreshToken, csrfToken, expiresAt } = session;
+
+  // Issue and return access token
   const token = signToken({ id: user.id, email: user.email });
-  return { user, token };
+
+  return { user, token, refreshToken, csrfToken, expiresAt };
 }

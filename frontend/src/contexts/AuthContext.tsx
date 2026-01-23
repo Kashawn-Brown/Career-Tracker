@@ -90,6 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const res = await apiFetch<AuthResponse>(routes.auth.login(), {
       method: "POST",
       auth: false,    // Login is public (no Bearer token attached)
+      credentials: "include",   // Include cookies in the request
       body: input,
     });
 
@@ -105,6 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const res = await apiFetch<AuthResponse>(routes.auth.register(), {
       method: "POST",
       auth: false,    // Register is public (no Bearer token attached)
+      credentials: "include",   // Include cookies in the request
       body: input,
     });
 
