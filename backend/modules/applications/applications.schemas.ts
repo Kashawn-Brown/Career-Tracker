@@ -75,6 +75,10 @@ export const ListApplicationsQuery = Type.Object(
     // Querystrings arrive as strings, so accept "true"/"false" and parse to boolean in the route.
     isFavorite: Type.Optional(Type.Union([Type.Literal("true"), Type.Literal("false")])),  // starred filter
 
+    // Fit score filters
+    fitMin: Type.Optional(Type.Integer({ minimum: 0, maximum: 100 })), // minimum fit score
+    fitMax: Type.Optional(Type.Integer({ minimum: 0, maximum: 100 })), // maximum fit score
+
     // Pagination
     page: Type.Optional(Type.Integer({ minimum: 1 })),          // default in route/service
     pageSize: Type.Optional(Type.Integer({ minimum: 1, maximum: 500 })), // cap to prevent abuse
@@ -92,7 +96,9 @@ export const ListApplicationsQuery = Type.Object(
         Type.Literal("jobType"), 
         Type.Literal("workMode"), 
         Type.Literal("salaryText"), 
-        Type.Literal("isFavorite")
+        Type.Literal("isFavorite"),
+        Type.Literal("fitScore"),
+
       ])
     ),
     sortDir: Type.Optional(Type.Union([Type.Literal("asc"), Type.Literal("desc")])),

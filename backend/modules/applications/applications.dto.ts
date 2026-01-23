@@ -125,10 +125,12 @@ export type ListApplicationsParams = {
   jobType?: JobType;
   workMode?: WorkMode;
   isFavorite?: boolean;
+  fitMin?: number;
+  fitMax?: number;
 
   page?: number;
   pageSize?: number;
-  sortBy?: "updatedAt" | "createdAt" | "company" | "position" | "location" | "status" | "dateApplied" | "jobType" | "workMode" | "salaryText" | "isFavorite";
+  sortBy?: "updatedAt" | "createdAt" | "company" | "position" | "location" | "status" | "dateApplied" | "jobType" | "workMode" | "salaryText" | "isFavorite" | "fitScore";
   sortDir?: "asc" | "desc";
 }
 

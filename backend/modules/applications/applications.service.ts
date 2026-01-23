@@ -82,6 +82,24 @@ export async function listApplications(params: ListApplicationsParams) {
     ];
   }
 
+  // Fit score filters
+  const fitMin = params.fitMin ?? 0;
+  const fitMax = params.fitMax ?? 100;
+  
+  // Only add fit score filter if it's not the default (0-100)
+  const hasFitFilter = (params.fitMin !== undefined || params.fitMax !== undefined) && !(fitMin === 0 && fitMax === 100);
+
+  if (hasFitFilter) {
+    if (fitMin > fitMax) {
+      throw new AppError("Fit score range is invalid.", 400);
+    }
+
+    // Add the fit score filter (excludes null values)
+    where.fitScore = { gte: fitMin, lte: fitMax };
+  }
+
+  
+
   // how many rows to ignore/skip (page 1, size 20 = skip 0; page 2, size 20 = skip 20; etc.)
   const skip = (page - 1) * pageSize;
 
@@ -91,7 +109,7 @@ export async function listApplications(params: ListApplicationsParams) {
     
     prisma.jobApplication.findMany({  // items for the current page
       where,
-      orderBy: [{ [sortBy]: sortDir }, { updatedAt: "desc" }],
+      orderBy: sortBy !== "fitScore" ?[{ [sortBy]: sortDir }, { updatedAt: "desc" }] : [{fitScore: {sort: sortDir, nulls: "last"}}, {updatedAt: "desc"}],   // null scores always bottom for fit score sorting
       skip,
       take: pageSize,  // how many rows to take/return
       select: applicationListSelect,
