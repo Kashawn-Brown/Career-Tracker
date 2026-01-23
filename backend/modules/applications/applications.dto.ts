@@ -58,6 +58,9 @@ export const applicationListSelect = {
   notes: false,
   tagsText: false,
 
+  fitScore: true,
+  fitUpdatedAt: true,
+
   createdAt: true,
   updatedAt: true,
   
