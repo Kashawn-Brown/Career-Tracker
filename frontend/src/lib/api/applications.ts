@@ -45,6 +45,10 @@ export const applicationsApi = {
     // backend expects isFavorite=true/false strings
     if (params.favoritesOnly) searchParams.set("isFavorite", "true");
 
+    if (typeof params.fitMin === "number") searchParams.set("fitMin", String(params.fitMin));
+    if (typeof params.fitMax === "number") searchParams.set("fitMax", String(params.fitMax));
+
+
     // Call the backend API to get the paginated applications. (with search params in the URL).
     return apiFetch<ApplicationsListResponse>(`${routes.applications.list()}?${searchParams.toString()}`, {
       method: "GET",

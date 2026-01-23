@@ -10,7 +10,16 @@ import { APPLICATION_COLUMN_DEFS, type ApplicationColumnId } from "@/lib/applica
 import { PILL_BASE_CLASS, getStatusPillTokens } from "@/lib/applications/pills";
 import { Button } from "@/components/ui/button";
 import { Alert } from "../ui/alert";
-import { ChevronDown, ChevronUp, Star } from "lucide-react";
+import { ChevronDown, ChevronUp, Star, X } from "lucide-react";
+
+// Helper to get the badge class for the fit score
+function getFitBadgeClass(score: number) {
+  if (score >= 85) return "border-green-200 bg-green-50 text-green-700";
+  if (score >= 70) return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (score >= 50) return "border-amber-200 bg-amber-50 text-amber-800";
+  return "border-red-200 bg-red-50 text-red-700";
+}
+
 
 // Helper to display a sortable header in the table
 function SortableHeader({
@@ -150,6 +159,7 @@ export function ApplicationsTable({
                   case "jobType":
                   case "workMode":
                   case "status":
+                  case "fitScore":
                   case "dateApplied":
                   case "updatedAt":
                     return (
@@ -230,6 +240,28 @@ export function ApplicationsTable({
                         );
                       }
 
+                      case "fitScore": {
+                        const score = application.fitScore;
+                        return (
+                          <td key={col.id} className="p-3 text-muted-foreground">
+                            {typeof score === "number" ? (
+                              <span
+                                className={cn(
+                                  "inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium tabular-nums",
+                                  getFitBadgeClass(score)
+                                )}
+                                title={`${score}/100`}
+                              >
+                                {score}/100
+                              </span>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                        );
+                      }
+                      
+
                       case "dateApplied":
                         return (
                           <td key={col.id} className="p-3 text-muted-foreground">
@@ -257,7 +289,7 @@ export function ApplicationsTable({
                                 handleDelete(application.id);
                               }}
                             >
-                              Delete
+                              <X className="h-4 w-4" />
                             </Button>
                           </td>
                         );
