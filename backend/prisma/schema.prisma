@@ -41,8 +41,30 @@ model User {
   documents       Document[]
   aiArtifacts     AiArtifact[]
 
+  authSessions    AuthSession[]
+
   @@map("users")
 }
+
+model AuthSession {
+  id               String   @id @default(cuid())
+  userId           String
+
+  // Store only hashes (never raw tokens)
+  refreshTokenHash String   @unique
+  csrfTokenHash    String
+
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  lastUsedAt       DateTime?
+  createdAt        DateTime @default(now())
+
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("auth_sessions")
+}
+
 
 model JobApplication {
   id          String @id @default(cuid())
