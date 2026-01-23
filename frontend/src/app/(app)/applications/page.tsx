@@ -117,8 +117,9 @@ export default function ApplicationsPage() {
           jobType,
           workMode,
           favoritesOnly,
-          fitMin: fitRange[0],
-          fitMax: fitRange[1],
+          ...(fitRange[0] !== 0 || fitRange[1] !== 100
+            ? { fitMin: fitRange[0], fitMax: fitRange[1] }
+            : {}),
         } satisfies ListApplicationsParams;
 
         // Call the backend API to get the paginated applications.
@@ -136,7 +137,7 @@ export default function ApplicationsPage() {
     }
 
     load();
-  }, [page, pageSize, query, status, sortBy, sortDir, jobType, workMode, favoritesOnly, reloadKey]);
+  }, [page, pageSize, query, status, sortBy, sortDir, jobType, workMode, favoritesOnly, fitRange, reloadKey]);
 
   // Load column visibility settings from localStorage
   useEffect(() => {
