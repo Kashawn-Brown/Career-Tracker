@@ -80,7 +80,7 @@ export type RegisterRequest = {
 
 
 // --- Applications DTOs, enums and types: matches backend ---
-export type ApplicationSortBy = "company" | "position" | "location" | "status" | "jobType" | "workMode" | "dateApplied" | "updatedAt" | "isFavorite";
+export type ApplicationSortBy = "company" | "position" | "location" | "status" | "jobType" | "workMode" | "dateApplied" | "updatedAt" | "isFavorite" | "fitScore";
 
 export type ApplicationSortDir = "asc" | "desc";
 
@@ -114,6 +114,9 @@ export type Application = {
   notes: string | null;
   tagsText: string | null;
 
+  fitScore: number | null;
+  fitUpdatedAt: string | null;
+
   createdAt: string;
   updatedAt: string;
 };
@@ -135,6 +138,9 @@ export type ApplicationListItem = {
   dateApplied: string | null;
   jobLink: string | null;
 
+  fitScore: number | null;
+  fitUpdatedAt: string | null;
+
   createdAt: string;
   updatedAt: string;
 };
@@ -155,6 +161,9 @@ export type ListApplicationsParams = {
   workMode?: "ALL" | WorkMode;
 
   favoritesOnly?: boolean; // frontend-friendly name
+
+  fitMin?: number;
+  fitMax?: number;
 };
 
 // CreateApplicationRequest: matches backend schema for POST /applications.
