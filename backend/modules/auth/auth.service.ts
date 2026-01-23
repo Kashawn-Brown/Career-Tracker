@@ -2,6 +2,8 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { prisma } from "../../lib/prisma.js";
 import { AppError } from "../../errors/app-error.js";
+import { generateToken, hashToken } from "../../lib/crypto.js";
+import { authUserSelect, authLoginSelect, CreateAuthSessionOptions, SessionTokens } from "./auth.dto.js";
 
 /**
  * Service layer
@@ -9,7 +11,7 @@ import { AppError } from "../../errors/app-error.js";
 
 
 /**
- * Centralizing token signing (claims/ttl can be changed later).
+ * Centralizing token signing.
  */
 function signToken(user: { id: string; email: string }) {
   const secret = process.env.JWT_SECRET;
@@ -23,7 +25,64 @@ function signToken(user: { id: string; email: string }) {
 }
 
 /**
- * llow a user to register.
+ * Refresh session helpers.
+ *
+ * Not wired into routes yet — safe to add without changing behavior.
+ */
+
+const DEFAULT_REFRESH_DAYS = 30;
+
+/**
+ * Create a new authentication session for a user.
+ * 
+ * This is used to create a new authentication session for a user.
+ */
+export async function createAuthSession(
+  userId: string,
+  opts?: CreateAuthSessionOptions
+): Promise<SessionTokens> {
+  
+  // Generate the refresh and csrf tokens
+  const refreshToken = generateToken(48);
+  const csrfToken = generateToken(32);
+  const days = opts?.expiresInDays ?? DEFAULT_REFRESH_DAYS;
+
+  // Calculate the expiration date of the session
+  const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+
+  await prisma.authSession.create({
+    data: {
+      userId,
+      refreshTokenHash: hashToken(refreshToken),
+      csrfTokenHash: hashToken(csrfToken),
+      expiresAt,
+    },
+  });
+
+  return { refreshToken, csrfToken, expiresAt };
+}
+
+/**
+ * Get an active authentication session by refresh token.
+ * 
+ * This is used to validate the refresh token when a user logs in.
+ */
+export async function getActiveSessionByRefreshToken(refreshToken: string) {
+  const session = await prisma.authSession.findUnique({
+    where: { refreshTokenHash: hashToken(refreshToken) },
+  });
+
+  // If the session is not found, revoked or expired, return null
+  if (!session) return null;
+  if (session.revokedAt) return null;
+  if (session.expiresAt.getTime() <= Date.now()) return null;
+
+  return session;
+}
+
+
+/**
+ * Allow a user to register.
  */
 export async function register(email: string, password: string, name: string) {
 
@@ -36,7 +95,7 @@ export async function register(email: string, password: string, name: string) {
   // Create the user
   const user = await prisma.user.create({
     data: { email, name, passwordHash },
-    select: { id: true, email: true, name: true, baseResumeUrl: true, createdAt: true },  // Tells Prisma: “When you create the user, only return these fields in the response.”
+    select: authUserSelect,
   });
 
   // Issue and return token
@@ -50,19 +109,14 @@ export async function register(email: string, password: string, name: string) {
  */
 export async function login(email: string, password: string) {
 
-  const userRecord = await prisma.user.findUnique({ where: { email } });
+  const userRecord = await prisma.user.findUnique({ where: { email }, select: authLoginSelect });
   if (!userRecord) throw new AppError("Invalid credentials", 401);
 
   const ok = await bcrypt.compare(password, userRecord.passwordHash);
   if (!ok) throw new AppError("Invalid credentials", 401);
 
-  const user = {
-    id: userRecord.id,
-    email: userRecord.email,
-    name: userRecord.name,
-    baseResumeUrl: userRecord.baseResumeUrl,
-    createdAt: userRecord.createdAt,
-  };
+  // Remove passwordHash from the user object
+  const { passwordHash: _passwordHash, ...user } = userRecord;
 
   // Issue and return token
   const token = signToken({ id: user.id, email: user.email });
