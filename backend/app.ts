@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import rateLimit from "@fastify/rate-limit";
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
+import cookie from "@fastify/cookie";
 import { registerErrorHandlers } from "./middleware/error-handler.js";
 import { debugRoutes } from "./modules/debug/debug.routes.js";
 import { applicationsRoutes } from "./modules/applications/applications.routes.js";
@@ -25,9 +26,13 @@ export function buildApp() {
   // CORS: allow the Next.js dev server to call the API during local development.
   app.register(cors, {
     origin: corsOrigin,
+    credentials: true,  // Allow cookies to be sent with the request
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-CSRF-Token"],
   });
+
+  // Cookies: required for httpOnly refresh token cookies (later phases).
+  app.register(cookie);
 
   // keep it disabled globally and enable per-route on auth endpoints only.
   app.register(rateLimit, { global: false });
