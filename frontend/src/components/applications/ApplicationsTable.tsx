@@ -10,7 +10,7 @@ import { APPLICATION_COLUMN_DEFS, type ApplicationColumnId } from "@/lib/applica
 import { PILL_BASE_CLASS, getStatusPillTokens } from "@/lib/applications/pills";
 import { Button } from "@/components/ui/button";
 import { Alert } from "../ui/alert";
-import { ChevronDown, ChevronUp, Star } from "lucide-react";
+import { ChevronDown, ChevronUp, Star, X } from "lucide-react";
 
 // Helper to get the badge class for the fit score
 function getFitBadgeClass(score: number) {
@@ -289,7 +289,7 @@ export function ApplicationsTable({
                                 handleDelete(application.id);
                               }}
                             >
-                              Delete
+                              <X className="h-4 w-4" />
                             </Button>
                           </td>
                         );

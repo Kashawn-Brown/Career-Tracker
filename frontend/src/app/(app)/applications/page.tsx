@@ -14,20 +14,12 @@ import { APPLICATION_COLUMNS_STORAGE_KEY, DEFAULT_VISIBLE_APPLICATION_COLUMNS, n
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { Alert } from "@/components/ui/alert";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import {  Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Slider } from "@/components/ui/slider";
+
 import { ChevronDown, ChevronRight, Filter, Plus, Star, X } from "lucide-react";
 
 
@@ -69,13 +61,15 @@ export default function ApplicationsPage() {
   const [jobType, setJobType] = useState<"ALL" | JobType>("ALL");
   const [workMode, setWorkMode] = useState<"ALL" | WorkMode>("ALL");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [fitRange, setFitRange] = useState<[number, number]>([0, 100]);
 
   const activeFilterCount =
   (queryInput.trim() ? 1 : 0) +
   (status !== "ALL" ? 1 : 0) +
   (jobType !== "ALL" ? 1 : 0) +
   (workMode !== "ALL" ? 1 : 0) +
-  (favoritesOnly ? 1 : 0);
+  (favoritesOnly ? 1 : 0) +
+  (fitRange[0] !== 0 || fitRange[1] !== 100 ? 1 : 0);
 
   const hasActiveFilters = activeFilterCount > 0;
 
@@ -103,6 +97,7 @@ export default function ApplicationsPage() {
   const [addMode, setAddMode] = useState<"manual" | "jd">("manual");
 
 
+
   // Fetching applications when the page first mounts (& again whenever page or pageSize changes or reloadKey is changed)
   useEffect(() => {
     async function load() {
@@ -122,6 +117,8 @@ export default function ApplicationsPage() {
           jobType,
           workMode,
           favoritesOnly,
+          fitMin: fitRange[0],
+          fitMax: fitRange[1],
         } satisfies ListApplicationsParams;
 
         // Call the backend API to get the paginated applications.
@@ -345,6 +342,7 @@ export default function ApplicationsPage() {
     setJobType("ALL");
     setWorkMode("ALL");
     setFavoritesOnly(false);
+    setFitRange([0, 100]);
     setPage(1);
   }
 
@@ -492,7 +490,7 @@ export default function ApplicationsPage() {
                 <div className="grid gap-x-6 gap-y-6 md:grid-cols-12">
                   
                   {/* Search */}
-                  <div className="space-y-2 md:col-span-6">
+                  <div className="space-y-2 md:col-span-5">
                     <Label htmlFor="q">Search</Label>
                     <Input
                       id="q"
@@ -503,7 +501,7 @@ export default function ApplicationsPage() {
                   </div>
 
                   {/* Status */}
-                  <div className="space-y-2 md:col-span-6">
+                  <div className="space-y-2 md:col-span-5">
                     <Label htmlFor="status">Status</Label>
                     <Select
                       id="status"
@@ -521,46 +519,8 @@ export default function ApplicationsPage() {
                     </Select>
                   </div>
 
-                  {/* Job type */}
-                  <div className="space-y-2 md:col-span-4">
-                    <Label htmlFor="jobType">Job type</Label>
-                    <Select
-                      id="jobType"
-                      value={jobType}
-                      onChange={(e) => {
-                        setJobType(e.target.value as "ALL" | JobType);
-                        resetToFirstPage();
-                      }}
-                    >
-                      {JOB_TYPE_FILTER_OPTIONS.map((j) => (
-                        <option key={j} value={j}>
-                          {j === "ALL" ? "All types" : jobTypeLabel(j)}
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
-
-                  {/* Work mode */}
-                  <div className="space-y-2 md:col-span-4">
-                    <Label htmlFor="workMode">Work Arrangement</Label>
-                    <Select
-                      id="workMode"
-                      value={workMode}
-                      onChange={(e) => {
-                        setWorkMode(e.target.value as "ALL" | WorkMode);
-                        resetToFirstPage();
-                      }}
-                    >
-                      {WORK_MODE_FILTER_OPTIONS.map((w) => (
-                        <option key={w} value={w}>
-                          {w === "ALL" ? "All arrangements" : workModeLabel(w)}
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
-
                   {/* Favorites */}
-                  <div className="space-y-2 md:col-span-4">
+                  <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="favoritesOnly">Favorites</Label>
                     <label className="flex h-9 items-center gap-2 rounded-md border px-3 text-sm">
                       <input
@@ -582,6 +542,117 @@ export default function ApplicationsPage() {
                       )}
                     </label>
                   </div>
+
+                  {/* Job type */}
+                  <div className="space-y-2 md:col-span-4">
+                    <Label htmlFor="jobType">Job type</Label>
+                    <Select
+                      id="jobType"
+                      value={jobType}
+                      onChange={(e) => {
+                        setJobType(e.target.value as "ALL" | JobType);
+                        resetToFirstPage();
+                      }}
+                    >
+                      {JOB_TYPE_FILTER_OPTIONS.map((j) => (
+                        <option key={j} value={j}>
+                          {j === "ALL" ? "All types" : jobTypeLabel(j)}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+
+                  {/* Fit score */}
+                  <div className="space-y-2 md:col-span-4">
+                    <div className="flex items-center justify-between">
+                      <Label>Fit score</Label>
+                      <span className="text-xs text-muted-foreground tabular-nums">
+                        {fitRange[0]}–{fitRange[1]}
+                      </span>
+                    </div>
+
+                    <Slider
+                      value={fitRange}
+                      min={0}
+                      max={100}
+                      step={1}
+                      onValueChange={(v) => {
+                        // v is a number[] of length 2 for range sliders
+                        setFitRange([v[0], v[1]]);
+                        resetToFirstPage();
+                      }}
+                    />
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Min</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={fitRange[0]}
+                          onChange={(e) => {
+                            const nextMin = Number(e.target.value);
+                            const clamped = Number.isFinite(nextMin) ? Math.max(0, Math.min(100, nextMin)) : 0;
+                            setFitRange([Math.min(clamped, fitRange[1]), fitRange[1]]);
+                            resetToFirstPage();
+                          }}
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Max</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={fitRange[1]}
+                          onChange={(e) => {
+                            const nextMax = Number(e.target.value);
+                            const clamped = Number.isFinite(nextMax) ? Math.max(0, Math.min(100, nextMax)) : 100;
+                            setFitRange([fitRange[0], Math.max(clamped, fitRange[0])]);
+                            resetToFirstPage();
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setFitRange([0, 100]);
+                          resetToFirstPage();
+                        }}
+                        disabled={fitRange[0] === 0 && fitRange[1] === 100}
+                      >
+                        Reset fit range
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Work mode */}
+                  <div className="space-y-2 md:col-span-4">
+                    <Label htmlFor="workMode">Work Arrangement</Label>
+                    <Select
+                      id="workMode"
+                      value={workMode}
+                      onChange={(e) => {
+                        setWorkMode(e.target.value as "ALL" | WorkMode);
+                        resetToFirstPage();
+                      }}
+                    >
+                      {WORK_MODE_FILTER_OPTIONS.map((w) => (
+                        <option key={w} value={w}>
+                          {w === "ALL" ? "All arrangements" : workModeLabel(w)}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+
+                  
 
                 </div>
               </CollapsibleContent>

@@ -36,10 +36,10 @@ export const APPLICATION_COLUMN_DEFS: readonly ApplicationColumnDef[] = [
   { id: "salaryText",label: "Salary",     required: false, defaultVisible: true },
   { id: "workMode",  label: "Work Arrangement",required: false, defaultVisible: true },
   { id: "status",    label: "Status",     required: true,  defaultVisible: true },
-  { id: "fitScore",  label: "Fit Score", required: false, defaultVisible: true },
+  { id: "fitScore",  label: "Compatibility Score", required: false, defaultVisible: true },
   { id: "dateApplied",label:"Date Applied",    required: false, defaultVisible: true },
-  { id: "updatedAt", label: "Updated",    required: false, defaultVisible: false },
-  { id: "actions",   label: "Actions",    required: false,  defaultVisible: true },
+  { id: "updatedAt", label: "Last Updated",    required: false, defaultVisible: false },
+  { id: "actions",   label: "Delete",    required: false,  defaultVisible: true },
 ] as const;
 
 // Column order for the applications table
