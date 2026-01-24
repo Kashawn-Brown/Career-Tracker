@@ -10,7 +10,7 @@ type PasswordChecks = {
   hasUpper: boolean;
   hasNumber: boolean;
   hasSymbol: boolean;
-  meetsCategoryCount: boolean; // at least 3 of 4
+  meetsCategoryCount: boolean; // need all 4 categories
   notContainsEmail: boolean;
   notTooRepetitive: boolean;
   notAllWhitespace: boolean;
@@ -49,7 +49,7 @@ export function evaluatePasswordPolicy(password: string, email?: string | null):
   const hasSymbol = /[^A-Za-z0-9]/.test(password);
 
   const categoryCount = countTrue([hasLower, hasUpper, hasNumber, hasSymbol]);
-  const meetsCategoryCount = categoryCount >= 3;
+  const meetsCategoryCount = categoryCount >= 4;
 
   let notContainsEmail = true;
   if (email) {
@@ -82,7 +82,7 @@ export function evaluatePasswordPolicy(password: string, email?: string | null):
   if (!notAllWhitespace) reasons.push("Password cannot be empty or only spaces.");
   if (!minLength) reasons.push(`Password must be at least ${PASSWORD_MIN_LENGTH} characters.`);
   if (!maxLength) reasons.push(`Password must be ${PASSWORD_MAX_LENGTH} characters or less.`);
-  if (!meetsCategoryCount) reasons.push("Password must include at least 3 of: lowercase, uppercase, number, symbol.");
+  if (!meetsCategoryCount) reasons.push("Password must include lowercase, uppercase, number, and symbol.");
   if (!notContainsEmail) reasons.push("Password must not contain your email.");
   if (!notTooRepetitive) reasons.push("Password is too repetitive (avoid obvious patterns).");
 
