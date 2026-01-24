@@ -11,6 +11,9 @@ export const routes = {
     me: () => "/auth/me",
     login: () => "/auth/login",
     register: () => "/auth/register",
+    csrf: () => "/auth/csrf",
+    refresh: () => "/auth/refresh",
+    logout: () => "/auth/logout",
   },
   users: {
     me: () => "/users/me",

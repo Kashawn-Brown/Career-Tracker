@@ -4,7 +4,7 @@ import React, { createContext, useEffect, useMemo, useState, useCallback } from 
 import { apiFetch, setUnauthorizedHandler  } from "@/lib/api/client";
 import { routes } from "@/lib/api/routes";
 import { clearToken, getToken, setToken } from "@/lib/auth/token";
-import type { MeResponse, AuthResponse, AuthUser, LoginRequest, RegisterRequest } from "@/types/api";
+import type { MeResponse, AuthResponse, AuthUser, LoginRequest, RegisterRequest, CsrfResponse, OkResponse } from "@/types/api";
 
 // Defines what the context will provide
 type AuthContextValue = {
@@ -33,6 +33,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);        // current user in memory
   const [token, setTokenState] = useState<string | null>(null);   // token in memory
+  const [csrfToken, setCsrfToken] = useState<string | null>(null); // csrf token in memory
   const [isHydrated, setIsHydrated] = useState(false);            // starts false, becomes true after reading localStorage + attempting /users/me
 
   // Hydrate token from localStorage and (if present) loads the current user via GET /users/me.
@@ -64,11 +65,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })()
   }, []);
 
-  // Clears local + in-memory auth state.
+  // Clears local + in-memory auth state and csrf token.
   function logout() {
-    clearToken();
-    setTokenState(null);
-    setUser(null);
+    (async () => {
+      try {
+        let csrf = csrfToken;
+
+        // If csrf isn't in memory (page reload), bootstrap it from the refresh cookie.
+        if (!csrf) {
+          const res = await apiFetch<CsrfResponse>(routes.auth.csrf(), {
+            method: "GET",
+            auth: false,
+            credentials: "include",
+          });
+          csrf = res.csrfToken;
+          setCsrfToken(csrf);
+        }
+
+        if (csrf) {
+          await apiFetch<OkResponse>(routes.auth.logout(), {
+            method: "POST",
+            auth: false,
+            credentials: "include",
+            headers: { "X-CSRF-Token": csrf },
+          });
+        }
+      } catch {
+        // Even if server logout fails, still clear local auth.
+      }
+
+      clearToken();
+      setTokenState(null);
+      setUser(null);
+      setCsrfToken(null);
+    })();
   }
 
   // Registers what "unauthorized" means for the app: clear auth + return to login.
@@ -96,6 +126,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     setToken(res.token);
     setTokenState(res.token);
+    setCsrfToken(res.csrfToken);
     setUser(res.user);
   }
 
@@ -112,6 +143,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     setToken(res.token);
     setTokenState(res.token);
+    setCsrfToken(res.csrfToken);
     setUser(res.user);
   }
 

@@ -3,31 +3,17 @@ import { RegisterBody, LoginBody } from "./auth.schemas.js";
 import type { RegisterBodyType, LoginBodyType } from "./auth.schemas.js";
 import * as AuthService from "./auth.service.js";
 import { requireAuth } from "../../middleware/auth.js";
-
-const REFRESH_COOKIE_NAME = "career_tracker_refresh";
-
-// Local dev can't use Secure + SameSite=None on http://localhost,
-// but prod must use Secure + SameSite=None for cross-site cookies.
-/**
- * Get the refresh cookie options.
- */
-function getRefreshCookieOptions(expiresAt: Date) {
-  const isProd = process.env.NODE_ENV === "production";
-
-  return {
-    httpOnly: true,
-    secure: isProd,
-    sameSite: isProd ? "none" : "lax",
-    path: "/api/v1/auth",
-    expires: expiresAt,
-  } as const;
-}
-
+import { setRefreshCookie, toSafeAuthResponse, assertAllowedOrigin, getCsrfHeader, clearRefreshCookie } from "./auth.http.js";
+import { AppError } from "../../errors/app-error.js";
 
 export async function authRoutes(app: FastifyInstance) {
 
   /**
    * User Register.
+   * 
+   * - Register the user
+   * - Set the refresh token in a cookie
+   * - Return the safe auth response
    */
   app.post(
     "/register",
@@ -43,21 +29,22 @@ export async function authRoutes(app: FastifyInstance) {
       // Retrieve token and return token from successful register
       const result = await AuthService.register(body.email, body.password, body.name);
 
-      // Put refresh token in an httpOnly cookie (never in JSON response)
-      reply.setCookie(
-        REFRESH_COOKIE_NAME,
-        result.refreshToken,
-        getRefreshCookieOptions(result.expiresAt)
-      );
-      // Strip refreshToken before returning to client
-      const { refreshToken: _refresh, ...safe } = result;
+      // Set the refresh token in a cookie
+      setRefreshCookie(reply, result.refreshToken, result.expiresAt);
 
+      const safe = toSafeAuthResponse(result);
+
+      // Return the safe auth response
       return reply.status(201).send(safe);
     }
   );
 
   /**
    * User Login.
+   * 
+   * - Login the user
+   * - Set the refresh token in a cookie
+   * - Return the safe auth response
    */
   app.post(
     "/login",
@@ -72,20 +59,89 @@ export async function authRoutes(app: FastifyInstance) {
       // Retrieve token and return token from successful login
       const result = await AuthService.login(body.email, body.password);
       
-      // Put refresh token in an httpOnly cookie (never in JSON response)
-      reply.setCookie(
-        REFRESH_COOKIE_NAME,
-        result.refreshToken,
-        getRefreshCookieOptions(result.expiresAt)
-      );
-      // Strip refreshToken before returning to client
-      const { refreshToken: _refresh, expiresAt: _expiresAt, ...safe } = result;
+      // Put refresh token in an httpOnly cookie
+      setRefreshCookie(reply, result.refreshToken, result.expiresAt);
 
+      const safe = toSafeAuthResponse(result);
+
+      // Return the safe auth response
       return reply.send(safe);
     }
   );
 
-  // 
+  // Refresh cookie name
+  const REFRESH_COOKIE_NAME = "career_tracker_refresh";
+
+
+  /**
+   * Get the CSRF token.
+   * 
+   * - Get the refresh token from the cookie
+   * - Bootstrap the CSRF token
+   * - Return the CSRF token
+   */
+  app.get("/csrf", async (req, reply) => {
+    assertAllowedOrigin(req);
+
+    const refresh = (req as any).cookies?.[REFRESH_COOKIE_NAME];
+    if (!refresh) return reply.send({ csrfToken: null });
+
+    const res = await AuthService.bootstrapCsrf(refresh);
+    return reply.send(res);
+  });
+
+  /**
+   * Refresh access token + rotate refresh token + rotate CSRF token.
+   * 
+   * - Get the refresh token from the cookie
+   * - Get the CSRF token from the header
+   * - Refresh the session
+   * - Set the refresh token in a cookie
+   * - Return the safe auth response
+   */
+  app.post("/refresh", async (req, reply) => {
+    assertAllowedOrigin(req);
+
+    const refresh = (req as any).cookies?.[REFRESH_COOKIE_NAME];
+    if (!refresh) throw new AppError("Missing session", 401);
+
+    const csrf = getCsrfHeader(req);
+
+    const res = await AuthService.refreshSession(refresh, csrf);
+
+    // Rotate refresh cookie (httpOnly)
+    setRefreshCookie(reply, res.refreshToken, res.expiresAt);
+
+    const safe = toSafeAuthResponse(res);
+
+    return reply.send(safe);
+  });
+
+  /**
+   * Logout: revoke refresh session and clear cookie.
+   * 
+   * - Get the refresh token from the cookie
+   * - Get the CSRF token from the header
+   * - Revoke the session
+   * - Clear the refresh token in a cookie
+   * - Return the success response
+   */
+  app.post("/logout", async (req, reply) => {
+    assertAllowedOrigin(req);
+
+    const refresh = (req as any).cookies?.[REFRESH_COOKIE_NAME];
+    const csrf = getCsrfHeader(req);
+
+    if (refresh) {
+      await AuthService.logoutSession(refresh, csrf);
+    }
+
+    clearRefreshCookie(reply);
+
+    return reply.send({ ok: true });
+  });
+
+
   /**
    * User Me route (Protected by middleware; proves JWT works).
    */

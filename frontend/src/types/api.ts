@@ -77,6 +77,9 @@ export type RegisterRequest = {
   name: string;
 };
 
+export type CsrfResponse = { csrfToken: string | null };
+export type RefreshResponse = { token: string; csrfToken: string };
+
 
 
 
