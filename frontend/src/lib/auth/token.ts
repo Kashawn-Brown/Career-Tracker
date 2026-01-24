@@ -1,18 +1,23 @@
-// token.ts: MVP JWT storage helper (localStorage). Later can migrate to httpOnly cookies.
+/**
+ * Token management utilities.
+ * 
+ * - In-memory access token store.
+ * 
+ * - Access tokens don't live in localStorage.
+ * - The long-lived session is the httpOnly refresh cookie (server-managed).
+ * - On page load, the app hydrates by calling /auth/csrf -> /auth/refresh.
+ */ 
 
-const STORAGE_KEY = "career_tracker_token";
+let inMemoryToken: string | null = null;
 
 export function getToken(): string | null {
-  if (typeof window === "undefined") return null; // SSR safety
-  return window.localStorage.getItem(STORAGE_KEY);
+  return inMemoryToken;
 }
 
 export function setToken(token: string): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, token);
+  inMemoryToken = token;
 }
 
 export function clearToken(): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.removeItem(STORAGE_KEY);
+  inMemoryToken = null;
 }

@@ -18,7 +18,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   // Gate logic
   useEffect(() => {
     
-    // Wait until we’ve checked localStorage (and /me if token existed).
+    // Wait until we’ve completed the initial session bootstrap check (csrf -> refresh)
     if (!isHydrated) return;
 
     if (!isAuthenticated) {
