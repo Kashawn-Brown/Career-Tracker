@@ -155,7 +155,9 @@ export default function RegisterPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Create a password"
                 className="pr-10"
+                title="Passwords must be at least 8 characters and contain an uppercase letter, a lowercase letter, a number, and a symbol"
               />
+
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
@@ -165,7 +167,8 @@ export default function RegisterPage() {
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
-            <div className="text-right">
+
+            <div className="text-right mr-1">
               <span className="text-xs text-muted-foreground">
                   Strength: <span className="font-medium">{pwEval.strengthLabel}</span>
               </span>
@@ -187,7 +190,7 @@ export default function RegisterPage() {
             ) : null}
           </div>
 
-          <Button className="w-full" type="submit" disabled={isSubmitting || !canSubmit}>
+          <Button className="w-full" type="submit" disabled={isSubmitting} aria-disabled={!canSubmit} title={!canSubmit ? "Please fill in all fields and meet the password criteria" : undefined}>
             {isSubmitting ? "Creating..." : "Create account"}
           </Button>
         </form>
