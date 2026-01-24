@@ -29,10 +29,6 @@ function isTooRepetitive(password: string) {
   return unique.size <= 2 && password.length >= PASSWORD_MIN_LENGTH;
 }
 
-function countTrue(values: boolean[]) {
-  return values.reduce((acc, v) => acc + (v ? 1 : 0), 0);
-}
-
 export function evaluatePassword(password: string, email?: string): PasswordEval {
   const notAllWhitespace = password.trim().length > 0;
 
