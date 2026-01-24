@@ -18,4 +18,9 @@ export function validateEnv(): void {
     console.error(`[startup] Missing required environment variable(s): ${missing.join(", ")}`);
     throw new Error(`Missing required environment variable(s): ${missing.join(", ")}`);
   }
+
+  if (process.env.NODE_ENV === "production" && !process.env.REDIS_URL) {
+    console.warn("[startup] REDIS_URL not set. Rate limiting will be per-instance in production.");
+  }
+
 }

@@ -1,9 +1,9 @@
 import type { FastifyInstance } from "fastify";
-import { RegisterBody, LoginBody } from "./auth.schemas.js";
-import type { RegisterBodyType, LoginBodyType } from "./auth.schemas.js";
+import { RegisterBody, LoginBody, EmptyBody } from "./auth.schemas.js";
+import type { RegisterBodyType, LoginBodyType, EmptyBodyType } from "./auth.schemas.js";
 import * as AuthService from "./auth.service.js";
 import { requireAuth } from "../../middleware/auth.js";
-import { setRefreshCookie, toSafeAuthResponse, assertAllowedOrigin, getCsrfHeader, clearRefreshCookie } from "./auth.http.js";
+import { setRefreshCookie, toSafeAuthResponse, assertAllowedOrigin, getCsrfHeader, clearRefreshCookie, rateLimitKeyByIp, rateLimitKeyByIpAndEmail } from "./auth.http.js";
 import { AppError } from "../../errors/app-error.js";
 
 export async function authRoutes(app: FastifyInstance) {
@@ -19,7 +19,8 @@ export async function authRoutes(app: FastifyInstance) {
     "/register",
     { 
       schema: { body: RegisterBody }, 
-      config: { rateLimit: { max: 5, timeWindow: "1 minute" } } 
+      config: { rateLimit: { max: 5, timeWindow: "1 minute", keyGenerator: rateLimitKeyByIpAndEmail } }
+
     },
     async (req, reply) => {
 
@@ -50,7 +51,7 @@ export async function authRoutes(app: FastifyInstance) {
     "/login",
     { 
       schema: { body: LoginBody }, 
-      config: { rateLimit: { max: 10, timeWindow: "1 minute" } } 
+      config: { rateLimit: { max: 10, timeWindow: "1 minute", keyGenerator: rateLimitKeyByIpAndEmail } }
     },
     async (req, reply) => {
 
@@ -80,7 +81,14 @@ export async function authRoutes(app: FastifyInstance) {
    * - Bootstrap the CSRF token
    * - Return the CSRF token
    */
-  app.get("/csrf", async (req, reply) => {
+  app.get(
+    "/csrf", 
+    { 
+      config: { rateLimit: { max: 30, timeWindow: "1 minute", keyGenerator: rateLimitKeyByIp } }
+    },
+    async (req, reply) => {
+    
+    // Make sure the request is coming from an allowed origin
     assertAllowedOrigin(req);
 
     const refresh = (req as any).cookies?.[REFRESH_COOKIE_NAME];
@@ -99,7 +107,12 @@ export async function authRoutes(app: FastifyInstance) {
    * - Set the refresh token in a cookie
    * - Return the safe auth response
    */
-  app.post("/refresh", async (req, reply) => {
+  app.post(
+    "/refresh", 
+    { 
+      config: { rateLimit: { max: 60, timeWindow: "1 minute", keyGenerator: rateLimitKeyByIp } }
+    },
+    async (req, reply) => {
     assertAllowedOrigin(req);
 
     const refresh = (req as any).cookies?.[REFRESH_COOKIE_NAME];
@@ -126,7 +139,12 @@ export async function authRoutes(app: FastifyInstance) {
    * - Clear the refresh token in a cookie
    * - Return the success response
    */
-  app.post("/logout", async (req, reply) => {
+  app.post(
+    "/logout", 
+    { 
+      config: { rateLimit: { max: 30, timeWindow: "1 minute", keyGenerator: rateLimitKeyByIp } }
+    },
+    async (req, reply) => {
     assertAllowedOrigin(req);
 
     const refresh = (req as any).cookies?.[REFRESH_COOKIE_NAME];

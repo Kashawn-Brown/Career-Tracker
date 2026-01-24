@@ -3,6 +3,7 @@ import rateLimit from "@fastify/rate-limit";
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 import cookie from "@fastify/cookie";
+import { getRedisClient } from "./lib/redis.js";
 import { registerErrorHandlers } from "./middleware/error-handler.js";
 import { debugRoutes } from "./modules/debug/debug.routes.js";
 import { applicationsRoutes } from "./modules/applications/applications.routes.js";
@@ -34,8 +35,21 @@ export function buildApp() {
   // Cookies: required for httpOnly refresh token cookies (later phases).
   app.register(cookie);
 
-  // keep it disabled globally and enable per-route on auth endpoints only.
-  app.register(rateLimit, { global: false });
+  // Rate limiting (Cloud Run-safe when REDIS_URL is set).
+  // Keep it disabled globally and enable per-route on auth endpoints only.
+  const redis = getRedisClient();
+  app.register(rateLimit, redis ? { global: false, redis } : { global: false });
+
+  // Best-effort shutdown cleanup
+  if (redis) {
+    app.addHook("onClose", async () => {
+      try {
+        await redis.quit();
+      } catch {
+        // ignore
+      }
+    });
+  }
 
   // Multipart uploads (Documents v1)
   // Security note: fastify-multipart defaults to 1MB. Set a safer default here.

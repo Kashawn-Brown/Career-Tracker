@@ -87,3 +87,23 @@ export function toSafeAuthResponse<T extends Record<string, any>>(result: T) {
   const { refreshToken: _refreshToken, expiresAt: _expiresAt, ...safe } = result;
   return safe;
 }
+
+/**
+ * Rate limit key by IP.
+ */
+export function rateLimitKeyByIp(req: FastifyRequest): string {
+  return req.ip;
+}
+
+/**
+ * Rate limit key by IP and email.
+ */
+export function rateLimitKeyByIpAndEmail(req: FastifyRequest): string {
+  const ip = req.ip;
+
+  const emailRaw = (req as any).body?.email;
+  const email =
+    typeof emailRaw === "string" ? emailRaw.trim().toLowerCase() : "";
+
+  return email ? `${ip}:${email}` : ip;
+}
