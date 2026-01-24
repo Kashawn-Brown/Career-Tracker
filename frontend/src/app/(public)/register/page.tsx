@@ -17,6 +17,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert } from "@/components/ui/alert";
+import { Eye, EyeOff } from "lucide-react";
+import { evaluatePassword } from "@/lib/auth/password-policy";
+
 
 // RegisterPage: creates an account and logs the user in (receives JWT) via AuthContext.
 export default function RegisterPage() {
@@ -27,10 +30,23 @@ export default function RegisterPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const [showPassword, setShowPassword] = useState(false);
 
   // UI state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const pwEval = evaluatePassword(password, email);
+  const passwordsMatch = password.length > 0 && password === confirmPassword;
+  const canSubmit =
+    name.trim().length > 0 &&
+    email.trim().length > 0 &&
+    pwEval.ok &&
+    passwordsMatch &&
+    !isSubmitting;
+
 
   // If already logged in, redirect.
   useEffect(() => {
@@ -43,11 +59,24 @@ export default function RegisterPage() {
     e.preventDefault();   // stop page refresh
     setErrorMessage(null);
 
-    // Minimal MVP validation.
-    if (!name || !email || !password) {
+    // Make sure all fields are filled in
+    if (!name || !email || !password || !confirmPassword) {
       setErrorMessage("Please fill in all fields.");
       return;
     }
+
+    // Make sure the password meets the password policy
+    if (!pwEval.ok) {
+      setErrorMessage("Password does not meet requirements. Please review the rules below.");
+      return;
+    }
+    
+    // Make sure the passwords match
+    if (!passwordsMatch) {
+      setErrorMessage("Passwords do not match.");
+      return;
+    }
+    
 
     try {
       setIsSubmitting(true);
@@ -114,19 +143,54 @@ export default function RegisterPage() {
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-2 mb-0">
             <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              autoComplete="new-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Create a password"
-            />
+
+            <div className="relative mb-0">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="new-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Create a password"
+                className="pr-10"
+                title="Passwords must be at least 8 characters and contain an uppercase letter, a lowercase letter, a number, and a symbol"
+              />
+
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+
+            <div className="text-right mr-1">
+              <span className="text-xs text-muted-foreground">
+                  Strength: <span className="font-medium">{pwEval.strengthLabel}</span>
+              </span>
+            </div>
           </div>
 
-          <Button className="w-full" type="submit" disabled={isSubmitting}>
+          <div className="space-y-2">
+            <Label htmlFor="confirmPassword">Confirm password</Label>
+            <Input
+              id="confirmPassword"
+              type="password"
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Re-enter your password"
+            />
+            {confirmPassword.length > 0 && !passwordsMatch ? (
+              <p className="text-xs text-muted-foreground">❌ Passwords do not match</p>
+            ) : null}
+          </div>
+
+          <Button className="w-full" type="submit" disabled={isSubmitting} aria-disabled={!canSubmit} title={!canSubmit ? "Please fill in all fields and meet the password criteria" : undefined}>
             {isSubmitting ? "Creating..." : "Create account"}
           </Button>
         </form>

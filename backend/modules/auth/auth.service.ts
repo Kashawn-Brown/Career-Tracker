@@ -4,10 +4,71 @@ import { prisma } from "../../lib/prisma.js";
 import { AppError } from "../../errors/app-error.js";
 import { generateToken, hashToken } from "../../lib/crypto.js";
 import { authUserSelect, authLoginSelect, CreateAuthSessionOptions, SessionTokens } from "./auth.dto.js";
+import { evaluatePasswordPolicy, formatPasswordPolicyError } from "./password.policy.js";
+
 
 /**
  * Service layer
  */
+
+
+/**
+ * Allow a user to register.
+ */
+export async function register(email: string, password: string, name: string) {
+
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) throw new AppError("Email already in use", 409);
+
+  // Make sure the password meets the password policy
+  const passwordPolicy = evaluatePasswordPolicy(password, email);
+  if (!passwordPolicy.ok) throw new AppError(formatPasswordPolicyError(passwordPolicy.reasons), 400);
+
+  // Hash the password
+  const passwordHash = await bcrypt.hash(password, 12);
+
+  // Create the user
+  const user = await prisma.user.create({
+    data: { email, name, passwordHash },
+    select: authUserSelect,
+  });
+
+  // Create refresh session (raw tokens returned only to route for cookie-setting)
+  const session = await createAuthSession(user.id);
+  const { refreshToken, csrfToken, expiresAt } = session;
+
+  // Issue and return access token
+  const token = signToken({ id: user.id, email: user.email });
+
+  // Return the user, access token, refresh token, and csrf token
+  return { user, token, refreshToken, csrfToken, expiresAt};
+}
+
+
+/**
+ * Allow a user to login.
+ */
+export async function login(email: string, password: string) {
+
+  const userRecord = await prisma.user.findUnique({ where: { email }, select: authLoginSelect });
+  if (!userRecord) throw new AppError("Invalid credentials", 401);
+
+  const ok = await bcrypt.compare(password, userRecord.passwordHash);
+  if (!ok) throw new AppError("Invalid credentials", 401);
+
+  // Remove passwordHash from the user object
+  const { passwordHash: _passwordHash, ...user } = userRecord;
+
+  // Create refresh session (raw tokens returned only to route for cookie-setting)
+  const session = await createAuthSession(user.id);
+  const { refreshToken, csrfToken, expiresAt } = session;
+
+  // Issue and return access token
+  const token = signToken({ id: user.id, email: user.email });
+
+  return { user, token, refreshToken, csrfToken, expiresAt };
+}
+
 
 
 /**
@@ -175,55 +236,3 @@ export async function logoutSession(refreshToken: string, csrfToken: string): Pr
 
 
 
-/**
- * Allow a user to register.
- */
-export async function register(email: string, password: string, name: string) {
-
-  const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) throw new AppError("Email already in use", 409);
-
-  // Hash the password
-  const passwordHash = await bcrypt.hash(password, 12);
-
-  // Create the user
-  const user = await prisma.user.create({
-    data: { email, name, passwordHash },
-    select: authUserSelect,
-  });
-
-  // Create refresh session (raw tokens returned only to route for cookie-setting)
-  const session = await createAuthSession(user.id);
-  const { refreshToken, csrfToken, expiresAt } = session;
-
-  // Issue and return access token
-  const token = signToken({ id: user.id, email: user.email });
-
-  // Return the user, access token, refresh token, and csrf token
-  return { user, token, refreshToken, csrfToken, expiresAt};
-}
-
-
-/**
- * Allow a user to login.
- */
-export async function login(email: string, password: string) {
-
-  const userRecord = await prisma.user.findUnique({ where: { email }, select: authLoginSelect });
-  if (!userRecord) throw new AppError("Invalid credentials", 401);
-
-  const ok = await bcrypt.compare(password, userRecord.passwordHash);
-  if (!ok) throw new AppError("Invalid credentials", 401);
-
-  // Remove passwordHash from the user object
-  const { passwordHash: _passwordHash, ...user } = userRecord;
-
-  // Create refresh session (raw tokens returned only to route for cookie-setting)
-  const session = await createAuthSession(user.id);
-  const { refreshToken, csrfToken, expiresAt } = session;
-
-  // Issue and return access token
-  const token = signToken({ id: user.id, email: user.email });
-
-  return { user, token, refreshToken, csrfToken, expiresAt };
-}
