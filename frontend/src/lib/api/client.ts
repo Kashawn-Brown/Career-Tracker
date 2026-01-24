@@ -1,13 +1,18 @@
 // client.ts: minimal typed fetch wrapper for backend API (adds Bearer token + consistent errors).
 // gives one consistent way to call the backend from the frontend.
 
-import { getToken } from "@/lib/auth/token";
+import { getToken, setToken } from "@/lib/auth/token";
+import { routes } from "@/lib/api/routes";
+import { getCsrfToken as getCsrfTokenStore, setCsrfToken as setCsrfTokenStore } from "@/lib/auth/csrf";
+import type { CsrfResponse, RefreshResponse } from "@/types/api";
+
 
 // a version of fetch's options (except remove the original body type from fetch options)
 type ApiFetchOptions = Omit<RequestInit, "body" | "headers"> & {
   body?: unknown;     // pass an object and we'll JSON.stringify it (e.g. { email, password })
   auth?: boolean;     // default true; set false for login/register (asking "should we attach the Bearer token?")
   headers?: Record<string, string>;
+  __retry?: boolean;  // internal flag to indicate a retry request (for CSRF token rotation)
 };
 
 // Unauthorized handler: lets auth layer decide what to do on 401 (logout, redirect, etc.).
@@ -41,6 +46,67 @@ function getBaseUrl(): string {
   return process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3002/api/v1";
 }
 
+// Refresh token in flight: only one refresh request at a time.
+let refreshInFlight: Promise<string | null> | null = null;
+
+/**
+ * Refreshes the token and CSRF token.
+ * 
+ * @returns The new token or null if the refresh failed.
+ */
+async function refreshOnce(): Promise<string | null> {
+  if (refreshInFlight) return refreshInFlight;
+
+  refreshInFlight = (async () => {
+    const baseUrl = getBaseUrl();
+
+    // 1) Bootstrap CSRF (rotates server-side CSRF hash and returns a fresh token)
+    const csrfResp = await fetch(`${baseUrl}${routes.auth.csrf()}`, {
+      method: "GET",
+      credentials: "include",
+    });
+
+    if (!csrfResp.ok) return null;
+
+    const csrfData = (await csrfResp.json().catch(() => null)) as CsrfResponse | null;
+    const csrfToken = csrfData?.csrfToken ?? null;
+    if (!csrfToken) return null;
+
+    setCsrfTokenStore(csrfToken);
+
+    // 2) Refresh access token (rotates refresh cookie + rotates CSRF token)
+    const refreshResp = await fetch(`${baseUrl}${routes.auth.refresh()}`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-Token": csrfToken,
+      },
+      body: "{}",
+    });
+
+    if (!refreshResp.ok) return null;
+
+    const refreshData = (await refreshResp.json().catch(() => null)) as RefreshResponse | null;
+    const newToken = refreshData?.token ?? null;
+    const newCsrf = refreshData?.csrfToken ?? null;
+
+    if (!newToken || !newCsrf) return null;
+
+    setToken(newToken);
+    setCsrfTokenStore(newCsrf);
+
+    return newToken;
+  })();
+
+  try {
+    return await refreshInFlight;
+  } finally {
+    refreshInFlight = null;
+  }
+}
+
+
 
 /**
  * Main wrapper for backend API calls.
@@ -57,7 +123,7 @@ function getBaseUrl(): string {
 export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {
 
   // Pull values out of options
-  const { auth = true, body, headers: originalHeaders = {}, ...otherOptions } = options;    // ...otherOptions includes other fetch options like method, cache, etc.
+  const { auth = true, body, headers: originalHeaders = {}, __retry = false, ...otherOptions } = options;    // ...otherOptions includes other fetch options like method, cache, etc.
 
 
   // Decide whether to attach token
@@ -99,7 +165,19 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
   // Handle non-2xx responses (errors)
   if (!response.ok) {
 
-    // Auto-logout hook: token is invalid/expired.
+    // If this was an authenticated request, try a single refresh + retry once on 401.
+    if (response.status === 401 && auth && !__retry) {
+      // Try to refresh the token and CSRF token
+      const newToken = await refreshOnce();
+
+      // If the refresh was successful, retry the original request
+      if (newToken) {
+        // Retry the original request once (apiFetch will attach the new Bearer token)
+        return apiFetch<T>(path, { ...options, __retry: true });
+      }
+    }
+
+    // If refresh failed (or this wasn't eligible for refresh), fall back to app-defined unauthorized behavior.
     if (response.status === 401 && onUnauthorized) {
       onUnauthorized();
     }

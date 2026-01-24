@@ -4,6 +4,7 @@ import React, { createContext, useEffect, useMemo, useState, useCallback } from 
 import { apiFetch, setUnauthorizedHandler  } from "@/lib/api/client";
 import { routes } from "@/lib/api/routes";
 import { clearToken, setToken } from "@/lib/auth/token";
+import { clearCsrfToken, getCsrfToken as getCsrfTokenFromMemory, setCsrfToken as setCsrfTokenInMemory } from "@/lib/auth/csrf";
 import type { MeResponse, AuthResponse, AuthUser, LoginRequest, RegisterRequest, CsrfResponse, RefreshResponse, OkResponse } from "@/types/api";
 
 // Defines what the context will provide
@@ -57,6 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Store bootstrap CSRF (will be rotated on refresh)
         setCsrfToken(csrfRes.csrfToken);
+        setCsrfTokenInMemory(csrfRes.csrfToken);
 
         // Refresh the session
         const refreshRes = await apiFetch<RefreshResponse>(routes.auth.refresh(), {
@@ -70,6 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setToken(refreshRes.token);
         setTokenState(refreshRes.token);
         setCsrfToken(refreshRes.csrfToken);
+        setCsrfTokenInMemory(refreshRes.csrfToken);
 
         const meRes = await apiFetch<MeResponse>(routes.users.me(), { method: "GET" });
         setUser(meRes.user);
@@ -79,6 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setTokenState(null);
         setUser(null);
         setCsrfToken(null);
+        clearCsrfToken();
       } finally {
         setIsHydrated(true);
       }
@@ -90,7 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(() => {
     (async () => {
       try {
-        let csrf = csrfToken;
+        let csrf = getCsrfTokenFromMemory() ?? csrfToken;
 
         // If csrf isn't in memory (page reload), bootstrap it from the refresh cookie.
         if (!csrf) {
@@ -101,6 +105,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           });
           csrf = res.csrfToken;
           setCsrfToken(csrf);
+          setCsrfTokenInMemory(csrf);
         }
 
         // If CSRF token is present, logout
@@ -120,6 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setTokenState(null);
       setUser(null);
       setCsrfToken(null);
+      clearCsrfToken();
     })();
   }, [csrfToken]);
 
@@ -149,6 +155,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setToken(res.token);
     setTokenState(res.token);
     setCsrfToken(res.csrfToken);
+    setCsrfTokenInMemory(res.csrfToken);
     setUser(res.user);
   }, []);
 
@@ -166,6 +173,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setToken(res.token);
     setTokenState(res.token);
     setCsrfToken(res.csrfToken);
+    setCsrfTokenInMemory(res.csrfToken);
     setUser(res.user);
   }, []);
 
