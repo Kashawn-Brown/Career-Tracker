@@ -10,7 +10,7 @@ import { Type, Static } from "@sinclair/typebox";
 export const RegisterBody = Type.Object(
   {
     email: Type.String({ format: "email" }),
-    password: Type.String({ minLength: 8 }),
+    password: Type.String({ minLength: 8, maxLength: 72 }),
     name: Type.String({ minLength: 1, maxLength: 100 }),
   },
   { additionalProperties: false }
