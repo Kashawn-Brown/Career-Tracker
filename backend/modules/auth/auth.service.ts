@@ -26,8 +26,6 @@ function signToken(user: { id: string; email: string }) {
 
 /**
  * Refresh session helpers.
- *
- * Not wired into routes yet — safe to add without changing behavior.
  */
 
 const DEFAULT_REFRESH_DAYS = 30;
@@ -80,6 +78,102 @@ export async function getActiveSessionByRefreshToken(refreshToken: string) {
   return session;
 }
 
+const CSRF_BYTES = 32;
+const REFRESH_BYTES = 48;
+
+function now() {
+  return new Date();
+}
+
+/**
+ * Bootstrap the CSRF token for a user.
+ * 
+ * - verifies refresh cookie session
+ * - rotates CSRF token (because we only store hashes and can't "read" the old token back)
+ */
+export async function bootstrapCsrf(refreshToken: string): Promise<{ csrfToken: string | null }> {
+  const session = await getActiveSessionByRefreshToken(refreshToken);
+  if (!session) return { csrfToken: null };
+
+  const csrfToken = generateToken(CSRF_BYTES);
+
+  await prisma.authSession.update({
+    where: { id: session.id },
+    data: {
+      csrfTokenHash: hashToken(csrfToken),
+      lastUsedAt: now(),
+    },
+  });
+
+  return { csrfToken };
+}
+
+/**
+ * Refresh a user's authentication session.
+ * 
+ * - validates refresh cookie + csrf header
+ * - rotates refresh token + csrf token
+ * - returns new access token + new csrf token (refresh token only returned to route to set cookie)
+ */
+export async function refreshSession(refreshToken: string, csrfToken: string) {
+  const session = await getActiveSessionByRefreshToken(refreshToken);
+  if (!session) throw new AppError("Invalid session", 401);
+
+  const csrfHash = hashToken(csrfToken);
+  if (csrfHash !== session.csrfTokenHash) throw new AppError("Invalid CSRF token", 403);
+
+  const newRefreshToken = generateToken(REFRESH_BYTES);
+  const newCsrfToken = generateToken(CSRF_BYTES);
+
+  // Pull user email for access-token signing
+  const user = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: { id: true, email: true },
+  });
+  if (!user) throw new AppError("Invalid session", 401);
+
+  await prisma.authSession.update({
+    where: { id: session.id },
+    data: {
+      refreshTokenHash: hashToken(newRefreshToken),
+      csrfTokenHash: hashToken(newCsrfToken),
+      lastUsedAt: now(),
+    },
+  });
+
+  const token = signToken({ id: user.id, email: user.email });
+
+  return {
+    token,
+    refreshToken: newRefreshToken,
+    csrfToken: newCsrfToken,
+    expiresAt: session.expiresAt,
+  };
+}
+
+/**
+ * Log out a user's authentication session.
+ * 
+ * - validates refresh cookie + csrf header
+ * - revokes session
+ */
+export async function logoutSession(refreshToken: string, csrfToken: string): Promise<void> {
+  const session = await getActiveSessionByRefreshToken(refreshToken);
+  if (!session) return; // logout should be idempotent
+
+  const csrfHash = hashToken(csrfToken);
+  if (csrfHash !== session.csrfTokenHash) throw new AppError("Invalid CSRF token", 403);
+
+  await prisma.authSession.update({
+    where: { id: session.id },
+    data: {
+      revokedAt: now(),
+      lastUsedAt: now(),
+    },
+  });
+}
+
+
 
 /**
  * Allow a user to register.
@@ -98,9 +192,15 @@ export async function register(email: string, password: string, name: string) {
     select: authUserSelect,
   });
 
-  // Issue and return token
+  // Create refresh session (raw tokens returned only to route for cookie-setting)
+  const session = await createAuthSession(user.id);
+  const { refreshToken, csrfToken, expiresAt } = session;
+
+  // Issue and return access token
   const token = signToken({ id: user.id, email: user.email });
-  return { user, token };
+
+  // Return the user, access token, refresh token, and csrf token
+  return { user, token, refreshToken, csrfToken, expiresAt};
 }
 
 
@@ -118,7 +218,12 @@ export async function login(email: string, password: string) {
   // Remove passwordHash from the user object
   const { passwordHash: _passwordHash, ...user } = userRecord;
 
-  // Issue and return token
+  // Create refresh session (raw tokens returned only to route for cookie-setting)
+  const session = await createAuthSession(user.id);
+  const { refreshToken, csrfToken, expiresAt } = session;
+
+  // Issue and return access token
   const token = signToken({ id: user.id, email: user.email });
-  return { user, token };
+
+  return { user, token, refreshToken, csrfToken, expiresAt };
 }

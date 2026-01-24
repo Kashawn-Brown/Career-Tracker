@@ -63,6 +63,7 @@ export type MeResponse = {
 export type AuthResponse = {
   user: AuthUser;
   token: string;
+  csrfToken: string;
 };
 
 export type LoginRequest = {
@@ -75,6 +76,9 @@ export type RegisterRequest = {
   password: string;
   name: string;
 };
+
+export type CsrfResponse = { csrfToken: string | null };
+export type RefreshResponse = { token: string; csrfToken: string };
 
 
 

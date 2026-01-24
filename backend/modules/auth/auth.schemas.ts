@@ -27,5 +27,10 @@ export const LoginBody = Type.Object(
   { additionalProperties: false }
 );
 
+
+export const EmptyBody = Type.Object({}, { additionalProperties: false });
+
+
 export type RegisterBodyType = Static<typeof RegisterBody>;
 export type LoginBodyType = Static<typeof LoginBody>;
+export type EmptyBodyType = Static<typeof EmptyBody>;

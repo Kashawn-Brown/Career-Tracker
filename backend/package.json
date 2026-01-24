@@ -15,6 +15,7 @@
     "db:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@fastify/cookie": "^11.0.2",
     "@fastify/cors": "^11.2.0",
     "@fastify/multipart": "^9.3.0",
     "@fastify/rate-limit": "^10.3.0",
@@ -25,6 +26,7 @@
     "bcrypt": "^6.0.0",
     "dotenv": "^16.5.0",
     "fastify": "^5.3.3",
+    "ioredis": "^5.9.2",
     "jsonwebtoken": "^9.0.2",
     "openai": "^6.16.0",
     "pdf-parse": "^2.4.5"

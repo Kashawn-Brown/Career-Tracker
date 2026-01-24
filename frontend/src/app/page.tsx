@@ -61,7 +61,7 @@ function StatusPill({ status }: { status: ApplicationStatus }) {
 export default function HomePage() {
   const { isAuthenticated, isHydrated } = useAuth();
 
-  // We only trust auth state after hydration (localStorage + /users/me attempt).
+  // We only trust auth state after completing the initial session bootstrap check (csrf -> refresh)
   const showAuthedActions = isHydrated && isAuthenticated;
 
   return (

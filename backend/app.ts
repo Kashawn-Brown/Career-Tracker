@@ -2,6 +2,8 @@ import Fastify from "fastify";
 import rateLimit from "@fastify/rate-limit";
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
+import cookie from "@fastify/cookie";
+import { getRedisClient } from "./lib/redis.js";
 import { registerErrorHandlers } from "./middleware/error-handler.js";
 import { debugRoutes } from "./modules/debug/debug.routes.js";
 import { applicationsRoutes } from "./modules/applications/applications.routes.js";
@@ -25,12 +27,29 @@ export function buildApp() {
   // CORS: allow the Next.js dev server to call the API during local development.
   app.register(cors, {
     origin: corsOrigin,
+    credentials: true,  // Allow cookies to be sent with the request
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-CSRF-Token"],
   });
 
-  // keep it disabled globally and enable per-route on auth endpoints only.
-  app.register(rateLimit, { global: false });
+  // Cookies: required for httpOnly refresh token cookies (later phases).
+  app.register(cookie);
+
+  // Rate limiting (Cloud Run-safe when REDIS_URL is set).
+  // Keep it disabled globally and enable per-route on auth endpoints only.
+  const redis = getRedisClient();
+  app.register(rateLimit, redis ? { global: false, redis } : { global: false });
+
+  // Best-effort shutdown cleanup
+  if (redis) {
+    app.addHook("onClose", async () => {
+      try {
+        await redis.quit();
+      } catch {
+        // ignore
+      }
+    });
+  }
 
   // Multipart uploads (Documents v1)
   // Security note: fastify-multipart defaults to 1MB. Set a safer default here.

@@ -3,8 +3,9 @@
 import React, { createContext, useEffect, useMemo, useState, useCallback } from "react";
 import { apiFetch, setUnauthorizedHandler  } from "@/lib/api/client";
 import { routes } from "@/lib/api/routes";
-import { clearToken, getToken, setToken } from "@/lib/auth/token";
-import type { MeResponse, AuthResponse, AuthUser, LoginRequest, RegisterRequest } from "@/types/api";
+import { clearToken, setToken } from "@/lib/auth/token";
+import { clearCsrfToken, getCsrfToken as getCsrfTokenFromMemory, setCsrfToken as setCsrfTokenInMemory } from "@/lib/auth/csrf";
+import type { MeResponse, AuthResponse, AuthUser, LoginRequest, RegisterRequest, CsrfResponse, RefreshResponse, OkResponse } from "@/types/api";
 
 // Defines what the context will provide
 type AuthContextValue = {
@@ -13,7 +14,7 @@ type AuthContextValue = {
   user: AuthUser | null;
   token: string | null;
   isAuthenticated: boolean;
-  isHydrated: boolean; // tells us we've read from localStorage at least once
+  isHydrated: boolean; // tells us we've completed the initial session bootstrap check (csrf -> refresh)
 
   // Auth actions
   login: (input: LoginRequest) => Promise<void>;
@@ -33,43 +34,100 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);        // current user in memory
   const [token, setTokenState] = useState<string | null>(null);   // token in memory
-  const [isHydrated, setIsHydrated] = useState(false);            // starts false, becomes true after reading localStorage + attempting /users/me
+  const [csrfToken, setCsrfToken] = useState<string | null>(null); // csrf token in memory
+  const [isHydrated, setIsHydrated] = useState(false);            // starts false, becomes true after completing the initial session bootstrap check (csrf -> refresh)
 
-  // Hydrate token from localStorage and (if present) loads the current user via GET /users/me.
-  useEffect(() => {   // Runs once on mount
-    
+  // Bootstrap session on app load using refresh cookie and CSRF token:
+  // GET /auth/csrf -> POST /auth/refresh -> GET /users/me
+  useEffect(() => {
     (async () => {
+      try {
 
-      // Load token
-      const existingToken = getToken();
-      setTokenState(existingToken);
+        // Get the CSRF token
+        const csrfRes = await apiFetch<CsrfResponse>(routes.auth.csrf(), {
+          method: "GET",
+          auth: false,
+          credentials: "include",
+        });
 
-      // If theres a token, attempt to load user
-      if (existingToken) {
-        try{
-          // Send request to backend to get user info
-          const res = await apiFetch<MeResponse>(routes.users.me(), { method: "GET" })
-          setUser(res.user)
-
-        } catch {
-          // If token is invalid/expired, clear it so not stuck in a broken state.
-          clearToken();
-          setTokenState(null);
-          setUser(null);
+        // If no CSRF token present, we're done
+        if (!csrfRes.csrfToken) {
+          setIsHydrated(true);
+          return;
         }
+
+        // Store bootstrap CSRF (will be rotated on refresh)
+        setCsrfToken(csrfRes.csrfToken);
+        setCsrfTokenInMemory(csrfRes.csrfToken);
+
+        // Refresh the session
+        const refreshRes = await apiFetch<RefreshResponse>(routes.auth.refresh(), {
+          method: "POST",
+          auth: false,
+          credentials: "include",
+          headers: { "X-CSRF-Token": csrfRes.csrfToken },
+          // No body needed (backend accepts empty), keep request minmal.
+        });
+
+        setToken(refreshRes.token);
+        setTokenState(refreshRes.token);
+        setCsrfToken(refreshRes.csrfToken);
+        setCsrfTokenInMemory(refreshRes.csrfToken);
+
+        const meRes = await apiFetch<MeResponse>(routes.users.me(), { method: "GET" });
+        setUser(meRes.user);
+      } catch {
+        // If refresh fails, ensure we start clean
+        clearToken();
+        setTokenState(null);
+        setUser(null);
+        setCsrfToken(null);
+        clearCsrfToken();
+      } finally {
+        setIsHydrated(true);
       }
-      // Token read & attempt to retrieve user = Hydrated
-      setIsHydrated(true);
-    
-    })()
+    })();
   }, []);
 
-  // Clears local + in-memory auth state.
-  function logout() {
-    clearToken();
-    setTokenState(null);
-    setUser(null);
-  }
+
+  // Clears local + in-memory auth state and csrf token.
+  const logout = useCallback(() => {
+    (async () => {
+      try {
+        let csrf = getCsrfTokenFromMemory() ?? csrfToken;
+
+        // If csrf isn't in memory (page reload), bootstrap it from the refresh cookie.
+        if (!csrf) {
+          const res = await apiFetch<CsrfResponse>(routes.auth.csrf(), {
+            method: "GET",
+            auth: false,
+            credentials: "include",
+          });
+          csrf = res.csrfToken;
+          setCsrfToken(csrf);
+          setCsrfTokenInMemory(csrf);
+        }
+
+        // If CSRF token is present, logout
+        if (csrf) {
+          await apiFetch<OkResponse>(routes.auth.logout(), {
+            method: "POST",
+            auth: false,
+            credentials: "include",
+            headers: { "X-CSRF-Token": csrf },
+          });
+        }
+      } catch {
+        // Even if server logout fails, still clear local auth.
+      }
+
+      clearToken();
+      setTokenState(null);
+      setUser(null);
+      setCsrfToken(null);
+      clearCsrfToken();
+    })();
+  }, [csrfToken]);
 
   // Registers what "unauthorized" means for the app: clear auth + return to login.
   useEffect(() => {
@@ -81,37 +139,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Cleanup: avoid stale handlers if provider ever unmounts (rare, but good hygiene).
     return () => setUnauthorizedHandler(null);
-  }, []);
+  }, [logout]);
 
 
   // Calls Backend API endpoint "/auth/login" using apiFetch helper
-  async function login(input: LoginRequest) {
+  const login = useCallback(async (input: LoginRequest) => {
 
     const res = await apiFetch<AuthResponse>(routes.auth.login(), {
       method: "POST",
       auth: false,    // Login is public (no Bearer token attached)
+      credentials: "include",   // Include cookies in the request
       body: input,
     });
 
     setToken(res.token);
     setTokenState(res.token);
+    setCsrfToken(res.csrfToken);
+    setCsrfTokenInMemory(res.csrfToken);
     setUser(res.user);
-  }
+  }, []);
 
 
   // Calls Backend API endpoint "/auth/register" using apiFetch helper
-  async function register(input: RegisterRequest) {
+  const register = useCallback(async (input: RegisterRequest) => {
     
     const res = await apiFetch<AuthResponse>(routes.auth.register(), {
       method: "POST",
       auth: false,    // Register is public (no Bearer token attached)
+      credentials: "include",   // Include cookies in the request
       body: input,
     });
 
     setToken(res.token);
     setTokenState(res.token);
+    setCsrfToken(res.csrfToken);
+    setCsrfTokenInMemory(res.csrfToken);
     setUser(res.user);
-  }
+  }, []);
 
 
   // setCurrentUser: stable action wrapper so components can depend on it safely.
@@ -132,7 +196,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       logout,
       setCurrentUser,
     };
-  }, [user, token, isHydrated, setCurrentUser]);  // Only rebuild the value object if user/token/isHydrated changes
+  }, [user, token, isHydrated, login, register, logout, setCurrentUser]);  // Only rebuild the value object if user/token/isHydrated changes
 
   // Anything under <AuthProvider> in the tree can read auth state/ do actions via useContext(AuthContext)
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
