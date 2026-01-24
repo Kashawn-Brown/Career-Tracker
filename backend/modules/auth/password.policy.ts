@@ -1,4 +1,4 @@
-// backend/modules/auth/password.policy.ts
+// File for password policy/strength validation
 
 export const PASSWORD_MIN_LENGTH = 8;
 export const PASSWORD_MAX_LENGTH = 72;
