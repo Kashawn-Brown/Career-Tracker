@@ -3,7 +3,7 @@
 
 import { getToken, setToken } from "@/lib/auth/token";
 import { routes } from "@/lib/api/routes";
-import { getCsrfToken as getCsrfTokenStore, setCsrfToken as setCsrfTokenStore } from "@/lib/auth/csrf";
+import { setCsrfToken as setCsrfTokenStore } from "@/lib/auth/csrf";
 import type { CsrfResponse, RefreshResponse } from "@/types/api";
 
 
