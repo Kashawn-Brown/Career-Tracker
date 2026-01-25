@@ -5,12 +5,14 @@ import { AppError } from "../../errors/app-error.js";
 import { generateToken, hashToken } from "../../lib/crypto.js";
 import { authUserSelect, authLoginSelect, CreateAuthSessionOptions, SessionTokens } from "./auth.dto.js";
 import { evaluatePasswordPolicy, formatPasswordPolicyError } from "./password.policy.js";
+import { sendEmail } from "../../lib/email.js";
 
 
 /**
  * Service layer
  */
 
+// ---------------- REGISTRATION & LOGIN ----------------
 
 /**
  * Allow a user to register.
@@ -32,6 +34,24 @@ export async function register(email: string, password: string, name: string) {
     data: { email, name, passwordHash },
     select: authUserSelect,
   });
+
+  // Email verification: create token + send email
+  try {
+    const { token: verifyToken } = await issueEmailVerificationToken(user.id);
+    const url = buildVerifyEmailUrl(verifyToken);
+
+    await sendEmail({
+      to: user.email,
+      subject: "Verify your email",
+      html: verifyEmailHtml(url),
+      kind: "verify_email",
+      userId: user.id,
+    });
+  } catch (err: any) {
+    // Do not block registration if email fails; logs will show [email.send]
+    console.warn("[auth] verify email send failed", err?.message ?? err);
+  }
+  
 
   // Create refresh session (raw tokens returned only to route for cookie-setting)
   const session = await createAuthSession(user.id);
@@ -85,9 +105,8 @@ function signToken(user: { id: string; email: string }) {
   );
 }
 
-/**
- * Refresh session helpers.
- */
+
+// ---------------- SESSIONS/REFRESH TOKENS ----------------
 
 const DEFAULT_REFRESH_DAYS = 30;
 
@@ -235,4 +254,108 @@ export async function logoutSession(refreshToken: string, csrfToken: string): Pr
 }
 
 
+// ---------------- EMAIL VERIFICATION ----------------
 
+// Constants for email verification
+const VERIFY_TOKEN_BYTES = 32;
+const VERIFY_TOKEN_TTL_HOURS = 24;
+
+function getFrontendBaseUrl(): string {
+  const raw = process.env.FRONTEND_URL ?? "http://localhost:3000";
+  return raw.replace(/\/+$/, "");
+}
+
+function buildVerifyEmailUrl(token: string): string {
+  return `${getFrontendBaseUrl()}/verify-email?token=${encodeURIComponent(token)}`;
+}
+
+function verifyEmailHtml(url: string): string {
+  return `
+    <p>Verify your email for Career-Tracker:</p>
+    <p><a href="${url}">Verify email</a></p>
+    <p>If you didn’t create this account, you can ignore this email.</p>
+  `.trim();
+}
+
+/**
+ * Issue a new email verification token for a user.
+ */
+async function issueEmailVerificationToken(userId: string): Promise<{ token: string; expiresAt: Date }> {
+  const token = generateToken(VERIFY_TOKEN_BYTES);
+  const tokenHash = hashToken(token);
+  const expiresAt = new Date(Date.now() + VERIFY_TOKEN_TTL_HOURS * 60 * 60 * 1000);
+
+  // Invalidate any previous active tokens for this user (simple + predictable)
+  await prisma.$transaction(async (db) => {
+    await db.emailVerificationToken.updateMany({
+      where: { userId, consumedAt: null },
+      data: { consumedAt: now() },
+    });
+
+    await db.emailVerificationToken.create({
+      data: { userId, tokenHash, expiresAt },
+    });
+  });
+
+  return { token, expiresAt };
+}
+
+/**
+ * Verify email token and mark user as verified
+ */
+export async function verifyEmail(token: string): Promise<void> {
+  const tokenHash = hashToken(token);
+
+  await prisma.$transaction(async (db) => {
+    const rec = await db.emailVerificationToken.findUnique({
+      where: { tokenHash },
+      select: { id: true, userId: true, expiresAt: true, consumedAt: true },
+    });
+
+    if (!rec) throw new AppError("Invalid or expired token", 400);
+    if (rec.consumedAt) throw new AppError("Invalid or expired token", 400);
+    if (rec.expiresAt.getTime() <= Date.now()) throw new AppError("Invalid or expired token", 400);
+
+    // Consume token (single-use)
+    await db.emailVerificationToken.update({
+      where: { id: rec.id },
+      data: { consumedAt: now() },
+    });
+
+    // Mark verified (idempotent)
+    await db.user.updateMany({
+      where: { id: rec.userId, emailVerifiedAt: null },
+      data: { emailVerifiedAt: now() },
+    });
+  });
+}
+
+/**
+ * Resend a verification email to a user.
+ */
+export async function resendVerificationEmail(email: string): Promise<void> {
+  const user = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true, email: true, emailVerifiedAt: true },
+  });
+
+  // Non-enumerating: do nothing if missing or already verified
+  if (!user) return;
+  if (user.emailVerifiedAt) return;
+
+  try {
+    const { token: verifyToken } = await issueEmailVerificationToken(user.id);
+    const url = buildVerifyEmailUrl(verifyToken);
+
+    await sendEmail({
+      to: user.email,
+      subject: "Verify your email",
+      html: verifyEmailHtml(url),
+      kind: "verify_email",
+      userId: user.id,
+    });
+  } catch (err: any) {
+    // Non-enumerating: swallow and rely on logs
+    console.warn("[auth] resend verification failed", err?.message ?? err);
+  }
+}

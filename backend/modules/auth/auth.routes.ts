@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
-import { RegisterBody, LoginBody, EmptyBody } from "./auth.schemas.js";
-import type { RegisterBodyType, LoginBodyType, EmptyBodyType } from "./auth.schemas.js";
+import { RegisterBody, LoginBody, EmptyBody, VerifyEmailBody, ResendVerificationBody } from "./auth.schemas.js";
+import type { RegisterBodyType, LoginBodyType, EmptyBodyType, VerifyEmailBodyType, ResendVerificationBodyType } from "./auth.schemas.js";
 import * as AuthService from "./auth.service.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { setRefreshCookie, toSafeAuthResponse, assertAllowedOrigin, getCsrfHeader, clearRefreshCookie, rateLimitKeyByIp, rateLimitKeyByIpAndEmail } from "./auth.http.js";
@@ -70,9 +70,11 @@ export async function authRoutes(app: FastifyInstance) {
     }
   );
 
+
+  //---------------- SESSIONS/REFRESH TOKENS ----------------
+
   // Refresh cookie name
   const REFRESH_COOKIE_NAME = "career_tracker_refresh";
-
 
   /**
    * Get the CSRF token.
@@ -158,6 +160,42 @@ export async function authRoutes(app: FastifyInstance) {
 
     return reply.send({ ok: true });
   });
+
+
+  //---------------- EMAIL VERIFICATION ----------------
+
+  /**
+   * Verify email (token-based).
+   */
+  app.post(
+    "/verify-email",
+    {
+      schema: { body: VerifyEmailBody },
+      config: { rateLimit: { max: 20, timeWindow: "1 minute", keyGenerator: rateLimitKeyByIp } },
+    },
+    async (req, reply) => {
+      const body = req.body as VerifyEmailBodyType;
+      await AuthService.verifyEmail(body.token);
+      return reply.send({ ok: true });
+    }
+  );
+
+  /**
+   * Resend verification email (non-enumerating).
+   */
+  app.post(
+    "/resend-verification",
+    {
+      schema: { body: ResendVerificationBody },
+      config: { rateLimit: { max: 3, timeWindow: "1 minute", keyGenerator: rateLimitKeyByIpAndEmail } },
+    },
+    async (req, reply) => {
+      const body = req.body as ResendVerificationBodyType;
+      await AuthService.resendVerificationEmail(body.email);
+      return reply.send({ ok: true });
+    }
+  );
+  
 
 
   /**
