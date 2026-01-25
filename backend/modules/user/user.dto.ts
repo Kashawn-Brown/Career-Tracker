@@ -28,7 +28,8 @@ export const userSelect = {
   createdAt: true,
   updatedAt: true,
 
-  verifiedAt: true,
+  emailVerifiedAt: true,
+
 } as const;
 
 

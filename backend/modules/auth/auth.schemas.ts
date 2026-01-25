@@ -30,7 +30,7 @@ export const LoginBody = Type.Object(
 /**
  * Request body for email verification.
  * 
- * When a user clicks on the verification link in the email, they will be redirected to this endpoint with the token.
+ * When a user clicks on the verification link in the email, it will send that token to an endpoint to verify it.
  */
 export const VerifyEmailBody = Type.Object(
   {
@@ -42,7 +42,7 @@ export const VerifyEmailBody = Type.Object(
 /**
  * Request body for resending a verification email.
  * 
- * When a user requests a new verification email, they will be redirected to this endpoint with their email.
+ * When a user requests a new verification email, it will send their email to an endpoint to then resend the verification email.
  */
 export const ResendVerificationBody = Type.Object(
   {

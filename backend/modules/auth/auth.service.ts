@@ -269,6 +269,7 @@ function buildVerifyEmailUrl(token: string): string {
   return `${getFrontendBaseUrl()}/verify-email?token=${encodeURIComponent(token)}`;
 }
 
+// Email verification HTML template
 function verifyEmailHtml(url: string): string {
   return `
     <p>Verify your email for Career-Tracker:</p>
@@ -281,17 +282,20 @@ function verifyEmailHtml(url: string): string {
  * Issue a new email verification token for a user.
  */
 async function issueEmailVerificationToken(userId: string): Promise<{ token: string; expiresAt: Date }> {
+  
+  // Generate the email verification token
   const token = generateToken(VERIFY_TOKEN_BYTES);
   const tokenHash = hashToken(token);
   const expiresAt = new Date(Date.now() + VERIFY_TOKEN_TTL_HOURS * 60 * 60 * 1000);
 
-  // Invalidate any previous active tokens for this user (simple + predictable)
+  // Invalidate any previous active tokens for this user
   await prisma.$transaction(async (db) => {
     await db.emailVerificationToken.updateMany({
       where: { userId, consumedAt: null },
       data: { consumedAt: now() },
     });
 
+    // Add the new email verification token to the database
     await db.emailVerificationToken.create({
       data: { userId, tokenHash, expiresAt },
     });
@@ -307,24 +311,27 @@ export async function verifyEmail(token: string): Promise<void> {
   const tokenHash = hashToken(token);
 
   await prisma.$transaction(async (db) => {
-    const rec = await db.emailVerificationToken.findUnique({
+
+    // Find the email verification token
+    const tokenRecord = await db.emailVerificationToken.findUnique({
       where: { tokenHash },
       select: { id: true, userId: true, expiresAt: true, consumedAt: true },
     });
 
-    if (!rec) throw new AppError("Invalid or expired token", 400);
-    if (rec.consumedAt) throw new AppError("Invalid or expired token", 400);
-    if (rec.expiresAt.getTime() <= Date.now()) throw new AppError("Invalid or expired token", 400);
+    // If the token is not found, expired, or already consumed, throw an error
+    if (!tokenRecord) throw new AppError("Invalid or expired token", 400);
+    if (tokenRecord.consumedAt) throw new AppError("Invalid or expired token", 400);
+    if (tokenRecord.expiresAt.getTime() <= Date.now()) throw new AppError("Invalid or expired token", 400);
 
-    // Consume token (single-use)
+    // Consume token (mark as used) to prevent reuse
     await db.emailVerificationToken.update({
-      where: { id: rec.id },
+      where: { id: tokenRecord.id },
       data: { consumedAt: now() },
     });
 
-    // Mark verified (idempotent)
+    // Mark user as verified
     await db.user.updateMany({
-      where: { id: rec.userId, emailVerifiedAt: null },
+      where: { id: tokenRecord.userId, emailVerifiedAt: null },
       data: { emailVerifiedAt: now() },
     });
   });
@@ -339,7 +346,7 @@ export async function resendVerificationEmail(email: string): Promise<void> {
     select: { id: true, email: true, emailVerifiedAt: true },
   });
 
-  // Non-enumerating: do nothing if missing or already verified
+  // Do nothing if missing or already verified
   if (!user) return;
   if (user.emailVerifiedAt) return;
 
