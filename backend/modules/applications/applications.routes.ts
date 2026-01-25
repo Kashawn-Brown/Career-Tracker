@@ -4,6 +4,7 @@ import { CreateApplicationBody, ListApplicationsQuery, ApplicationIdParams, Upda
 import type { CreateApplicationBodyType, ListApplicationsQueryType, ApplicationIdParamsType, UpdateApplicationBodyType, UploadApplicationDocumentQueryType, GenerateAiArtifactBodyType, ListAiArtifactsQueryType } from "./applications.schemas.js";
 import * as ApplicationsService from "./applications.service.js";
 import { requireAuth } from "../../middleware/auth.js";
+import { requireVerifiedEmail } from "../../middleware/require-verified-email.js";
 import { AppError } from "../../errors/app-error.js";
 import * as DocumentsService from "../documents/documents.service.js";
 import * as AiService from "../ai/ai.service.js";
@@ -20,7 +21,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
   app.post(
     "/",
     { 
-      preHandler: [requireAuth],
+      preHandler: [requireAuth, requireVerifiedEmail],
       schema: { body: CreateApplicationBody } 
     },
     async (req, reply) => {
@@ -51,7 +52,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
   app.get(
     "/",
     { 
-      preHandler: [requireAuth],
+      preHandler: [requireAuth, requireVerifiedEmail],
       schema: { querystring: ListApplicationsQuery } 
     },
     async (req, reply) => {
@@ -78,7 +79,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
   app.get(
     "/:id",
     {
-      preHandler: [requireAuth],
+      preHandler: [requireAuth, requireVerifiedEmail],
       schema: { params: ApplicationIdParams },
     },
     async (req) => {
@@ -99,7 +100,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
   app.patch(
     "/:id",
     { 
-      preHandler: [requireAuth], 
+      preHandler: [requireAuth, requireVerifiedEmail], 
       schema: { params: ApplicationIdParams, body: UpdateApplicationBody } 
     },
     async (req, reply) => {
@@ -123,7 +124,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
   app.delete(
     "/:id",
     { 
-      preHandler: [requireAuth], 
+      preHandler: [requireAuth, requireVerifiedEmail], 
       schema: { params: ApplicationIdParams } 
     },
     async (req) => {
@@ -144,7 +145,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
   app.get(
     "/:id/documents",
     {
-      preHandler: [requireAuth],
+      preHandler: [requireAuth, requireVerifiedEmail],
       schema: { params: ApplicationIdParams },
     },
     async (req) => {
@@ -172,7 +173,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
   app.post(
     "/:id/documents",
     {
-      preHandler: [requireAuth],
+      preHandler: [requireAuth, requireVerifiedEmail],
       schema: { params: ApplicationIdParams, querystring: UploadApplicationDocumentQuery },
     },
     async (req, reply) => {
@@ -212,7 +213,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
    */
   app.get(
     "/:id/connections",
-    { preHandler: [requireAuth], schema: { params: ApplicationIdParams } },
+    { preHandler: [requireAuth, requireVerifiedEmail], schema: { params: ApplicationIdParams } },
     async (req) => {
       const userId = req.user!.id;
       const { id } = req.params as { id: string };
@@ -227,7 +228,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
    */
   app.post(
     "/:id/connections/:connectionId",
-    { preHandler: [requireAuth], schema: { params: ApplicationConnectionParams } },
+    { preHandler: [requireAuth, requireVerifiedEmail], schema: { params: ApplicationConnectionParams } },
     async (req) => {
       const userId = req.user!.id;
       const { id, connectionId } = req.params as { id: string; connectionId: string };
@@ -241,7 +242,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
    */
   app.delete(
     "/:id/connections/:connectionId",
-    { preHandler: [requireAuth], schema: { params: ApplicationConnectionParams } },
+    { preHandler: [requireAuth, requireVerifiedEmail], schema: { params: ApplicationConnectionParams } },
     async (req) => {
       const userId = req.user!.id;
       const { id, connectionId } = req.params as { id: string; connectionId: string };
@@ -259,7 +260,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
   app.post(
     "/:id/ai-artifacts",
     {
-      preHandler: [requireAuth],
+      preHandler: [requireAuth, requireVerifiedEmail],
       schema: {
         params: ApplicationIdParams,
         body: GenerateAiArtifactBody,
@@ -337,7 +338,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
   app.get(
     "/:id/ai-artifacts",
     {
-      preHandler: [requireAuth],
+      preHandler: [requireAuth, requireVerifiedEmail],
       schema: {
         params: ApplicationIdParams,
         querystring: ListAiArtifactsQuery,
