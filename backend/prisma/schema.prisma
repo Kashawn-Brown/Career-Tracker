@@ -47,8 +47,6 @@ model User {
 
   emailVerificationTokens EmailVerificationToken[]
   passwordResetTokens     PasswordResetToken[]
-  passwordHistory         PasswordHistory[]
-
 
   @@map("users")
 }
@@ -101,19 +99,6 @@ model PasswordResetToken {
   @@index([userId])
   @@map("password_reset_tokens")
 }
-
-model PasswordHistory {
-  id           String   @id @default(cuid())
-  userId       String
-  passwordHash String
-  createdAt    DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, createdAt])
-  @@map("password_history")
-}
-
 
 
 model JobApplication {
