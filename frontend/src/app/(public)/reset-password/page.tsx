@@ -1,3 +1,7 @@
+// Force dynamic rendering and no caching
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import ResetPasswordClient from "./ResetPasswordClient";
 
 type PageProps = {
