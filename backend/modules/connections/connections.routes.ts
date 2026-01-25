@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { requireAuth } from "../../middleware/auth.js";
+import { requireVerifiedEmail } from "../../middleware/require-verified-email.js";
 import {
   ConnectionIdParams,
   CreateConnectionBody,
@@ -21,7 +22,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
    */
   app.post(
     "/",
-    { preHandler: [requireAuth], schema: { body: CreateConnectionBody } },
+    { preHandler: [requireAuth, requireVerifiedEmail], schema: { body: CreateConnectionBody } },
     async (req, reply) => {
       const userId = req.user!.id;
       const body = req.body as CreateConnectionBodyType;
@@ -37,7 +38,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
    */
   app.get(
     "/",
-    { preHandler: [requireAuth], schema: { querystring: ListConnectionsQuery } },
+    { preHandler: [requireAuth, requireVerifiedEmail], schema: { querystring: ListConnectionsQuery } },
     async (req, reply) => {
       const userId = req.user!.id;
       const query = req.query as ListConnectionsQueryType;
@@ -53,7 +54,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
    */
   app.get(
     "/:id",
-    { preHandler: [requireAuth], schema: { params: ConnectionIdParams } },
+    { preHandler: [requireAuth, requireVerifiedEmail], schema: { params: ConnectionIdParams } },
     async (req) => {
       const userId = req.user!.id;
       const { id } = req.params as ConnectionIdParamsType;
@@ -70,7 +71,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
   app.patch(
     "/:id",
     {
-      preHandler: [requireAuth],
+      preHandler: [requireAuth, requireVerifiedEmail],
       schema: { params: ConnectionIdParams, body: UpdateConnectionBody },
     },
     async (req, reply) => {
@@ -89,7 +90,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
    */
   app.delete(
     "/:id",
-    { preHandler: [requireAuth], schema: { params: ConnectionIdParams } },
+    { preHandler: [requireAuth, requireVerifiedEmail], schema: { params: ConnectionIdParams } },
     async (req) => {
       const userId = req.user!.id;
       const { id } = req.params as ConnectionIdParamsType;
