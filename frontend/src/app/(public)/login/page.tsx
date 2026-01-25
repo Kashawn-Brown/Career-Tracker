@@ -114,6 +114,13 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
             />
+            
+            {/* Forgot password link */}
+            <div className="text-right">
+              <Link className="text-sm underline underline-offset-4 text-muted-foreground hover:text-foreground" href="/forgot-password">
+                Forgot password?
+              </Link>
+            </div>
           </div>
 
           <Button className="w-full" type="submit" disabled={isSubmitting}>
@@ -125,7 +132,7 @@ export default function LoginPage() {
       <CardFooter className="border-t justify-center">
         <div className="text-sm text-muted-foreground">
           No account?{" "}
-          <Link className="font-medium underline underline-offset-4" href="/register">
+          <Link className="font-medium underline underline-offset-4 hover:text-foreground" href="/register">
             Create one
           </Link>
         </div>
