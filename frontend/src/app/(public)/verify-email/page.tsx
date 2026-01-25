@@ -4,14 +4,15 @@ export const revalidate = 0;
 
 import VerifyEmailClient from "./VerifyEmailClient";
 
-type PageProps = {
-  searchParams?: Record<string, string | string[] | undefined>;
-};
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-export default function VerifyEmailPage({ searchParams }: PageProps) {
-  
+
+export default async function VerifyEmailPage({ searchParams }: { searchParams: SearchParams }) {
+
   // Get the verification token from the URL
-  const raw = searchParams?.token;
+  const params = await searchParams;
+    
+  const raw = params?.token;
   const token = Array.isArray(raw) ? raw[0] : raw ?? "";
 
   // Render the VerifyEmailClient component with the token
