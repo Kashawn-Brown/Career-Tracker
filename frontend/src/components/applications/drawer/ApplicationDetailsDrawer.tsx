@@ -1016,10 +1016,10 @@ export function ApplicationDetailsDrawer({
 
         {previewDocId ? (
           <div
-            className="hidden lg:block fixed top-6 z-[60] -translate-x-1/2"
+            className="hidden lg:block fixed inset-y-6 z-[60] -translate-x-1/2"
             style={previewDockedStyle ?? undefined}
           >
-            <div className="h-[min(80vh,900px)] rounded-xl border bg-background shadow-xl overflow-hidden">
+            <div className="h-full rounded-xl border bg-background shadow-xl overflow-hidden flex flex-col">
               <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
                 <div className="min-w-0">
                   <div className="text-sm font-medium truncate">
@@ -1038,7 +1038,7 @@ export function ApplicationDetailsDrawer({
                 </Button>
               </div>
 
-              <div className="h-[calc(100%-52px)]">
+              <div className="flex-1">
                 {isPreviewLoading ? (
                   <div className="p-4 text-sm text-muted-foreground">Loading preview...</div>
                 ) : previewError ? (
