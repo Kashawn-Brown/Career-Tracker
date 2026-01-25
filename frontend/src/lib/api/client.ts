@@ -40,6 +40,18 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Attempts to pull a stable error code from a backend error response.
+ * Used for behavior-specific UX (ex: EMAIL_NOT_VERIFIED, AI_QUOTA_EXCEEDED).
+ */
+export function getErrorCode(details: unknown): string | null {
+  if (typeof details !== "object" || details === null) return null;
+  if (!("code" in details)) return null;
+  const code = (details as Record<string, unknown>).code;
+  return typeof code === "string" && code.length > 0 ? code : null;
+}
+
+
 // Chooses the API base URL
 function getBaseUrl(): string {
   // NEXT_PUBLIC_* is exposed to the browser (needed for frontend -> backend calls).
