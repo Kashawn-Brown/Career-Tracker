@@ -16,8 +16,17 @@ import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Pencil, Save, X, Star } from "lucide-react";
+import type { CSSProperties } from "react";
+
 
 // ApplicationDetailsDrawer.tsx: a drawer component for the app to use for displaying application details
+
+// Selector for the application details drawer
+const DRAWER_SELECTOR = '[data-app-drawer="application-details"]';
+
+// Keep spacing consistent with Fit dialog docking
+const PREVIEW_DOCK_PADDING_PX = 24;
+const PREVIEW_MAX_WIDTH_PX = 900;
 
 
 // A helper component to display a section of the application details (e.g. Job details, Job link, Tags, Notes, Job description)
@@ -240,6 +249,9 @@ export function ApplicationDetailsDrawer({
 
   const [useAiOverride, setUseAiOverride] = useState(false);
   const [aiOverrideFile, setAiOverrideFile] = useState<File | null>(null);
+
+  // Docking style for the document preview
+  const [previewDockedStyle, setPreviewDockedStyle] = useState<CSSProperties | null>(null);
 
 
   // keep the drawer’s draft in sync with the selected application.
@@ -484,6 +496,38 @@ export function ApplicationDetailsDrawer({
       setIsPreviewLoading(false);
     }
   }
+
+  // Computes the docking style for the document preview
+  useEffect(() => {
+    if (!previewDocId) {
+      setPreviewDockedStyle(null);
+      return;
+    }
+  
+    // Dock the preview inside the space left of the drawer (even padding on both sides)
+    const compute = () => {
+      const drawerEl = document.querySelector(DRAWER_SELECTOR) as HTMLElement | null;
+      const drawerRect = drawerEl?.getBoundingClientRect() ?? null;
+  
+      const availableWidth = drawerRect ? drawerRect.left : window.innerWidth;
+      const centerX = Math.max(availableWidth / 2, PREVIEW_DOCK_PADDING_PX);
+  
+      const width = Math.min(
+        PREVIEW_MAX_WIDTH_PX,
+        Math.max(availableWidth - PREVIEW_DOCK_PADDING_PX * 2, 0)
+      );
+  
+      setPreviewDockedStyle({
+        left: `${centerX}px`,
+        width: `${width}px`,
+      });
+    };
+  
+    compute();
+    window.addEventListener("resize", compute);
+    return () => window.removeEventListener("resize", compute);
+  }, [previewDocId]);
+  
   
 
   // The title of the application details drawer (e.g. "⭐ Position @ Company")
@@ -498,50 +542,6 @@ export function ApplicationDetailsDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-
-      {/* Document preview */}
-      {previewDocId ? (
-        <div
-          className="hidden lg:flex fixed inset-y-0 left-0 z-[60] pointer-events-none items-start justify-center p-4"
-          style={{ right: "min(32rem, 75vw)" }} // keeps it from overlapping the drawer
-        >
-          <div className="pointer-events-auto mt-2 w-[min(900px,calc(100%-2rem))] h-[min(80vh,900px)] rounded-xl border bg-background shadow-xl overflow-hidden">
-            <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
-              <div className="min-w-0">
-                <div className="text-sm font-medium truncate">
-                  {previewTitle ?? "Preview"}
-                </div>
-                <div className="text-xs text-muted-foreground">PDF preview</div>
-              </div>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={clearPreview}
-                title="Close preview"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-
-            <div className="h-[calc(100%-52px)]">
-              {isPreviewLoading ? (
-                <div className="p-4 text-sm text-muted-foreground">Loading preview...</div>
-              ) : previewError ? (
-                <div className="p-4 text-sm text-destructive">{previewError}</div>
-              ) : previewUrl ? (
-                <iframe
-                  src={previewUrl}
-                  title={previewTitle ?? "PDF preview"}
-                  className="h-full w-full bg-white"
-                  referrerPolicy="no-referrer"
-                />
-              ) : null}
-            </div>
-          </div>
-        </div>
-      ) : null}
-
       
       {/* Application details */}
       <SheetContent side="right" className="space-y-5 overflow-y-auto" data-app-drawer="application-details">
@@ -1008,10 +1008,54 @@ export function ApplicationDetailsDrawer({
               }}
               onOverrideFile={setAiOverrideFile}
               onDocumentsChanged={onDocumentsChanged}
+              onRequestClosePreview={clearPreview}
             />
             </Section>
           </div>
         )}
+
+        {previewDocId ? (
+          <div
+            className="hidden lg:block fixed top-6 z-[60] -translate-x-1/2"
+            style={previewDockedStyle ?? undefined}
+          >
+            <div className="h-[min(80vh,900px)] rounded-xl border bg-background shadow-xl overflow-hidden">
+              <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium truncate">
+                    {previewTitle ?? "Preview"}
+                  </div>
+                  <div className="text-xs text-muted-foreground">PDF preview</div>
+                </div>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={clearPreview}
+                  title="Close preview"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div className="h-[calc(100%-52px)]">
+                {isPreviewLoading ? (
+                  <div className="p-4 text-sm text-muted-foreground">Loading preview...</div>
+                ) : previewError ? (
+                  <div className="p-4 text-sm text-destructive">{previewError}</div>
+                ) : previewUrl ? (
+                  <iframe
+                    src={previewUrl}
+                    title={previewTitle ?? "PDF preview"}
+                    className="h-full w-full bg-white"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ) : null}
+
       </SheetContent>
     </Sheet>
   );
