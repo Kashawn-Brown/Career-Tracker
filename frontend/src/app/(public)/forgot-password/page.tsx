@@ -86,7 +86,7 @@ export default function ForgotPasswordPage() {
             An email has been sent to <span className="font-medium">{email}</span> with a link to reset your password.
             <br />
             <br />
-            <span className="text-muted-foreground text-xs">If you have an account using that email address and didn't receive an email, check your spam folder or try again.</span>
+            <span className="text-muted-foreground text-xs">{"If you have an account using that email address and didn't receive an email, check your spam folder or try again."}</span>
           </Alert>
         ) : null}
 
