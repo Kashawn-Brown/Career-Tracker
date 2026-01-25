@@ -27,6 +27,19 @@ export function setUnauthorizedHandler(handler: (() => void) | null) {
   onUnauthorized = handler;
 }
 
+// Email-not-verified handler: lets app decide what to do on 403 EMAIL_NOT_VERIFIED.
+let onEmailNotVerified: (() => void) | null = null;
+
+/**
+ * Registers a global handler for "email not verified" responses (HTTP 403 with code EMAIL_NOT_VERIFIED).
+ *
+ * @param handler - Called when apiFetch receives a 403 EMAIL_NOT_VERIFIED response.
+ */
+export function setEmailNotVerifiedHandler(handler: (() => void) | null) {
+  onEmailNotVerified = handler;
+}
+
+
 // Consistent error object
 export class ApiError extends Error {
   status: number;
@@ -194,6 +207,13 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
       onUnauthorized();
     }
 
+    // If authenticated but email isn't verified, let the app redirect cleanly.
+    const code = getErrorCode(data);
+
+    if (response.status === 403 && code === "EMAIL_NOT_VERIFIED" && onEmailNotVerified) {
+      onEmailNotVerified();
+    }
+  
     // Prefer a server-provided error message (if present); otherwise fall back to a generic message
     const message = (hasMessage(data) && String(data.message)) || `Request failed (${response.status})`;
     
