@@ -6,14 +6,16 @@ import { useSearchParams } from "next/navigation";
 import { apiFetch, ApiError } from "@/lib/api/client";
 import { routes } from "@/lib/api/routes";
 import type { OkResponse } from "@/types/api";
-import { Button } from "@/components/ui/button";
+// import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function VerifyEmailPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { isAuthenticated, isHydrated } = useAuth();
 
   // Get the verification token from the URL
   const token = useMemo(() => searchParams.get("token") ?? "", [searchParams]);
@@ -48,7 +50,13 @@ export default function VerifyEmailPage() {
         else setErrorMessage("Verification failed. Please request a new link.");
       }
     })();
-  }, [token]);
+  }, [token, router]);
+
+  // If the user is already logged in, redirect.
+  useEffect(() => {
+    if (!isHydrated) return;
+    if (isAuthenticated) router.replace("/applications");
+  }, [isHydrated, isAuthenticated, router]);
 
   return (
     <Card>

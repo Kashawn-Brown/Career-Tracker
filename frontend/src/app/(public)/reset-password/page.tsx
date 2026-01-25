@@ -8,15 +8,17 @@ import { routes } from "@/lib/api/routes";
 import type { OkResponse } from "@/types/api";
 import { evaluatePassword } from "@/lib/auth/password-policy";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert } from "@/components/ui/alert";
 import { EyeOff, Eye } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function ResetPasswordPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { isAuthenticated, isHydrated } = useAuth();
 
   // Get the reset password token from the URL
   const token = useMemo(() => searchParams.get("token") ?? "", [searchParams]);
@@ -38,6 +40,12 @@ export default function ResetPasswordPage() {
   useEffect(() => {
     if (!token) setErrorMessage("Missing reset token. Please request a new reset link.");
   }, [token]);
+
+  // If the user is already logged in, redirect.
+  useEffect(() => {
+    if (!isHydrated) return;
+    if (isAuthenticated) router.replace("/applications");
+  }, [isHydrated, isAuthenticated, router]);
 
   // Handle form submission
   async function handleSubmit(e: React.FormEvent) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiFetch, ApiError } from "@/lib/api/client";
 import { routes } from "@/lib/api/routes";
@@ -10,13 +10,24 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert } from "@/components/ui/alert";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function ForgotPasswordPage() {
+  const router = useRouter();
+  const { isAuthenticated, isHydrated } = useAuth();
+
   const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+
+  // If the user is already logged in, redirect.
+  useEffect(() => {
+    if (!isHydrated) return;
+    if (isAuthenticated) router.replace("/applications");
+  }, [isHydrated, isAuthenticated, router]);
 
   // Handle form submission
   async function handleSubmit(e: React.FormEvent) {
@@ -51,7 +62,7 @@ export default function ForgotPasswordPage() {
     <Card>
       <CardHeader className="border-b">
         <CardTitle>Forgot password</CardTitle>
-        <CardDescription>Enter your account email. We'll send you a link to reset your password.</CardDescription>
+        <CardDescription>{"Enter your account email. We'll send you a link to reset your password."}</CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-4">
