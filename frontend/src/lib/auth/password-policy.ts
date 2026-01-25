@@ -19,7 +19,7 @@ export type PasswordChecks = {
 export type PasswordEval = {
   ok: boolean;
   checks: PasswordChecks;
-  strengthLabel: "Too short" | "Weak" | "Okay" | "Good" | "Strong";
+  strengthLabel: " " | "Too short" | "Weak" | "Okay" | "Good" | "Strong";
 };
 
 function isTooRepetitive(password: string) {
@@ -68,7 +68,7 @@ export function evaluatePassword(password: string, email?: string): PasswordEval
   const lengthOk = notAllWhitespace && minLength && maxLength;
   const categoryCount = (hasLower ? 1 : 0) + (hasUpper ? 1 : 0) + (hasNumber ? 1 : 0) + (hasSymbol ? 1 : 0);
 
-  const strengthLabel: PasswordEval["strengthLabel"] = 
+  const strengthLabel: PasswordEval["strengthLabel"] = password.length === 0 ? " " :
     !lengthOk ? "Too short" :
     categoryCount >= 4 ? "Strong" :
     categoryCount === 3 ? "Good" :
@@ -76,7 +76,7 @@ export function evaluatePassword(password: string, email?: string): PasswordEval
     "Weak";
 
     const ok =
-    notAllWhitespace &&
+    notAllWhitespace && 
     minLength &&
     maxLength &&
     hasLower &&
