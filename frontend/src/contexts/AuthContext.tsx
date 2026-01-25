@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useEffect, useMemo, useState, useCallback } from "react";
-import { apiFetch, setUnauthorizedHandler  } from "@/lib/api/client";
+import { apiFetch, setUnauthorizedHandler, setEmailNotVerifiedHandler } from "@/lib/api/client";
 import { routes } from "@/lib/api/routes";
 import { clearToken, setToken } from "@/lib/auth/token";
 import { clearCsrfToken, getCsrfToken as getCsrfTokenFromMemory, setCsrfToken as setCsrfTokenInMemory } from "@/lib/auth/csrf";
@@ -140,6 +140,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Cleanup: avoid stale handlers if provider ever unmounts (rare, but good hygiene).
     return () => setUnauthorizedHandler(null);
   }, [logout]);
+
+  // Defines what "email not verified" means for the app: keep session, redirect to verify-required.
+  useEffect(() => {
+    setEmailNotVerifiedHandler(() => {
+      // Avoid redirect loops if we're already there.
+      if (typeof window !== "undefined" && window.location.pathname !== "/verify-required") {
+        window.location.assign("/verify-required");
+      }
+    });
+
+    return () => setEmailNotVerifiedHandler(null);
+  }, []);
 
 
   // Calls Backend API endpoint "/auth/login" using apiFetch helper

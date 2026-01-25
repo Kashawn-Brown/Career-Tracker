@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { requireAuth } from "../../middleware/auth.js";
+import { requireVerifiedEmail } from "../../middleware/require-verified-email.js";
 import { UpdateMeBody } from "./user.schemas.js";
 import type { UpdateMeBodyType } from "./user.schemas.js";
 import * as UserService from "./user.service.js";
@@ -23,11 +24,11 @@ export async function userRoutes(app: FastifyInstance) {
 
   /**
    * Update current user profile (MVP: name only)
-   * Requires JWT (Bearer token)
+   * User must be verified to update their profile.
    */
   app.patch(
     "/me",
-    { preHandler: [requireAuth], schema: { body: UpdateMeBody } },
+    { preHandler: [requireAuth, requireVerifiedEmail], schema: { body: UpdateMeBody } },
     async (req) => {
       const userId = req.user!.id;
       const body = req.body as UpdateMeBodyType;

@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { requireAuth } from "../../middleware/auth.js";
+import { requireVerifiedEmail } from "../../middleware/require-verified-email.js";
 import { AppError } from "../../errors/app-error.js";
 import * as DocumentsService from "./documents.service.js";
 import { DocumentIdParams, DocumentDownloadQuery } from "./documents.schemas.js";
@@ -13,7 +14,7 @@ export async function documentsRoutes(app: FastifyInstance) {
     app.get(
       "/:id/download",
       {
-        preHandler: [requireAuth],
+        preHandler: [requireAuth, requireVerifiedEmail],
         schema: { params: DocumentIdParams, query: DocumentDownloadQuery },
       },
       async (req) => {
@@ -38,7 +39,7 @@ export async function documentsRoutes(app: FastifyInstance) {
     app.delete(
       "/:id",
       {
-        preHandler: [requireAuth],
+        preHandler: [requireAuth, requireVerifiedEmail],
         schema: { params: DocumentIdParams },
       },
       async (req) => {
@@ -56,7 +57,7 @@ export async function documentsRoutes(app: FastifyInstance) {
   /**
    * Gets the current base resume for the current user.
    */
-  app.get("/base-resume", { preHandler: [requireAuth] }, async (req) => {
+  app.get("/base-resume", { preHandler: [requireAuth, requireVerifiedEmail] }, async (req) => {
     const userId = req.user!.id;
     const doc = await DocumentsService.getBaseResume(userId);
     return { baseResume: doc };
@@ -65,7 +66,7 @@ export async function documentsRoutes(app: FastifyInstance) {
   /**
    * Create/replace the base resume file for the current user.
    */
-  app.post("/base-resume", { preHandler: [requireAuth] }, async (req, reply) => {
+  app.post("/base-resume", { preHandler: [requireAuth, requireVerifiedEmail] }, async (req, reply) => {
       const userId = req.user!.id;
 
       // Get the file from the request
@@ -91,7 +92,7 @@ export async function documentsRoutes(app: FastifyInstance) {
   /**
    * Delete base resume for the current user.
    */
-  app.delete("/base-resume", { preHandler: [requireAuth] }, async (req) => {
+  app.delete("/base-resume", { preHandler: [requireAuth, requireVerifiedEmail] }, async (req) => {
     const userId = req.user!.id;
 
     return DocumentsService.deleteBaseResume(userId);
@@ -100,7 +101,7 @@ export async function documentsRoutes(app: FastifyInstance) {
   /**
    * Gets the download URL for the base resume for the current user.
    */
-  app.get("/base-resume/download", { preHandler: [requireAuth] }, async (req) => {
+  app.get("/base-resume/download", { preHandler: [requireAuth, requireVerifiedEmail] }, async (req) => {
     const userId = req.user!.id;
     const { disposition } = req.query as DocumentDownloadQueryType;
     const downloadUrl = await DocumentsService.getBaseResumeDownloadUrl(userId, disposition);

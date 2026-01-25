@@ -23,7 +23,7 @@ export function registerErrorHandlers(app: FastifyInstance) {
     if (err instanceof AppError) {
       // Log as warn (not a server bug, usually user input / state)
       req.log?.warn({ err }, "AppError");
-      reply.status(err.statusCode).send({ message: err.message });
+      reply.status(err.statusCode).send({ message: err.message, ...(err.code ? { code: err.code } : {})});
       return;
     }
 

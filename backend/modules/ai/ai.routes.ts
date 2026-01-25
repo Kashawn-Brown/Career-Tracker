@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { requireAuth } from "../../middleware/auth.js";
+import { requireVerifiedEmail } from "../../middleware/require-verified-email.js";
 import { JdBody, ApplicationDraftResponse } from "./ai.schemas.js";
 import type { JdBodyType } from "./ai.schemas.js";
 import * as AiService from "./ai.service.js";
@@ -13,7 +14,7 @@ export async function aiRoutes(app: FastifyInstance) {
   app.post(
     "/application-from-jd",
     {
-      preHandler: [requireAuth],
+      preHandler: [requireAuth, requireVerifiedEmail],
       schema: {
         body: JdBody,
         response: { 200: ApplicationDraftResponse },  // expected response
