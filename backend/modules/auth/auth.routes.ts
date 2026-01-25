@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
-import { RegisterBody, LoginBody, EmptyBody, VerifyEmailBody, ResendVerificationBody } from "./auth.schemas.js";
-import type { RegisterBodyType, LoginBodyType, EmptyBodyType, VerifyEmailBodyType, ResendVerificationBodyType } from "./auth.schemas.js";
+import { RegisterBody, LoginBody, EmptyBody, VerifyEmailBody, ResendVerificationBody, ForgotPasswordBody, ResetPasswordBody } from "./auth.schemas.js";
+import type { RegisterBodyType, LoginBodyType, EmptyBodyType, VerifyEmailBodyType, ResendVerificationBodyType, ForgotPasswordBodyType, ResetPasswordBodyType } from "./auth.schemas.js";
 import * as AuthService from "./auth.service.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { setRefreshCookie, toSafeAuthResponse, assertAllowedOrigin, getCsrfHeader, clearRefreshCookie, rateLimitKeyByIp, rateLimitKeyByIpAndEmail } from "./auth.http.js";
@@ -195,7 +195,47 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.send({ ok: true });
     }
   );
+
+
+  //---------------- PASSWORD RESET ----------------
   
+  /**
+   * Forgot password (no enumeration): always returns { ok: true }.
+   */
+  app.post(
+    "/forgot-password",
+    {
+      schema: { body: ForgotPasswordBody },
+      config: { rateLimit: { max: 3, timeWindow: "1 minute", keyGenerator: rateLimitKeyByIpAndEmail } },
+    },
+    async (req, reply) => {
+      const body = req.body as ForgotPasswordBodyType;
+
+      // Always returns ok (even if user doesn't exist).
+      await AuthService.forgotPassword(body.email);
+
+      return reply.send({ ok: true });
+    }
+  );
+
+  /**
+   * Reset password using emailed token.
+   */
+  app.post(
+    "/reset-password",
+    {
+      schema: { body: ResetPasswordBody },
+      config: { rateLimit: { max: 10, timeWindow: "1 minute", keyGenerator: rateLimitKeyByIp } },
+    },
+    async (req, reply) => {
+      const body = req.body as ResetPasswordBodyType;
+
+      await AuthService.resetPassword(body.token, body.newPassword);
+
+      return reply.send({ ok: true });
+    }
+  );
+
 
 
   /**

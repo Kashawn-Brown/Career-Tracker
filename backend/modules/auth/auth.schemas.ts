@@ -51,13 +51,43 @@ export const ResendVerificationBody = Type.Object(
   { additionalProperties: false }
 );
 
+/**
+ * Request body for password reset.
+ */
+export const ForgotPasswordBody = Type.Object(
+  {
+    email: Type.String({ format: "email" }),
+  },
+  { additionalProperties: false }
+);
+
+/**
+ * Request body for resetting a password.
+ * 
+ * Confirm the token is valid and then reset the password to the new password.
+ */
+export const ResetPasswordBody = Type.Object(
+  {
+    token: Type.String({ minLength: 16, maxLength: 300 }),
+    newPassword: Type.String({ minLength: 8, maxLength: 72 }),
+  },
+  { additionalProperties: false }
+);
+
+
+
+
 
 export const EmptyBody = Type.Object({}, { additionalProperties: false });
 
 
 export type RegisterBodyType = Static<typeof RegisterBody>;
 export type LoginBodyType = Static<typeof LoginBody>;
+
 export type EmptyBodyType = Static<typeof EmptyBody>;
+
 export type VerifyEmailBodyType = Static<typeof VerifyEmailBody>;
 export type ResendVerificationBodyType = Static<typeof ResendVerificationBody>;
 
+export type ForgotPasswordBodyType = Static<typeof ForgotPasswordBody>;
+export type ResetPasswordBodyType = Static<typeof ResetPasswordBody>;

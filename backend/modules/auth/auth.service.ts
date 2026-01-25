@@ -366,3 +366,158 @@ export async function resendVerificationEmail(email: string): Promise<void> {
     console.warn("[auth] resend verification failed", err?.message ?? err);
   }
 }
+
+
+// ---------------- PASSWORD RESET ----------------
+
+const RESET_TOKEN_BYTES = 32;
+const RESET_TTL_MINUTES = 60;
+
+function frontendUrl() {
+  const raw = process.env.FRONTEND_URL ?? "http://localhost:3000";
+  return raw.endsWith("/") ? raw.slice(0, -1) : raw;
+}
+
+function resetPasswordHtml(url: string): string {
+  return `
+    <p>Reset your password for Career-Tracker:</p>
+    <p><a href="${url}">Reset password</a></p>
+    <p>If you didn’t request this password reset, you can ignore this email.</p>
+  `.trim();
+}
+
+/**
+ * Forgot password:
+ * - If user exists, create reset token + email link
+ * - Send the email to the user
+ */
+export async function forgotPassword(email: string): Promise<void> {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  // Find the user by email
+  const user = await prisma.user.findUnique({
+    where: { email: normalizedEmail },
+    select: { id: true, email: true, name: true },
+  });
+
+  if (!user) return;
+
+  // Generate the reset password token
+  const token = generateToken(RESET_TOKEN_BYTES);
+  const tokenHash = hashToken(token);
+  const expiresAt = new Date(Date.now() + RESET_TTL_MINUTES * 60 * 1000);
+
+  // Expire any previous active tokens
+  await prisma.passwordResetToken.updateMany({
+    where: {
+      userId: user.id,
+      consumedAt: null,
+      expiresAt: { gt: now() },
+    },
+    data: { expiresAt: now() },
+  });
+
+  // Add the new reset password token to the database
+  await prisma.passwordResetToken.create({
+    data: {
+      userId: user.id,
+      tokenHash,
+      expiresAt,
+    },
+  });
+
+  // Build the reset password URL
+  const resetUrl = `${frontendUrl()}/reset-password?token=${encodeURIComponent(token)}`;
+
+  // Send the email to the user
+  try {
+    await sendEmail({
+      to: user.email,
+      subject: "Reset your password",
+      html: resetPasswordHtml(resetUrl),
+      kind: "reset_password",
+      userId: user.id,
+    });
+
+    console.info({
+      msg: "[email.send]",
+      kind: "reset_password",
+      ok: true,
+      userId: user.id,
+    });
+  } catch (err) {
+    // Do not fail the endpoint (still returns ok). Just log.
+    console.error({
+      msg: "[email.send]",
+      kind: "reset_password",
+      ok: false,
+      userId: user.id,
+      err,
+    });
+  }
+}
+
+/**
+ * Reset password:
+ * - Validate token exists + not consumed + not expired
+ * - Enforce password policy
+ * - Reject if same as current password (basic safety)
+ * - Consume token + set new password + revoke all sessions
+ */
+export async function resetPassword(token: string, newPassword: string): Promise<void> {
+
+  // Hash the token
+  const tokenHash = hashToken(token);
+
+  // Find the reset password token
+  const tokenRecord = await prisma.passwordResetToken.findUnique({
+    where: { tokenHash },
+    include: { user: { select: { id: true, email: true, passwordHash: true } } },
+  });
+
+  // If the token is not found, expired, or already consumed, throw an error
+  if (!tokenRecord || tokenRecord.consumedAt || tokenRecord.expiresAt.getTime() <= Date.now()) {
+    throw new AppError("Invalid or expired token", 400);
+  }
+
+  // Enforce the same registration policy
+  const passwordPolicy = evaluatePasswordPolicy(newPassword, tokenRecord.user.email);
+  if (!passwordPolicy.ok) throw new AppError(formatPasswordPolicyError(passwordPolicy.reasons), 400);
+
+  // Prevent "reset to current password"
+  const sameAsCurrent = await bcrypt.compare(newPassword, tokenRecord.user.passwordHash);
+  if (sameAsCurrent) throw new AppError("New password must be different from your current password", 400);
+
+  // Hash the new password
+  const nextHash = await bcrypt.hash(newPassword, 12);
+  const ts = now();
+
+  // Consume the token and update the user's password
+  await prisma.$transaction(async (db) => {
+    
+    // Consume token to prevent reuse
+    const consumed = await db.passwordResetToken.updateMany({
+      where: {
+        tokenHash,
+        consumedAt: null,
+        expiresAt: { gt: ts },
+      },
+      data: { consumedAt: ts },
+    });
+
+    if (consumed.count === 0) {
+      throw new AppError("Invalid or expired token", 400);
+    }
+
+    await db.user.update({
+      where: { id: tokenRecord.userId },
+      data: { passwordHash: nextHash },
+    });
+
+    // Security: revoke all refresh sessions after password reset
+    await db.authSession.updateMany({
+      where: { userId: tokenRecord.userId, revokedAt: null },
+      data: { revokedAt: ts, lastUsedAt: ts },
+    });
+  });
+}

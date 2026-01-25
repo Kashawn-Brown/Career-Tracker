@@ -10,6 +10,9 @@ type SendEmailArgs = {
   userId?: string | null;
 };
 
+/**
+ * Send an email using Resend.
+ */
 export async function sendEmail(args: SendEmailArgs): Promise<{ id: string | null }> {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.EMAIL_FROM;
