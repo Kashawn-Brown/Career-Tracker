@@ -46,6 +46,21 @@ export default function RegisterPage() {
     pwEval.ok &&
     passwordsMatch &&
     !isSubmitting;
+  
+    const hasPassword = password.length > 0;
+
+  const pwDotClass = !hasPassword
+    ? "bg-muted-foreground/40"
+    : pwEval.ok
+    ? "bg-emerald-500"
+    : "bg-red-500";
+
+  const pwLabelClass = !hasPassword
+    ? ""
+    : pwEval.ok
+    ? "text-emerald-600 dark:text-emerald-500"
+    : "text-red-600 dark:text-red-500";
+
 
 
   // If already logged in, redirect.
@@ -169,9 +184,13 @@ export default function RegisterPage() {
             </div>
 
             <div className="text-right mr-1">
-              <span className="text-xs text-muted-foreground">
-                  Strength: <span className="font-medium">{pwEval.strengthLabel}</span>
+            <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
+              Strength:
+              <span className={`inline-flex items-center gap-1 font-medium ${pwLabelClass}`}>
+                <span className={`h-2 w-2 rounded-full ${pwDotClass}`} aria-hidden="true" />
+                {pwEval.strengthLabel}
               </span>
+            </span>
             </div>
           </div>
 
