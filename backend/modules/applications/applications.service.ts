@@ -140,45 +140,71 @@ export async function getApplicationById(userId: string, id: string) {
 }
 
 
-
 /**
  * Partial update of an application that belongs to the current user.
  */
-export async function updateApplication(userId: string, id: string, input: UpdateApplicationInput) {
-  const data: any = {};
-
-  // Only apply fields that were actually provided by the client (PATCH semantics)
-  if (input.company !== undefined) data.company = input.company;
-  if (input.position !== undefined) data.position = input.position;
-  if (input.status !== undefined) data.status = input.status;
-
-  // Convert ISO string -> Date for Prisma
-  if (input.dateApplied !== undefined) {
-    data.dateApplied = input.dateApplied ? new Date(input.dateApplied) : null;
-  }
-
-  if (input.location !== undefined) data.location = normalizeNullableString(input.location);
-  if (input.locationDetails !== undefined) data.locationDetails = normalizeNullableString(input.locationDetails);
-
-  if (input.jobType !== undefined) data.jobType = input.jobType;
-  if (input.jobTypeDetails !== undefined) data.jobTypeDetails = normalizeNullableString(input.jobTypeDetails);
-  
-  if (input.workMode !== undefined) data.workMode = input.workMode;
-  if (input.workModeDetails !== undefined) data.workModeDetails = normalizeNullableString(input.workModeDetails);
-
-  if (input.salaryText !== undefined) {
-    data.salaryText = normalizeNullableString(input.salaryText);
-  }
-
-  if (input.isFavorite !== undefined) data.isFavorite = input.isFavorite;
-
-  if (input.jobLink !== undefined) data.jobLink = normalizeNullableString(input.jobLink);
-  if (input.description !== undefined) data.description = normalizeNullableString(input.description);
-  if (input.notes !== undefined) data.notes = normalizeNullableString(input.notes);
-  if (input.tagsText !== undefined) data.tagsText = normalizeNullableString(input.tagsText);
-
-  // Wrap in transaction to group the db operations into one
+export async function updateApplication(
+  userId: string,
+  id: string,
+  input: UpdateApplicationInput
+) {
+  // Wrap in transaction so the "read current state" + "write update" are consistent
   return prisma.$transaction(async (db: Prisma.TransactionClient) => {
+    const current = await db.jobApplication.findFirst({
+      where: { id, userId },
+      select: { status: true, dateApplied: true },
+    });
+
+    if (!current) {
+      throw new AppError("Application not found", 404);
+    }
+
+    // Build the data object to update the application
+    const data: any = {};
+
+    // Only apply fields that were actually provided by the client (PATCH semantics)
+    if (input.company !== undefined) data.company = input.company;
+    if (input.position !== undefined) data.position = input.position;
+
+    if (input.status !== undefined) data.status = input.status;
+
+    // Check if the status is being transitioned to applied
+    const TransitionToApplied = input.status === ApplicationStatus.APPLIED && current.status !== ApplicationStatus.APPLIED;
+
+    // Track if client explicitly provided dateApplied
+    const inputDateApplied = input.dateApplied !== undefined;
+
+    // If the status is being transitioned to applied and the client did not explicitly provide a dateApplied, auto-fill the dateApplied
+    if (TransitionToApplied && !inputDateApplied && current.dateApplied === null) {
+      // Auto-fill only once; never overwrite existing applied date
+      data.dateApplied = new Date();
+    }
+
+    // Convert ISO string -> Date for Prisma (explicit client value wins)
+    if (input.dateApplied !== undefined) {
+      data.dateApplied = input.dateApplied ? new Date(input.dateApplied) : null;
+    }
+
+    if (input.location !== undefined) data.location = normalizeNullableString(input.location);
+    if (input.locationDetails !== undefined) data.locationDetails = normalizeNullableString(input.locationDetails);
+
+    if (input.jobType !== undefined) data.jobType = input.jobType;
+    if (input.jobTypeDetails !== undefined) data.jobTypeDetails = normalizeNullableString(input.jobTypeDetails);
+
+    if (input.workMode !== undefined) data.workMode = input.workMode;
+    if (input.workModeDetails !== undefined) data.workModeDetails = normalizeNullableString(input.workModeDetails);
+
+    if (input.salaryText !== undefined) {
+      data.salaryText = normalizeNullableString(input.salaryText);
+    }
+
+    if (input.isFavorite !== undefined) data.isFavorite = input.isFavorite;
+
+    if (input.jobLink !== undefined) data.jobLink = normalizeNullableString(input.jobLink);
+    if (input.description !== undefined) data.description = normalizeNullableString(input.description);
+    if (input.notes !== undefined) data.notes = normalizeNullableString(input.notes);
+    if (input.tagsText !== undefined) data.tagsText = normalizeNullableString(input.tagsText);
+
     const result = await db.jobApplication.updateMany({
       where: { id, userId },
       data,
@@ -194,7 +220,6 @@ export async function updateApplication(userId: string, id: string, input: Updat
       select: applicationSelect,
     });
   });
-
 }
 
 /**

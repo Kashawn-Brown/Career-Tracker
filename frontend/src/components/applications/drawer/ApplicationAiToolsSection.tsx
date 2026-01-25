@@ -41,7 +41,7 @@ function getFitBand(score: number): FitBand {
   };
 }
 
-
+// Props for the ApplicationAiToolsSection component
 type Props = {
   application: Application;
   baseResumeExists: boolean;
@@ -53,6 +53,8 @@ type Props = {
   onOverrideFile: (file: File | null) => void;
 
   onDocumentsChanged?: (applicationId: string) => void;
+
+  onRequestClosePreview?: () => void;
 };
 
 export function ApplicationAiToolsSection({ 
@@ -63,7 +65,8 @@ export function ApplicationAiToolsSection({
   overrideFile, 
   onToggleOverride, 
   onOverrideFile, 
-  onDocumentsChanged 
+  onDocumentsChanged,
+  onRequestClosePreview,
 }: Props) {
 
   // FIT artifact
@@ -279,7 +282,10 @@ export function ApplicationAiToolsSection({
               ) : null}
 
               <div className="pt-2 flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => setIsDetailsOpen(true)}>
+                <Button variant="outline" size="sm" onClick={() => {
+                  setIsDetailsOpen(true);
+                  onRequestClosePreview?.();
+                }}>
                   See more
                 </Button>
                 <Button
