@@ -23,4 +23,17 @@ export function validateEnv(): void {
     console.warn("[startup] REDIS_URL not set. Rate limiting will be per-instance in production.");
   }
 
+  if (process.env.NODE_ENV === "production") {
+    if (!process.env.RESEND_API_KEY) {
+      console.warn("[startup] RESEND_API_KEY not set. Email flows will fail.");
+    }
+    if (!process.env.EMAIL_FROM) {
+      console.warn("[startup] EMAIL_FROM not set. Email flows will fail.");
+    }
+    if (!process.env.FRONTEND_URL) {
+      console.warn("[startup] FRONTEND_URL not set. Email links may be wrong.");
+    }
+  }
+
+
 }

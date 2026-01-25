@@ -16,6 +16,7 @@ export type AuthUser = {
   id: string;
   email: string;
   name: string;
+  emailVerifiedAt: string | null;
   
   baseResumeUrl: string | null;
 

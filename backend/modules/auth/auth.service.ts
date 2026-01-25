@@ -5,12 +5,14 @@ import { AppError } from "../../errors/app-error.js";
 import { generateToken, hashToken } from "../../lib/crypto.js";
 import { authUserSelect, authLoginSelect, CreateAuthSessionOptions, SessionTokens } from "./auth.dto.js";
 import { evaluatePasswordPolicy, formatPasswordPolicyError } from "./password.policy.js";
+import { sendEmail } from "../../lib/email.js";
 
 
 /**
  * Service layer
  */
 
+// ---------------- REGISTRATION & LOGIN ----------------
 
 /**
  * Allow a user to register.
@@ -32,6 +34,24 @@ export async function register(email: string, password: string, name: string) {
     data: { email, name, passwordHash },
     select: authUserSelect,
   });
+
+  // Email verification: create token + send email
+  try {
+    const { token: verifyToken } = await issueEmailVerificationToken(user.id);
+    const url = buildVerifyEmailUrl(verifyToken);
+
+    await sendEmail({
+      to: user.email,
+      subject: "Verify your email",
+      html: verifyEmailHtml(url),
+      kind: "verify_email",
+      userId: user.id,
+    });
+  } catch (err: any) {
+    // Do not block registration if email fails; logs will show [email.send]
+    console.warn("[auth] verify email send failed", err?.message ?? err);
+  }
+  
 
   // Create refresh session (raw tokens returned only to route for cookie-setting)
   const session = await createAuthSession(user.id);
@@ -85,9 +105,8 @@ function signToken(user: { id: string; email: string }) {
   );
 }
 
-/**
- * Refresh session helpers.
- */
+
+// ---------------- SESSIONS/REFRESH TOKENS ----------------
 
 const DEFAULT_REFRESH_DAYS = 30;
 
@@ -235,4 +254,270 @@ export async function logoutSession(refreshToken: string, csrfToken: string): Pr
 }
 
 
+// ---------------- EMAIL VERIFICATION ----------------
 
+// Constants for email verification
+const VERIFY_TOKEN_BYTES = 32;
+const VERIFY_TOKEN_TTL_HOURS = 24;
+
+function getFrontendBaseUrl(): string {
+  const raw = process.env.FRONTEND_URL ?? "http://localhost:3000";
+  return raw.replace(/\/+$/, "");
+}
+
+function buildVerifyEmailUrl(token: string): string {
+  return `${getFrontendBaseUrl()}/verify-email?token=${encodeURIComponent(token)}`;
+}
+
+// Email verification HTML template
+function verifyEmailHtml(url: string): string {
+  return `
+    <p>Verify your email for Career-Tracker:</p>
+    <p><a href="${url}">Verify email</a></p>
+    <p>If you didn’t create this account, you can ignore this email.</p>
+  `.trim();
+}
+
+/**
+ * Issue a new email verification token for a user.
+ */
+async function issueEmailVerificationToken(userId: string): Promise<{ token: string; expiresAt: Date }> {
+  
+  // Generate the email verification token
+  const token = generateToken(VERIFY_TOKEN_BYTES);
+  const tokenHash = hashToken(token);
+  const expiresAt = new Date(Date.now() + VERIFY_TOKEN_TTL_HOURS * 60 * 60 * 1000);
+
+  // Invalidate any previous active tokens for this user
+  await prisma.$transaction(async (db) => {
+    await db.emailVerificationToken.updateMany({
+      where: { userId, consumedAt: null },
+      data: { consumedAt: now() },
+    });
+
+    // Add the new email verification token to the database
+    await db.emailVerificationToken.create({
+      data: { userId, tokenHash, expiresAt },
+    });
+  });
+
+  return { token, expiresAt };
+}
+
+/**
+ * Verify email token and mark user as verified
+ */
+export async function verifyEmail(token: string): Promise<void> {
+  const tokenHash = hashToken(token);
+
+  await prisma.$transaction(async (db) => {
+
+    // Find the email verification token
+    const tokenRecord = await db.emailVerificationToken.findUnique({
+      where: { tokenHash },
+      select: { id: true, userId: true, expiresAt: true, consumedAt: true },
+    });
+
+    // If the token is not found, expired, or already consumed, throw an error
+    if (!tokenRecord) throw new AppError("Invalid or expired token", 400);
+    if (tokenRecord.consumedAt) throw new AppError("Invalid or expired token", 400);
+    if (tokenRecord.expiresAt.getTime() <= Date.now()) throw new AppError("Invalid or expired token", 400);
+
+    // Consume token (mark as used) to prevent reuse
+    await db.emailVerificationToken.update({
+      where: { id: tokenRecord.id },
+      data: { consumedAt: now() },
+    });
+
+    // Mark user as verified
+    await db.user.updateMany({
+      where: { id: tokenRecord.userId, emailVerifiedAt: null },
+      data: { emailVerifiedAt: now() },
+    });
+  });
+}
+
+/**
+ * Resend a verification email to a user.
+ */
+export async function resendVerificationEmail(email: string): Promise<void> {
+  const user = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true, email: true, emailVerifiedAt: true },
+  });
+
+  // Do nothing if missing or already verified
+  if (!user) return;
+  if (user.emailVerifiedAt) return;
+
+  try {
+    const { token: verifyToken } = await issueEmailVerificationToken(user.id);
+    const url = buildVerifyEmailUrl(verifyToken);
+
+    await sendEmail({
+      to: user.email,
+      subject: "Verify your email",
+      html: verifyEmailHtml(url),
+      kind: "verify_email",
+      userId: user.id,
+    });
+  } catch (err: any) {
+    // Non-enumerating: swallow and rely on logs
+    console.warn("[auth] resend verification failed", err?.message ?? err);
+  }
+}
+
+
+// ---------------- PASSWORD RESET ----------------
+
+const RESET_TOKEN_BYTES = 32;
+const RESET_TTL_MINUTES = 60;
+
+function frontendUrl() {
+  const raw = process.env.FRONTEND_URL ?? "http://localhost:3000";
+  return raw.endsWith("/") ? raw.slice(0, -1) : raw;
+}
+
+function resetPasswordHtml(url: string): string {
+  return `
+    <p>Reset your password for Career-Tracker:</p>
+    <p><a href="${url}">Reset password</a></p>
+    <p>If you didn’t request this password reset, you can ignore this email.</p>
+  `.trim();
+}
+
+/**
+ * Forgot password:
+ * - If user exists, create reset token + email link
+ * - Send the email to the user
+ */
+export async function forgotPassword(email: string): Promise<void> {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  // Find the user by email
+  const user = await prisma.user.findUnique({
+    where: { email: normalizedEmail },
+    select: { id: true, email: true, name: true },
+  });
+
+  if (!user) return;
+
+  // Generate the reset password token
+  const token = generateToken(RESET_TOKEN_BYTES);
+  const tokenHash = hashToken(token);
+  const expiresAt = new Date(Date.now() + RESET_TTL_MINUTES * 60 * 1000);
+
+  // Expire any previous active tokens
+  await prisma.passwordResetToken.updateMany({
+    where: {
+      userId: user.id,
+      consumedAt: null,
+      expiresAt: { gt: now() },
+    },
+    data: { expiresAt: now() },
+  });
+
+  // Add the new reset password token to the database
+  await prisma.passwordResetToken.create({
+    data: {
+      userId: user.id,
+      tokenHash,
+      expiresAt,
+    },
+  });
+
+  // Build the reset password URL
+  const resetUrl = `${frontendUrl()}/reset-password?token=${encodeURIComponent(token)}`;
+
+  // Send the email to the user
+  try {
+    await sendEmail({
+      to: user.email,
+      subject: "Reset your password",
+      html: resetPasswordHtml(resetUrl),
+      kind: "reset_password",
+      userId: user.id,
+    });
+
+    console.info({
+      msg: "[email.send]",
+      kind: "reset_password",
+      ok: true,
+      userId: user.id,
+    });
+  } catch (err) {
+    // Do not fail the endpoint (still returns ok). Just log.
+    console.error({
+      msg: "[email.send]",
+      kind: "reset_password",
+      ok: false,
+      userId: user.id,
+      err,
+    });
+  }
+}
+
+/**
+ * Reset password:
+ * - Validate token exists + not consumed + not expired
+ * - Enforce password policy
+ * - Reject if same as current password (basic safety)
+ * - Consume token + set new password + revoke all sessions
+ */
+export async function resetPassword(token: string, newPassword: string): Promise<void> {
+
+  // Hash the token
+  const tokenHash = hashToken(token);
+
+  // Find the reset password token
+  const tokenRecord = await prisma.passwordResetToken.findUnique({
+    where: { tokenHash },
+    include: { user: { select: { id: true, email: true, passwordHash: true } } },
+  });
+
+  // If the token is not found, expired, or already consumed, throw an error
+  if (!tokenRecord || tokenRecord.consumedAt || tokenRecord.expiresAt.getTime() <= Date.now()) {
+    throw new AppError("Invalid or expired token", 400);
+  }
+
+  // Enforce the same registration policy
+  const passwordPolicy = evaluatePasswordPolicy(newPassword, tokenRecord.user.email);
+  if (!passwordPolicy.ok) throw new AppError(formatPasswordPolicyError(passwordPolicy.reasons), 400);
+
+  // Prevent "reset to current password"
+  const sameAsCurrent = await bcrypt.compare(newPassword, tokenRecord.user.passwordHash);
+  if (sameAsCurrent) throw new AppError("New password must be different from your current password", 400);
+
+  // Hash the new password
+  const nextHash = await bcrypt.hash(newPassword, 12);
+  const ts = now();
+
+  // Consume the token and update the user's password
+  await prisma.$transaction(async (db) => {
+    
+    // Consume token to prevent reuse
+    const consumed = await db.passwordResetToken.updateMany({
+      where: {
+        tokenHash,
+        consumedAt: null,
+        expiresAt: { gt: ts },
+      },
+      data: { consumedAt: ts },
+    });
+
+    if (consumed.count === 0) {
+      throw new AppError("Invalid or expired token", 400);
+    }
+
+    await db.user.update({
+      where: { id: tokenRecord.userId },
+      data: { passwordHash: nextHash },
+    });
+
+    // Security: revoke all refresh sessions after password reset
+    await db.authSession.updateMany({
+      where: { userId: tokenRecord.userId, revokedAt: null },
+      data: { revokedAt: ts, lastUsedAt: ts },
+    });
+  });
+}
