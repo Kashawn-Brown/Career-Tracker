@@ -23,7 +23,7 @@ export async function requestProAccess(userId: string, noteRaw?: string) {
   // Find the user
     const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, email: true, aiProEnabled: true },
+    select: { id: true, email: true, name: true, aiProEnabled: true },
   });
 
   if (!user) throw new AppError("User not found", 404);
@@ -92,7 +92,7 @@ export async function requestProAccess(userId: string, noteRaw?: string) {
       kind: "generic",
       userId,
       html: `
-        <p><b>User:</b> ${escapeHtml(user.email)}</p>
+        <p><b>User:</b> ${escapeHtml(user.name ?? "(no name)")} (${escapeHtml(user.email)})</p>
         <p><b>UserId:</b> ${escapeHtml(user.id)}</p>
         ${safeNote}
         <p><b>RequestId:</b> ${escapeHtml(created.id)}</p>
