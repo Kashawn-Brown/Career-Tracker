@@ -99,7 +99,41 @@ export type AiProRequestSummary = {
   decidedAt: string | null;
 };
 
+export type RequestProBody = {
+  note?: string;
+};
 
+export type RequestProResponse = {
+  ok: true;
+  alreadyPro: boolean;
+  request: AiProRequestSummary | null;
+};
+
+
+// --- Admin DTOs: matches backend ---
+
+export type AdminProRequestItem = {
+  id: string;
+  status: AiProRequestStatus;
+  note: string | null;
+  decisionNote: string | null;
+  requestedAt: string;
+  decidedAt: string | null;
+  user: {
+    id: string;
+    email: string;
+    name: string | null;
+    aiProEnabled: boolean;
+  };
+};
+
+export type AdminProRequestsListResponse = {
+  items: AdminProRequestItem[];
+};
+
+export type AdminDecisionBody = {
+  decisionNote?: string;
+};
 
 
 

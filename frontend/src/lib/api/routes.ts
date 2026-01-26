@@ -22,6 +22,14 @@ export const routes = {
     forgotPassword: () => "/auth/forgot-password",
     resetPassword: () => "/auth/reset-password",
   },
+  pro: {
+    request: () => "/pro/request",
+  },
+  admin: {
+    listProRequests: () => "/admin/pro-requests",
+    approveProRequest: (requestId: string) => `/admin/pro-requests/${requestId}/approve`,
+    denyProRequest: (requestId: string) => `/admin/pro-requests/${requestId}/deny`,
+  },
   users: {
     me: () => "/users/me",
   },
