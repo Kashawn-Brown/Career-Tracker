@@ -2,9 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { adminApi } from "@/lib/api/admin";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import type { AdminProRequestsListResponse } from "@/types/api";
 
 type ProRequestItem = AdminProRequestsListResponse["items"][number];
@@ -16,6 +15,11 @@ function formatDate(iso: string) {
     return iso;
   }
 }
+
+function getErrorMessage(err: unknown, fallback: string) {
+  return err instanceof Error ? err.message : fallback;
+}
+
 
 export default function AdminProRequestsPage() {
   const [items, setItems] = useState<ProRequestItem[]>([]);
@@ -37,8 +41,8 @@ export default function AdminProRequestsPage() {
     try {
       const res = await adminApi.listProRequests();
       setItems(res.items);
-    } catch (err: any) {
-      setErrorMsg(err?.message ?? "Failed to load pro requests");
+    } catch (err: unknown) {
+      setErrorMsg(getErrorMessage(err, "Failed to load pro requests"));
     } finally {
       setLoading(false);
     }
@@ -81,8 +85,8 @@ export default function AdminProRequestsPage() {
       await adminApi.approveProRequest(requestId, { decisionNote });
       setDecisionNotes((m) => ({ ...m, [requestId]: "" }));
       await load();
-    } catch (err: any) {
-      setErrorMsg(err?.message ?? "Approve failed");
+    } catch (err: unknown) {
+      setErrorMsg(getErrorMessage(err, "Approve failed"));
     } finally {
       setActing((m) => ({ ...m, [requestId]: false }));
     }
@@ -100,8 +104,8 @@ export default function AdminProRequestsPage() {
       await adminApi.denyProRequest(requestId, { decisionNote });
       setDecisionNotes((m) => ({ ...m, [requestId]: "" }));
       await load();
-    } catch (err: any) {
-      setErrorMsg(err?.message ?? "Deny failed");
+    } catch (err: unknown) {
+      setErrorMsg(getErrorMessage(err, "Deny failed"));
     } finally {
       setActing((m) => ({ ...m, [requestId]: false }));
     }
@@ -115,8 +119,8 @@ export default function AdminProRequestsPage() {
     try {
       await adminApi.grantCredits(requestId);
       await load();
-    } catch (err: any) {
-      setErrorMsg(err?.message ?? "Grant credits failed");
+    } catch (err: unknown) {
+      setErrorMsg(getErrorMessage(err, "Grant credits failed"));
     } finally {
       setActing((m) => ({ ...m, [requestId]: false }));
     }
@@ -162,7 +166,6 @@ export default function AdminProRequestsPage() {
         <div className="space-y-3">
           {visibleRequests.map((r) => {
             const isBusy = !!acting[r.id];
-
             return (
               <Card className="p-3" key={r.id}>
                 <div className="flex items-start justify-between gap-4">
@@ -194,13 +197,13 @@ export default function AdminProRequestsPage() {
                 {r.status === "PENDING" ? (
                   <div className="flex justify-end gap-2">
                     <Button size="sm" onClick={() => approve(r.id)}>
-                      Approve
+                      {isBusy ? "Approving..." : "Approve"}
                     </Button>
                     <Button size="sm" variant="destructive" onClick={() => deny(r.id)}>
-                      Deny
+                      {isBusy ? "Denying..." : "Deny"}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => grantCredits(r.id)}>
-                      Grant credits
+                      {isBusy ? "Granting credits..." : "Grant credits"}
                     </Button>
                   </div>
                 ) : null}

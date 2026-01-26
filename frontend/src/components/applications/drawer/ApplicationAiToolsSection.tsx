@@ -7,7 +7,7 @@ import type { Application, AiArtifact, FitV1Payload } from "@/types/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ApiError, getErrorCode } from "@/lib/api/client";
+import { ApiError } from "@/lib/api/client";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { FitReportDialog, type FitBand } from "@/components/applications/drawer/FitReportDialog";
