@@ -29,17 +29,20 @@ model User {
   jobSearchSummary       String?
   jobSearchWorkMode      WorkMode @default(UNKNOWN)
 
-  // MVP: one base resume per user
+  // One base resume per user
   baseResumeUrl String?
 
-  connections    Connection[]
+  // AI access control 
+  aiProEnabled   Boolean @default(false)
+  aiFreeUsesUsed Int     @default(0)
+  
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
   emailVerifiedAt DateTime?
 
   jobApplications JobApplication[]
+  connections    Connection[]
   documents       Document[]
   aiArtifacts     AiArtifact[]
 
@@ -47,6 +50,9 @@ model User {
 
   emailVerificationTokens EmailVerificationToken[]
   passwordResetTokens     PasswordResetToken[]
+
+  aiProRequests AiProRequest[]
+
 
   @@map("users")
 }
@@ -99,6 +105,34 @@ model PasswordResetToken {
   @@index([userId])
   @@map("password_reset_tokens")
 }
+
+enum AiProRequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
+
+model AiProRequest {
+  id           String @id @default(cuid())
+  userId       String
+
+  note         String?
+
+  status       AiProRequestStatus @default(PENDING)
+
+  requestedAt  DateTime @default(now())
+  decidedAt    DateTime?
+  cooldownUntil DateTime?
+  decisionNote String?
+
+  user         User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([userId, requestedAt])
+  @@map("ai_pro_requests")
+}
+
 
 
 model JobApplication {

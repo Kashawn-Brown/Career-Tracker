@@ -25,6 +25,10 @@ export const userSelect = {
   jobSearchSummary: true,
   jobSearchWorkMode: true,
 
+  // AI access control
+  aiProEnabled: true,
+  aiFreeUsesUsed: true,
+
   createdAt: true,
   updatedAt: true,
 

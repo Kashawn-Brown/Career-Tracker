@@ -36,6 +36,10 @@ export type AuthUser = {
   jobSearchSummary: string | null;
   jobSearchWorkMode: WorkMode;
 
+  // AI access control
+  aiProEnabled: boolean;
+  aiFreeUsesUsed: number;
+
   createdAt: string; // JSON-serialized Date from backend
   updatedAt: string; // JSON-serialized Date from backend
 };
