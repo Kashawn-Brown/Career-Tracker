@@ -164,7 +164,7 @@ export default function AdminProRequestsPage() {
             const isBusy = !!acting[r.id];
 
             return (
-              <Card className="p-3">
+              <Card className="p-3" key={r.id}>
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <div className="font-medium truncate">
