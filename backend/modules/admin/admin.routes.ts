@@ -58,7 +58,7 @@ export async function adminRoutes(app: FastifyInstance) {
    * Admin grant more free AI credits to a user by requestId
    */
   app.post(
-    "/admin/pro-requests/:requestId/grant-credits",
+    "/pro-requests/:requestId/grant-credits",
     {
       preHandler: [requireAuth, requireVerifiedEmail, (req) => requireAdmin(req)],
     },

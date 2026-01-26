@@ -29,6 +29,7 @@ export const routes = {
     listProRequests: () => "/admin/pro-requests",
     approveProRequest: (requestId: string) => `/admin/pro-requests/${requestId}/approve`,
     denyProRequest: (requestId: string) => `/admin/pro-requests/${requestId}/deny`,
+    grantCredits: (requestId: string) => `/admin/pro-requests/${requestId}/grant-credits`,
   },
   users: {
     me: () => "/users/me",

@@ -90,7 +90,7 @@ export type RefreshResponse = { token: string; csrfToken: string };
 
 // --- AI Pro Request DTOs: matches backend ---
 
-export type AiProRequestStatus = "PENDING" | "APPROVED" | "DENIED" | "EXPIRED";
+export type AiProRequestStatus = "PENDING" | "APPROVED" | "DENIED" | "EXPIRED" | "CREDITS_GRANTED";
 
 export type AiProRequestSummary = {
   id: string;

@@ -37,6 +37,15 @@ export const adminApi = {
     });
   },
 
+  /**
+   * Grant more free AI credits to a user by requestId.
+   */
+  grantCredits(requestId: string) {
+    return apiFetch<OkResponse>(routes.admin.grantCredits(requestId), {
+      method: "POST",
+    });
+  },
+
 }
 
 

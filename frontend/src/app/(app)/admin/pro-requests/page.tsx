@@ -107,6 +107,21 @@ export default function AdminProRequestsPage() {
     }
   }
 
+  // Grant more free AI credits to a user by requestId.
+  async function grantCredits(requestId: string) {
+    setActing((m) => ({ ...m, [requestId]: true }));
+    setErrorMsg(null);
+
+    try {
+      await adminApi.grantCredits(requestId);
+      await load();
+    } catch (err: any) {
+      setErrorMsg(err?.message ?? "Grant credits failed");
+    } finally {
+      setActing((m) => ({ ...m, [requestId]: false }));
+    }
+  }
+
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between gap-3">
@@ -183,6 +198,9 @@ export default function AdminProRequestsPage() {
                     </Button>
                     <Button size="sm" variant="destructive" onClick={() => deny(r.id)}>
                       Deny
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => grantCredits(r.id)}>
+                      Grant credits
                     </Button>
                   </div>
                 ) : null}
