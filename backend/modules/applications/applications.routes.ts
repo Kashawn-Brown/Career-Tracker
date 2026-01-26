@@ -5,6 +5,7 @@ import type { CreateApplicationBodyType, ListApplicationsQueryType, ApplicationI
 import * as ApplicationsService from "./applications.service.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { requireVerifiedEmail } from "../../middleware/require-verified-email.js";
+import { requireAiAccess } from "../../middleware/require-ai-access.js";
 import { AppError } from "../../errors/app-error.js";
 import * as DocumentsService from "../documents/documents.service.js";
 import * as AiService from "../ai/ai.service.js";
@@ -260,7 +261,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
   app.post(
     "/:id/ai-artifacts",
     {
-      preHandler: [requireAuth, requireVerifiedEmail],
+      preHandler: [requireAuth, requireVerifiedEmail, requireAiAccess],
       schema: {
         params: ApplicationIdParams,
         body: GenerateAiArtifactBody,
