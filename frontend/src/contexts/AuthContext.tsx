@@ -5,7 +5,7 @@ import { apiFetch, setUnauthorizedHandler, setEmailNotVerifiedHandler } from "@/
 import { routes } from "@/lib/api/routes";
 import { clearToken, setToken } from "@/lib/auth/token";
 import { clearCsrfToken, getCsrfToken as getCsrfTokenFromMemory, setCsrfToken as setCsrfTokenInMemory } from "@/lib/auth/csrf";
-import type { MeResponse, AuthResponse, AuthUser, LoginRequest, RegisterRequest, CsrfResponse, RefreshResponse, OkResponse } from "@/types/api";
+import type { MeResponse, AuthResponse, AuthUser, LoginRequest, RegisterRequest, CsrfResponse, RefreshResponse, OkResponse, AiProRequestSummary } from "@/types/api";
 
 // Defines what the context will provide
 type AuthContextValue = {
@@ -21,7 +21,11 @@ type AuthContextValue = {
   register: (input: RegisterRequest) => Promise<void>;
   logout: () => void;
   setCurrentUser: (user: AuthUser | null) => void;
-  
+
+
+  aiProRequest: AiProRequestSummary | null;
+  setAiProRequest: (aiProRequest: AiProRequestSummary | null) => void;
+  refreshMe: () => Promise<void>;
 };
 
 // Creates the context - AuthContext: provides auth state/actions to the whole app.
@@ -36,6 +40,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setTokenState] = useState<string | null>(null);   // token in memory
   const [csrfToken, setCsrfToken] = useState<string | null>(null); // csrf token in memory
   const [isHydrated, setIsHydrated] = useState(false);            // starts false, becomes true after completing the initial session bootstrap check (csrf -> refresh)
+
+  const [aiProRequest, setAiProRequest] = useState<AiProRequestSummary | null>(null);
+
 
   // Bootstrap session on app load using refresh cookie and CSRF token:
   // GET /auth/csrf -> POST /auth/refresh -> GET /users/me
@@ -76,6 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const meRes = await apiFetch<MeResponse>(routes.users.me(), { method: "GET" });
         setUser(meRes.user);
+        setAiProRequest(meRes.aiProRequest);
       } catch {
         // If refresh fails, ensure we start clean
         clearToken();
@@ -126,6 +134,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       setCsrfToken(null);
       clearCsrfToken();
+      setAiProRequest(null);
     })();
   }, [csrfToken]);
 
@@ -169,6 +178,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setCsrfToken(res.csrfToken);
     setCsrfTokenInMemory(res.csrfToken);
     setUser(res.user);
+    setAiProRequest(null);
   }, []);
 
 
@@ -187,6 +197,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setCsrfToken(res.csrfToken);
     setCsrfTokenInMemory(res.csrfToken);
     setUser(res.user);
+    setAiProRequest(null);
   }, []);
 
 
@@ -194,6 +205,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const setCurrentUser = useCallback((next: AuthUser | null) => {
     setUser(next);
   }, []);
+
+  // Refreshes the user and AI Pro request.
+  const refreshMe = useCallback(async () => {
+    const meRes = await apiFetch<MeResponse>(routes.users.me(), { method: "GET" });
+    setUser(meRes.user);
+    setAiProRequest(meRes.aiProRequest);
+  }, []);
+
 
 
   // Creates the object passed to the provider (object all the consumers will get)
@@ -207,8 +226,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       register,
       logout,
       setCurrentUser,
+      aiProRequest,
+      setAiProRequest,
+      refreshMe,
     };
-  }, [user, token, isHydrated, login, register, logout, setCurrentUser]);  // Only rebuild the value object if user/token/isHydrated changes
+  }, [user, token, isHydrated, login, register, logout, setCurrentUser, aiProRequest, setAiProRequest, refreshMe]);  // Only rebuild the value object if user/token/isHydrated changes
 
   // Anything under <AuthProvider> in the tree can read auth state/ do actions via useContext(AuthContext)
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

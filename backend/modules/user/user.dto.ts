@@ -6,6 +6,7 @@ export const userSelect = {
   id: true,
   email: true,
   name: true,
+  isAdmin: true,
 
   baseResumeUrl: true,
 
@@ -24,6 +25,10 @@ export const userSelect = {
   jobSearchKeywordsText: true,
   jobSearchSummary: true,
   jobSearchWorkMode: true,
+
+  // AI access control
+  aiProEnabled: true,
+  aiFreeUsesUsed: true,
 
   createdAt: true,
   updatedAt: true,

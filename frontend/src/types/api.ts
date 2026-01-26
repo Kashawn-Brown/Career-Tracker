@@ -18,6 +18,8 @@ export type AuthUser = {
   name: string;
   emailVerifiedAt: string | null;
   
+  isAdmin: boolean;
+  
   baseResumeUrl: string | null;
 
   // Profile fields (post-MVP foundation)
@@ -35,6 +37,10 @@ export type AuthUser = {
   jobSearchKeywordsText: string | null;
   jobSearchSummary: string | null;
   jobSearchWorkMode: WorkMode;
+
+  // AI access control
+  aiProEnabled: boolean;
+  aiFreeUsesUsed: number;
 
   createdAt: string; // JSON-serialized Date from backend
   updatedAt: string; // JSON-serialized Date from backend
@@ -59,6 +65,7 @@ export type UpdateMeRequest = {
 
 export type MeResponse = { 
   user: AuthUser 
+  aiProRequest: AiProRequestSummary | null;
 };
 
 export type AuthResponse = {
@@ -81,6 +88,52 @@ export type RegisterRequest = {
 export type CsrfResponse = { csrfToken: string | null };
 export type RefreshResponse = { token: string; csrfToken: string };
 
+// --- AI Pro Request DTOs: matches backend ---
+
+export type AiProRequestStatus = "PENDING" | "APPROVED" | "DENIED" | "EXPIRED" | "CREDITS_GRANTED";
+
+export type AiProRequestSummary = {
+  id: string;
+  status: AiProRequestStatus;
+  requestedAt: string;
+  decidedAt: string | null;
+};
+
+export type RequestProBody = {
+  note?: string;
+};
+
+export type RequestProResponse = {
+  ok: true;
+  alreadyPro: boolean;
+  request: AiProRequestSummary | null;
+};
+
+
+// --- Admin DTOs: matches backend ---
+
+export type AdminProRequestItem = {
+  id: string;
+  status: AiProRequestStatus;
+  note: string | null;
+  decisionNote: string | null;
+  requestedAt: string;
+  decidedAt: string | null;
+  user: {
+    id: string;
+    email: string;
+    name: string | null;
+    aiProEnabled: boolean;
+  };
+};
+
+export type AdminProRequestsListResponse = {
+  items: AdminProRequestItem[];
+};
+
+export type AdminDecisionBody = {
+  decisionNote?: string;
+};
 
 
 

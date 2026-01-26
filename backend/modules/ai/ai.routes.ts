@@ -1,9 +1,11 @@
 import type { FastifyInstance } from "fastify";
 import { requireAuth } from "../../middleware/auth.js";
 import { requireVerifiedEmail } from "../../middleware/require-verified-email.js";
+import { requireAiAccess } from "../../middleware/require-ai-access.js";
 import { JdBody, ApplicationDraftResponse } from "./ai.schemas.js";
 import type { JdBodyType } from "./ai.schemas.js";
 import * as AiService from "./ai.service.js";
+import { consumeAiFreeUseOnSuccessOrThrow } from "./ai-access.js";
 import { AppError } from "../../errors/app-error.js";
 
 export async function aiRoutes(app: FastifyInstance) {
@@ -14,7 +16,7 @@ export async function aiRoutes(app: FastifyInstance) {
   app.post(
     "/application-from-jd",
     {
-      preHandler: [requireAuth, requireVerifiedEmail],
+      preHandler: [requireAuth, requireVerifiedEmail, requireAiAccess],
       schema: {
         body: JdBody,
         response: { 200: ApplicationDraftResponse },  // expected response
@@ -25,6 +27,10 @@ export async function aiRoutes(app: FastifyInstance) {
         const body = req.body as JdBodyType;
 
         const result = await AiService.buildApplicationDraftFromJd(body.text);
+        
+        // Only consume quota on successful AI completion
+        await consumeAiFreeUseOnSuccessOrThrow(req.user!.id);
+
         return reply.status(200).send(result);
 
       } catch (err) {

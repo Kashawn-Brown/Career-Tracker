@@ -12,6 +12,8 @@ import { userRoutes } from "./modules/user/user.routes.js";
 import { documentsRoutes } from "./modules/documents/documents.routes.js";
 import { connectionsRoutes } from "./modules/connections/connections.routes.js";
 import { aiRoutes } from "./modules/ai/ai.routes.js";
+import { proRoutes } from "./modules/pro/pro.routes.js";
+import { adminRoutes } from "./modules/admin/admin.routes.js";
 
 
 export function buildApp() {
@@ -88,6 +90,12 @@ export function buildApp() {
 
   // Mount AI endpoints under /api/v1/ai
   app.register(aiRoutes, { prefix: "/api/v1/ai" });
+
+  // Mount Pro endpoints under /api/v1/pro
+  app.register(proRoutes, { prefix: "/api/v1/pro" });
+
+  // Mount Admin endpoints under /api/v1/admin
+  app.register(adminRoutes, { prefix: "/api/v1/admin" });
 
 
   // Debug route protected behind an env flag so it is not always enabled
