@@ -64,16 +64,8 @@ export async function requestProAccess(userId: string, noteRaw?: string) {
     if (eligibleAt.getTime() > Date.now()) {
       return { alreadyPro: false, request: latest };
     }
-
-    // Stale denied → expire it, then create a fresh denied request
-    await prisma.aiProRequest.update({
-      where: { id: latest.id },
-      data: {
-        status: "EXPIRED",
-        decidedAt: now(),
-        decisionNote: "Auto-expired (no response). User re-requested.",
-      },
-    });
+    
+    // Cooldown elapsed → allow a new request (but do NOT mutate the denied record)
   }
 
   // Clean the note and create a new AI Pro request
