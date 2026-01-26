@@ -23,6 +23,7 @@ export async function requireVerifiedEmail(req: FastifyRequest) {
     throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
   }
 
+  // If the user's email is not verified, throw an email not verified error
   if (!user.emailVerifiedAt) {
     throw new AppError("Email not verified", 403, "EMAIL_NOT_VERIFIED");
   }

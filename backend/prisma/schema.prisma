@@ -124,7 +124,7 @@ model AiProRequest {
 
   requestedAt  DateTime @default(now())
   decidedAt    DateTime?
-  cooldownUntil DateTime?
+
   decisionNote String?
 
   user         User @relation(fields: [userId], references: [id], onDelete: Cascade)

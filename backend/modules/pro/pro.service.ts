@@ -4,6 +4,8 @@ import { sendEmail } from "../../lib/email.js";
 import { aiProRequestSummarySelect } from "./pro.dto.js";
 
 const NOTE_MAX = 500;
+const PENDING_REQUEST_COOLDOWN_DAYS = 7;
+const DENIED_REQUEST_COOLDOWN_DAYS = 14;
 
 
 /**
@@ -11,7 +13,7 @@ const NOTE_MAX = 500;
  */
 
 /**
- * Send an email to the owner when a user requests Pro access.
+ * Request Pro access for a user.
  * 
  * - Creates a new AI Pro request in the database.
  * - Sends an email to the owner.
@@ -34,18 +36,44 @@ export async function requestProAccess(userId: string, noteRaw?: string) {
   // Get the latest AI Pro request for the user
   const latest = await getLatestRequest(userId);
 
-  // If pending, do not create a new request
+  // If pending, allow re-request after a cooldown window to avoid "stuck pending forever"
   if (latest?.status === "PENDING") {
-    return { alreadyPro: false, request: latest };
+    const eligibleAt = addDays(latest.requestedAt, PENDING_REQUEST_COOLDOWN_DAYS);
+
+    // Still within cooldown → keep pending
+    if (eligibleAt.getTime() > Date.now()) {
+      return { alreadyPro: false, request: latest };
+    }
+
+    // Stale pending → expire it, then create a fresh pending request
+    await prisma.aiProRequest.update({
+      where: { id: latest.id },
+      data: {
+        status: "EXPIRED",
+        decidedAt: now(),
+        decisionNote: "Auto-expired (no response). User re-requested.",
+      },
+    });
   }
 
   // If denied and still in cooldown, do not create a new request
-  if (
-    latest?.status === "DENIED" &&
-    latest.cooldownUntil &&
-    latest.cooldownUntil.getTime() > Date.now()
-  ) {
-    return { alreadyPro: false, request: latest };
+  if (latest?.status === "DENIED") {
+    const eligibleAt = addDays((latest.decidedAt ?? latest.requestedAt), DENIED_REQUEST_COOLDOWN_DAYS);
+
+    // Still within cooldown → keep denied
+    if (eligibleAt.getTime() > Date.now()) {
+      return { alreadyPro: false, request: latest };
+    }
+
+    // Stale denied → expire it, then create a fresh denied request
+    await prisma.aiProRequest.update({
+      where: { id: latest.id },
+      data: {
+        status: "EXPIRED",
+        decidedAt: now(),
+        decisionNote: "Auto-expired (no response). User re-requested.",
+      },
+    });
   }
 
   // Clean the note and create a new AI Pro request
@@ -85,133 +113,7 @@ export async function requestProAccess(userId: string, noteRaw?: string) {
   return { alreadyPro: false, request: created };
 }
 
-/**
- * Approve Pro access for a user.
- * 
- * - Updates the user's Pro access status.
- * - Updates the latest AI Pro request status to APPROVED.
- * - Sends an email to the user.
- */
-export async function approveProAccess(userId: string, decisionNoteRaw?: string) {
 
-  // Clean the decision note and get the current timestamp
-  const decisionNote = cleanOptionalText(decisionNoteRaw);
-  const ts = now();
-
-  // Find the user
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true, email: true, aiProEnabled: true },
-  });
-
-  if (!user) throw new AppError("User not found", 404);
-
-  // Update the user's Pro access status and the latest AI Pro request status to APPROVED
-  await prisma.$transaction(async (db) => {
-    await db.user.update({
-      where: { id: userId },
-      data: { aiProEnabled: true },
-    });
-
-    // Find the latest pending AI Pro request for the user
-    const pending = await db.aiProRequest.findFirst({
-      where: { userId, status: "PENDING" },
-      orderBy: { requestedAt: "desc" },
-      select: { id: true },
-    });
-
-    // If a pending AI Pro request exists, update its status to APPROVED
-    if (pending) {
-      await db.aiProRequest.update({
-        where: { id: pending.id },
-        data: { status: "APPROVED", decidedAt: ts, decisionNote },
-      });
-    }
-  });
-
-  // Email user to notify them that their Pro access request has been approved
-  try {
-    await sendEmail({
-      to: user.email,
-      subject: "Career-Tracker: Pro access approved",
-      kind: "generic",
-      userId,
-      html: `
-        <p>Your Pro access request has been approved ✅</p>
-        ${decisionNote ? `<p><b>Note:</b><br/>${escapeHtml(decisionNote)}</p>` : ""}
-      `.trim(),
-    });
-  } catch (err: any) {
-    console.warn("[pro] approval email failed", err?.message ?? err);
-  }
-
-  return { ok: true };
-}
-
-
-/**
- * Deny Pro access for a user.
- * 
- * - Updates the latest AI Pro request status to DENIED.
- * - Sends an email to the user.
- * - Returns the cooldown until date.
- */
-export async function denyProAccess(userId: string, cooldownDays?: number, decisionNoteRaw?: string) {
-  const ts = now();
-  const days = typeof cooldownDays === "number" ? cooldownDays : 7; // sensible default
-  const decisionNote = cleanOptionalText(decisionNoteRaw);
-
-  // Find the user
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true, email: true, aiProEnabled: true },
-  });
-
-  // If the user is not found or already has Pro access, throw an error
-  if (!user) throw new AppError("User not found", 404);
-  if (user.aiProEnabled) throw new AppError("User already has Pro access", 400, "AI_PRO_ALREADY_ENABLED");
-
-  // Find the latest pending AI Pro request for the user
-  const pending = await prisma.aiProRequest.findFirst({
-    where: { userId, status: "PENDING" },
-    orderBy: { requestedAt: "desc" },
-    select: { id: true },
-  });
-
-  if (!pending) throw new AppError("No pending request", 404);
-
-  const cooldownUntil = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
-
-  // Update the latest AI Pro request status to DENIED
-  await prisma.aiProRequest.update({
-    where: { id: pending.id },
-    data: {
-      status: "DENIED",
-      decidedAt: ts,
-      cooldownUntil,
-      decisionNote,
-    },
-  });
-
-  // Email user to notify them that their Pro access request has been denied
-  try {
-    await sendEmail({
-      to: user.email,
-      subject: "Career-Tracker: Pro access request update",
-      kind: "generic",
-      userId,
-      html: `
-        <p>Your Pro access request was not approved at this time.</p>
-        <p>You can request again after: <b>${cooldownUntil.toISOString().slice(0, 10)}</b></p>
-        ${decisionNote ? `<p><b>Note:</b><br/>${escapeHtml(decisionNote)}</p>` : ""}
-      `.trim(),
-    });
-  } catch (err: any) {
-    console.warn("[pro] denial email failed", err?.message ?? err);
-  }
-
-  return { ok: true, cooldownUntil };
-}
 
 
 // ----------------- Helper Functions -----------------
@@ -219,6 +121,11 @@ export async function denyProAccess(userId: string, cooldownDays?: number, decis
 // Helper function to get the current timestamp
 function now() {
   return new Date();
+}
+
+// Helper function to add days to a date
+function addDays(date: Date, days: number): Date {
+  return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
 }
 
 // Helper function to clean an optional text value

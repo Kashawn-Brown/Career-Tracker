@@ -5,6 +5,5 @@ export const aiProRequestSummarySelect = {
     status: true,
     requestedAt: true,
     decidedAt: true,
-    cooldownUntil: true,
   } as const;
   
