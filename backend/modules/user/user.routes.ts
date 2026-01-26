@@ -13,13 +13,17 @@ export async function userRoutes(app: FastifyInstance) {
    * Gets the current user profile.
    * Requires JWT (Bearer token).
    */
-  app.get("/me", { preHandler: [requireAuth] }, async (req, reply) => {
+  app.get("/me", { preHandler: [requireAuth] }, async (req) => {
     const userId = req.user!.id;
 
     const me = await UserService.getMe(userId);
     if (!me) throw new AppError("User not found", 404);
 
-    return { user: me };
+    // Get the latest AI Pro request for the user
+    const aiProRequest = await UserService.getLatestAiProRequest(userId);
+
+    return { user: me, aiProRequest };
+
   });
 
   /**

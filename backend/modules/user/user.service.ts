@@ -3,6 +3,8 @@ import { Prisma } from "@prisma/client";
 import { AppError } from "../../errors/app-error.js";
 import { userSelect } from "./user.dto.js";
 import type { UpdateMeBodyType } from "./user.schemas.js";
+import { aiProRequestSummarySelect } from "../pro/pro.dto.js";
+
 
 /**
  * Service layer: DB reads/writes for user profile.
@@ -92,4 +94,15 @@ export async function updateMe(userId: string, data: UpdateMeBodyType) {
     }
     throw err;
   }
+}
+
+/**
+ * Gets the latest AI Pro request for a user.
+ */
+export async function getLatestAiProRequest(userId: string) {
+  return prisma.aiProRequest.findFirst({
+    where: { userId },
+    orderBy: { requestedAt: "desc" },
+    select: aiProRequestSummarySelect,
+  });
 }
