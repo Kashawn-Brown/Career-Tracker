@@ -141,14 +141,6 @@ export async function grantMoreCredits(requestId: string) {
     throw new AppError("Pro request not found", 404, "PRO_REQUEST_NOT_FOUND");
   }
 
-  if (proRequest.status !== "PENDING") {
-    throw new AppError(
-      "Only PENDING requests can be granted credits",
-      400,
-      "PRO_REQUEST_NOT_PENDING"
-    );
-  }
-
   const decidedAt = new Date();
 
   // Reset free usage counter back to 0 (gives them a fresh set of free credits)
