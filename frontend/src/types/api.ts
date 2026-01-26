@@ -18,6 +18,8 @@ export type AuthUser = {
   name: string;
   emailVerifiedAt: string | null;
   
+  isAdmin: boolean;
+  
   baseResumeUrl: string | null;
 
   // Profile fields (post-MVP foundation)
@@ -63,6 +65,7 @@ export type UpdateMeRequest = {
 
 export type MeResponse = { 
   user: AuthUser 
+  aiProRequest: AiProRequestSummary | null;
 };
 
 export type AuthResponse = {
@@ -84,6 +87,18 @@ export type RegisterRequest = {
 
 export type CsrfResponse = { csrfToken: string | null };
 export type RefreshResponse = { token: string; csrfToken: string };
+
+// --- AI Pro Request DTOs: matches backend ---
+
+export type AiProRequestStatus = "PENDING" | "APPROVED" | "DENIED" | "EXPIRED";
+
+export type AiProRequestSummary = {
+  id: string;
+  status: AiProRequestStatus;
+  requestedAt: string;
+  decidedAt: string | null;
+};
+
 
 
 
