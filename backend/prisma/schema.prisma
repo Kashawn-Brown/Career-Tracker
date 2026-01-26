@@ -112,6 +112,7 @@ enum AiProRequestStatus {
   APPROVED
   DENIED
   EXPIRED
+  CREDITS_GRANTED
 }
 
 model AiProRequest {

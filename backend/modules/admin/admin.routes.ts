@@ -53,4 +53,19 @@ export async function adminRoutes(app: FastifyInstance) {
       return res;
     }
   );
+
+  /**
+   * Admin grant more free AI credits to a user by requestId
+   */
+  app.post(
+    "/admin/pro-requests/:requestId/grant-credits",
+    {
+      preHandler: [requireAuth, requireVerifiedEmail, (req) => requireAdmin(req)],
+    },
+    async (req) => {
+      const { requestId } = req.params as { requestId: string };
+      return AdminService.grantMoreCredits(requestId);
+    }
+  );
+  
 }

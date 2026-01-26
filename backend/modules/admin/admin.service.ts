@@ -122,6 +122,63 @@ export async function denyProRequest(requestId: string, decisionNoteRaw?: string
   return { ok: true };
 }
 
+/**
+ * Grant more free AI credits to a user by requestId.
+ * 
+ * - Resets the user's free AI usage counter to 0.
+ * - Updates the latest AI Pro request status to CREDITS_GRANTED.
+ * - Sends an email to the user.
+ */
+export async function grantMoreCredits(requestId: string) {
+  const proRequest = await prisma.aiProRequest.findUnique({
+    where: { id: requestId },
+    include: {
+      user: { select: { id: true, email: true, name: true, aiProEnabled: true } },
+    },
+  });
+
+  if (!proRequest) {
+    throw new AppError("Pro request not found", 404, "PRO_REQUEST_NOT_FOUND");
+  }
+
+  if (proRequest.status !== "PENDING") {
+    throw new AppError(
+      "Only PENDING requests can be granted credits",
+      400,
+      "PRO_REQUEST_NOT_PENDING"
+    );
+  }
+
+  const decidedAt = new Date();
+
+  // Reset free usage counter back to 0 (gives them a fresh set of free credits)
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: proRequest.userId },
+      data: { aiFreeUsesUsed: 0 },
+    }),
+    prisma.aiProRequest.update({
+      where: { id: requestId },
+      data: { status: "CREDITS_GRANTED", decidedAt },
+    }),
+  ]);
+
+  await sendEmail({
+    to: proRequest.user.email,
+    subject: "Career-Tracker: more free AI credits granted",
+    html: `
+      <p>Hi${proRequest.user.name ? ` ${proRequest.user.name}` : ""},</p>
+      <p>You've been granted more free AI credits for Career-Tracker.</p>
+      <p>Your free AI usage counter was reset, so you can use the AI tools again.</p>
+      <p>If you run out again, you can request Pro access or more credits from inside the app.</p>
+    `,
+    kind: "generic",
+  });
+
+  return { ok: true as const };
+}
+
+
 
 // ----------------- Helper Functions -----------------
 
