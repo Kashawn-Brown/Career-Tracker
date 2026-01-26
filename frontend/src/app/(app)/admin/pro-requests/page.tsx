@@ -26,6 +26,9 @@ export default function AdminProRequestsPage() {
   const [decisionNotes, setDecisionNotes] = useState<Record<string, string>>({});
   const [acting, setActing] = useState<Record<string, boolean>>({});
 
+  const [showHistory, setShowHistory] = useState(false);
+
+
   // Load the Pro requests.
   async function load() {
     setLoading(true);
@@ -59,6 +62,12 @@ export default function AdminProRequestsPage() {
       return tb - ta;
     });
   }, [items]);
+
+  // Show all requests if showHistory is true, otherwise show only pending requests.
+  const visibleRequests = showHistory
+  ? sorted
+  : sorted.filter((r) => r.status === "PENDING" || r.status === "EXPIRED");
+
 
   // Approve a user's Pro request by requestId.
   async function approve(requestId: string) {
@@ -108,9 +117,18 @@ export default function AdminProRequestsPage() {
           </p>
         </div>
 
-        <Button variant="outline" onClick={load} disabled={loading}>
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setShowHistory((v) => !v)}
+          >
+            {showHistory ? "Hide history" : "View history"}
+          </Button>
+
+          <Button variant="outline" onClick={load} disabled={loading}>
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {errorMsg && (
@@ -121,87 +139,53 @@ export default function AdminProRequestsPage() {
 
       {loading ? (
         <div className="text-sm text-muted-foreground">Loading…</div>
-      ) : sorted.length === 0 ? (
-        <div className="text-sm text-muted-foreground">No Pro requests yet.</div>
+      ) : visibleRequests.length === 0 ? (
+        <div className="text-sm text-muted-foreground">
+          {showHistory ? "No pro requests found." : "No pending pro requests."}
+        </div>
       ) : (
         <div className="space-y-3">
-          {sorted.map((r) => {
+          {visibleRequests.map((r) => {
             const isBusy = !!acting[r.id];
 
             return (
-              <Card key={r.id}>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center justify-between gap-3">
-                    <div className="truncate">
+              <Card className="p-3">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">
                       {r.user.email}
-                      {r.user.name ? <span className="text-muted-foreground"> · {r.user.name}</span> : null}
+                      <span className="text-muted-foreground"> · {r.user.name}</span>
                     </div>
-                    <div className="text-xs px-2 py-1 rounded border">
+
+                    <div className="mt-0.5 text-xs text-muted-foreground">
+                      Requested: {formatDate(r.requestedAt)}
+                      {r.decidedAt ? ` · Decided: ${formatDate(r.decidedAt)}` : ""}
+                    </div>
+                  </div>
+
+                  <div className="shrink-0">
+                    <span className="rounded border px-2 py-0.5 text-[10px] font-semibold tracking-wide">
                       {r.status}
-                    </div>
-                  </CardTitle>
-                </CardHeader>
-
-                <CardContent className="space-y-3">
-                  <div className="text-sm text-muted-foreground">
-                    Requested: <span className="text-foreground">{formatDate(r.requestedAt)}</span>
-                    {r.decidedAt ? (
-                      <>
-                        {" "}· Decided: <span className="text-foreground">{formatDate(r.decidedAt)}</span>
-                      </>
-                    ) : null}
+                    </span>
                   </div>
+                </div>
 
-                  {r.note ? (
-                    <div className="text-sm">
-                      <div className="font-medium">User note</div>
-                      <div className="text-muted-foreground whitespace-pre-wrap">{r.note}</div>
-                    </div>
-                  ) : null}
-
-                  {r.decisionNote ? (
-                    <div className="text-sm">
-                      <div className="font-medium">Decision note (previous)</div>
-                      <div className="text-muted-foreground whitespace-pre-wrap">{r.decisionNote}</div>
-                    </div>
-                  ) : null}
-
-                  <div className="space-y-2">
-                    <div className="text-sm font-medium">Decision note (optional)</div>
-                    <Textarea
-                      value={decisionNotes[r.id] ?? ""}
-                      onChange={(e) => setDecisionNotes((m) => ({ ...m, [r.id]: e.target.value }))}
-                      placeholder="Optional note to include in the user email…"
-                      disabled={isBusy || r.status !== "PENDING"}
-                    />
+                {r.note ? (
+                  <div className="mt-2 max-w-[680px] whitespace-pre-wrap break-words text-sm text-muted-foreground">
+                    {r.note}
                   </div>
+                ) : null}
 
-                  <div className="flex items-center gap-2">
-                    <Button
-                      onClick={() => approve(r.id)}
-                      disabled={isBusy || r.status !== "PENDING"}
-                    >
+                {r.status === "PENDING" ? (
+                  <div className="flex justify-end gap-2">
+                    <Button size="sm" onClick={() => approve(r.id)}>
                       Approve
                     </Button>
-                    <Button
-                      variant="destructive"
-                      onClick={() => deny(r.id)}
-                      disabled={isBusy || r.status !== "PENDING"}
-                    >
+                    <Button size="sm" variant="destructive" onClick={() => deny(r.id)}>
                       Deny
                     </Button>
-
-                    {r.user.aiProEnabled ? (
-                      <span className="text-sm text-muted-foreground ml-auto">
-                        User currently has Pro ✅
-                      </span>
-                    ) : (
-                      <span className="text-sm text-muted-foreground ml-auto">
-                        User Pro: off
-                      </span>
-                    )}
                   </div>
-                </CardContent>
+                ) : null}
               </Card>
             );
           })}
