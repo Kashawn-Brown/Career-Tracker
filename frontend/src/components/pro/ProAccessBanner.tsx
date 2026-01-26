@@ -26,6 +26,7 @@ function fmtDate(d: Date) {
   return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
+// Lets the user request Pro access if they have run out of free AI credits.
 export function ProAccessBanner({ aiProEnabled, aiFreeUsesUsed, aiProRequest, onRequestPro }: Props) {
 
   const remaining = Math.max(0, AI_FREE_QUOTA - aiFreeUsesUsed);
@@ -75,21 +76,15 @@ export function ProAccessBanner({ aiProEnabled, aiFreeUsesUsed, aiProRequest, on
     return null;
   }, [aiProRequest]);
 
+  // Don't show the banner if the user is Pro.
+  if (aiProEnabled) return null;
+
   return (
     <div className="rounded-md border p-3">
       <div className="flex items-center justify-between gap-3">
         <div className="text-sm">
-          {aiProEnabled ? (
-            <span className="font-medium">Pro enabled</span>
-          ) : (
-            <span className="font-medium text-muted-foreground">Free AI credits: {remaining}/{AI_FREE_QUOTA} remaining</span>
-          )}
+          <span className="font-medium text-muted-foreground">Free AI credits: {remaining}/{AI_FREE_QUOTA} remaining</span>
         </div>
-
-        {/* Show the PRO badge if the user is Pro. */}
-        {aiProEnabled ? (
-          <span className="text-xs px-2 py-0.5 rounded-full border">PRO</span>
-        ) : null}
       </div>
 
       {/* Show the Pro access banner if the user is not Pro and has run out of free AI credits. */}
