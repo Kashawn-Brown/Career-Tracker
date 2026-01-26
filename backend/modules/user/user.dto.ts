@@ -6,6 +6,7 @@ export const userSelect = {
   id: true,
   email: true,
   name: true,
+  isAdmin: true,
 
   baseResumeUrl: true,
 
