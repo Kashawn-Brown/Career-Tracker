@@ -6,12 +6,6 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
-// Navigation items for the header
-const NAV_ITEMS = [
-  { href: "/applications", label: "Applications" },
-  { href: "/profile", label: "Profile" },
-] as const;
-
 // Helper function to check if the current pathname is the same as the href
 function isActivePath(pathname: string, href: string) {
   // Treat nested routes as active too (ex: /applications/123 stays active).
@@ -25,18 +19,24 @@ export function Header() {
 
   const displayName = user?.name?.trim() || user?.email || "User";
 
+  const navItems = [
+    { label: "Applications", href: "/applications" },
+    { label: "Profile", href: "/profile" },
+    ...(user?.isAdmin ? [{ label: "Admin", href: "/admin/pro-requests" }] : []),
+  ];
+
   return (
     <header className="border-b bg-background">
       <div className="mx-auto flex w-full items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
         {/* Left: brand */}
-        <Link href="/" className="text-base font-semibold tracking-tight">
+        <Link href="/" className="text-lg font-semibold tracking-tight">
           Career-Tracker
         </Link>
 
-        {/* Right: nav + greeting + logout */}
-        <div className="flex items-center gap-3 sm:gap-4">
-          <nav className="flex items-center gap-1 text-sm">
-            {NAV_ITEMS.map((item) => {
+        {/* Middle: Navigation */}
+        <div className="flex items-center gap-2">
+          <nav className="flex items-center gap-1 text-md">
+            {navItems.map((item) => {
               const active = isActivePath(pathname, item.href);
 
               return (
@@ -54,12 +54,26 @@ export function Header() {
               );
             })}
           </nav>
+        </div>
 
+        {/* Right: Greeting + Pro/Admin badge + Logout */}
+        <div className="flex items-center gap-3 sm:gap-4">
           {/* Hide on very small screens to avoid cramped header */}
-          <span className="hidden text-sm text-muted-foreground sm:inline">
-            Hey, {displayName}
-          </span>
+          <div className="hidden sm:flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Hey, {displayName}</span>
 
+            {user?.aiProEnabled ? (
+              <span className="rounded border px-2 py-0.5 text-[10px] font-semibold tracking-wide">
+                PRO
+              </span>
+            ) : null}
+
+            {user?.isAdmin ? (
+              <span className="rounded border px-2 py-0.5 text-[10px] font-semibold tracking-wide">
+                ADMIN
+              </span>
+            ) : null}
+          </div>
           <Button type="button" variant="outline" onClick={logout}>
             Log out
           </Button>
