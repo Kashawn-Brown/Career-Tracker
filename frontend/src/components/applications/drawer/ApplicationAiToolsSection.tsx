@@ -7,9 +7,12 @@ import type { Application, AiArtifact, FitV1Payload } from "@/types/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ApiError } from "@/lib/api/client";
+import { ApiError, getErrorCode } from "@/lib/api/client";
+import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { FitReportDialog, type FitBand } from "@/components/applications/drawer/FitReportDialog";
+import { ProAccessBanner } from "@/components/pro/ProAccessBanner";
+import { RequestProDialog } from "@/components/pro/RequestProDialog";
 
 // Get the fit band based on the score
 function getFitBand(score: number): FitBand {
@@ -80,6 +83,15 @@ export function ApplicationAiToolsSection({
   // Details dialog state
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isRerunMode, setIsRerunMode] = useState(false);
+
+  // Pro access state
+  const { user, aiProRequest, refreshMe } = useAuth();
+  const aiProEnabled = !!user?.aiProEnabled;
+  const aiFreeUsesUsed = user?.aiFreeUsesUsed ?? 0;
+  // const isAiLocked = !!user && !aiProEnabled && aiFreeUsesUsed >= 5;
+
+  const [isProDialogOpen, setIsProDialogOpen] = useState(false);
+
 
 
 
@@ -212,6 +224,20 @@ export function ApplicationAiToolsSection({
           </button>
         </div>
       ) : null}
+
+      <ProAccessBanner
+        aiProEnabled={aiProEnabled}
+        aiFreeUsesUsed={aiFreeUsesUsed}
+        aiProRequest={aiProRequest}
+        onRequestPro={() => setIsProDialogOpen(true)}
+      />
+
+      <RequestProDialog
+        open={isProDialogOpen}
+        onOpenChange={setIsProDialogOpen}
+        onRequested={() => refreshMe()}
+      />
+
 
       {/* Job compatibility check section */}
       <div className="flex items-center justify-between">

@@ -18,6 +18,9 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronRight, Star } from "lucide-react";
+import { ProAccessBanner } from "@/components/pro/ProAccessBanner";
+import { RequestProDialog } from "@/components/pro/RequestProDialog";
+import { useAuth } from "@/hooks/useAuth";
 
 export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => void }) {
   // Job description input + draft
@@ -53,6 +56,14 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
   const [notes, setNotes] = useState("");
 
   const [isFavorite, setIsFavorite] = useState(false);
+
+  // Pro access state
+  const { user, aiProRequest, refreshMe } = useAuth();
+  const aiProEnabled = !!user?.aiProEnabled;
+  const aiFreeUsesUsed = user?.aiFreeUsesUsed ?? 0;
+  // const isAiLocked = !!user && !aiProEnabled && aiFreeUsesUsed >= 5;
+
+  const [isProDialogOpen, setIsProDialogOpen] = useState(false);
 
   function toOptionalTrimmed(value: string) {
     const trimmed = value.trim();
@@ -206,6 +217,22 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
   return (
     <div className="space-y-4">
       {errorMessage ? <div className="text-sm text-red-600">{errorMessage}</div> : null}
+
+
+      {/* Pro/credits state + request modal */}
+      <ProAccessBanner
+        aiProEnabled={aiProEnabled}
+        aiFreeUsesUsed={aiFreeUsesUsed}
+        aiProRequest={aiProRequest}
+        onRequestPro={() => setIsProDialogOpen(true)}
+      />
+
+      <RequestProDialog
+        open={isProDialogOpen}
+        onOpenChange={setIsProDialogOpen}
+        onRequested={() => refreshMe()}
+      />
+
 
       <div className="space-y-2">
         <Label htmlFor="jd">Job description</Label>

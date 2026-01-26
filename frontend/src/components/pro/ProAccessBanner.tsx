@@ -82,7 +82,7 @@ export function ProAccessBanner({ aiProEnabled, aiFreeUsesUsed, aiProRequest, on
           {aiProEnabled ? (
             <span className="font-medium">Pro enabled</span>
           ) : (
-            <span className="font-medium">Free AI credits: {remaining}/{AI_FREE_QUOTA} remaining</span>
+            <span className="font-medium text-muted-foreground">Free AI credits: {remaining}/{AI_FREE_QUOTA} remaining</span>
           )}
         </div>
 
