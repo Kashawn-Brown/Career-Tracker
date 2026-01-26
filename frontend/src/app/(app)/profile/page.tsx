@@ -5,6 +5,7 @@ import { apiFetch, ApiError } from "@/lib/api/client";
 import { routes } from "@/lib/api/routes";
 import type { MeResponse, UpdateMeRequest } from "@/types/api";
 import { useAuth } from "@/hooks/useAuth";
+import { ProfileProAccessCard } from "@/components/profile/ProfileProAccessCard";
 import { UserProfileCard } from "@/components/profile/UserProfileCard";
 import { JobSearchPreferencesCard } from "@/components/profile/JobSearchPreferencesCard";
 import { ProfileConnectionsCard } from "@/components/profile/ProfileConnectionsCard";
@@ -506,7 +507,8 @@ export default function ProfilePage() {
         <div className="grid gap-6 lg:grid-cols-12 lg:items-start">
           
           {/* Left: Profile section */}
-          <div className="lg:col-span-7">
+          <div className="space-y-6 lg:col-span-7">
+            <ProfileProAccessCard />
             <UserProfileCard
               email={user?.email ?? "—"}
               isEditing={isEditingProfile}
