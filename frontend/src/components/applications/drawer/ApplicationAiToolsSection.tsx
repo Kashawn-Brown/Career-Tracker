@@ -190,7 +190,15 @@ export function ApplicationAiToolsSection({
       });
   
       setFitArtifact(created as AiArtifact<FitV1Payload>);
+
+      // Refresh user so credits/pro state updates immediately after successful AI use.
+      void refreshMe();
+
       setIsRerunMode(false);
+
+      // After a successful run, default to showing the detailed report.
+      setIsDetailsOpen(true);
+      onRequestClosePreview?.();   // Close any active preview
   
       // Optional: clear override after a successful run (keeps behavior predictable)
       onToggleOverride(false);
@@ -244,7 +252,7 @@ export function ApplicationAiToolsSection({
         <div>
           <div className="text-sm font-medium">Job Compatibility Check</div>
           <div className="text-xs text-muted-foreground">
-            Requires Job Description + Candidate History (Base Resume by default).
+            Requires Job Description + Resume (Base Resume by default).
           </div>
         </div>
       </div>

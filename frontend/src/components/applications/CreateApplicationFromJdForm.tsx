@@ -124,6 +124,9 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
       const res = await aiApi.applicationFromJd(text);
       setDraft(res);
 
+      // Refresh user so credits/pro state updates immediately after successful AI use.
+      void refreshMe();
+
       // Prefill editable fields
       setCompany(res.extracted.company ?? "");
       setPosition(res.extracted.position ?? "");

@@ -123,7 +123,7 @@ export function BaseResumeCard({
       <CardHeader>
         <CardTitle>Base Resume</CardTitle>
         <CardDescription>
-          Upload a base resume once. You can replace it later.
+          Keep your base resume up to date as a general document of your skills and experience.
         </CardDescription>
 
         <CardAction>
