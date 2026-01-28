@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { aiApi } from "@/lib/api/ai";
 import { applicationsApi } from "@/lib/api/applications";
-import type { ApplicationDraftResponse, ApplicationStatus, CreateApplicationRequest, JobType, WorkMode, } from "@/types/api";
+import type { ApplicationDraftResponse, ApplicationStatus, CreateApplicationRequest, JobType, WorkMode, DocumentKind, Connection } from "@/types/api";
 import { JOB_TYPE_OPTIONS, STATUS_OPTIONS, WORK_MODE_OPTIONS } from "@/lib/applications/presentation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,10 +17,13 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronRight, Star } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, Star, Trash2 } from "lucide-react";
 import { ProAccessBanner } from "@/components/pro/ProAccessBanner";
 import { RequestProDialog } from "@/components/pro/RequestProDialog";
 import { useAuth } from "@/hooks/useAuth";
+import { useConnectionAutocomplete } from "@/hooks/useConnectionAutocomplete";
+
+
 
 export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => void }) {
   // Job description input + draft
@@ -57,6 +60,64 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
 
   const [isFavorite, setIsFavorite] = useState(false);
 
+  // "More" section (attachments + connections to attach on create)
+  const [showMore, setShowMore] = useState(false);
+
+  // Document types
+  type UploadableDocKind = Exclude<DocumentKind, "BASE_RESUME">;
+  type StagedDocument = { id: string; kind: UploadableDocKind; file: File };
+
+  const DOC_KIND_OPTIONS: Array<{ value: UploadableDocKind; label: string }> = [
+    { value: "RESUME", label: "Resume" },
+    { value: "COVER_LETTER", label: "Cover Letter" },
+    { value: "OTHER", label: "Other" },
+  ];
+
+  // Attachment draft row
+  const [docKind, setDocKind] = useState<UploadableDocKind>("OTHER");
+  const [docFile, setDocFile] = useState<File | null>(null);
+  const [documents, setDocuments] = useState<StagedDocument[]>([]);
+
+  // Connections to attach
+  const [connectionQuery, setConnectionQuery] = useState("");
+  const [selectedConnections, setSelectedConnections] = useState<Connection[]>([]);
+
+  const selectedConnectionIds = useMemo(
+    () => new Set(selectedConnections.map((c) => c.id)),
+    [selectedConnections]
+  );
+
+  const { items: connectionSuggestions, isLoading: isConnectionSuggestLoading } =
+    useConnectionAutocomplete(connectionQuery, showMore);
+
+  function addDocument() {
+    if (!docFile) return;
+
+    setDocuments((prev) => [
+      ...prev,
+      { id: `${Date.now()}-${Math.random()}`, kind: docKind, file: docFile },
+    ]);
+
+    // reset row for next add
+    setDocKind("OTHER");
+    setDocFile(null);
+  }
+
+  function removeDocument(id: string) {
+    setDocuments((prev) => prev.filter((d) => d.id !== id));
+  }
+
+  function addConnection(c: Connection) {
+    if (selectedConnectionIds.has(c.id)) return;
+    setSelectedConnections((prev) => [...prev, c]);
+    setConnectionQuery("");
+  }
+
+  function removeConnection(id: string) {
+    setSelectedConnections((prev) => prev.filter((c) => c.id !== id));
+  }
+
+
   // Pro access state
   const { user, aiProRequest, refreshMe } = useAuth();
   const aiProEnabled = !!user?.aiProEnabled;
@@ -71,6 +132,8 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
   }
 
   const canGenerate = jdText.trim().length > 0 && !isGenerating && !isSubmitting;
+
+  
 
   // Reset to initial state
   function resetToInitial() {
@@ -100,6 +163,15 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
 
     setIsFavorite(false);
     setShowSummary(false);
+
+    setShowMore(false);
+
+    setDocKind("OTHER");
+    setDocFile(null);
+    setDocuments([]);
+
+    setConnectionQuery("");
+    setSelectedConnections([]);
   }
   
   // Reset to initial state
@@ -407,7 +479,150 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
 
             <div className="space-y-2 md:col-span-12">
               <Label htmlFor="notes">Notes</Label>
-              <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} className="min-h-[120px]" />
+              <Textarea
+                id="notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="min-h-[120px]"
+              />
+
+              <Button
+                type="button"
+                variant="link"
+                className="px-0"
+                onClick={() => setShowMore((v) => !v)}
+              >
+                {showMore ? "Hide extra fields" : "More fields"}
+              </Button>
+
+              {showMore ? (
+                <div className="grid gap-x-6 gap-y-6 md:grid-cols-14">
+                  {/* Documents: left = add controls */}
+                  <div className="space-y-3 rounded-md border p-3 md:col-span-4">
+                    <div className="text-sm font-medium">Documents</div>
+                
+                    <div className="space-y-2">
+                      <Label htmlFor="docKind">Document type</Label>
+                      <Select
+                        id="docKind"
+                        value={docKind}
+                        onChange={(e) => setDocKind(e.target.value as UploadableDocKind)}
+                      >
+                        {DOC_KIND_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                
+                    <div className="space-y-2">
+                      <Label htmlFor="docFile">File</Label>
+                      <Input
+                        id="docFile"
+                        type="file"
+                        accept=".pdf,.txt,application/pdf,text/plain"
+                        onChange={(e) => setDocFile(e.target.files?.[0] ?? null)}
+                      />
+                      {docFile ? (
+                        <div className="text-xs text-muted-foreground truncate">Selected: {docFile.name}</div>
+                      ) : null}
+                    </div>
+                
+                    <Button type="button" onClick={addDocument} disabled={!docFile} className="w-full">
+                      Add document
+                    </Button>
+                  </div>
+                
+                  {/* Documents: right = staged list */}
+                  <div className="space-y-3 rounded-md border p-3 md:col-span-3">
+                    <div className="text-sm font-medium">Staged documents</div>
+                
+                    {documents.length ? (
+                      <div className="space-y-2">
+                        {documents.map((d) => (
+                          <div key={d.id} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                            <div className="min-w-0">
+                              <div className="font-medium truncate">{d.file.name}</div>
+                              <div className="text-xs text-muted-foreground">{d.kind}</div>
+                            </div>
+                            <Button type="button" variant="ghost" size="icon" onClick={() => removeDocument(d.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-xs text-muted-foreground">No documents staged.</div>
+                    )}
+                  </div>
+                
+                  {/* Connections: left = search + suggestions */}
+                  <div className="space-y-3 rounded-md border p-3 md:col-span-4">
+                    <div className="text-sm font-medium">Connections</div>
+                
+                    <div className="space-y-2">
+                      <Label htmlFor="connectionSearch">Search</Label>
+                      <Input
+                        id="connectionSearch"
+                        value={connectionQuery}
+                        onChange={(e) => setConnectionQuery(e.target.value)}
+                        placeholder="Type a name..."
+                      />
+                      {isConnectionSuggestLoading ? (
+                        <div className="text-xs text-muted-foreground">Searching...</div>
+                      ) : null}
+                    </div>
+                
+                    {connectionSuggestions.length ? (
+                      <div className="rounded-md border p-2 space-y-1">
+                        {connectionSuggestions.map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            className="w-full text-left text-sm px-2 py-1 rounded hover:bg-muted disabled:opacity-50"
+                            onClick={() => addConnection(c)}
+                            disabled={selectedConnectionIds.has(c.id)}
+                          >
+                            <div className="font-medium">{c.name}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {c.company ?? ""}{c.title ? ` • ${c.title}` : ""}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-xs text-muted-foreground">No results.</div>
+                    )}
+                  </div>
+                
+                  {/* Connections: right = selected list */}
+                  <div className="space-y-3 rounded-md border p-3 md:col-span-3">
+                    <div className="text-sm font-medium">Selected connections</div>
+                
+                    {selectedConnections.length ? (
+                      <div className="space-y-2">
+                        {selectedConnections.map((c) => (
+                          <div key={c.id} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                            <div className="min-w-0">
+                              <div className="font-medium truncate">{c.name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {c.company ?? ""}{c.title ? ` • ${c.title}` : ""}
+                              </div>
+                            </div>
+                            <Button type="button" variant="ghost" size="icon" onClick={() => removeConnection(c.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-xs text-muted-foreground">No connections selected.</div>
+                    )}
+                  </div>
+                </div>
+              
+              ) : null}
             </div>
           </div>          
 
