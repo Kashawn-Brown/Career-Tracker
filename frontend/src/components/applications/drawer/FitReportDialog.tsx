@@ -110,8 +110,8 @@ export function FitReportDialog({ open, onOpenChange, artifact, band, usedDocLab
             <span className="text-md font-medium text-foreground">{jobLabel}</span>
             <br/>
             <span>Latest run: </span>{" "} {createdAtLabel ?? "Unknown"}
-            {" • "}
-            <span>Used: </span> {" "} {usedDocLabel}
+            {"  •  "}
+            <span>Document used: </span> {" "} {usedDocLabel}
           </DialogDescription>
         </DialogHeader>
 

@@ -46,6 +46,7 @@ function getFitBand(score: number): FitBand {
 
 // Props for the ApplicationAiToolsSection component
 type Props = {
+  drawerOpen: boolean;
   application: Application;
   baseResumeExists: boolean;
   baseResumeId: number | null;
@@ -58,9 +59,12 @@ type Props = {
   onDocumentsChanged?: (applicationId: string) => void;
 
   onRequestClosePreview?: () => void;
+
+  onApplicationChanged?: (applicationId: string) => void;
 };
 
 export function ApplicationAiToolsSection({ 
+  drawerOpen,
   application, 
   baseResumeExists, 
   baseResumeId, 
@@ -70,6 +74,7 @@ export function ApplicationAiToolsSection({
   onOverrideFile, 
   onDocumentsChanged,
   onRequestClosePreview,
+  onApplicationChanged,
 }: Props) {
 
   // FIT artifact
@@ -126,6 +131,15 @@ export function ApplicationAiToolsSection({
       cancelled = true;
     };
   }, [application.id]);
+
+  // Reset the UI state when the drawer is closed.
+  useEffect(() => {
+    if (!drawerOpen) {
+      setIsRerunMode(false);
+      setIsDetailsOpen(false);
+      setErrorMessage(null);
+    }
+  }, [drawerOpen]);
   
 
   // Whether the job description is ready to be used
@@ -160,6 +174,7 @@ export function ApplicationAiToolsSection({
   
     setIsRunning(true);
     setErrorMessage(null);
+    setIsDetailsOpen(false);
   
     try {
       let sourceDocumentId: number | undefined = undefined;
@@ -190,7 +205,18 @@ export function ApplicationAiToolsSection({
       });
   
       setFitArtifact(created as AiArtifact<FitV1Payload>);
+
+      // Refresh user so credits/pro state updates immediately after successful AI use.
+      void refreshMe();
+
+      // Refresh the application so the fit score and updated at updates immediately.
+      onApplicationChanged?.(application.id);
+
       setIsRerunMode(false);
+
+      // After a successful run, default to showing the detailed report.
+      setIsDetailsOpen(true);
+      onRequestClosePreview?.();   // Close any active preview
   
       // Optional: clear override after a successful run (keeps behavior predictable)
       onToggleOverride(false);
@@ -225,6 +251,7 @@ export function ApplicationAiToolsSection({
         </div>
       ) : null}
 
+      {/* Pro access banner */}
       <ProAccessBanner
         aiProEnabled={aiProEnabled}
         aiFreeUsesUsed={aiFreeUsesUsed}
@@ -232,6 +259,7 @@ export function ApplicationAiToolsSection({
         onRequestPro={() => setIsProDialogOpen(true)}
       />
 
+      {/* Request pro dialog */}
       <RequestProDialog
         open={isProDialogOpen}
         onOpenChange={setIsProDialogOpen}
@@ -244,7 +272,7 @@ export function ApplicationAiToolsSection({
         <div>
           <div className="text-sm font-medium">Job Compatibility Check</div>
           <div className="text-xs text-muted-foreground">
-            Requires Job Description + Candidate History (Base Resume by default).
+            Requires Job Description + Resume (Base Resume by default).
           </div>
         </div>
       </div>

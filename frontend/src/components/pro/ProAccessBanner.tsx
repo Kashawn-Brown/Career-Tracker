@@ -137,7 +137,7 @@ export function ProAccessBanner({
             </div>
           ) : (
             <div className="text-sm text-muted-foreground">
-              Request Pro access to keep using AI tools.
+              Request More Free Credits to keep using AI tools.
             </div>
           )}
 
@@ -149,7 +149,7 @@ export function ProAccessBanner({
             >
               {requestInfo?.title === "Request pending" && requestInfo.canRetry
                 ? "Request again"
-                : "Request Pro access"}
+                : "Request Free Credits"}
             </Button>
           </div>
         </div>

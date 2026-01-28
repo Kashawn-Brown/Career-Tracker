@@ -348,7 +348,7 @@ export function ProfileConnectionsCard() {
       <CardHeader>
         <CardTitle>Connections</CardTitle>
         <CardDescription>
-          People you’ve met (recruiters, referrals, interviewers, etc.).
+          {"Keep track of people you've connected with (recruiters,  etc.)."}
         </CardDescription>
 
         <CardAction>

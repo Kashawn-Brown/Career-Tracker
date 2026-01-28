@@ -225,12 +225,12 @@ export default function ApplicationsPage() {
     return updated;
   }
 
-  // handleConnectionsChanged: handles the change of the connections of the application.
-  async function handleConnectionsChanged(applicationId: string) {
+  // Handle application changes: refetch list and refresh drawer.
+  async function handleApplicationChange(applicationId: string) {
     // Refetch list so the table + sorting (updatedAt) updates immediately
     setReloadKey((k) => k + 1);
   
-    // Optional: refresh the drawer's application so its "Updated" value matches too
+    // Optional: refresh the drawer's application so fitScore/updatedAt matches too
     if (selectedApplication?.id === applicationId) {
       try {
         const latest = await applicationsApi.get(applicationId);
@@ -241,20 +241,14 @@ export default function ApplicationsPage() {
     }
   }
 
+  // handleConnectionsChanged: handles the change of the connections of the application.
+  async function handleConnectionsChanged(applicationId: string) {
+    await handleApplicationChange(applicationId);
+  }
+
   // handleDocumentsChanged: handles the change of the documents of the application.
   async function handleDocumentsChanged(applicationId: string) {
-    // Refetch list so the table + sorting (updatedAt) updates immediately
-    setReloadKey((k) => k + 1);
-  
-    // Optional: refresh the drawer's application so its "Updated" value matches too
-    if (selectedApplication?.id === applicationId) {
-      try {
-        const latest = await applicationsApi.get(applicationId);
-        setSelectedApplication(latest);
-      } catch {
-        // non-blocking
-      }
-    }
+    await handleApplicationChange(applicationId);
   }
 
   // handlePageSizeChange: changes the page size.
@@ -437,8 +431,8 @@ export default function ApplicationsPage() {
 
         {/* Controls surface (filters + column visibility) */}
         <div className="space-y-4">
+
           {/* Columns control */}
-          
           {showColumns ? (
             <ColumnsControl
               visibleColumns={visibleColumns}
@@ -660,6 +654,7 @@ export default function ApplicationsPage() {
             </div>
           </Collapsible>
 
+          {/* Error message */}
           {errorMessage ? (
             <div className="relative">
               <Alert variant="destructive" className="pr-10">
@@ -677,6 +672,7 @@ export default function ApplicationsPage() {
               </button>
             </div>
           ) : null}
+
         </div>
 
         {/* Applications table */}
@@ -808,6 +804,7 @@ export default function ApplicationsPage() {
         onSave={handleSaveDetails} 
         onDocumentsChanged={handleDocumentsChanged}
         onConnectionsChanged={handleConnectionsChanged}
+        onApplicationChanged={handleApplicationChange}
       />
     </div>
   );
