@@ -30,7 +30,7 @@ export function RequestProDialog({ open, onOpenChange, onRequested }: Props) {
   // Generate the preview text for the Pro request.
   const preview = useMemo(() => {
     const from = user ? `${user.name ?? "User"} (${user.email})` : "—";
-    const base = "Hi, I'm requesting Pro access to Career-Tracker for full access to AI tools.";
+    const base = "Hi, I'm requesting more free credits to Career-Tracker for access to AI tools.";
     const extra = note.trim();
     return extra ? `From: ${from}\n\n${base}\n\nExtra note:\n${extra}` : `From: ${from}\n\n${base}`;
   }, [note, user]);
@@ -62,12 +62,12 @@ export function RequestProDialog({ open, onOpenChange, onRequested }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[560px]">
         <DialogHeader>
-          <DialogTitle>Request Pro access</DialogTitle>
+          <DialogTitle>Request more free credits</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-3">
           <div>
-            <div className="text-sm font-medium mb-1">Preview</div>
+            <div className="text-sm font-medium mb-1 mt-2">Email preview</div>
             <Textarea value={preview} readOnly rows={7} />
           </div>
 
