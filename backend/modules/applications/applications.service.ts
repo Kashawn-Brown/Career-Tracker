@@ -400,7 +400,11 @@ export async function createAiArtifact(args: {
       },
     });
 
-    // If it's a FIT artifact, persist the latest score onto the application
+    // Get the original name of the source document
+    const sourceDocumentName = await getDocumentName(db, args.userId, args.sourceDocumentId);
+
+
+    // Only if it was a FIT artifact, persist the latest score onto the application
     if (args.kind === "FIT_V1") {
       const score = extractFitScore(args.payload);
 
@@ -418,8 +422,8 @@ export async function createAiArtifact(args: {
     // Consume quota only after the artifact is successfully created
     await consumeAiFreeUseOnSuccessOrThrow(args.userId, db);
 
-    // Return the AI artifact
-    return artifact;
+    // Return the AI artifact + source document name
+    return { ...artifact, sourceDocumentName };
   });
 }
 
@@ -435,7 +439,8 @@ export async function listAiArtifacts(args: {
   // Ensures the application exists + belongs to the user
   await getApplicationById(args.userId, args.jobApplicationId);
 
-  return prisma.aiArtifact.findMany({
+  // Get the artifacts
+  const artifacts = await prisma.aiArtifact.findMany({
     where: {
       userId: args.userId,
       jobApplicationId: args.jobApplicationId,
@@ -444,6 +449,14 @@ export async function listAiArtifacts(args: {
     orderBy: { createdAt: "desc" },
     take: args.all ? undefined : 1, // Default: return latest only
   });
+
+  return Promise.all(
+    // Map over the artifacts and get the source document name
+    artifacts.map(async (artifact) => {
+      const sourceDocumentName = await getDocumentNameNoDb(args.userId, artifact.sourceDocumentId);
+      return { ...artifact, sourceDocumentName };
+    })
+  );
 }
 
 
@@ -465,4 +478,38 @@ function extractFitScore(payload: unknown): number | null {
   // Clamp to 0–100 and round to an int for DB storage
   const clamped = Math.max(0, Math.min(100, score));
   return Math.round(clamped);
+}
+
+// // Helper to get the original name of the document from the document id
+async function getDocumentName(db: Prisma.TransactionClient, userId: string, documentId: number | null | undefined): Promise<string | null> {
+
+  if (documentId === null || documentId === undefined) return null;
+
+  // No doc id provided → no name
+  if (documentId == null) return null;
+
+  // Get the document
+  const doc = await db.document.findFirst({
+    where: { userId, id: documentId },
+    select: { originalName: true },
+  });
+
+  // Return the original name of the document
+  return doc?.originalName ?? null;
+}
+async function getDocumentNameNoDb(userId: string, documentId: number | null | undefined): Promise<string | null> {
+
+  if (documentId === null || documentId === undefined) return null;
+
+  // No doc id provided → no name
+  if (documentId == null) return null;
+
+  // Get the document
+  const doc = await prisma.document.findFirst({
+    where: { userId, id: documentId },
+    select: { originalName: true },
+  });
+
+  // Return the original name of the document
+  return doc?.originalName ?? null;
 }
