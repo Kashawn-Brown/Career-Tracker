@@ -286,8 +286,10 @@ export function ApplicationAiToolsSection({
           const usedDocLabel =
             baseResumeId && fitArtifact.sourceDocumentId === baseResumeId
               ? "Base Resume"
+              : fitArtifact.sourceDocumentName
+              ? fitArtifact.sourceDocumentName
               : fitArtifact.sourceDocumentId
-              ? `Override (Doc #${fitArtifact.sourceDocumentId})`
+              ? `Doc #${fitArtifact.sourceDocumentId}`
               : "Base Resume";
 
           return (
