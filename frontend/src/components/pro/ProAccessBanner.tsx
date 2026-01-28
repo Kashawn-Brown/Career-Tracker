@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { AiProRequestSummary } from "@/types/api";
 
@@ -31,27 +31,24 @@ function fmtDate(d: Date) {
 }
 
 /**
- * A tiny external "clock" store for React to read time in a pure way.
- * Updates every 60 seconds so "canRetry" eventually flips without a refresh.
+ * Simple "clock" hook so time-based UI (like re-request eligibility) updates without refresh.
+ * Ticks every 60s. We avoid calling Date.now() during render to prevent render-loop issues.
  */
-function subscribeClock(onStoreChange: () => void) {
-  const id = window.setInterval(onStoreChange, 60_000);
-  return () => window.clearInterval(id);
+function useNowMs(intervalMs = 60_000) {
+  const [nowMs, setNowMs] = useState(0);
+
+  useEffect(() => {
+    const update = () => setNowMs(Date.now());
+
+    update(); // set an initial value after mount
+    const id = window.setInterval(update, intervalMs);
+
+    return () => window.clearInterval(id);
+  }, [intervalMs]);
+
+  return nowMs;
 }
 
-function getClockSnapshot() {
-  // Allowed here: this is a store snapshot function, not component render.
-  return Date.now();
-}
-
-function getClockServerSnapshot() {
-  // SSR fallback; this is a client component anyway, but required by the API.
-  return 0;
-}
-
-function useNowMs() {
-  return useSyncExternalStore(subscribeClock, getClockSnapshot, getClockServerSnapshot);
-}
 
 // Lets the user request Pro access if they have run out of free AI credits.
 export function ProAccessBanner({
