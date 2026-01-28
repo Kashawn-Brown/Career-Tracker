@@ -17,6 +17,16 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogClose,
+} from "@/components/ui/dialog";
+
 import { ChevronDown, ChevronRight, Star, Trash2 } from "lucide-react";
 import { ProAccessBanner } from "@/components/pro/ProAccessBanner";
 import { RequestProDialog } from "@/components/pro/RequestProDialog";
@@ -37,7 +47,7 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [showSummary, setShowSummary] = useState(false);
-
+  
   // Editable fields (prefilled after generate)
   const [company, setCompany] = useState("");
   const [position, setPosition] = useState("");
@@ -63,6 +73,15 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
 
   // "More" section (attachments + connections to attach on create)
   const [showMore, setShowMore] = useState(false);
+
+  // Run compatibility after create (optional)
+  const [runFitOnCreate, setRunFitOnCreate] = useState(false);
+  const [isRunFitDialogOpen, setIsRunFitDialogOpen] = useState(false);
+
+  // Fit source selection (default = Base Resume)
+  const [fitUseOverride, setFitUseOverride] = useState(false);
+  const [fitOverrideFile, setFitOverrideFile] = useState<File | null>(null);
+
 
   // Document types
   type UploadableDocKind = Exclude<DocumentKind, "BASE_RESUME">;
@@ -125,6 +144,13 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
   const aiFreeUsesUsed = user?.aiFreeUsesUsed ?? 0;
   // const isAiLocked = !!user && !aiProEnabled && aiFreeUsesUsed >= 5;
 
+  const baseResumeExists = !!user?.baseResumeUrl;
+  const aiFreeRemaining = Math.max(0, 5 - aiFreeUsesUsed);
+  const canRunFit =
+    aiProEnabled ||
+    aiFreeRemaining > 0;
+
+
   const [isProDialogOpen, setIsProDialogOpen] = useState(false);
 
   function toOptionalTrimmed(value: string) {
@@ -173,6 +199,13 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
 
     setConnectionQuery("");
     setSelectedConnections([]);
+
+    setRunFitOnCreate(false);
+    setIsRunFitDialogOpen(false);
+
+    setFitUseOverride(false);
+    setFitOverrideFile(null);
+
   }
   
   // Reset to initial state
@@ -230,95 +263,138 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
     }
   }
 
-  // Create application from draft
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault();
+  // Create application after draft (possibly run compatibility)
+  async function createApplicationAfterDraft(opts: { runFit: boolean }) {
     setErrorMessage(null);
-
-    // Snapshot staged “More” items so we can safely reset the form after creating.
+  
+    // Snapshot staged “More” items so reset doesn’t break async work.
     const stagedDocuments = [...documents];
     const stagedConnections = [...selectedConnections];
-
-
+  
+    // Snapshot fit inputs too (dialog state)
+    const stagedFitUseOverride = fitUseOverride;
+    const stagedFitOverrideFile = fitOverrideFile;
+  
     if (!company.trim() || !position.trim()) {
       setErrorMessage("Company and position are required.");
       return;
     }
-
+  
+    // If running fit, validate requirements up front.
+    if (opts.runFit) {
+      if (!canRunFit) {
+        setErrorMessage("No free AI credits remaining. Request Pro to run compatibility.");
+        return;
+      }
+  
+      if (stagedFitUseOverride && !stagedFitOverrideFile) {
+        setErrorMessage("Select a file for compatibility (or turn off override).");
+        return;
+      }
+  
+      if (!stagedFitUseOverride && !baseResumeExists) {
+        setErrorMessage("Upload a Base Resume in Profile (or use an override file).");
+        return;
+      }
+    }
+  
     const payload: CreateApplicationRequest = {
       company: company.trim(),
       position: position.trim(),
-
       status: applicationStatus,
-
-      // Keep the “From JD” promise: store full JD
       description: jdText.trim(),
-
-      // Prefilled from extracted.notes, user-editable
       notes: toOptionalTrimmed(notes),
-
+  
       location: toOptionalTrimmed(location),
       locationDetails: toOptionalTrimmed(locationDetails),
-
-      // Only send enums if not UNKNOWN (keeps payload clean)
+  
       jobType: jobType === "UNKNOWN" ? undefined : jobType,
       jobTypeDetails: toOptionalTrimmed(jobTypeDetails),
-
+  
       workMode: workMode === "UNKNOWN" ? undefined : workMode,
       workModeDetails: toOptionalTrimmed(workModeDetails),
-
+  
       salaryText: toOptionalTrimmed(salaryText),
       jobLink: toOptionalTrimmed(jobLink),
       tagsText: toOptionalTrimmed(tagsText),
-
-      isFavorite: isFavorite,
-
-      // Match Manual behavior: if user flips to APPLIED, set dateApplied
+  
+      isFavorite,
+  
       dateApplied: applicationStatus === "APPLIED" ? new Date().toISOString() : undefined,
     };
-
+  
     try {
       setIsSubmitting(true);
-
+  
       const created = await applicationsApi.create(payload);
-
-      // Apply staged documents + connections after create.
+  
+      // Show the row immediately.
+      onCreated();
+  
+      let fitFailed = false;
+  
+      if (opts.runFit) {
+        try {
+          let sourceDocumentId: number | undefined = undefined;
+  
+          if (stagedFitUseOverride && stagedFitOverrideFile) {
+            const uploadRes = await applicationDocumentsApi.upload({
+              applicationId: created.id,
+              kind: "CAREER_HISTORY",
+              file: stagedFitOverrideFile,
+            });
+  
+            sourceDocumentId = Number(uploadRes.document.id);
+          }
+  
+          await applicationsApi.generateAiArtifact(created.id, {
+            kind: "FIT_V1",
+            sourceDocumentId,
+          });
+  
+          // Credits + table refresh
+          void refreshMe();
+          onCreated();
+        } catch {
+          fitFailed = true;
+        }
+      }
+  
+      // Apply staged documents + connections after create (best-effort)
       const docResults = stagedDocuments.length
         ? await Promise.allSettled(
             stagedDocuments.map((d) =>
               applicationDocumentsApi.upload({
                 applicationId: created.id,
-                kind: d.kind, // must be Exclude<DocumentKind, "BASE_RESUME">
+                kind: d.kind,
                 file: d.file,
               })
             )
           )
         : [];
-
+  
       const connResults = stagedConnections.length
         ? await Promise.allSettled(
-            stagedConnections.map((c) => applicationsApi.attachConnectionToApplication(created.id, c.id))
+            stagedConnections.map((c) =>
+              applicationsApi.attachConnectionToApplication(created.id, c.id)
+            )
           )
         : [];
-
+  
       const failedDocs = docResults.filter((r) => r.status === "rejected").length;
       const failedConns = connResults.filter((r) => r.status === "rejected").length;
-
-
-      // Reset to initial state
+  
       resetToInitial();
-
-      // Refresh list
       onCreated();
-
-      if (failedDocs || failedConns) {
-        setErrorMessage(
-          `Application created, but ${failedDocs ? `${failedDocs} document(s)` : ""}${
-            failedDocs && failedConns ? " and " : ""
-          }${failedConns ? `${failedConns} connection(s)` : ""} failed to attach.`
-        );
+  
+      if (fitFailed || failedDocs || failedConns) {
+        const parts: string[] = [];
+        if (fitFailed) parts.push("compatibility check failed");
+        if (failedDocs) parts.push(`${failedDocs} document(s) failed to attach`);
+        if (failedConns) parts.push(`${failedConns} connection(s) failed to attach`);
+  
+        setErrorMessage(`Application created, but ${parts.join(" and ")}.`);
       }
-      
     } catch (err) {
       if (err instanceof ApiError) setErrorMessage(err.message);
       else setErrorMessage("Failed to create application.");
@@ -326,6 +402,20 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
       setIsSubmitting(false);
     }
   }
+
+  // Create application from draft
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    setErrorMessage(null);
+  
+    if (runFitOnCreate) {
+      setIsRunFitDialogOpen(true);
+      return;
+    }
+  
+    await createApplicationAfterDraft({ runFit: false });
+  }
+  
 
   return (
     <div className="space-y-4">
@@ -664,11 +754,121 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
             </div>
           </div>          
 
-          <div className="flex justify-end pt-2">
+          <div className="flex items-center justify-between pt-2">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={runFitOnCreate}
+                onChange={(e) => setRunFitOnCreate(e.target.checked)}
+                disabled={isSubmitting}
+                className="h-4 w-4"
+              />
+              Run compatibility after create
+            </label>
+
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? "Creating..." : "Create application"}
             </Button>
           </div>
+
+          <Dialog open={isRunFitDialogOpen} onOpenChange={setIsRunFitDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="text-2xl font-medium">Create and Run Compatibility?</DialogTitle>
+                <DialogDescription>
+                  We’ll create the application and run a compatibility check using your Base Resume (or an override file).
+                  {!aiProEnabled ? (
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      Running compatibility uses <span className="font-medium text-foreground">1</span> AI credit.
+                      You have <span className="font-medium text-foreground">{aiFreeRemaining}</span> free uses left.
+                    </div>
+                  ) : null}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-3 mt-8">
+                <div className="text-xs text-muted-foreground mb-1">
+                  Job Description: Ready
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Base Resume:{" "}
+                  <span className={baseResumeExists ? "text-foreground" : "text-destructive"}>
+                    {baseResumeExists ? "Saved" : "Not uploaded"}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 mt-8">
+                  <input
+                    id="fit-override"
+                    type="checkbox"
+                    checked={fitUseOverride}
+                    onChange={(e) => {
+                      const next = e.target.checked;
+                      setFitUseOverride(next);
+                      if (!next) setFitOverrideFile(null);
+                    }}
+                    className="h-4 w-4"
+                  />
+                  <label htmlFor="fit-override" className="text-sm">
+                    Use a different file for compatibility
+                  </label>
+                </div>
+
+                {fitUseOverride ? (
+                  <div className="space-y-2">
+                    <Input
+                      type="file"
+                      accept=".pdf,.txt,application/pdf,text/plain"
+                      onChange={(e) => setFitOverrideFile(e.target.files?.[0] ?? null)}
+                    />
+                    {fitOverrideFile ? (
+                      <div className="text-xs text-muted-foreground truncate">
+                        Selected: {fitOverrideFile.name}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="text-xs text-muted-foreground">Default: Base Resume.</div>
+                )}
+              </div>
+
+              <DialogFooter className="gap-2 mt-10">
+                <DialogClose asChild>
+                  <Button type="button" variant="outline" disabled={isSubmitting}>
+                    Cancel
+                  </Button>
+                </DialogClose>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isSubmitting}
+                  onClick={() => {
+                    setIsRunFitDialogOpen(false);
+                    void createApplicationAfterDraft({ runFit: false });
+                  }}
+                >
+                  Create only
+                </Button>
+
+                <Button
+                  type="button"
+                  disabled={
+                    isSubmitting ||
+                    !canRunFit ||
+                    (fitUseOverride ? !fitOverrideFile : !baseResumeExists)
+                  }
+                  onClick={() => {
+                    setIsRunFitDialogOpen(false);
+                    void createApplicationAfterDraft({ runFit: true });
+                  }}
+                >
+                  Create + run compatibility
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
         </form>
       ) : null}
     </div>
