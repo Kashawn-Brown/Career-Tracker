@@ -472,6 +472,7 @@ export type AiArtifact<TPayload = unknown> = {
 
   model: string;
   sourceDocumentId: number | null;
+  sourceDocumentName: string | null;
 
   createdAt: string;
 };
