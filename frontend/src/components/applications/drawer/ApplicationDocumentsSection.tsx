@@ -45,6 +45,7 @@ export function ApplicationDocumentsSection({
   onDocumentsChanged,
   activePreviewDocId,
   onPreviewRequested,
+  docsReloadKey,
 }: {
   applicationId: string;
   open: boolean;
@@ -52,6 +53,7 @@ export function ApplicationDocumentsSection({
   onDocumentsChanged?: (applicationId: string) => void;
   activePreviewDocId?: string | null;
   onPreviewRequested?: (doc: Document | null) => void;
+  docsReloadKey: number;
 }) {
   const [docs, setDocs] = useState<Document[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -76,7 +78,7 @@ export function ApplicationDocumentsSection({
     if (fileInputRef.current) fileInputRef.current.value = "";
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [applicationId, open]);
+  }, [applicationId, open, docsReloadKey]);
   
   // Refreshes the list of documents for the application.
   async function refresh() {
