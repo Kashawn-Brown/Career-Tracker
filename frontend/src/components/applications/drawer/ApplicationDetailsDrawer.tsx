@@ -324,6 +324,14 @@ export function ApplicationDetailsDrawer({
     setAiOverrideFile(null);
   }, [application?.id]);
 
+  // Reset the AI override state when the drawer is closed
+  useEffect(() => {
+    if (!open) {
+      setUseAiOverride(false);
+      setAiOverrideFile(null);
+    }
+  }, [open]);
+
   // Starts the edit mode.
   function startEdit() {
     if (!application) return;
@@ -1008,20 +1016,21 @@ export function ApplicationDetailsDrawer({
             {/* AI Tools section */}
             <Section title="AI Tools">
               <ApplicationAiToolsSection 
-              application={application} 
-              baseResumeExists={baseResumeExists} 
-              baseResumeId={baseResumeId}
-              useOverride={useAiOverride}
-              overrideFile={aiOverrideFile}
-              onToggleOverride={(checked) => {
-                setUseAiOverride(checked);
-                if (!checked) setAiOverrideFile(null);
-              }}
-              onOverrideFile={setAiOverrideFile}
-              onDocumentsChanged={onDocumentsChanged}
-              onRequestClosePreview={clearPreview}
-              onApplicationChanged={onApplicationChanged}
-            />
+                drawerOpen={open}
+                application={application} 
+                baseResumeExists={baseResumeExists} 
+                baseResumeId={baseResumeId}
+                useOverride={useAiOverride}
+                overrideFile={aiOverrideFile}
+                onToggleOverride={(checked) => {
+                  setUseAiOverride(checked);
+                  if (!checked) setAiOverrideFile(null);
+                }}
+                onOverrideFile={setAiOverrideFile}
+                onDocumentsChanged={onDocumentsChanged}
+                onRequestClosePreview={clearPreview}
+                onApplicationChanged={onApplicationChanged}
+              />
             </Section>
           </div>
         )}

@@ -46,6 +46,7 @@ function getFitBand(score: number): FitBand {
 
 // Props for the ApplicationAiToolsSection component
 type Props = {
+  drawerOpen: boolean;
   application: Application;
   baseResumeExists: boolean;
   baseResumeId: number | null;
@@ -63,6 +64,7 @@ type Props = {
 };
 
 export function ApplicationAiToolsSection({ 
+  drawerOpen,
   application, 
   baseResumeExists, 
   baseResumeId, 
@@ -129,6 +131,15 @@ export function ApplicationAiToolsSection({
       cancelled = true;
     };
   }, [application.id]);
+
+  // Reset the UI state when the drawer is closed.
+  useEffect(() => {
+    if (!drawerOpen) {
+      setIsRerunMode(false);
+      setIsDetailsOpen(false);
+      setErrorMessage(null);
+    }
+  }, [drawerOpen]);
   
 
   // Whether the job description is ready to be used
@@ -163,6 +174,7 @@ export function ApplicationAiToolsSection({
   
     setIsRunning(true);
     setErrorMessage(null);
+    setIsDetailsOpen(false);
   
     try {
       let sourceDocumentId: number | undefined = undefined;
