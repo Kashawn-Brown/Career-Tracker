@@ -207,6 +207,7 @@ export function ApplicationDetailsDrawer({
   onSave,
   onDocumentsChanged,
   onConnectionsChanged,
+  onApplicationChanged,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -217,6 +218,7 @@ export function ApplicationDetailsDrawer({
   ) => Promise<Application>;
   onDocumentsChanged?: (applicationId: string) => void;
   onConnectionsChanged?: (applicationId: string) => void;
+  onApplicationChanged?: (applicationId: string) => void;
 }) {
   // UI state
   const [isEditing, setIsEditing] = useState(false);
@@ -616,8 +618,11 @@ export function ApplicationDetailsDrawer({
           </div>
         ) : (
           <div className="space-y-5">
+            
+            {/* Job details section */}
             <Section title="Job details">
               <div className="space-y-2">
+                {/* Displaying the application details */}
                 {!isEditing ? (
                   // Displaying the application details
                   <>
@@ -665,7 +670,6 @@ export function ApplicationDetailsDrawer({
                     ) : null}
                   </>
                 ) : (
-                  
                   // Editing the application details
                   <>
                     {/* Company */}
@@ -813,6 +817,7 @@ export function ApplicationDetailsDrawer({
               </div>
             </Section>
 
+            {/* Job link section */}
             <Section title="Job link">
               {!isEditing ? (
                 application.jobLink ? (
@@ -840,6 +845,7 @@ export function ApplicationDetailsDrawer({
               )}
             </Section>
 
+            {/* Tags section */}
             <Section title="Tags">
               {!isEditing ? (
                 parseTags(application.tagsText).length ? (
@@ -932,6 +938,7 @@ export function ApplicationDetailsDrawer({
               )}
             </Section>
 
+            {/* Notes section */}
             <Section title="Notes">
               {!isEditing ? (
                 application.notes ? (
@@ -952,6 +959,7 @@ export function ApplicationDetailsDrawer({
               )}
             </Section>
 
+            {/* Job description section */}
             <Section title="Job description">
               {!isEditing ? (
                 application.description ? (
@@ -975,6 +983,7 @@ export function ApplicationDetailsDrawer({
               )}
             </Section>
 
+            {/* Application Connections section */}
             <Section title="Connections">
               <ApplicationConnectionsSection
                 applicationId={application.id}
@@ -984,6 +993,7 @@ export function ApplicationDetailsDrawer({
               />
             </Section>
 
+            {/* Application Documents section */}
             <Section title="Documents">
               <ApplicationDocumentsSection
                 applicationId={application.id}
@@ -995,6 +1005,7 @@ export function ApplicationDetailsDrawer({
               />
             </Section>
 
+            {/* AI Tools section */}
             <Section title="AI Tools">
               <ApplicationAiToolsSection 
               application={application} 
@@ -1009,6 +1020,7 @@ export function ApplicationDetailsDrawer({
               onOverrideFile={setAiOverrideFile}
               onDocumentsChanged={onDocumentsChanged}
               onRequestClosePreview={clearPreview}
+              onApplicationChanged={onApplicationChanged}
             />
             </Section>
           </div>

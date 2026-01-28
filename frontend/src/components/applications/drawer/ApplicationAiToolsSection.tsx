@@ -58,6 +58,8 @@ type Props = {
   onDocumentsChanged?: (applicationId: string) => void;
 
   onRequestClosePreview?: () => void;
+
+  onApplicationChanged?: (applicationId: string) => void;
 };
 
 export function ApplicationAiToolsSection({ 
@@ -70,6 +72,7 @@ export function ApplicationAiToolsSection({
   onOverrideFile, 
   onDocumentsChanged,
   onRequestClosePreview,
+  onApplicationChanged,
 }: Props) {
 
   // FIT artifact
@@ -194,6 +197,9 @@ export function ApplicationAiToolsSection({
       // Refresh user so credits/pro state updates immediately after successful AI use.
       void refreshMe();
 
+      // Refresh the application so the fit score and updated at updates immediately.
+      onApplicationChanged?.(application.id);
+
       setIsRerunMode(false);
 
       // After a successful run, default to showing the detailed report.
@@ -233,6 +239,7 @@ export function ApplicationAiToolsSection({
         </div>
       ) : null}
 
+      {/* Pro access banner */}
       <ProAccessBanner
         aiProEnabled={aiProEnabled}
         aiFreeUsesUsed={aiFreeUsesUsed}
@@ -240,6 +247,7 @@ export function ApplicationAiToolsSection({
         onRequestPro={() => setIsProDialogOpen(true)}
       />
 
+      {/* Request pro dialog */}
       <RequestProDialog
         open={isProDialogOpen}
         onOpenChange={setIsProDialogOpen}
