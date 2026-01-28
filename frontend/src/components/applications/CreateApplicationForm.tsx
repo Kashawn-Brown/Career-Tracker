@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { Star, Trash2 } from "lucide-react";
 import { useConnectionAutocomplete } from "@/hooks/useConnectionAutocomplete";
 
@@ -37,6 +38,7 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
   const [jobLink, setJobLink] = useState("");
   const [description, setDescription] = useState("");
   const [notes, setNotes] = useState("");
+  const [tagsText, setTagsText] = useState("");
 
   // UI state
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -141,6 +143,7 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
       jobLink: toOptionalTrimmed(jobLink),
       description: toOptionalTrimmed(description),
       notes: toOptionalTrimmed(notes),
+      tagsText: toOptionalTrimmed(tagsText),
     };
 
     try {
@@ -192,6 +195,7 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
       setJobLink("");
       setDescription("");
       setNotes("");
+      setTagsText("");
 
       setShowMore(false);
 
@@ -374,125 +378,175 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
               />
             </div>
           </div>
+
+          <div className="grid gap-x-6 gap-y-6 md:grid-cols-12 mt-8">
+            
+            {/* Job link + tags (stacked in the other half) */}
+            <div className="md:col-span-6 grid gap-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="jobLink">Job Link</Label>
+                <Input
+                  id="jobLink"
+                  value={jobLink}
+                  onChange={(e) => setJobLink(e.target.value)}
+                  placeholder="https://..."
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="tagsText">Tags</Label>
+                <Input
+                  id="tagsText"
+                  value={tagsText}
+                  onChange={(e) => setTagsText(e.target.value)}
+                  placeholder="e.g., Backend, Java, Remote"
+                />
+              </div>
+            </div>
+
+            {/* Notes (half width) */}
+            <div className="space-y-2 md:col-span-6">
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea
+                id="notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="min-h-[136px]"
+                placeholder="Anything important to remember about this role..."
+              />
+            </div>
+
+            {/* Job description (full width) */}
+            <div className="space-y-2 md:col-span-12">
+              <Label htmlFor="description">Job Description</Label>
+              <Textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="min-h-[180px]"
+                placeholder="Paste the job description here..."
+              />
+            </div>
+          </div>
           
-        <div className="grid gap-x-6 gap-y-6 md:grid-cols-14 mt-8">
-          {/* Documents: add */}
-          <div className="space-y-3 rounded-md border p-3 md:col-span-4">
-            <div className="text-sm font-medium">Documents</div>
+          <div className="grid gap-x-6 gap-y-6 md:grid-cols-14 mt-8">
+            {/* Documents: add */}
+            <div className="space-y-3 rounded-md border p-3 md:col-span-4">
+              <div className="text-sm font-medium">Documents</div>
 
-            <div className="space-y-2">
-              <Label htmlFor="docKind">Document type</Label>
-              <Select id="docKind" value={docKind} onChange={(e) => setDocKind(e.target.value as UploadableDocKind)}>
-                {DOC_KIND_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="docFile">File</Label>
-              <Input
-                id="docFile"
-                type="file"
-                accept=".pdf,.txt,application/pdf,text/plain"
-                onChange={(e) => setDocFile(e.target.files?.[0] ?? null)}
-              />
-              {docFile ? <div className="text-xs text-muted-foreground truncate">Selected: {docFile.name}</div> : null}
-            </div>
-
-            <Button type="button" onClick={addDocument} disabled={!docFile} className="w-full">
-              Add document
-            </Button>
-          </div>
-
-          {/* Documents: staged */}
-          <div className="space-y-3 rounded-md border p-3 md:col-span-3">
-            <div className="text-sm font-medium">Staged documents</div>
-
-            {documents.length ? (
               <div className="space-y-2">
-                {documents.map((d) => (
-                  <div key={d.id} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
-                    <div className="min-w-0">
-                      <div className="font-medium truncate">{d.file.name}</div>
-                      <div className="text-xs text-muted-foreground">{d.kind}</div>
-                    </div>
-                    <Button type="button" variant="ghost" size="icon" onClick={() => removeDocument(d.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
+                <Label htmlFor="docKind">Document type</Label>
+                <Select id="docKind" value={docKind} onChange={(e) => setDocKind(e.target.value as UploadableDocKind)}>
+                  {DOC_KIND_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </Select>
               </div>
-            ) : (
-              <div className="text-xs text-muted-foreground">No documents staged.</div>
-            )}
-          </div>
 
-          {/* Connections: search */}
-          <div className="space-y-3 rounded-md border p-3 md:col-span-4">
-            <div className="text-sm font-medium">Connections</div>
+              <div className="space-y-2">
+                <Label htmlFor="docFile">File</Label>
+                <Input
+                  id="docFile"
+                  type="file"
+                  accept=".pdf,.txt,application/pdf,text/plain"
+                  onChange={(e) => setDocFile(e.target.files?.[0] ?? null)}
+                />
+                {docFile ? <div className="text-xs text-muted-foreground truncate">Selected: {docFile.name}</div> : null}
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="connectionSearch">Search</Label>
-              <Input
-                id="connectionSearch"
-                value={connectionQuery}
-                onChange={(e) => setConnectionQuery(e.target.value)}
-                placeholder="Type a name..."
-              />
-              {isConnectionSuggestLoading ? <div className="text-xs text-muted-foreground">Searching...</div> : null}
+              <Button type="button" onClick={addDocument} disabled={!docFile} className="w-full">
+                Add document
+              </Button>
             </div>
 
-            {connectionSuggestions.length ? (
-              <div className="rounded-md border p-2 space-y-1">
-                {connectionSuggestions.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    className="w-full text-left text-sm px-2 py-1 rounded hover:bg-muted disabled:opacity-50"
-                    onClick={() => addConnection(c)}
-                    disabled={selectedConnectionIds.has(c.id)}
-                  >
-                    <div className="font-medium">{c.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {c.company ?? ""}{c.title ? ` • ${c.title}` : ""}
+            {/* Documents: staged */}
+            <div className="space-y-3 rounded-md border p-3 md:col-span-3">
+              <div className="text-sm font-medium">Staged documents</div>
+
+              {documents.length ? (
+                <div className="space-y-2">
+                  {documents.map((d) => (
+                    <div key={d.id} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                      <div className="min-w-0">
+                        <div className="font-medium truncate">{d.file.name}</div>
+                        <div className="text-xs text-muted-foreground">{d.kind}</div>
+                      </div>
+                      <Button type="button" variant="ghost" size="icon" onClick={() => removeDocument(d.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="text-xs text-muted-foreground">No results.</div>
-            )}
-          </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-xs text-muted-foreground">No documents staged.</div>
+              )}
+            </div>
 
-          {/* Connections: selected */}
-          <div className="space-y-3 rounded-md border p-3 md:col-span-3">
-            <div className="text-sm font-medium">Selected connections</div>
+            {/* Connections: search */}
+            <div className="space-y-3 rounded-md border p-3 md:col-span-4">
+              <div className="text-sm font-medium">Connections</div>
 
-            {selectedConnections.length ? (
               <div className="space-y-2">
-                {selectedConnections.map((c) => (
-                  <div key={c.id} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
-                    <div className="min-w-0">
-                      <div className="font-medium truncate">{c.name}</div>
+                <Label htmlFor="connectionSearch">Search</Label>
+                <Input
+                  id="connectionSearch"
+                  value={connectionQuery}
+                  onChange={(e) => setConnectionQuery(e.target.value)}
+                  placeholder="Type a name..."
+                />
+                {isConnectionSuggestLoading ? <div className="text-xs text-muted-foreground">Searching...</div> : null}
+              </div>
+
+              {connectionSuggestions.length ? (
+                <div className="rounded-md border p-2 space-y-1">
+                  {connectionSuggestions.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      className="w-full text-left text-sm px-2 py-1 rounded hover:bg-muted disabled:opacity-50"
+                      onClick={() => addConnection(c)}
+                      disabled={selectedConnectionIds.has(c.id)}
+                    >
+                      <div className="font-medium">{c.name}</div>
                       <div className="text-xs text-muted-foreground">
                         {c.company ?? ""}{c.title ? ` • ${c.title}` : ""}
                       </div>
-                    </div>
-                    <Button type="button" variant="ghost" size="icon" onClick={() => removeConnection(c.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-xs text-muted-foreground">No connections selected.</div>
-            )}
-          </div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-xs text-muted-foreground">No results.</div>
+              )}
+            </div>
 
-        </div>
+            {/* Connections: selected */}
+            <div className="space-y-3 rounded-md border p-3 md:col-span-3">
+              <div className="text-sm font-medium">Selected connections</div>
+
+              {selectedConnections.length ? (
+                <div className="space-y-2">
+                  {selectedConnections.map((c) => (
+                    <div key={c.id} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                      <div className="min-w-0">
+                        <div className="font-medium truncate">{c.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {c.company ?? ""}{c.title ? ` • ${c.title}` : ""}
+                        </div>
+                      </div>
+                      <Button type="button" variant="ghost" size="icon" onClick={() => removeConnection(c.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-xs text-muted-foreground">No connections selected.</div>
+              )}
+            </div>
+
+          </div>
         </>
       ) : null}
       
