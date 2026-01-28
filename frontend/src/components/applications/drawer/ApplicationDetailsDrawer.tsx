@@ -255,6 +255,9 @@ export function ApplicationDetailsDrawer({
   // Docking style for the document preview
   const [previewDockedStyle, setPreviewDockedStyle] = useState<CSSProperties | null>(null);
 
+  // A key to force a reload of the documents list
+  const [docsReloadKey, setDocsReloadKey] = useState(0);
+
 
   // keep the drawer’s draft in sync with the selected application.
   useEffect(() => {
@@ -1010,6 +1013,7 @@ export function ApplicationDetailsDrawer({
                 onDocumentsChanged={onDocumentsChanged}
                 activePreviewDocId={previewDocId}
                 onPreviewRequested={handlePreviewRequest}
+                docsReloadKey={docsReloadKey}
               />
             </Section>
 
@@ -1027,7 +1031,10 @@ export function ApplicationDetailsDrawer({
                   if (!checked) setAiOverrideFile(null);
                 }}
                 onOverrideFile={setAiOverrideFile}
-                onDocumentsChanged={onDocumentsChanged}
+                onDocumentsChanged={(applicationId) => {
+                  setDocsReloadKey((k) => k + 1);      // refresh drawer docs list
+                  onDocumentsChanged?.(applicationId); // refresh main table
+                }}
                 onRequestClosePreview={clearPreview}
                 onApplicationChanged={onApplicationChanged}
               />
