@@ -17,7 +17,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronRight, Plus, Star, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Star, Trash2 } from "lucide-react";
 import { ProAccessBanner } from "@/components/pro/ProAccessBanner";
 import { RequestProDialog } from "@/components/pro/RequestProDialog";
 import { useAuth } from "@/hooks/useAuth";
