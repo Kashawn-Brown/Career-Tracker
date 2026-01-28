@@ -22,6 +22,7 @@ import { ProAccessBanner } from "@/components/pro/ProAccessBanner";
 import { RequestProDialog } from "@/components/pro/RequestProDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useConnectionAutocomplete } from "@/hooks/useConnectionAutocomplete";
+import { applicationDocumentsApi } from "@/lib/api/application-documents";
 
 
 
@@ -234,6 +235,11 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
     e.preventDefault();
     setErrorMessage(null);
 
+    // Snapshot staged “More” items so we can safely reset the form after creating.
+    const stagedDocuments = [...documents];
+    const stagedConnections = [...selectedConnections];
+
+
     if (!company.trim() || !position.trim()) {
       setErrorMessage("Company and position are required.");
       return;
@@ -274,13 +280,45 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
     try {
       setIsSubmitting(true);
 
-      await applicationsApi.create(payload);
+      const created = await applicationsApi.create(payload);
+
+      // Apply staged documents + connections after create.
+      const docResults = stagedDocuments.length
+        ? await Promise.allSettled(
+            stagedDocuments.map((d) =>
+              applicationDocumentsApi.upload({
+                applicationId: created.id,
+                kind: d.kind, // must be Exclude<DocumentKind, "BASE_RESUME">
+                file: d.file,
+              })
+            )
+          )
+        : [];
+
+      const connResults = stagedConnections.length
+        ? await Promise.allSettled(
+            stagedConnections.map((c) => applicationsApi.attachConnectionToApplication(created.id, c.id))
+          )
+        : [];
+
+      const failedDocs = docResults.filter((r) => r.status === "rejected").length;
+      const failedConns = connResults.filter((r) => r.status === "rejected").length;
+
 
       // Reset to initial state
       resetToInitial();
 
       // Refresh list
       onCreated();
+
+      if (failedDocs || failedConns) {
+        setErrorMessage(
+          `Application created, but ${failedDocs ? `${failedDocs} document(s)` : ""}${
+            failedDocs && failedConns ? " and " : ""
+          }${failedConns ? `${failedConns} connection(s)` : ""} failed to attach.`
+        );
+      }
+      
     } catch (err) {
       if (err instanceof ApiError) setErrorMessage(err.message);
       else setErrorMessage("Failed to create application.");
