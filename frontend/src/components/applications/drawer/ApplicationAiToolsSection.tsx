@@ -97,13 +97,6 @@ export function ApplicationAiToolsSection({
 
   const [isProDialogOpen, setIsProDialogOpen] = useState(false);
 
-  // When using an override file, optionally save a second copy as a RESUME doc on this application.
-  const [saveOverrideAsResume, setSaveOverrideAsResume] = useState(true);
-  // Small, non-blocking status message for the save-as-resume action.
-  const [resumeSaveMessage, setResumeSaveMessage] = useState<string | null>(null);
-
-
-
 
   // Load the latest fit artifact
   useEffect(() => {
@@ -143,9 +136,6 @@ export function ApplicationAiToolsSection({
       setIsRerunMode(false);
       setIsDetailsOpen(false);
       setErrorMessage(null);
-
-      setSaveOverrideAsResume(true);
-      setResumeSaveMessage(null);
     }
   }, [drawerOpen]);
   
@@ -183,7 +173,6 @@ export function ApplicationAiToolsSection({
     setIsRunning(true);
     setErrorMessage(null);
     setIsDetailsOpen(false);
-    setResumeSaveMessage(null);
   
     try {
       let sourceDocumentId: number | undefined = undefined;
@@ -215,24 +204,6 @@ export function ApplicationAiToolsSection({
   
       setFitArtifact(created as AiArtifact<FitV1Payload>);
 
-      // 3) If user chose to save as resume, upload a RESUME copy
-      if (useOverride && overrideFile && saveOverrideAsResume) {
-        // Upload a RESUME copy of the override file
-        try {
-          await applicationDocumentsApi.upload({
-            applicationId: application.id,
-            kind: "RESUME",
-            file: overrideFile,
-          });
-
-          // Refresh the application documents so the new resume document is visible
-          onDocumentsChanged?.(application.id);
-          setResumeSaveMessage("Saved a RESUME copy to this application.");
-        } catch {
-          setResumeSaveMessage("Fit completed, but saving a RESUME copy failed.");
-        }
-      }
-
       // Refresh user so credits/pro state updates immediately after successful AI use.
       void refreshMe();
 
@@ -248,7 +219,6 @@ export function ApplicationAiToolsSection({
       // Optional: clear override after a successful run (keeps behavior predictable)
       onToggleOverride(false);
       onOverrideFile(null);
-      setSaveOverrideAsResume(true);
   
     } catch (err) {
       if (err instanceof ApiError) setErrorMessage(err.message);
@@ -270,22 +240,6 @@ export function ApplicationAiToolsSection({
           <button
             type="button"
             onClick={() => setErrorMessage(null)}
-            className="absolute right-2 top-1 rounded-md px-2 py-1 opacity-70 hover:bg-black/5 hover:opacity-100"
-            aria-label="Dismiss message"
-            title="Dismiss"
-          >
-            ×
-          </button>
-        </div>
-      ) : null}
-
-      {/* Resume save message */}
-      {resumeSaveMessage ? (
-        <div className="relative rounded-md border px-3 py-2 pr-10 text-sm text-muted-foreground">
-          {resumeSaveMessage}
-          <button
-            type="button"
-            onClick={() => setResumeSaveMessage(null)}
             className="absolute right-2 top-1 rounded-md px-2 py-1 opacity-70 hover:bg-black/5 hover:opacity-100"
             aria-label="Dismiss message"
             title="Dismiss"
@@ -437,18 +391,12 @@ export function ApplicationAiToolsSection({
                 type="checkbox"
                 checked={useOverride}
                 onChange={(e) => {
-                  const checked = e.target.checked;  
-                  onToggleOverride(checked);
-
-                  if (!checked) {
-                    onOverrideFile(null);
-                    setSaveOverrideAsResume(true);
-                    setResumeSaveMessage(null);
-                  }
+                  onToggleOverride(e.target.checked);
+                  if (!e.target.checked) onOverrideFile(null);
                 }}
               />
               <label htmlFor="ai-use-override" className="text-sm">
-                Use a different file for this run
+                Use a different file to check compatibility
               </label>
             </div>
 
@@ -459,19 +407,6 @@ export function ApplicationAiToolsSection({
                   accept=".pdf,.txt"
                   onChange={(e) => onOverrideFile(e.target.files?.[0] ?? null)}
                 />
-                
-                {/* Opttion to save the override file as a resume document for this application */}
-                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
-                  <input
-                    id="ai-save-as-resume"
-                    type="checkbox"
-                    checked={saveOverrideAsResume}
-                    onChange={(e) => setSaveOverrideAsResume(e.target.checked)}
-                  />
-                  <label htmlFor="ai-save-as-resume">
-                    Save file as a resume document for this application
-                  </label>
-                </div>
               </div>
             ) : (
               <div className="text-xs text-muted-foreground">Default: Base Resume (recommended).</div>
