@@ -73,7 +73,7 @@ export function JobSearchPreferencesCard({
       <CardHeader>
         <CardTitle>Job Search Preferences</CardTitle>
         <CardDescription>
-          Keep your job search preferences up to date as a reminder of what you're looking for.
+          {"Keep your job search preferences up to date as a reminder of what you're looking for."}
         </CardDescription>
 
         <CardAction>
