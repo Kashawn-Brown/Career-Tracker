@@ -29,7 +29,7 @@ const DOC_KIND_LABEL: Record<ApplicationDocumentKind, string> = {
   RESUME: "Resume",
   COVER_LETTER: "Cover Letter",
   OTHER: "Other",
-  CAREER_HISTORY: "Career History (AI Fit)",
+  CAREER_HISTORY: "AI Compatibility Check",
 };
 
 function safeDocId(doc: Document): number {
