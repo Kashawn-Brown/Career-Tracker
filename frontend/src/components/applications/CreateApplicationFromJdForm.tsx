@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { aiApi } from "@/lib/api/ai";
 import { applicationsApi } from "@/lib/api/applications";
@@ -27,7 +27,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 
-import { ChevronDown, ChevronRight, Star, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Star, Trash2, Loader2, CheckCircle2, Circle } from "lucide-react";
 import { ProAccessBanner } from "@/components/pro/ProAccessBanner";
 import { RequestProDialog } from "@/components/pro/RequestProDialog";
 import { useAuth } from "@/hooks/useAuth";
@@ -45,6 +45,28 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  type SubmitStepKey =
+    | "CREATE_APPLICATION"
+    | "UPLOAD_OVERRIDE"
+    | "RUN_COMPATIBILITY"
+    | "UPLOAD_DOCUMENTS"
+    | "ATTACH_CONNECTIONS"
+    | "FINALIZE";
+
+  type SubmitStep = { key: SubmitStepKey; label: string };
+
+  /**
+   * submitProgress:
+   * - steps: the plan (dynamic, based on what the user selected)
+   * - activeIndex: which step we’re currently on
+   */
+  const [submitProgress, setSubmitProgress] = useState<{
+    steps: SubmitStep[];
+    activeIndex: number;
+    hint?: string;
+  } | null>(null);
+
 
   const [showSummary, setShowSummary] = useState(false);
   
@@ -419,6 +441,78 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
 
   return (
     <div className="space-y-4">
+      {isSubmitting ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm px-4"
+          aria-live="polite"
+          aria-busy="true"
+        >
+          <div className="w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg">
+            <div className="flex items-start gap-3">
+              <Loader2 className="mt-1 h-5 w-5 animate-spin" />
+              <div className="flex-1">
+                <div className="text-base font-medium">
+                  {submitProgress?.steps?.[submitProgress.activeIndex]?.label ?? "Working..."}
+                </div>
+
+                {submitProgress?.steps?.length ? (
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    Step {submitProgress.activeIndex + 1} of {submitProgress.steps.length}
+                  </div>
+                ) : (
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    Please keep this tab open.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Progress bar */}
+            <div className="mt-4 h-2 w-full rounded bg-muted">
+              <div
+                className="h-2 rounded bg-primary transition-all"
+                style={{
+                  width: submitProgress?.steps?.length
+                    ? `${Math.round(((submitProgress.activeIndex + 1) / submitProgress.steps.length) * 100)}%`
+                    : "30%",
+                }}
+              />
+            </div>
+
+            {/* Steps list */}
+            {submitProgress?.steps?.length ? (
+              <div className="mt-4 space-y-2 text-sm">
+                {submitProgress.steps.map((s, idx) => {
+                  const isDone = idx < submitProgress.activeIndex;
+                  const isActive = idx === submitProgress.activeIndex;
+
+                  return (
+                    <div key={s.key} className="flex items-center gap-2">
+                      {isDone ? (
+                        <CheckCircle2 className="h-4 w-4" />
+                      ) : isActive ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Circle className="h-4 w-4 opacity-60" />
+                      )}
+
+                      <span className={isActive ? "font-medium" : "text-muted-foreground"}>
+                        {s.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
+
+            {/* Hint (optional, short) */}
+            {submitProgress?.hint ? (
+              <div className="mt-4 text-xs text-muted-foreground">{submitProgress.hint}</div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
       {errorMessage ? <div className="text-sm text-red-600">{errorMessage}</div> : null}
 
 
