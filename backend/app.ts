@@ -8,6 +8,7 @@ import { registerErrorHandlers } from "./middleware/error-handler.js";
 import { debugRoutes } from "./modules/debug/debug.routes.js";
 import { applicationsRoutes } from "./modules/applications/applications.routes.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
+import { oauthRoutes } from "./modules/oauth/oauth.routes.js";
 import { userRoutes } from "./modules/user/user.routes.js";
 import { documentsRoutes } from "./modules/documents/documents.routes.js";
 import { connectionsRoutes } from "./modules/connections/connections.routes.js";
@@ -78,6 +79,7 @@ export function buildApp() {
 
   // Mount auth endpoints under /api/v1/auth
   app.register(authRoutes, { prefix: "/api/v1/auth" });
+  app.register(oauthRoutes, { prefix: "/api/v1/auth/oauth" });
 
   // Mount profile endpoints under /api/v1/user
   app.register(userRoutes, { prefix: "/api/v1/users" });
