@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { applicationDocumentsApi } from "@/lib/api/application-documents";
 import { applicationsApi } from "@/lib/api/applications";
 import type { Application, AiArtifact, FitV1Payload } from "@/types/api";
@@ -61,6 +61,10 @@ type Props = {
   onRequestClosePreview?: () => void;
 
   onApplicationChanged?: (applicationId: string) => void;
+
+  autoOpenLatestFit?: boolean;
+  onAutoOpenLatestFitConsumed?: () => void;
+
 };
 
 export function ApplicationAiToolsSection({ 
@@ -75,6 +79,8 @@ export function ApplicationAiToolsSection({
   onDocumentsChanged,
   onRequestClosePreview,
   onApplicationChanged,
+  autoOpenLatestFit,
+  onAutoOpenLatestFitConsumed,
 }: Props) {
 
   // FIT artifact
@@ -96,6 +102,31 @@ export function ApplicationAiToolsSection({
   // const isAiLocked = !!user && !aiProEnabled && aiFreeUsesUsed >= 5;
 
   const [isProDialogOpen, setIsProDialogOpen] = useState(false);
+
+  const autoOpenedRef = useRef(false);
+
+  useEffect(() => {
+    autoOpenedRef.current = false; // reset per-application
+  }, [application.id]);
+
+  useEffect(() => {
+    if (!autoOpenLatestFit) return;
+    if (!fitArtifact) return;
+    if (isRerunMode) return;
+    if (autoOpenedRef.current) return;
+
+    autoOpenedRef.current = true;
+    setIsDetailsOpen(true);
+    onRequestClosePreview?.();
+    onAutoOpenLatestFitConsumed?.();
+  }, [
+    autoOpenLatestFit,
+    fitArtifact?.id,
+    isRerunMode,
+    onRequestClosePreview,
+    onAutoOpenLatestFitConsumed,
+  ]);
+
 
 
   // Load the latest fit artifact

@@ -34,9 +34,16 @@ import { useAuth } from "@/hooks/useAuth";
 import { useConnectionAutocomplete } from "@/hooks/useConnectionAutocomplete";
 import { applicationDocumentsApi } from "@/lib/api/application-documents";
 
+// Arguments for the onCreated callback
+type OnCreatedArgs = {
+  applicationId: string;
+  openDrawer?: boolean;
+  openFitReport?: boolean;
+};
 
 
-export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => void }) {
+
+export function CreateApplicationFromJdForm({ onCreated }: { onCreated: (args?: OnCreatedArgs) => void }) {
   // Job description input + draft
   const [jdText, setJdText] = useState("");
   const [draft, setDraft] = useState<ApplicationDraftResponse | null>(null);
@@ -285,6 +292,63 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
     }
   }
 
+  // Build the steps for the submit progress
+  function buildSubmitSteps(args: {
+    runFit: boolean;
+    uploadOverride: boolean;
+    stagedDocumentsCount: number;
+    stagedConnectionsCount: number;
+  }) {
+    const steps: { key: SubmitStepKey; label: string }[] = [
+      { key: "CREATE_APPLICATION", label: "Creating application" },
+    ];
+  
+    if (args.runFit && args.uploadOverride) {
+      steps.push({ key: "UPLOAD_OVERRIDE", label: "Uploading override resume" });
+    }
+  
+    if (args.runFit) {
+      steps.push({ key: "RUN_COMPATIBILITY", label: "Running compatibility (FIT)" });
+    }
+  
+    if (args.stagedDocumentsCount > 0) {
+      steps.push({ key: "UPLOAD_DOCUMENTS", label: "Uploading staged documents" });
+    }
+  
+    if (args.stagedConnectionsCount > 0) {
+      steps.push({ key: "ATTACH_CONNECTIONS", label: "Attaching staged connections" });
+    }
+  
+    steps.push({ key: "FINALIZE", label: "Finalizing" });
+  
+    return steps;
+  }
+  
+  // Start the submit progress
+  function startSubmitProgress(steps: { key: SubmitStepKey; label: string }[]) {
+    setSubmitProgress({
+      steps,
+      activeIndex: 0,
+      hint: "Please keep this tab open while we finish the workflow.",
+    });
+  }
+  
+  // Go to a specific step
+  function goToStep(stepKey: SubmitStepKey, hint?: string) {
+    setSubmitProgress((prev) => {
+      if (!prev) return prev;
+      const idx = prev.steps.findIndex((s) => s.key === stepKey);
+      if (idx === -1) return prev;
+      return { ...prev, activeIndex: idx, hint: hint ?? prev.hint };
+    });
+  }
+  
+  // End the submit progress
+  function endSubmitProgress() {
+    setSubmitProgress(null);
+  }
+
+  
   // Create application after draft (possibly run compatibility)
   async function createApplicationAfterDraft(opts: { runFit: boolean }) {
     setErrorMessage(null);
@@ -347,19 +411,33 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
   
     try {
       setIsSubmitting(true);
+
+      // Build the steps for the submit progress
+      const steps = buildSubmitSteps({
+        runFit: opts.runFit,
+        uploadOverride: opts.runFit && stagedFitUseOverride && !!stagedFitOverrideFile,
+        stagedDocumentsCount: stagedDocuments.length,
+        stagedConnectionsCount: stagedConnections.length,
+      });
+    
+      startSubmitProgress(steps);
+    
+      goToStep("CREATE_APPLICATION");
   
       const created = await applicationsApi.create(payload);
   
-      // Show the row immediately.
-      onCreated();
-  
       let fitFailed = false;
+      let fitSucceeded = false;
   
       if (opts.runFit) {
         try {
           let sourceDocumentId: number | undefined = undefined;
   
           if (stagedFitUseOverride && stagedFitOverrideFile) {
+            // Go to the upload override step
+            goToStep("UPLOAD_OVERRIDE", "Uploading your selected override file for this run.");
+
+            // Upload the override file
             const uploadRes = await applicationDocumentsApi.upload({
               applicationId: created.id,
               kind: "CAREER_HISTORY",
@@ -369,10 +447,13 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
             sourceDocumentId = Number(uploadRes.document.id);
           }
   
+          goToStep("RUN_COMPATIBILITY", "This can take a few seconds — generating your compatibility report.");
           await applicationsApi.generateAiArtifact(created.id, {
             kind: "FIT_V1",
             sourceDocumentId,
           });
+
+          fitSucceeded = true;
   
           // Credits + table refresh
           void refreshMe();
@@ -380,6 +461,10 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
         } catch {
           fitFailed = true;
         }
+      }
+
+      if (stagedDocuments.length) {
+        goToStep("UPLOAD_DOCUMENTS", "Uploading your staged documents to the application.");
       }
   
       // Apply staged documents + connections after create (best-effort)
@@ -394,7 +479,11 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
             )
           )
         : [];
-  
+
+
+      if (stagedConnections.length) {
+        goToStep("ATTACH_CONNECTIONS", "Attaching your staged connections to the application.");
+      }
       const connResults = stagedConnections.length
         ? await Promise.allSettled(
             stagedConnections.map((c) =>
@@ -406,8 +495,17 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
       const failedDocs = docResults.filter((r) => r.status === "rejected").length;
       const failedConns = connResults.filter((r) => r.status === "rejected").length;
   
+      goToStep("FINALIZE", "Finalizing the application creation.");
+
+      // Reset the form and refresh the list.
       resetToInitial();
       onCreated();
+
+      onCreated({
+        applicationId: created.id,
+        openDrawer: true,
+        openFitReport: opts.runFit && fitSucceeded,
+      });
   
       if (fitFailed || failedDocs || failedConns) {
         const parts: string[] = [];
@@ -422,6 +520,7 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
       else setErrorMessage("Failed to create application.");
     } finally {
       setIsSubmitting(false);
+      endSubmitProgress();
     }
   }
 
@@ -437,7 +536,23 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
   
     await createApplicationAfterDraft({ runFit: false });
   }
+
+  useEffect(() => {
+    if (!isSubmitting) return;
   
+    const prev = window.onbeforeunload;
+  
+    window.onbeforeunload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      return ""; // triggers the native confirmation prompt in supported browsers
+    };
+  
+    return () => {
+      window.onbeforeunload = prev;
+    };
+  }, [isSubmitting]);
+  
+ 
 
   return (
     <div className="space-y-4">
