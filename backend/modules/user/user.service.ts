@@ -58,6 +58,7 @@ export async function updateMe(userId: string, data: UpdateMeBodyType) {
   updateData.linkedInUrl = normalizeNullableString(data.linkedInUrl);
   updateData.githubUrl = normalizeNullableString(data.githubUrl);
   updateData.portfolioUrl = normalizeNullableString(data.portfolioUrl);
+  updateData.baseResumeUrl = normalizeNullableString(data.baseResumeUrl);
 
   // Clean and deduplicate skills if provided
   if (data.skills !== undefined) {
