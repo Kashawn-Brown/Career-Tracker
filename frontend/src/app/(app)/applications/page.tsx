@@ -80,6 +80,8 @@ export default function ApplicationsPage() {
   // Application details drawer state
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
+  const [autoOpenFitAppId, setAutoOpenFitAppId] = useState<string | null>(null);
+
 
 
   // Prevent overwriting saved settings on first render
@@ -240,6 +242,28 @@ export default function ApplicationsPage() {
       }
     }
   }
+
+  // openDrawerForApplication: opens the drawer for the application.
+  async function openDrawerForApplication(applicationId: string, opts?: { autoOpenFit?: boolean }) {
+    try {
+      setErrorMessage(null);
+  
+      const fullApplication = await applicationsApi.get(applicationId);
+      setSelectedApplication(fullApplication);
+      setDetailsOpen(true);
+  
+      if (opts?.autoOpenFit) {
+        setAutoOpenFitAppId(applicationId);
+      } else {
+        setAutoOpenFitAppId(null);
+      }
+    } catch (err) {
+      setAutoOpenFitAppId(null);
+      if (err instanceof ApiError) setErrorMessage(err.message);
+      else setErrorMessage("Failed to load application details. Please try again.");
+    }
+  }
+  
 
   // handleConnectionsChanged: handles the change of the connections of the application.
   async function handleConnectionsChanged(applicationId: string) {
@@ -417,10 +441,16 @@ export default function ApplicationsPage() {
                   />
                 ) : (
                   <CreateApplicationFromJdForm
-                    onCreated={() => {
-                      setPage(1);
-                      refreshList();
-                    }}
+                  onCreated={async (args) => {
+                    setPage(1);
+                    refreshList();
+                
+                    if (args?.applicationId && args.openDrawer) {
+                      await openDrawerForApplication(args.applicationId, {
+                        autoOpenFit: !!args.openFitReport,
+                      });
+                    }
+                  }}
                   />
                 )}
               </CardContent>
@@ -690,6 +720,7 @@ export default function ApplicationsPage() {
             onChanged={() => setReloadKey((k) => k + 1)}
             visibleColumns={visibleColumns}
             onRowClick={async (row) => {
+              setAutoOpenFitAppId(null);
               try {
                 setErrorMessage(null);
                 const fullApplication = await applicationsApi.get(row.id);
@@ -798,13 +829,18 @@ export default function ApplicationsPage() {
         open={detailsOpen}
         onOpenChange={(open) => {
           setDetailsOpen(open);
-          if (!open) setSelectedApplication(null);
+          if (!open) {
+            setSelectedApplication(null);
+            setAutoOpenFitAppId(null);
+          }
         }}
         application={selectedApplication}
         onSave={handleSaveDetails} 
         onDocumentsChanged={handleDocumentsChanged}
         onConnectionsChanged={handleConnectionsChanged}
         onApplicationChanged={handleApplicationChange}
+        autoOpenFitForAppId={autoOpenFitAppId}
+        onAutoOpenFitConsumed={() => setAutoOpenFitAppId(null)}
       />
     </div>
   );

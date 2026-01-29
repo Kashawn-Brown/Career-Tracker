@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { aiApi } from "@/lib/api/ai";
 import { applicationsApi } from "@/lib/api/applications";
@@ -27,16 +27,23 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 
-import { ChevronDown, ChevronRight, Star, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Star, Trash2, Loader2, CheckCircle2, Circle } from "lucide-react";
 import { ProAccessBanner } from "@/components/pro/ProAccessBanner";
 import { RequestProDialog } from "@/components/pro/RequestProDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useConnectionAutocomplete } from "@/hooks/useConnectionAutocomplete";
 import { applicationDocumentsApi } from "@/lib/api/application-documents";
 
+// Arguments for the onCreated callback
+type OnCreatedArgs = {
+  applicationId: string;
+  openDrawer?: boolean;
+  openFitReport?: boolean;
+};
 
 
-export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => void }) {
+
+export function CreateApplicationFromJdForm({ onCreated }: { onCreated: (args?: OnCreatedArgs) => void }) {
   // Job description input + draft
   const [jdText, setJdText] = useState("");
   const [draft, setDraft] = useState<ApplicationDraftResponse | null>(null);
@@ -45,6 +52,28 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  type SubmitStepKey =
+    | "CREATE_APPLICATION"
+    | "UPLOAD_OVERRIDE"
+    | "RUN_COMPATIBILITY"
+    | "UPLOAD_DOCUMENTS"
+    | "ATTACH_CONNECTIONS"
+    | "FINALIZE";
+
+  type SubmitStep = { key: SubmitStepKey; label: string };
+
+  /**
+   * submitProgress:
+   * - steps: the plan (dynamic, based on what the user selected)
+   * - activeIndex: which step we’re currently on
+   */
+  const [submitProgress, setSubmitProgress] = useState<{
+    steps: SubmitStep[];
+    activeIndex: number;
+    hint?: string;
+  } | null>(null);
+
 
   const [showSummary, setShowSummary] = useState(false);
   
@@ -263,6 +292,63 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
     }
   }
 
+  // Build the steps for the submit progress
+  function buildSubmitSteps(args: {
+    runFit: boolean;
+    uploadOverride: boolean;
+    stagedDocumentsCount: number;
+    stagedConnectionsCount: number;
+  }) {
+    const steps: { key: SubmitStepKey; label: string }[] = [
+      { key: "CREATE_APPLICATION", label: "Creating application" },
+    ];
+  
+    if (args.runFit && args.uploadOverride) {
+      steps.push({ key: "UPLOAD_OVERRIDE", label: "Uploading override resume" });
+    }
+  
+    if (args.runFit) {
+      steps.push({ key: "RUN_COMPATIBILITY", label: "Running compatibility (FIT)" });
+    }
+  
+    if (args.stagedDocumentsCount > 0) {
+      steps.push({ key: "UPLOAD_DOCUMENTS", label: "Uploading staged documents" });
+    }
+  
+    if (args.stagedConnectionsCount > 0) {
+      steps.push({ key: "ATTACH_CONNECTIONS", label: "Attaching staged connections" });
+    }
+  
+    steps.push({ key: "FINALIZE", label: "Finalizing" });
+  
+    return steps;
+  }
+  
+  // Start the submit progress
+  function startSubmitProgress(steps: { key: SubmitStepKey; label: string }[]) {
+    setSubmitProgress({
+      steps,
+      activeIndex: 0,
+      hint: "Please keep this tab open while we finish the workflow.",
+    });
+  }
+  
+  // Go to a specific step
+  function goToStep(stepKey: SubmitStepKey, hint?: string) {
+    setSubmitProgress((prev) => {
+      if (!prev) return prev;
+      const idx = prev.steps.findIndex((s) => s.key === stepKey);
+      if (idx === -1) return prev;
+      return { ...prev, activeIndex: idx, hint: hint ?? prev.hint };
+    });
+  }
+  
+  // End the submit progress
+  function endSubmitProgress() {
+    setSubmitProgress(null);
+  }
+
+  
   // Create application after draft (possibly run compatibility)
   async function createApplicationAfterDraft(opts: { runFit: boolean }) {
     setErrorMessage(null);
@@ -325,19 +411,33 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
   
     try {
       setIsSubmitting(true);
+
+      // Build the steps for the submit progress
+      const steps = buildSubmitSteps({
+        runFit: opts.runFit,
+        uploadOverride: opts.runFit && stagedFitUseOverride && !!stagedFitOverrideFile,
+        stagedDocumentsCount: stagedDocuments.length,
+        stagedConnectionsCount: stagedConnections.length,
+      });
+    
+      startSubmitProgress(steps);
+    
+      goToStep("CREATE_APPLICATION");
   
       const created = await applicationsApi.create(payload);
   
-      // Show the row immediately.
-      onCreated();
-  
       let fitFailed = false;
+      let fitSucceeded = false;
   
       if (opts.runFit) {
         try {
           let sourceDocumentId: number | undefined = undefined;
   
           if (stagedFitUseOverride && stagedFitOverrideFile) {
+            // Go to the upload override step
+            goToStep("UPLOAD_OVERRIDE", "Uploading your selected override file for this run.");
+
+            // Upload the override file
             const uploadRes = await applicationDocumentsApi.upload({
               applicationId: created.id,
               kind: "CAREER_HISTORY",
@@ -347,10 +447,13 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
             sourceDocumentId = Number(uploadRes.document.id);
           }
   
+          goToStep("RUN_COMPATIBILITY", "This can take a few seconds — generating your compatibility report.");
           await applicationsApi.generateAiArtifact(created.id, {
             kind: "FIT_V1",
             sourceDocumentId,
           });
+
+          fitSucceeded = true;
   
           // Credits + table refresh
           void refreshMe();
@@ -358,6 +461,10 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
         } catch {
           fitFailed = true;
         }
+      }
+
+      if (stagedDocuments.length) {
+        goToStep("UPLOAD_DOCUMENTS", "Uploading your staged documents to the application.");
       }
   
       // Apply staged documents + connections after create (best-effort)
@@ -372,7 +479,11 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
             )
           )
         : [];
-  
+
+
+      if (stagedConnections.length) {
+        goToStep("ATTACH_CONNECTIONS", "Attaching your staged connections to the application.");
+      }
       const connResults = stagedConnections.length
         ? await Promise.allSettled(
             stagedConnections.map((c) =>
@@ -384,8 +495,17 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
       const failedDocs = docResults.filter((r) => r.status === "rejected").length;
       const failedConns = connResults.filter((r) => r.status === "rejected").length;
   
+      goToStep("FINALIZE", "Finalizing the application creation.");
+
+      // Reset the form and refresh the list.
       resetToInitial();
       onCreated();
+
+      onCreated({
+        applicationId: created.id,
+        openDrawer: true,
+        openFitReport: opts.runFit && fitSucceeded,
+      });
   
       if (fitFailed || failedDocs || failedConns) {
         const parts: string[] = [];
@@ -400,6 +520,7 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
       else setErrorMessage("Failed to create application.");
     } finally {
       setIsSubmitting(false);
+      endSubmitProgress();
     }
   }
 
@@ -415,10 +536,98 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: () => vo
   
     await createApplicationAfterDraft({ runFit: false });
   }
+
+  useEffect(() => {
+    if (!isSubmitting) return;
   
+    const prev = window.onbeforeunload;
+  
+    window.onbeforeunload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      return ""; // triggers the native confirmation prompt in supported browsers
+    };
+  
+    return () => {
+      window.onbeforeunload = prev;
+    };
+  }, [isSubmitting]);
+  
+ 
 
   return (
     <div className="space-y-4">
+      {isSubmitting ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm px-4"
+          aria-live="polite"
+          aria-busy="true"
+        >
+          <div className="w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg">
+            <div className="flex items-start gap-3">
+              <Loader2 className="mt-1 h-5 w-5 animate-spin" />
+              <div className="flex-1">
+                <div className="text-base font-medium">
+                  {submitProgress?.steps?.[submitProgress.activeIndex]?.label ?? "Working..."}
+                </div>
+
+                {submitProgress?.steps?.length ? (
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    Step {submitProgress.activeIndex + 1} of {submitProgress.steps.length}
+                  </div>
+                ) : (
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    Please keep this tab open.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Progress bar */}
+            <div className="mt-4 h-2 w-full rounded bg-muted">
+              <div
+                className="h-2 rounded bg-primary transition-all"
+                style={{
+                  width: submitProgress?.steps?.length
+                    ? `${Math.round(((submitProgress.activeIndex + 1) / submitProgress.steps.length) * 100)}%`
+                    : "30%",
+                }}
+              />
+            </div>
+
+            {/* Steps list */}
+            {submitProgress?.steps?.length ? (
+              <div className="mt-4 space-y-2 text-sm">
+                {submitProgress.steps.map((s, idx) => {
+                  const isDone = idx < submitProgress.activeIndex;
+                  const isActive = idx === submitProgress.activeIndex;
+
+                  return (
+                    <div key={s.key} className="flex items-center gap-2">
+                      {isDone ? (
+                        <CheckCircle2 className="h-4 w-4" />
+                      ) : isActive ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Circle className="h-4 w-4 opacity-60" />
+                      )}
+
+                      <span className={isActive ? "font-medium" : "text-muted-foreground"}>
+                        {s.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
+
+            {/* Hint (optional, short) */}
+            {submitProgress?.hint ? (
+              <div className="mt-4 text-xs text-muted-foreground">{submitProgress.hint}</div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
       {errorMessage ? <div className="text-sm text-red-600">{errorMessage}</div> : null}
 
 

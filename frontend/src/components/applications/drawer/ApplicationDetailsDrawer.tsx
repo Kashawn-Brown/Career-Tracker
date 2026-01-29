@@ -208,6 +208,8 @@ export function ApplicationDetailsDrawer({
   onDocumentsChanged,
   onConnectionsChanged,
   onApplicationChanged,
+  autoOpenFitForAppId,
+  onAutoOpenFitConsumed,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -219,6 +221,8 @@ export function ApplicationDetailsDrawer({
   onDocumentsChanged?: (applicationId: string) => void;
   onConnectionsChanged?: (applicationId: string) => void;
   onApplicationChanged?: (applicationId: string) => void;
+  autoOpenFitForAppId?: string | null;
+  onAutoOpenFitConsumed?: () => void;
 }) {
   // UI state
   const [isEditing, setIsEditing] = useState(false);
@@ -1037,6 +1041,8 @@ export function ApplicationDetailsDrawer({
                 }}
                 onRequestClosePreview={clearPreview}
                 onApplicationChanged={onApplicationChanged}
+                autoOpenLatestFit={autoOpenFitForAppId === application.id}
+                onAutoOpenLatestFitConsumed={onAutoOpenFitConsumed}
               />
             </Section>
           </div>
