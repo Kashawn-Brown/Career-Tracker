@@ -13,6 +13,8 @@ import { cn } from "@/lib/utils";
 import { FitReportDialog, type FitBand } from "@/components/applications/drawer/FitReportDialog";
 import { ProAccessBanner } from "@/components/pro/ProAccessBanner";
 import { RequestProDialog } from "@/components/pro/RequestProDialog";
+import { Loader2 } from "lucide-react";
+
 
 // Get the fit band based on the score
 function getFitBand(score: number): FitBand {
@@ -108,10 +110,12 @@ export function ApplicationAiToolsSection({
   useEffect(() => {
     autoOpenedRef.current = false; // reset per-application
   }, [application.id]);
+    
+  const fitArtifactId = fitArtifact?.id ?? null;
 
   useEffect(() => {
     if (!autoOpenLatestFit) return;
-    if (!fitArtifact) return;
+    if (!fitArtifactId) return;
     if (isRerunMode) return;
     if (autoOpenedRef.current) return;
 
@@ -121,7 +125,7 @@ export function ApplicationAiToolsSection({
     onAutoOpenLatestFitConsumed?.();
   }, [
     autoOpenLatestFit,
-    fitArtifact?.id,
+    fitArtifactId,
     isRerunMode,
     onRequestClosePreview,
     onAutoOpenLatestFitConsumed,
@@ -135,6 +139,12 @@ export function ApplicationAiToolsSection({
   
     async function loadLatest() {
       setIsLoadingLatest(true);
+
+      // Avoid flashing a previous application's result while loading the new one.
+      setFitArtifact(null);
+      setIsDetailsOpen(false);
+      setIsRerunMode(false);
+
       try {
         setErrorMessage(null);
   
@@ -307,7 +317,44 @@ export function ApplicationAiToolsSection({
       </div>
 
       {/* Summary-first view: once a fit exists, hide inputs until user chooses to rerun */}
-      {fitArtifact && !isRerunMode ? (
+      {isLoadingLatest && !fitArtifact && !isRerunMode ? (
+        <div className="rounded-md border p-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-medium">Latest result</div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Loading…
+            </div>
+          </div>
+
+          <div className="space-y-3 animate-pulse">
+            <div className="flex items-end justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <div className="h-9 w-24 rounded bg-muted" />
+                <div className="h-5 w-20 rounded-full bg-muted" />
+              </div>
+              <div className="h-4 w-28 rounded bg-muted" />
+            </div>
+
+            <div className="space-y-2">
+              <div className="h-3 w-28 rounded bg-muted" />
+              <div className="h-4 w-full rounded bg-muted" />
+              <div className="h-4 w-5/6 rounded bg-muted" />
+            </div>
+
+            <div className="space-y-2">
+              <div className="h-3 w-24 rounded bg-muted" />
+              <div className="h-4 w-full rounded bg-muted" />
+              <div className="h-4 w-2/3 rounded bg-muted" />
+            </div>
+
+            <div className="pt-2 flex items-center gap-2">
+              <div className="h-8 w-24 rounded bg-muted" />
+              <div className="h-8 w-44 rounded bg-muted" />
+            </div>
+          </div>
+        </div>
+      ) :fitArtifact && !isRerunMode ? (
         (() => {
           const p = fitArtifact.payload;
           const band = getFitBand(p.score);
