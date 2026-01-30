@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ApiError } from "@/lib/api/client";
@@ -20,8 +20,16 @@ import { Label } from "@/components/ui/label";
 import { Alert } from "@/components/ui/alert";
 import { GoogleIcon } from "@/components/icons/GoogleIcon";
 
-// LoginPage: collects credentials and exchanges them for a JWT via AuthContext.
+// wrap the LoginPageInner component in a Suspense component so that the page is not rendered until the component is ready
 export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginPageInner />
+    </Suspense>
+  );
+}
+// LoginPage: collects credentials and exchanges them for a JWT via AuthContext.
+export function LoginPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
 

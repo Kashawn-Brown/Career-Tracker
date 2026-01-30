@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ApiError } from "@/lib/api/client";
@@ -22,9 +22,19 @@ import { Eye, EyeOff } from "lucide-react";
 import { evaluatePassword } from "@/lib/auth/password-policy";
 import { GoogleIcon } from "@/components/icons/GoogleIcon";
 
+// wrap the RegisterPageInner component in a Suspense component so that the page is not rendered until the component is ready
+export default function RegisterPage() {
+  return (
+    <Suspense>
+      <RegisterPageInner />
+    </Suspense>
+  );
+}
+
+
 
 // RegisterPage: creates an account and logs the user in (receives JWT) via AuthContext.
-export default function RegisterPage() {
+export function RegisterPageInner() {
   const router = useRouter();
   const { register, isAuthenticated, isHydrated } = useAuth();
 
