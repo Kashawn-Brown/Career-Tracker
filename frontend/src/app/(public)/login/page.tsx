@@ -57,6 +57,17 @@ export function LoginPageInner() {
     if (oauth === "failed") setErrorMessage("Google sign-in failed. Please try again.");
     if (oauth === "cancelled") setErrorMessage("Google sign-in was cancelled.");
   }, [searchParams, errorMessage]);
+
+  // Handle account deactivated redirect reason
+  useEffect(() => {
+    if (errorMessage) return;
+
+    const reason = searchParams.get("reason");
+    if (reason === "deactivated") {
+      setErrorMessage("Your account is deactivated. Sign in to reactivate it.");
+    }
+  }, [searchParams, errorMessage]);
+  
   
   // Handle Google OAuth sign in
   function handleGoogleSignIn() {

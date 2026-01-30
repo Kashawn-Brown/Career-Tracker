@@ -39,6 +39,17 @@ export function setEmailNotVerifiedHandler(handler: (() => void) | null) {
   onEmailNotVerified = handler;
 }
 
+// Account-deactivated handler: lets app decide what to do on 403 ACCOUNT_DEACTIVATED.
+let onAccountDeactivated: (() => void) | null = null;
+
+/**
+ * Registers a global handler for "account deactivated" responses (HTTP 403 with code ACCOUNT_DEACTIVATED).
+ *
+ * @param handler - Called when apiFetch receives a 403 ACCOUNT_DEACTIVATED response.
+ */
+export function setAccountDeactivatedHandler(handler: (() => void) | null) {
+  onAccountDeactivated = handler;
+}
 
 // Consistent error object
 export class ApiError extends Error {
@@ -207,11 +218,15 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
       onUnauthorized();
     }
 
-    // If authenticated but email isn't verified, let the app redirect cleanly.
+    // If authenticated but email isn't verified or account deactivated, let the app redirect cleanly.
     const code = getErrorCode(data);
 
     if (response.status === 403 && code === "EMAIL_NOT_VERIFIED" && onEmailNotVerified) {
       onEmailNotVerified();
+    }
+
+    if (response.status === 403 && code === "ACCOUNT_DEACTIVATED" && onAccountDeactivated) {
+      onAccountDeactivated();
     }
   
     // Prefer a server-provided error message (if present); otherwise fall back to a generic message
