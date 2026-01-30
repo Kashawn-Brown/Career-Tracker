@@ -20,6 +20,7 @@ import { Label } from "@/components/ui/label";
 import { Alert } from "@/components/ui/alert";
 import { Eye, EyeOff } from "lucide-react";
 import { evaluatePassword } from "@/lib/auth/password-policy";
+import { GoogleIcon } from "@/components/icons/GoogleIcon";
 
 
 // RegisterPage: creates an account and logs the user in (receives JWT) via AuthContext.
@@ -151,6 +152,7 @@ export default function RegisterPage() {
             onClick={handleGoogleSignIn}
             disabled={isSubmitting}
           >
+            <GoogleIcon className="mr-2 h-4 w-4" />
             Continue with Google
           </Button>
 

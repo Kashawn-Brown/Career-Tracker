@@ -18,6 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert } from "@/components/ui/alert";
+import { GoogleIcon } from "@/components/icons/GoogleIcon";
 
 // LoginPage: collects credentials and exchanges them for a JWT via AuthContext.
 export default function LoginPage() {
@@ -118,6 +119,7 @@ export default function LoginPage() {
             onClick={handleGoogleSignIn}
             disabled={isSubmitting}
           >
+            <GoogleIcon className="mr-2 h-4 w-4" />
             Continue with Google
           </Button>
 
