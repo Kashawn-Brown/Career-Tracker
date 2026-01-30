@@ -1,4 +1,4 @@
-import bcrypt from "bcryptjs";
+import bcrypt from "bcrypt";
 import { prisma } from "../../lib/prisma.js";
 import { AppError } from "../../errors/app-error.js";
 import { generateToken } from "../../lib/crypto.js";
