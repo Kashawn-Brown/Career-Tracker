@@ -23,24 +23,42 @@ export async function loginWithGoogle(profile: GoogleUserInfo) {
         providerAccountId: profile.sub,
       },
     },
-    include: { user: true },
+    include: {
+      user: { select: { id: true, emailVerifiedAt: true, isActive: true } },
+    },
   });
 
+  // The user already exists and is using oAuth to login.
   if (existingOauth?.user) {
-    if (!existingOauth.user.emailVerifiedAt) {
+    const updates: { emailVerifiedAt?: Date; isActive?: boolean } = {};
+
+    if (!existingOauth.user.emailVerifiedAt) updates.emailVerifiedAt = new Date();
+    if (!existingOauth.user.isActive) updates.isActive = true;
+
+    if (Object.keys(updates).length) {
       await prisma.user.update({
         where: { id: existingOauth.user.id },
-        data: { emailVerifiedAt: new Date() },
+        data: updates,
       });
     }
-    return existingOauth.user;
+
+    const user = await prisma.user.findUnique({
+      where: { id: existingOauth.user.id },
+      select: authUserSelect,
+    });
+    if (!user) throw new AppError("OAuth user not found", 500);
+
+    return user;
   }
 
+
+  // Check if the user exists by email. (but not currently using oAuth to login)
   let user = await prisma.user.findUnique({
     where: { email: profile.email },
     select: authUserSelect,
   });
 
+  // The user does not exist, so create a new user
   if (!user) {
     // Password is required by schema; OAuth users won't use it unless they reset password later.
     const randomPassword = generateToken(32);
@@ -55,7 +73,10 @@ export async function loginWithGoogle(profile: GoogleUserInfo) {
       },
       select: authUserSelect,
     });
-  } else if (!user.emailVerifiedAt) {
+  } 
+  
+  // The user exists but is not verified, so we need to verify them.
+  if (!user.emailVerifiedAt) {
     user = await prisma.user.update({
       where: { id: user.id },
       data: { emailVerifiedAt: new Date() },
@@ -63,6 +84,14 @@ export async function loginWithGoogle(profile: GoogleUserInfo) {
     });
   }
 
+  // Reactivate account on successful Google sign-in (only writes if currently deactivated)
+  await prisma.user.updateMany({
+    where: { id: user.id, isActive: false },
+    data: { isActive: true },
+  });
+  
+  
+  // Link the oAuth account to the user.
   await prisma.oAuthAccount.create({
     data: {
       userId: user.id,
