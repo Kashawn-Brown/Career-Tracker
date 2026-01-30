@@ -17,6 +17,7 @@ export type AuthUser = {
   email: string;
   name: string;
   emailVerifiedAt: string | null;
+  isActive: boolean;
   
   isAdmin: boolean;
   
@@ -84,6 +85,12 @@ export type RegisterRequest = {
   password: string;
   name: string;
 };
+
+export type ChangePasswordRequest = {
+  oldPassword: string;
+  newPassword: string;
+};
+
 
 export type CsrfResponse = { csrfToken: string | null };
 export type RefreshResponse = { token: string; csrfToken: string };

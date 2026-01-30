@@ -80,7 +80,7 @@ export async function userRoutes(app: FastifyInstance) {
    * Note: Signing in again reactivates the account.
    */
   app.delete(
-    "/me", 
+    "/deactivate", 
     { 
       preHandler: [requireAuth], 
       config: { rateLimit: { max: 5, timeWindow: "1 minute", keyGenerator: rateLimitKeyByIp } },
@@ -102,7 +102,7 @@ export async function userRoutes(app: FastifyInstance) {
    * - Delete the user's data.
    * - Delete the user's tokens.
    */
-  app.delete("/force-delete/me", { preHandler: [requireAuth] }, async (req, reply) => {
+  app.delete("/delete", { preHandler: [requireAuth] }, async (req, reply) => {
 
     const userId = req.user!.id;
 
