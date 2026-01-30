@@ -151,6 +151,7 @@ type Draft = {
   status: ApplicationStatus;
 
   salaryText: string;
+  salaryDetails: string;
 
   location: string;
   locationDetails: string;
@@ -178,6 +179,7 @@ function toDraft(app: Application): Draft {
     status: app.status,
 
     salaryText: app.salaryText ?? "",
+    salaryDetails: app.salaryDetails ?? "",
 
     location: app.location ?? "",
     locationDetails: app.locationDetails ?? "",
@@ -419,8 +421,10 @@ export function ApplicationDetailsDrawer({
       isFavorite: draft.isFavorite,
 
       salaryText: draft.salaryText, // allow blank if user clears
+      
       jobTypeDetails: draft.jobTypeDetails,
       workModeDetails: draft.workModeDetails,
+      salaryDetails: draft.salaryDetails,
 
       jobLink: draft.jobLink,
       notes: draft.notes,
@@ -673,7 +677,8 @@ export function ApplicationDetailsDrawer({
                       <Field
                       label="Salary"
                       value={application.salaryText}
-                        emptyValue="Not specified"
+                      emptyValue="Not specified"
+                      details={application.salaryDetails}
                       />
                     ) : null}
 
@@ -733,6 +738,16 @@ export function ApplicationDetailsDrawer({
                           setDraft({ ...draft, salaryText: e.target.value })
                         }
                         placeholder="e.g., $90k–110k CAD"
+                      />
+                    </EditRow>
+
+                    <EditRow label="Salary details" labelClassName="font-light">
+                      <Input
+                        value={draft.salaryDetails}
+                        onChange={(e) =>
+                          setDraft({ ...draft, salaryDetails: e.target.value })
+                        }
+                        placeholder="Annual bonus, stock options, etc."
                       />
                     </EditRow>
 

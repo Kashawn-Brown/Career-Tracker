@@ -19,6 +19,7 @@ export const applicationSelect = {
   workMode: true,
   workModeDetails: true,
   salaryText: true,
+  salaryDetails: true,
   isFavorite: true,
   
   jobLink: true,
@@ -51,6 +52,7 @@ export const applicationListSelect = {
   workMode: true,
   workModeDetails: false,
   salaryText: true,
+  salaryDetails: false,
   isFavorite: true,
   
   jobLink: true,
@@ -94,6 +96,7 @@ export type CreateApplicationInput = {
   workMode?: WorkMode;
   workModeDetails?: string;
   salaryText?: string;
+  salaryDetails?: string;
   jobLink?: string;
   description?: string;
   notes?: string;
@@ -113,6 +116,7 @@ export type UpdateApplicationInput = {
   workMode?: WorkMode;
   workModeDetails?: string;
   salaryText?: string;
+  salaryDetails?: string;
   isFavorite?: boolean;
   jobLink?: string;
   description?: string;
