@@ -29,12 +29,14 @@ export const ApplicationDraftSchema = Type.Object(
     locationDetails: Type.Optional(Type.String({ maxLength: 500 })),
 
     workMode: Type.Optional(WorkModeSchema),
-    workModeDetails: Type.Optional(Type.String({ maxLength: 200 })),
+    workModeDetails: Type.Optional(Type.String({ maxLength: 500 })),
 
     jobType: Type.Optional(JobTypeSchema),
     jobTypeDetails: Type.Optional(Type.String({ maxLength: 200 })),
 
     salaryText: Type.Optional(Type.String({ maxLength: 200 })),
+    salaryDetails: Type.Optional(Type.String({ maxLength: 500 })),
+
     jobLink: Type.Optional(Type.String({ maxLength: 2048 })),
     tagsText: Type.Optional(Type.String({ maxLength: 500 })),
 
