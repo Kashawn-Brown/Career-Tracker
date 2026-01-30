@@ -17,6 +17,9 @@ export const routes = {
     refresh: () => "/auth/refresh",
     logout: () => "/auth/logout",
 
+    oauthGoogleStart: () => "/auth/oauth/google/start",
+    oauthGoogleCallback: () => "/auth/oauth/google/callback",
+
     verifyEmail: () => "/auth/verify-email",
     resendVerification: () => "/auth/resend-verification",
     forgotPassword: () => "/auth/forgot-password",
