@@ -74,6 +74,9 @@ export default function RegisterPage() {
   // Handle Google OAuth sign in
   function handleGoogleSignIn() {
     const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3002/api/v1";
+    // console.log("baseUrl: ", baseUrl);
+    // console.log("routes.auth.oauthGoogleStart(): ", routes.auth.oauthGoogleStart());
+    // console.log(`${baseUrl}${routes.auth.oauthGoogleStart()}`);
     window.location.assign(`${baseUrl}${routes.auth.oauthGoogleStart()}`);
   }
   

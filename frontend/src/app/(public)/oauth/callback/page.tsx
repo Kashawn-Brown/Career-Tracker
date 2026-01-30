@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
@@ -11,17 +11,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 export default function OAuthCallbackPage() {
   const router = useRouter();
   const { isHydrated, isAuthenticated } = useAuth();
-  const [failed, setFailed] = useState(false);
+  const failed = isHydrated && !isAuthenticated;
+
 
   useEffect(() => {
     if (!isHydrated) return;
 
-    if (isAuthenticated) {
-      router.replace("/applications");
-      return;
-    }
-
-    setFailed(true);
+    if (isAuthenticated) router.replace("/applications");
   }, [isHydrated, isAuthenticated, router]);
 
   return (
