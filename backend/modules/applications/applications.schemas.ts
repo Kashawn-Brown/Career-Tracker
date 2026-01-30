@@ -42,12 +42,13 @@ export const CreateApplicationBody = Type.Object(
     dateApplied: Type.Optional(Type.String({ format: "date-time" })),
 
     jobType: Type.Optional(JobTypeSchema),
-    jobTypeDetails: Type.Optional(Type.String({ maxLength: 200 })),
+    jobTypeDetails: Type.Optional(Type.String({ maxLength: 500 })),
 
     workMode: Type.Optional(WorkModeSchema),
     workModeDetails: Type.Optional(Type.String({ maxLength: 200 })),
 
     salaryText: Type.Optional(Type.String({ maxLength: 200 })),
+    salaryDetails: Type.Optional(Type.String({ maxLength: 500 })),
 
     jobLink: Type.Optional(Type.String({ maxLength: 2048 })),
     description: Type.Optional(Type.String({ maxLength: 100_000 })),
@@ -132,10 +133,11 @@ export const UpdateApplicationBody = Type.Object(
     locationDetails: Type.Optional(Type.String({ maxLength: 500 })),
     dateApplied: Type.Optional(Type.Union([Type.String({ format: "date-time" }), Type.Null()])), // ISO string or null to clear
     jobType: Type.Optional(JobTypeSchema),
-    jobTypeDetails: Type.Optional(Type.String({ maxLength: 200 })),
+    jobTypeDetails: Type.Optional(Type.String({ maxLength: 500 })),
     workMode: Type.Optional(WorkModeSchema),
     workModeDetails: Type.Optional(Type.String({ maxLength: 200 })),
     salaryText: Type.Optional(Type.String({ maxLength: 200 })),
+    salaryDetails: Type.Optional(Type.String({ maxLength: 500 })),
     isFavorite: Type.Optional(Type.Boolean()),
     jobLink: Type.Optional(Type.String({ maxLength: 2048 })),
     tagsText: Type.Optional(Type.String({ maxLength: 500 })),

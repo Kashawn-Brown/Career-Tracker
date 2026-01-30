@@ -180,6 +180,8 @@ model JobApplication {
   workModeDetails String?
   
   salaryText String?
+  salaryDetails  String?
+  
   isFavorite Boolean  @default(false)
 
   jobLink      String?

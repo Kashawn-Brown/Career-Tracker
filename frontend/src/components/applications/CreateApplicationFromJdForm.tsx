@@ -93,6 +93,8 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: (args?: 
   const [locationDetails, setLocationDetails] = useState("");
 
   const [salaryText, setSalaryText] = useState("");
+  const [salaryDetails, setSalaryDetails] = useState("");
+
   const [jobLink, setJobLink] = useState("");
   const [tagsText, setTagsText] = useState("");
 
@@ -236,6 +238,8 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: (args?: 
     setLocationDetails("");
   
     setSalaryText("");
+    setSalaryDetails("");
+
     setJobLink("");
     setTagsText("");
   
@@ -300,6 +304,8 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: (args?: 
       setJobTypeDetails(res.extracted.jobTypeDetails ?? "");
 
       setSalaryText(res.extracted.salaryText ?? "");
+      setSalaryDetails(res.extracted.salaryDetails ?? "");
+
       setJobLink(res.extracted.jobLink ?? "");
       setTagsText(res.extracted.tagsText ?? "");
 
@@ -425,6 +431,8 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: (args?: 
       workModeDetails: toOptionalTrimmed(workModeDetails),
   
       salaryText: toOptionalTrimmed(salaryText),
+      salaryDetails: toOptionalTrimmed(salaryDetails),
+
       jobLink: toOptionalTrimmed(jobLink),
       tagsText: toOptionalTrimmed(tagsText),
   
@@ -817,12 +825,16 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: (args?: 
               <Input id="tagsText" value={tagsText} onChange={(e) => setTagsText(e.target.value)} />
             </div>
 
-            <div className="space-y-2 md:col-span-4">
+            <div className="space-y-2 md:col-span-3">
               <Label htmlFor="jobTypeDetails">Job Type Details</Label>
-              <Input id="jobTypeDetails" value={jobTypeDetails} onChange={(e) => setJobTypeDetails(e.target.value)} />
+              <Input 
+              id="jobTypeDetails" 
+              value={jobTypeDetails} 
+              onChange={(e) => setJobTypeDetails(e.target.value)} 
+              />
             </div>
 
-            <div className="space-y-2 md:col-span-4">
+            <div className="space-y-2 md:col-span-3">
               <Label htmlFor="workModeDetails">Work Arrangement Details</Label>
               <Input
                 id="workModeDetails"
@@ -831,12 +843,21 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: (args?: 
               />
             </div>
 
-            <div className="space-y-2 md:col-span-4">
+            <div className="space-y-2 md:col-span-3">
               <Label htmlFor="locationDetails">Location Details</Label>
               <Input
                 id="locationDetails"
                 value={locationDetails}
                 onChange={(e) => setLocationDetails(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2 md:col-span-3">
+              <Label htmlFor="salaryDetails">Salary Details</Label>
+              <Input
+                id="salaryDetails"
+                value={salaryDetails}
+                onChange={(e) => setSalaryDetails(e.target.value)}
               />
             </div>
 

@@ -171,6 +171,8 @@ export type Application = {
   workModeDetails: string | null;
 
   salaryText: string | null;
+  salaryDetails: string | null;
+
   isFavorite: boolean;
 
   dateApplied: string | null; // backend returns JSON date strings
@@ -250,6 +252,7 @@ export type CreateApplicationRequest = {
   workModeDetails?: string;
 
   salaryText?: string;
+  salaryDetails?: string;
 
   jobLink?: string;
   description?: string;
@@ -270,6 +273,7 @@ export type UpdateApplicationRequest = {
   workMode?: WorkMode;
   workModeDetails?: string;
   salaryText?: string;
+  salaryDetails?: string;
   isFavorite?: boolean;
   jobLink?: string;
   description?: string;
@@ -438,6 +442,8 @@ export type ApplicationDraftExtracted = {
   jobTypeDetails?: string;
 
   salaryText?: string;
+  salaryDetails?: string;
+  
   jobLink?: string;
   tagsText?: string;
 

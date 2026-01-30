@@ -34,6 +34,7 @@ export async function createApplication(input: CreateApplicationInput) {
       workMode: input.workMode ?? WorkMode.UNKNOWN,
       workModeDetails: normalizeNullableString(input.workModeDetails),
       salaryText: normalizeNullableString(input.salaryText),
+      salaryDetails: normalizeNullableString(input.salaryDetails),
 
       // Default status if not provided
       status: input.status ?? ApplicationStatus.APPLIED,
@@ -195,9 +196,8 @@ export async function updateApplication(
     if (input.workMode !== undefined) data.workMode = input.workMode;
     if (input.workModeDetails !== undefined) data.workModeDetails = normalizeNullableString(input.workModeDetails);
 
-    if (input.salaryText !== undefined) {
-      data.salaryText = normalizeNullableString(input.salaryText);
-    }
+    if (input.salaryText !== undefined) data.salaryText = normalizeNullableString(input.salaryText);
+    if (input.salaryDetails !== undefined) data.salaryDetails = normalizeNullableString(input.salaryDetails);
 
     if (input.isFavorite !== undefined) data.isFavorite = input.isFavorite;
 

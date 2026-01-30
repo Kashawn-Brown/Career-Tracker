@@ -27,6 +27,7 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
   const [jobType, setJobType] = useState<JobType>("UNKNOWN");
   const [workMode, setWorkMode] = useState<WorkMode>("UNKNOWN");
   const [salaryText, setSalaryText] = useState("");
+  const [salaryDetails, setSalaryDetails] = useState("");
 
   const [location, setLocation] = useState("");
   const [locationDetails, setLocationDetails] = useState("");
@@ -139,6 +140,7 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
       workModeDetails: toOptionalTrimmed(workModeDetails),
 
       salaryText: toOptionalTrimmed(salaryText),
+      salaryDetails: toOptionalTrimmed(salaryDetails),
 
       jobLink: toOptionalTrimmed(jobLink),
       description: toOptionalTrimmed(description),
@@ -192,6 +194,8 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
 
       setJobTypeDetails("");
       setWorkModeDetails("");
+      setSalaryDetails("");
+
       setJobLink("");
       setDescription("");
       setNotes("");
@@ -348,7 +352,7 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
         <>
           <div className="grid gap-x-6 gap-y-6 md:grid-cols-12">
             
-            <div className="space-y-2 md:col-span-4">
+            <div className="space-y-2 md:col-span-3">
               <Label htmlFor="jobTypeDetails">Job Type Details</Label>
               <Input
                 id="jobTypeDetails"
@@ -358,7 +362,7 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
               />
             </div>
 
-            <div className="space-y-2 md:col-span-4">
+            <div className="space-y-2 md:col-span-3">
               <Label htmlFor="workModeDetails">Work Arrangement Details</Label>
               <Input
                 id="workModeDetails"
@@ -368,13 +372,23 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
               />
             </div>
 
-            <div className="space-y-2 md:col-span-4">
+            <div className="space-y-2 md:col-span-3">
               <Label htmlFor="locationDetails">Location Details</Label>
               <Input
                 id="locationDetails"
                 value={locationDetails}
                 onChange={(e) => setLocationDetails(e.target.value)}
                 placeholder="e.g., 159 St. George St."
+              />
+            </div>
+
+            <div className="space-y-2 md:col-span-3">
+              <Label htmlFor="salaryDetails">Salary Details</Label>
+              <Input
+                id="salaryDetails"
+                value={salaryDetails}
+                onChange={(e) => setSalaryDetails(e.target.value)}
+                placeholder="Annual bonus, stock options, etc."
               />
             </div>
           </div>
