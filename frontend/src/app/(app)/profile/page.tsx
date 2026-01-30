@@ -5,6 +5,7 @@ import { apiFetch, ApiError } from "@/lib/api/client";
 import { routes } from "@/lib/api/routes";
 import type { MeResponse, UpdateMeRequest } from "@/types/api";
 import { useAuth } from "@/hooks/useAuth";
+import { AccountSecurityDialog } from "@/components/profile/AccountSecurityDialog";
 import { ProfileProAccessCard } from "@/components/profile/ProfileProAccessCard";
 import { UserProfileCard } from "@/components/profile/UserProfileCard";
 import { JobSearchPreferencesCard } from "@/components/profile/JobSearchPreferencesCard";
@@ -503,87 +504,95 @@ export default function ProfilePage() {
           ) : null}
         </div>
       ) : null}
+        <>
+          {/* Account security section */}
+          <div className="space-y-6 text-right mb-3 mt-[-40]">
+            <AccountSecurityDialog />
+          </div>
 
-        <div className="grid gap-6 lg:grid-cols-12 lg:items-start">
+          <div className="grid gap-6 lg:grid-cols-12 lg:items-start">
+            
+            {/* Left: Profile section */}
+            <div className="space-y-6 lg:col-span-7">
+              <ProfileProAccessCard />
+
+
+              <UserProfileCard
+                email={user?.email ?? "—"}
+                isEditing={isEditingProfile}
+                isSaving={isSaving}
+                onStartEdit={startProfileEdit}
+                onCancelEdit={cancelProfileEdit}
+                onSave={handleProfileSave}
+                name={name}
+                setName={setName}
+                location={location}
+                setLocation={setLocation}
+                currentCompany={currentCompany}
+                setCurrentCompany={setCurrentCompany}
+                currentRole={currentRole}
+                setCurrentRole={setCurrentRole}
+                skillsText={skillsInput}
+                setSkillsText={setSkillsInput}
+                linkedInUrl={linkedInUrl}
+                setLinkedInUrl={setLinkedInUrl}
+                githubUrl={githubUrl}
+                setGithubUrl={setGithubUrl}
+                portfolioUrl={portfolioUrl}
+                setPortfolioUrl={setPortfolioUrl}
+              />
+            </div>
           
-          {/* Left: Profile section */}
-          <div className="space-y-6 lg:col-span-7">
-            <ProfileProAccessCard />
-            <UserProfileCard
-              email={user?.email ?? "—"}
-              isEditing={isEditingProfile}
-              isSaving={isSaving}
-              onStartEdit={startProfileEdit}
-              onCancelEdit={cancelProfileEdit}
-              onSave={handleProfileSave}
-              name={name}
-              setName={setName}
-              location={location}
-              setLocation={setLocation}
-              currentCompany={currentCompany}
-              setCurrentCompany={setCurrentCompany}
-              currentRole={currentRole}
-              setCurrentRole={setCurrentRole}
-              skillsText={skillsInput}
-              setSkillsText={setSkillsInput}
-              linkedInUrl={linkedInUrl}
-              setLinkedInUrl={setLinkedInUrl}
-              githubUrl={githubUrl}
-              setGithubUrl={setGithubUrl}
-              portfolioUrl={portfolioUrl}
-              setPortfolioUrl={setPortfolioUrl}
-            />
+
+            {/* Right: secondary cards stacked */}
+            <div className="space-y-6 lg:col-span-5">
+
+
+              {/* Job search preferences section */}
+              <JobSearchPreferencesCard
+                isDialogOpen={isJobSearchDialogOpen}
+                onDialogOpenChange={handleJobSearchDialogOpenChange}
+                isEditing={isEditingJobSearch}
+                onStartEdit={startJobSearchEdit}
+                onCancelEdit={cancelJobSearchEdit}
+                isSaving={isJobSearchSaving}
+                onSave={handleJobSearchSave}
+                titlesText={jobSearchTitlesText}
+                setTitlesText={setJobSearchTitlesText}
+                locationsText={jobSearchLocationsText}
+                setLocationsText={setJobSearchLocationsText}
+                keywordsText={jobSearchKeywordsText}
+                setKeywordsText={setJobSearchKeywordsText}
+                summary={jobSearchSummary}
+                setSummary={setJobSearchSummary}
+                workMode={jobSearchWorkMode}
+                setWorkMode={setJobSearchWorkMode}
+              />
+
+
+              {/* Connections section */}
+              <ProfileConnectionsCard />
+
+
+              {/* Base resume section */}
+              <BaseResumeCard
+                isDialogOpen={isResumeDialogOpen}
+                onDialogOpenChange={handleResumeDialogOpenChange}
+                baseResume={baseResume}
+                isSaving={isResumeSaving}
+                onSave={handleResumeSave}
+                isDeleting={isResumeDeleting}
+                onDelete={handleResumeDelete}
+                onDownload={handleResumeDownload}
+                selectedFile={resumeFile}
+                onFileChange={setResumeFile}
+                fileInputRef={resumeFileInputRef}
+                resumeErrorMessage={resumeErrorMessage}
+                onClearResumeError={() => setResumeErrorMessage(null)}
+              />
+            </div>
           </div>
-        
-
-          {/* Right: secondary cards stacked */}
-          <div className="space-y-6 lg:col-span-5">
-            {/* Job search preferences section */}
-            <JobSearchPreferencesCard
-              isDialogOpen={isJobSearchDialogOpen}
-              onDialogOpenChange={handleJobSearchDialogOpenChange}
-              isEditing={isEditingJobSearch}
-              onStartEdit={startJobSearchEdit}
-              onCancelEdit={cancelJobSearchEdit}
-              isSaving={isJobSearchSaving}
-              onSave={handleJobSearchSave}
-              titlesText={jobSearchTitlesText}
-              setTitlesText={setJobSearchTitlesText}
-              locationsText={jobSearchLocationsText}
-              setLocationsText={setJobSearchLocationsText}
-              keywordsText={jobSearchKeywordsText}
-              setKeywordsText={setJobSearchKeywordsText}
-              summary={jobSearchSummary}
-              setSummary={setJobSearchSummary}
-              workMode={jobSearchWorkMode}
-              setWorkMode={setJobSearchWorkMode}
-            />
-
-
-
-            {/* Connections section */}
-            <ProfileConnectionsCard />
-
-            {/* Base resume section */}
-            <BaseResumeCard
-              isDialogOpen={isResumeDialogOpen}
-              onDialogOpenChange={handleResumeDialogOpenChange}
-              baseResume={baseResume}
-              isSaving={isResumeSaving}
-              onSave={handleResumeSave}
-              isDeleting={isResumeDeleting}
-              onDelete={handleResumeDelete}
-              onDownload={handleResumeDownload}
-              selectedFile={resumeFile}
-              onFileChange={setResumeFile}
-              fileInputRef={resumeFileInputRef}
-              resumeErrorMessage={resumeErrorMessage}
-              onClearResumeError={() => setResumeErrorMessage(null)}
-            />
-
-
-          </div>
-        </div>
+        </>
       </div>
     </div>
 
