@@ -26,7 +26,7 @@ import {
   DialogTitle,
   DialogClose,
 } from "@/components/ui/dialog";
-
+import { documentsApi } from "@/lib/api/documents";
 import { ChevronDown, ChevronRight, Star, Trash2, Loader2, CheckCircle2, Circle } from "lucide-react";
 import { ProAccessBanner } from "@/components/pro/ProAccessBanner";
 import { RequestProDialog } from "@/components/pro/RequestProDialog";
@@ -173,7 +173,6 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: (args?: 
   const aiFreeUsesUsed = user?.aiFreeUsesUsed ?? 0;
   // const isAiLocked = !!user && !aiProEnabled && aiFreeUsesUsed >= 5;
 
-  const baseResumeExists = !!user?.baseResumeUrl;
   const aiFreeRemaining = Math.max(0, 5 - aiFreeUsesUsed);
   const canRunFit =
     aiProEnabled ||
@@ -188,6 +187,31 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: (args?: 
   }
 
   const canGenerate = jdText.trim().length > 0 && !isGenerating && !isSubmitting;
+
+  const [baseResumeExists, setBaseResumeExists] = useState(false);
+
+  useEffect(() => {
+    if (!isRunFitDialogOpen) return;
+    if (!user?.id) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await documentsApi.getBaseResume();
+        if (cancelled) return;
+        setBaseResumeExists(!!res.baseResume);
+      } catch {
+        if (cancelled) return;
+        setBaseResumeExists(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isRunFitDialogOpen, user?.id]);
+
 
   
 
@@ -501,11 +525,13 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: (args?: 
       resetToInitial();
       onCreated();
 
-      onCreated({
-        applicationId: created.id,
-        openDrawer: true,
-        openFitReport: opts.runFit && fitSucceeded,
-      });
+      if (opts.runFit && fitSucceeded) {
+        onCreated({
+          applicationId: created.id,
+          openDrawer: true,
+          openFitReport: true,
+        });
+      }
   
       if (fitFailed || failedDocs || failedConns) {
         const parts: string[] = [];

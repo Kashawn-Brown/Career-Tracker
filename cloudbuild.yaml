@@ -36,10 +36,10 @@ steps:
         "--add-cloudsql-instances", "${_CLOUDSQL_CONNECTION_NAME}",
 
         # Inject secret as env var (sets env vars DATABASE_URL + JWT_SECRET)
-        "--set-secrets", "DATABASE_URL=DATABASE_URL:latest,JWT_SECRET=JWT_SECRET:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,REDIS_URL=REDIS_URL:latest,RESEND_API_KEY=RESEND_API_KEY:latest,OWNER_EMAIL=OWNER_EMAIL:latest",
+        "--set-secrets", "DATABASE_URL=DATABASE_URL:latest,JWT_SECRET=JWT_SECRET:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,REDIS_URL=REDIS_URL:latest,RESEND_API_KEY=RESEND_API_KEY:latest,OWNER_EMAIL=OWNER_EMAIL:latest,GOOGLE_OAUTH_CLIENT_ID=GOOGLE_OAUTH_CLIENT_ID:latest,GOOGLE_OAUTH_CLIENT_SECRET=GOOGLE_OAUTH_CLIENT_SECRET:latest",
 
         # Non-secret runtime env (keeps production consistent across deploys)
-        "--set-env-vars", "^;^NODE_ENV=production;ENABLE_DEBUG_ROUTES=false;CORS_ORIGIN=https://career-tracker.ca,https://www.career-tracker.ca,https://career-tracker-frontend-ten.vercel.app;GCS_BUCKET=documents-career-tracker-482222;GCS_MAX_UPLOAD_BYTES=10485760;GCS_SIGNED_URL_TTL_SECONDS=600;GCS_ALLOWED_MIME_TYPES=application/pdf|text/plain;GCS_KEY_PREFIX=prod;OPENAI_MODEL=gpt-5-mini;OPENAI_MODEL_JD_EXTRACT=gpt-4o-mini;AI_DEBUG=true;EMAIL_FROM=Career-Tracker <onboarding@resend.dev>;FRONTEND_URL=https://career-tracker.ca",
+        "--set-env-vars", "^;^NODE_ENV=production;ENABLE_DEBUG_ROUTES=false;CORS_ORIGIN=https://career-tracker.ca,https://www.career-tracker.ca,https://career-tracker-frontend-ten.vercel.app;GCS_BUCKET=documents-career-tracker-482222;GCS_MAX_UPLOAD_BYTES=10485760;GCS_SIGNED_URL_TTL_SECONDS=600;GCS_ALLOWED_MIME_TYPES=application/pdf|text/plain;GCS_KEY_PREFIX=prod;OPENAI_MODEL=gpt-5-mini;OPENAI_MODEL_JD_EXTRACT=gpt-4o-mini;AI_DEBUG=true;EMAIL_FROM=Career-Tracker <onboarding@resend.dev>;FRONTEND_URL=https://career-tracker.ca;GOOGLE_OAUTH_REDIRECT_URI=https://career-tracker-api-978454199930.us-central1.run.app/api/v1/auth/oauth/google/callback",
 
         # Quiet mode
         "--quiet"

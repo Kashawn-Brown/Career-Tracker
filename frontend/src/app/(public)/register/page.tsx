@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ApiError } from "@/lib/api/client";
 import { useAuth } from "@/hooks/useAuth";
+import { routes } from "@/lib/api/routes";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -19,10 +20,21 @@ import { Label } from "@/components/ui/label";
 import { Alert } from "@/components/ui/alert";
 import { Eye, EyeOff } from "lucide-react";
 import { evaluatePassword } from "@/lib/auth/password-policy";
+import { GoogleIcon } from "@/components/icons/GoogleIcon";
+
+// wrap the RegisterPageInner component in a Suspense component so that the page is not rendered until the component is ready
+export default function RegisterPage() {
+  return (
+    <Suspense>
+      <RegisterPageInner />
+    </Suspense>
+  );
+}
+
 
 
 // RegisterPage: creates an account and logs the user in (receives JWT) via AuthContext.
-export default function RegisterPage() {
+export function RegisterPageInner() {
   const router = useRouter();
   const { register, isAuthenticated, isHydrated } = useAuth();
 
@@ -68,6 +80,16 @@ export default function RegisterPage() {
     if (!isHydrated) return;
     if (isAuthenticated) router.replace("/applications");
   }, [isHydrated, isAuthenticated, router]);
+
+  // Handle Google OAuth sign in
+  function handleGoogleSignIn() {
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3002/api/v1";
+    // console.log("baseUrl: ", baseUrl);
+    // console.log("routes.auth.oauthGoogleStart(): ", routes.auth.oauthGoogleStart());
+    // console.log(`${baseUrl}${routes.auth.oauthGoogleStart()}`);
+    window.location.assign(`${baseUrl}${routes.auth.oauthGoogleStart()}`);
+  }
+  
 
   // Submitting Form (Attempt to register)
   async function handleSubmit(e: React.FormEvent) {
@@ -134,6 +156,31 @@ export default function RegisterPage() {
         </div>
       ) : null}
 
+        {/* Google OAuth sign in */}
+        <div className="space-y-3">
+          <Button
+            variant="outline"
+            className="w-full"
+            type="button"
+            onClick={handleGoogleSignIn}
+            disabled={isSubmitting}
+          >
+            <GoogleIcon className="mr-2 h-4 w-4" />
+            Continue with Google
+          </Button>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">Or</span>
+            </div>
+          </div>
+        </div>
+
+
+        {/* Email/password sign in */}
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>

@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ApiError } from "@/lib/api/client";
+import { routes } from "@/lib/api/routes";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,10 +18,21 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert } from "@/components/ui/alert";
+import { GoogleIcon } from "@/components/icons/GoogleIcon";
 
-// LoginPage: collects credentials and exchanges them for a JWT via AuthContext.
+// wrap the LoginPageInner component in a Suspense component so that the page is not rendered until the component is ready
 export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginPageInner />
+    </Suspense>
+  );
+}
+// LoginPage: collects credentials and exchanges them for a JWT via AuthContext.
+export function LoginPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
   const { login, isAuthenticated, isHydrated } = useAuth();
 
   // Form state
@@ -37,6 +49,21 @@ export default function LoginPage() {
     if (isAuthenticated) router.replace("/applications");
   }, [isHydrated, isAuthenticated, router]);
 
+  // Handle Google OAuth errors
+  useEffect(() => {
+    if (errorMessage) return;
+  
+    const oauth = searchParams.get("oauth");
+    if (oauth === "failed") setErrorMessage("Google sign-in failed. Please try again.");
+    if (oauth === "cancelled") setErrorMessage("Google sign-in was cancelled.");
+  }, [searchParams, errorMessage]);
+  
+  // Handle Google OAuth sign in
+  function handleGoogleSignIn() {
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3002/api/v1";
+    window.location.assign(`${baseUrl}${routes.auth.oauthGoogleStart()}`);
+  }
+  
 
   // Submitting Form (Attempt to log in)
   async function handleSubmit(e: React.FormEvent) {
@@ -73,24 +100,49 @@ export default function LoginPage() {
       </CardHeader>
 
       <CardContent className="space-y-4">
-      {errorMessage ? (
-        <div className="relative">
-          <Alert variant="destructive" className="pr-10">
-            {errorMessage}
-          </Alert>
+        {errorMessage ? (
+          <div className="relative">
+            <Alert variant="destructive" className="pr-10">
+              {errorMessage}
+            </Alert>
 
-          <button
+            <button
+              type="button"
+              onClick={() => setErrorMessage(null)}
+              className="absolute right-2 top-2 rounded-md px-2 py-1 opacity-70 hover:bg-black/5 hover:opacity-100"
+              aria-label="Dismiss message"
+              title="Dismiss"
+            >
+              ×
+            </button>
+          </div>
+        ) : null}
+
+        {/* Google OAuth sign in */}
+        <div className="space-y-3">
+          <Button
+            variant="outline"
+            className="w-full"
             type="button"
-            onClick={() => setErrorMessage(null)}
-            className="absolute right-2 top-2 rounded-md px-2 py-1 opacity-70 hover:bg-black/5 hover:opacity-100"
-            aria-label="Dismiss message"
-            title="Dismiss"
+            onClick={handleGoogleSignIn}
+            disabled={isSubmitting}
           >
-            ×
-          </button>
-        </div>
-      ) : null}
+            <GoogleIcon className="mr-2 h-4 w-4" />
+            Continue with Google
+          </Button>
 
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">Or</span>
+            </div>
+          </div>
+        </div>
+
+
+        {/* Email/password sign in */}
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>

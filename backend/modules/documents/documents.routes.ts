@@ -5,6 +5,7 @@ import { AppError } from "../../errors/app-error.js";
 import * as DocumentsService from "./documents.service.js";
 import { DocumentIdParams, DocumentDownloadQuery } from "./documents.schemas.js";
 import type { DocumentIdParamsType, DocumentDownloadQueryType } from "./documents.schemas.js";
+import * as UserService from "../user/user.service.js";
 
 export async function documentsRoutes(app: FastifyInstance) {
 
@@ -85,6 +86,11 @@ export async function documentsRoutes(app: FastifyInstance) {
         isTruncated: (data.file as any).truncated === true,
       });
 
+      // Update the user's base resume URL in the database
+      await UserService.updateMe(userId, {
+        baseResumeUrl: created.url ?? undefined,
+      });
+
       return reply.status(201).send({ baseResume: created });
     }
   );
@@ -95,7 +101,14 @@ export async function documentsRoutes(app: FastifyInstance) {
   app.delete("/base-resume", { preHandler: [requireAuth, requireVerifiedEmail] }, async (req) => {
     const userId = req.user!.id;
 
-    return DocumentsService.deleteBaseResume(userId);
+    await DocumentsService.deleteBaseResume(userId);
+
+    // Update the user's base resume URL in the database
+    await UserService.updateMe(userId, {
+      baseResumeUrl: undefined,
+    });
+
+    return { ok: true };
   });
 
   /**
