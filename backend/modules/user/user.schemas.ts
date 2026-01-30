@@ -42,6 +42,16 @@ export const UpdateMeBody = Type.Object(
   { additionalProperties: false }
 );
 
-export type UpdateMeBodyType = Static<typeof UpdateMeBody>;
+// Request body for changing password.
+export const ChangePasswordBody = Type.Object(
+  {
+    oldPassword: Type.String({ minLength: 8, maxLength: 72 }),
+    newPassword: Type.String({ minLength: 8, maxLength: 72 }),
+  },
+  { additionalProperties: false }
+);
 
+
+export type UpdateMeBodyType = Static<typeof UpdateMeBody>;
+export type ChangePasswordBodyType = Static<typeof ChangePasswordBody>;
 

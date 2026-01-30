@@ -4,6 +4,8 @@ import { AppError } from "../../errors/app-error.js";
 import { userSelect } from "./user.dto.js";
 import type { UpdateMeBodyType } from "./user.schemas.js";
 import { aiProRequestSummarySelect } from "../pro/pro.dto.js";
+import bcrypt from "bcrypt";
+import { evaluatePasswordPolicy, formatPasswordPolicyError } from "../auth/password.policy.js";
 
 
 /**
@@ -95,6 +97,100 @@ export async function updateMe(userId: string, data: UpdateMeBodyType) {
     }
     throw err;
   }
+}
+
+/**
+ * Change password:
+ * - Validate old password is correct
+ * - Enforce password policy
+ * - Reject if same as current password (basic safety)
+ * - Consume token + set new password + revoke all sessions
+ */
+export async function changePassword(userId: string, oldPassword: string, newPassword: string) {
+  
+  // Find the user by id
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, email: true, passwordHash: true },
+  });
+
+  // If the user is not found, throw an error
+  if (!user) throw new AppError("User not found", 404);
+
+  // Check if the old password is correct
+  if (!await bcrypt.compare(oldPassword, user.passwordHash)) throw new AppError("Invalid old password", 400);
+
+
+  // Enforce the password policy
+  const passwordPolicy = evaluatePasswordPolicy(newPassword, user.email);
+  if (!passwordPolicy.ok) throw new AppError(formatPasswordPolicyError(passwordPolicy.reasons), 400);
+
+  // Prevent "reset to current password"
+  const sameAsCurrent = await bcrypt.compare(newPassword, user.passwordHash);
+  if (sameAsCurrent) throw new AppError("New password must be different from your current password", 400);
+
+  // Hash the new password
+  const nextHash = await bcrypt.hash(newPassword, 12);
+
+  // Update the user's password
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { passwordHash: nextHash },
+  });
+
+  const ts = new Date();
+
+  // Security: changing password invalidates all refresh sessions
+  await prisma.authSession.updateMany({
+    where: { userId: user.id, revokedAt: null },
+    data: { revokedAt: ts, lastUsedAt: ts },
+  });
+
+}
+
+/**
+ * Deactivate the current user.
+ * 
+ * - Sets isActive to false
+ * - Revokes all refresh sessions (logout everywhere)
+ */
+export async function deactivateMe(userId: string) {
+  const ts = new Date();
+
+  try {
+    await prisma.$transaction(async (db) => {
+      
+      // Set isActive to false
+      await db.user.update({
+        where: { id: userId },
+        data: { isActive: false },
+      });
+
+      // Revoke all refresh sessions (logout everywhere)
+      await db.authSession.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: ts, lastUsedAt: ts },
+      });
+    });
+
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2025") {
+      throw new AppError("User not found", 404);
+    }
+    throw err;
+  }
+}
+
+
+/**
+ * Permanently delete a user.
+ * 
+ * - DB relations use onDelete: Cascade, so associated rows are removed automatically.
+ * 
+ * - TODO: files will remain in GCS, need to delete them manually later (not needed).
+ */
+export async function forceDeleteUser(userId: string) {
+  await prisma.user.delete({ where: { id: userId } });
 }
 
 /**

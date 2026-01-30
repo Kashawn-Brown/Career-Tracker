@@ -73,8 +73,17 @@ export async function login(email: string, password: string) {
   const userRecord = await prisma.user.findUnique({ where: { email }, select: authLoginSelect });
   if (!userRecord) throw new AppError("Invalid credentials", 401);
 
+  // Check if the password is correct
   const ok = await bcrypt.compare(password, userRecord.passwordHash);
   if (!ok) throw new AppError("Invalid credentials", 401);
+
+  // Reactivate account on successful login (only writes if currently deactivated)
+  if (!userRecord.isActive) {
+    await prisma.user.update({
+      where: { id: userRecord.id },
+      data: { isActive: true },
+    });
+  }
 
   // Remove passwordHash from the user object
   const { passwordHash: _passwordHash, ...user } = userRecord;
@@ -208,9 +217,20 @@ export async function refreshSession(refreshToken: string, csrfToken: string) {
   // Pull user email for access-token signing
   const user = await prisma.user.findUnique({
     where: { id: session.userId },
-    select: { id: true, email: true },
+    select: { id: true, email: true, isActive: true },
   });
   if (!user) throw new AppError("Invalid session", 401);
+
+  if (!user.isActive) {
+    // Defensive: revoke the session so this refresh token can’t be reused.
+    await prisma.authSession.update({
+      where: { id: session.id },
+      data: { revokedAt: now(), lastUsedAt: now() },
+    });
+
+    throw new AppError("Account deactivated", 403, "ACCOUNT_DEACTIVATED");
+  }
+
 
   await prisma.authSession.update({
     where: { id: session.id },

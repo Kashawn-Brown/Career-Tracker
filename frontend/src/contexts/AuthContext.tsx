@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useEffect, useMemo, useState, useCallback } from "react";
-import { apiFetch, setUnauthorizedHandler, setEmailNotVerifiedHandler } from "@/lib/api/client";
+import { apiFetch, setUnauthorizedHandler, setEmailNotVerifiedHandler, setAccountDeactivatedHandler } from "@/lib/api/client";
 import { routes } from "@/lib/api/routes";
 import { clearToken, setToken } from "@/lib/auth/token";
 import { clearCsrfToken, getCsrfToken as getCsrfTokenFromMemory, setCsrfToken as setCsrfTokenInMemory } from "@/lib/auth/csrf";
@@ -161,6 +161,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => setEmailNotVerifiedHandler(null);
   }, []);
+
+  // Defines what "account deactivated" means for the app: logout + send to login with a reason.
+  useEffect(() => {
+    setAccountDeactivatedHandler(() => {
+      logout();
+
+      if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+        window.location.assign("/login?reason=deactivated");
+      }
+    });
+
+    return () => setAccountDeactivatedHandler(null);
+  }, [logout]);
+  
 
 
   // Calls Backend API endpoint "/auth/login" using apiFetch helper

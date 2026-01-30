@@ -36,6 +36,12 @@ export const routes = {
   },
   users: {
     me: () => "/users/me",
+
+    changePassword: () => "/users/change-password",
+
+    deactivate: () => "/users/deactivate",
+
+    delete: () => "/users/delete",
   },
   applications: {
     list: () => "/applications",
