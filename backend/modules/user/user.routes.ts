@@ -1,10 +1,11 @@
 import type { FastifyInstance } from "fastify";
 import { requireAuth } from "../../middleware/auth.js";
 import { requireVerifiedEmail } from "../../middleware/require-verified-email.js";
-import { UpdateMeBody } from "./user.schemas.js";
-import type { UpdateMeBodyType } from "./user.schemas.js";
+import { UpdateMeBody, ChangePasswordBody } from "./user.schemas.js";
+import type { UpdateMeBodyType, ChangePasswordBodyType } from "./user.schemas.js";
 import * as UserService from "./user.service.js";
 import { AppError } from "../../errors/app-error.js";
+import { clearRefreshCookie, rateLimitKeyByIp} from "../auth/auth.http.js";
 
 
 export async function userRoutes(app: FastifyInstance) {
@@ -41,4 +42,74 @@ export async function userRoutes(app: FastifyInstance) {
       return { user: updated };
     }
   );
+
+  /**
+   * Change password for the current user.
+   * 
+   * - User must confirm their old password.
+   * - Enforce password policy on new password.
+   * - Return the success response
+   */
+  app.post(
+    "/change-password",
+    {
+      schema: { body: ChangePasswordBody },
+      preHandler: [requireAuth, requireVerifiedEmail],
+      config: { rateLimit: { max: 10, timeWindow: "1 minute", keyGenerator: rateLimitKeyByIp } },
+    },
+    async (req, reply) => {
+      const userId = req.user!.id;
+      const body = req.body as ChangePasswordBodyType;
+
+      await UserService.changePassword(userId, body.oldPassword, body.newPassword);
+
+      // Clear the refresh cookie
+      clearRefreshCookie(reply);
+      return reply.send({ ok: true });
+    }
+  );  
+
+
+  /**
+   * Deactivate the current account.
+   *
+   * - Immediately blocks authed access (requireAuth now checks isActive)
+   * - Revokes all refresh sessions
+   * - Clears refresh cookie
+   *
+   * Note: Signing in again reactivates the account.
+   */
+  app.delete(
+    "/me", 
+    { 
+      preHandler: [requireAuth], 
+      config: { rateLimit: { max: 5, timeWindow: "1 minute", keyGenerator: rateLimitKeyByIp } },
+    },
+    async (req, reply) => {
+      const userId = req.user!.id;
+      
+      await UserService.deactivateMe(userId);
+
+      clearRefreshCookie(reply);
+      return reply.send({ ok: true });
+    }
+  );
+
+  /**
+   * Force delete the current account.
+   *
+   * - Delete the user's account.
+   * - Delete the user's data.
+   * - Delete the user's tokens.
+   */
+  app.delete("/force-delete/me", { preHandler: [requireAuth] }, async (req, reply) => {
+
+    const userId = req.user!.id;
+
+    await UserService.forceDeleteUser(userId);
+
+    clearRefreshCookie(reply);
+    return reply.send({ ok: true });
+
+  });
 }

@@ -7,6 +7,7 @@ export const userSelect = {
   email: true,
   name: true,
   isAdmin: true,
+  isActive: true,
 
   baseResumeUrl: true,
 
@@ -19,7 +20,7 @@ export const userSelect = {
   githubUrl: true,
   portfolioUrl: true,
 
-  // Job search preferences (AI foundation)
+  // Job search preferences 
   jobSearchTitlesText: true,
   jobSearchLocationsText: true,
   jobSearchKeywordsText: true,
