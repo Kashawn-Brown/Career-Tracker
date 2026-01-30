@@ -73,6 +73,10 @@ export async function login(email: string, password: string) {
   const userRecord = await prisma.user.findUnique({ where: { email }, select: authLoginSelect });
   if (!userRecord) throw new AppError("Invalid credentials", 401);
 
+  // Check if the password is correct
+  const ok = await bcrypt.compare(password, userRecord.passwordHash);
+  if (!ok) throw new AppError("Invalid credentials", 401);
+
   // Reactivate account on successful login (only writes if currently deactivated)
   if (!userRecord.isActive) {
     await prisma.user.update({
@@ -80,9 +84,6 @@ export async function login(email: string, password: string) {
       data: { isActive: true },
     });
   }
-
-  const ok = await bcrypt.compare(password, userRecord.passwordHash);
-  if (!ok) throw new AppError("Invalid credentials", 401);
 
   // Remove passwordHash from the user object
   const { passwordHash: _passwordHash, ...user } = userRecord;
