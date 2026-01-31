@@ -14,54 +14,6 @@ let buildApp: () => FastifyInstance;
 let prisma: typeof import("../../lib/prisma.js").prisma;
 let AiService: typeof import("../../modules/ai/ai.service.js");
 
-// Small helper: unique email per test avoids rate-limit collisions and unique constraints.
-function uniqueEmail(prefix = "ai") {
-  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}@example.com`;
-}
-
-// Helper function to register a user
-async function registerUser() {
-  const email = uniqueEmail();
-  const password = "Password123!";
-
-  const res = await app.inject({
-    method: "POST",
-    url: "/api/v1/auth/register",
-    payload: { email, password, name: "Test User" },
-  });
-
-  expect(res.statusCode).toBe(201);
-
-  const body = res.json() as any;
-
-  // Key contract: auth endpoints return an access token for Bearer auth.
-  expect(typeof body.token).toBe("string");
-
-  return { email, userId: body.user.id as string, token: body.token as string };
-}
-
-// Helper function to set the user states in the database (verified, aiProEnabled, aiFreeUsesUsed)
-async function setUserState(userId: string, state: { verified?: boolean; aiProEnabled?: boolean; aiFreeUsesUsed?: number }) {
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      ...(state.verified !== undefined ? { emailVerifiedAt: state.verified ? new Date() : null } : {}),
-      ...(state.aiProEnabled !== undefined ? { aiProEnabled: state.aiProEnabled } : {}),
-      ...(state.aiFreeUsesUsed !== undefined ? { aiFreeUsesUsed: state.aiFreeUsesUsed } : {}),
-    },
-  });
-}
-
-// Helper function to get the AI counters for a user
-async function getAiCounters(userId: string) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { aiProEnabled: true, aiFreeUsesUsed: true },
-  });
-
-  if (!user) throw new Error("Test invariant: user should exist");
-  return user;
-}
 
 // Before all tests, build the app and import the prisma and AiService modules (to mock)
 beforeAll(async () => {
@@ -285,3 +237,54 @@ describe("AI > application-from-jd", () => {
     expect(after.aiFreeUsesUsed).toBe(5);
   });
 });
+
+// ---------------- Helpers ----------------
+
+// Small helper: to generate a unique email for the test user
+function uniqueEmail(prefix = "ai") {
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}@example.com`;
+}
+
+// Helper function to register a user
+async function registerUser() {
+  const email = uniqueEmail();
+  const password = "Password123!";
+
+  const res = await app.inject({
+    method: "POST",
+    url: "/api/v1/auth/register",
+    payload: { email, password, name: "Test User" },
+  });
+
+  expect(res.statusCode).toBe(201);
+
+  const body = res.json() as any;
+
+  // Key contract: auth endpoints return an access token for Bearer auth.
+  expect(typeof body.token).toBe("string");
+
+  return { email, userId: body.user.id as string, token: body.token as string };
+}
+
+// Helper function to set the user states in the database (verified, aiProEnabled, aiFreeUsesUsed)
+async function setUserState(userId: string, state: { verified?: boolean; aiProEnabled?: boolean; aiFreeUsesUsed?: number }) {
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      ...(state.verified !== undefined ? { emailVerifiedAt: state.verified ? new Date() : null } : {}),
+      ...(state.aiProEnabled !== undefined ? { aiProEnabled: state.aiProEnabled } : {}),
+      ...(state.aiFreeUsesUsed !== undefined ? { aiFreeUsesUsed: state.aiFreeUsesUsed } : {}),
+    },
+  });
+}
+
+// Helper function to get the AI counters for a user
+async function getAiCounters(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { aiProEnabled: true, aiFreeUsesUsed: true },
+  });
+
+  if (!user) throw new Error("Test invariant: user should exist");
+  return user;
+}
