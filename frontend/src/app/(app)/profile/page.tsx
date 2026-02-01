@@ -468,7 +468,7 @@ export default function ProfilePage() {
     <div className="mx-auto max-w-screen-xl px-4 py-6 sm:px-6 lg:px-8">
       <div className="space-y-6">
       {hasMessages ? (
-        <div className="space-y-2">
+        <div className="space-y-2 mb-12">
           {errorMessage ? (
             <div className="relative">
               <Alert variant="destructive" className="pr-10">

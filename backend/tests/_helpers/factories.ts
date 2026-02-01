@@ -10,6 +10,10 @@ type CreateUserArgs = {
   emailVerifiedAt?: Date | null;
 };
 
+export function uniqueEmail() {
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}@example.com`;
+}
+
 /**
  * Creates a user directly in the DB (bypasses /register).
  * Use this when you need a specific user state (ex: isActive=false).
@@ -27,6 +31,15 @@ export async function createUser(args: CreateUserArgs) {
     },
     select: { id: true, email: true, isActive: true, emailVerifiedAt: true },
   });
+}
+
+/**
+ * Creates a verified user and signs an access token.
+ */
+export async function createVerifiedUser(email: string, password: string) {
+  const user = await createUser({ email, password, emailVerifiedAt: new Date() });
+  const token = signAccessToken(user);
+  return { user, token };
 }
 
 /**
