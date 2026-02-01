@@ -20,6 +20,10 @@ export function applyTestEnv(): void {
   // Used by URL builders + cookie helpers (safe defaults for tests).
   if (!process.env.FRONTEND_URL) process.env.FRONTEND_URL = "http://localhost:3000";
   if (!process.env.CORS_ORIGIN) process.env.CORS_ORIGIN = "http://localhost:3000";
+
+    // Required by getGcsConfig() even in tests (documents endpoints validate mime types).
+  if (!process.env.GCS_BUCKET) process.env.GCS_BUCKET = "test-bucket";
+
 }
 
 export function getTestDatabaseUrl(): string {
