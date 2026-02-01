@@ -22,8 +22,8 @@ export async function createApplication(input: CreateApplicationInput) {
   return prisma.jobApplication.create({
     data: {
       userId: input.userId,
-      company: input.company,
-      position: input.position,
+      company: input.company.trim(),
+      position: input.position.trim(),
       isFavorite: input.isFavorite ?? false,
 
       location: normalizeNullableString(input.location),
@@ -165,8 +165,8 @@ export async function updateApplication(
     const data: any = {};
 
     // Only apply fields that were actually provided by the client (PATCH semantics)
-    if (input.company !== undefined) data.company = input.company;
-    if (input.position !== undefined) data.position = input.position;
+    if (input.company !== undefined) data.company = input.company.trim();
+    if (input.position !== undefined) data.position = input.position.trim();
 
     if (input.status !== undefined) data.status = input.status;
 

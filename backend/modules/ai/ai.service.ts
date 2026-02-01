@@ -64,8 +64,8 @@ export async function buildFitV1(jdText: string, candidateText: string): Promise
   const candidate = (candidateText ?? "").trim();
 
   // Validate inputs
-  if (!jd) throw new AppError("Job description is missing.", 400);
-  if (!candidate) throw new AppError("Candidate history is missing.", 400);
+  if (!jd) throw new AppError("Job description is missing.", 400, "JOB_DESCRIPTION_MISSING");
+  if (!candidate) throw new AppError("Candidate history is missing.", 400, "CANDIDATE_HISTORY_MISSING");
 
 
   // Get the OpenAI client and model.
@@ -262,7 +262,8 @@ function parseJsonSchemaOutputOrThrow<T>(resp: any, ctx: AiParseContext): T {
       refusal
         ? `AI refused the request (status=${debug.status}).`
         : `AI did not complete (status=${debug.status}, reason=${debug.incompleteReason ?? "unknown"}, tokens=${usage.total} [in=${usage.input}, out=${usage.output}]).`,
-      502
+      502,
+      "AI_REFUSED"
     );
   }
 
@@ -271,7 +272,8 @@ function parseJsonSchemaOutputOrThrow<T>(resp: any, ctx: AiParseContext): T {
       refusal
         ? "AI refused the request (completed but refusal/empty output)."
         : "AI completed but returned empty output_text.",
-      502
+      502,
+      "AI_EMPTY_OUTPUT"
     );
   }
 
@@ -342,7 +344,7 @@ function safeJsonParse<T>(raw: string | null | undefined): T {
 
   if (!original) {
     console.warn("[ai] safeJsonParse: empty output_text");
-    throw new AppError("AI returned invalid JSON", 502);
+    throw new AppError("AI returned invalid JSON", 502, "AI_INVALID_JSON");
   }
 
   // Strip ```json fences if present
@@ -378,7 +380,7 @@ function safeJsonParse<T>(raw: string | null | undefined): T {
     tail,
   });
 
-  throw new AppError("AI returned invalid JSON", 502);
+  throw new AppError("AI returned invalid JSON", 502, "AI_INVALID_JSON");
 }
 
 // Try to extract a JSON substring from the text.

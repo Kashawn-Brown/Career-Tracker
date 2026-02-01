@@ -102,7 +102,7 @@ export async function getConnectionById(userId: string, id: string) {
     select: connectionSelect,
   });
 
-  if (!conn) throw new AppError("Connection not found", 404);
+  if (!conn) throw new AppError("Connection not found", 404, "NOT_FOUND");
   return conn;
 }
 
@@ -134,7 +134,7 @@ export async function updateConnection(
       data,
     });
 
-    if (result.count === 0) throw new AppError("Connection not found", 404);
+    if (result.count === 0) throw new AppError("Connection not found", 404, "NOT_FOUND");
 
     return db.connection.findFirst({
       where: { id, userId },
@@ -152,7 +152,7 @@ export async function deleteConnection(userId: string, id: string) {
     where: { id, userId },
   });
 
-  if (result.count === 0) throw new AppError("Connection not found", 404);
+  if (result.count === 0) throw new AppError("Connection not found", 404, "NOT_FOUND");
 
   return { ok: true };
 }

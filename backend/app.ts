@@ -39,19 +39,22 @@ export function buildApp() {
   app.register(cookie);
 
   // Rate limiting (Cloud Run-safe when REDIS_URL is set).
-  // Keep it disabled globally and enable per-route on auth endpoints only.
   const redis = getRedisClient();
-  app.register(rateLimit, redis ? { global: false, redis } : { global: false });
 
-  // Best-effort shutdown cleanup
-  if (redis) {
-    app.addHook("onClose", async () => {
-      try {
-        await redis.quit();
-      } catch {
-        // ignore
-      }
-    });
+  // Only use Rate Limiting when not in test environment
+  if (process.env.NODE_ENV !== "test") {
+    app.register(rateLimit, redis ? { global: false, redis } : { global: false });
+
+    // Best-effort shutdown cleanup
+    if (redis) {
+      app.addHook("onClose", async () => {
+        try {
+          await redis.quit();
+        } catch {
+          // ignore
+        }
+      });
+    }
   }
 
   // Multipart uploads (Documents v1)

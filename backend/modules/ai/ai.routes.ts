@@ -42,7 +42,7 @@ export async function aiRoutes(app: FastifyInstance) {
         if (err instanceof AppError) throw err;
     
         // Otherwise, return a clean dependency failure
-        throw new AppError("AI request failed", 502);
+        throw new AppError("AI request failed", 502, "AI_EXTRACTION_FAILED");
       }
     }
   );

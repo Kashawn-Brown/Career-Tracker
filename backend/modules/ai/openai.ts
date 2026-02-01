@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { AppError } from "../../errors/app-error.js";
 
 /**
  * Centralized OpenAI client.
@@ -12,7 +13,7 @@ export function getOpenAIClient(): OpenAI {
   const apiKey = process.env.OPENAI_API_KEY;
   
   // Fail fast in a predictable way
-  if (!apiKey) throw new Error("OPENAI_API_KEY is missing");
+  if (!apiKey) throw new AppError("OPENAI_API_KEY is missing", 500, "OPENAI_API_KEY_MISSING");
 
   // Singleton so  client is only created once.
   if (!client) client = new OpenAI({ apiKey });
