@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createUser, createVerifiedUser, signAccessToken, uniqueEmail } from "../_helpers/factories.js";
+import { buildMultipartSingleFile, createUser, createVerifiedUser, signAccessToken, uniqueEmail } from "../_helpers/factories.js";
 
 /**
  * Mock only the GCS operations (upload/delete/signed-url).
@@ -335,30 +335,3 @@ function authHeader(token: string) {
   return { authorization: `Bearer ${token}` };
 }
 
-// Helper function to build a multipart/form-data single file.
-function buildMultipartSingleFile(args: {
-  fieldName: string;
-  filename: string;
-  contentType: string;
-  content: Buffer | string;
-}) {
-  const boundary = `----career-tracker-test-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-
-  const head =
-    `--${boundary}\r\n` +
-    `Content-Disposition: form-data; name="${args.fieldName}"; filename="${args.filename}"\r\n` +
-    `Content-Type: ${args.contentType}\r\n\r\n`;
-
-  const tail = `\r\n--${boundary}--\r\n`;
-
-  const body = Buffer.concat([
-    Buffer.from(head),
-    Buffer.isBuffer(args.content) ? args.content : Buffer.from(args.content),
-    Buffer.from(tail),
-  ]);
-
-  return {
-    body,
-    contentType: `multipart/form-data; boundary=${boundary}`,
-  };
-}

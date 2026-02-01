@@ -55,3 +55,34 @@ export function signAccessToken(user: { id: string; email: string }): string {
     expiresIn: "1h",
   });
 }
+
+
+/**
+ * Builds a multipart/form-data single file payload.
+ */
+export function buildMultipartSingleFile(args: {
+  fieldName: string;
+  filename: string;
+  contentType: string;
+  content: Buffer | string;
+}) {
+  const boundary = `----career-tracker-test-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+  const head =
+    `--${boundary}\r\n` +
+    `Content-Disposition: form-data; name="${args.fieldName}"; filename="${args.filename}"\r\n` +
+    `Content-Type: ${args.contentType}\r\n\r\n`;
+
+  const tail = `\r\n--${boundary}--\r\n`;
+
+  const body = Buffer.concat([
+    Buffer.from(head),
+    Buffer.isBuffer(args.content) ? args.content : Buffer.from(args.content),
+    Buffer.from(tail),
+  ]);
+
+  return {
+    body,
+    contentType: `multipart/form-data; boundary=${boundary}`,
+  };
+}
