@@ -1,8 +1,7 @@
 import { beforeAll, afterAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../../app.js";
-import { createUser, createVerifiedUser, signAccessToken, uniqueEmail } from "../_helpers/factories.js";
-import { authHeader, getCookieValueFromSetCookie } from "../_helpers/http.js";
+import { authHeader, createUser, createVerifiedUser, signAccessToken, uniqueEmail } from "../_helpers/factories.js";
 import { prisma } from "../../lib/prisma.js";
 
 // Test suite for the connections core routes.

@@ -1,7 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { authHeader } from "../_helpers/http.js";
-import { buildMultipartSingleFile, createUser, createVerifiedUser, signAccessToken, uniqueEmail } from "../_helpers/factories.js";
+import { authHeader, buildMultipartSingleFile, createUser, createVerifiedUser, signAccessToken, uniqueEmail } from "../_helpers/factories.js";
 
 /**
  * Mock only the GCS operations (upload/delete/signed-url).

@@ -1,11 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { buildMultipartSingleFile, createUser, createVerifiedUser, signAccessToken, uniqueEmail } from "../_helpers/factories.js";
-
-function authHeader(token: string) {
-  return { authorization: `Bearer ${token}` };
-}
+import { authHeader, buildMultipartSingleFile, createUser, createVerifiedUser, signAccessToken, uniqueEmail } from "../_helpers/factories.js";
 
 // Test suite for the applications documents routes.
 describe("Applications: documents", () => {

@@ -56,6 +56,45 @@ export function signAccessToken(user: { id: string; email: string }): string {
   });
 }
 
+/**
+ * Builds an authorization header for the given token.
+ */
+export function authHeader(token: string) {
+  return { authorization: `Bearer ${token}` };
+}
+
+/**
+ * Creates an application for the given user.
+ */
+export async function createApplicationForUser(userId: string) {
+  const row = await prisma.jobApplication.create({
+    data: {
+      userId,
+      company: "Acme Corp",
+      position: "Backend Dev",
+    },
+    select: { id: true },
+  });
+
+  return row.id;
+}
+
+/**
+ * Creates a connection for the given user.
+ */
+export async function createConnectionForUser(userId: string) {
+  const row = await prisma.connection.create({
+    data: {
+      userId,
+      name: "Hiring Manager",
+      title: "Engineering Manager",
+      email: "hm@acme.com",
+    },
+    select: { id: true },
+  });
+
+  return row.id;
+}
 
 /**
  * Builds a multipart/form-data single file payload.
