@@ -75,7 +75,7 @@ describe("User settings", () => {
 
     // Expect the response to be unsuccessful 401 + body has the message "Missing Bearer token"
     expect(res.statusCode).toBe(401);
-    expect(res.json()).toEqual({ message: "Missing Bearer token" });
+    expect(res.json()).toEqual({ message: "Missing Bearer token", code: "UNAUTHORIZED" });
   });
 
   // Test that the GET /users/me endpoint returns the user profile + aiProRequest (null when none)

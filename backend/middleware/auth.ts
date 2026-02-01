@@ -15,7 +15,7 @@ export async function requireAuth(req: FastifyRequest, reply: FastifyReply) {
 
   // Require standard Bearer token fromat (Missing/Wrong format) -? 401
   if (!auth || !auth?.startsWith("Bearer ")) {
-    return reply.status(401).send({ message: "Missing Bearer token" });
+    throw new AppError("Missing Bearer token", 401, "UNAUTHORIZED");
   }
 
   // Extract token
@@ -24,7 +24,7 @@ export async function requireAuth(req: FastifyRequest, reply: FastifyReply) {
   const secret = process.env.JWT_SECRET;
 
   // Server misconfigured -> 500
-  if (!secret) return reply.status(500).send({ message: "Server misconfigured" });
+  if (!secret) throw new AppError("Server misconfigured", 500, "INTERNAL_SERVER_ERROR");
 
   let payload: JwtPayload;
 

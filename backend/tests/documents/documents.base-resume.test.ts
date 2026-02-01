@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-
+import { authHeader } from "../_helpers/http.js";
 import { buildMultipartSingleFile, createUser, createVerifiedUser, signAccessToken, uniqueEmail } from "../_helpers/factories.js";
 
 /**
@@ -24,6 +24,7 @@ describe("Documents: base resume", () => {
   let prisma: typeof import("../../lib/prisma.js").prisma;
   let Storage: typeof import("../../lib/storage.js");
 
+  // Before all tests, build the app.
   beforeAll(async () => {
     ({ prisma } = await import("../../lib/prisma.js"));
     Storage = await import("../../lib/storage.js");
@@ -33,11 +34,13 @@ describe("Documents: base resume", () => {
     await app.ready();
   });
 
+  // After all tests, close the app.
   afterAll(async () => {
     await app.close();
     await prisma.$disconnect();
   });
 
+  // Before each test, clear all mocks.
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -327,11 +330,4 @@ describe("Documents: base resume", () => {
     expect(deleteGcsObjectMock).toHaveBeenCalledWith(existing!.storageKey);
   });
 });
-
-// ------------------ HELPER FUNCTIONS ------------------
-
-// Helper function to build the authorization header.
-function authHeader(token: string) {
-  return { authorization: `Bearer ${token}` };
-}
 

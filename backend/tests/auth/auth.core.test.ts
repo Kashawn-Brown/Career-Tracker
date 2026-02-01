@@ -273,7 +273,7 @@ describe("Auth core", () => {
 
     // Expect the response to be unsuccessful + body has the message "Missing Bearer token"
     expect(missing.statusCode).toBe(401);
-    expect(missing.json()).toEqual({ message: "Missing Bearer token" });
+    expect(missing.json()).toEqual({ message: "Missing Bearer token", code: "UNAUTHORIZED" });
 
     // Call /me with a Bearer token
     const ok = await app.inject({

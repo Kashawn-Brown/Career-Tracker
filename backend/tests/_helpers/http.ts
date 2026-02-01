@@ -30,3 +30,8 @@ export function getCookieValueFromSetCookie(setCookies: string[], cookieName: st
 export function cookieHeader(cookieName: string, cookieValue: string): string {
   return `${cookieName}=${cookieValue}`;
 }
+
+// Helper function to build the authorization header.
+export function authHeader(token: string) {
+  return { authorization: `Bearer ${token}` };
+}
