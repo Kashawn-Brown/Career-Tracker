@@ -532,7 +532,7 @@ export default function HomePage() {
       </main>
 
       <footer className="border-t">
-        <div className="mx-auto max-w-5xl px-4 py-6 text-xs text-muted-foreground">
+        <div className="mx-auto w-full px-20 py-6 text-xs text-muted-foreground">
           Built with Next.js + Fastify + PostgreSQL.
         </div>
       </footer>
