@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { ApplicationListItem, ApplicationSortBy, ApplicationSortDir } from "@/types/api";
 import { applicationsApi } from "@/lib/api/applications";
+import { formatTableDate } from "@/lib/applications/dates";
 import { ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 import { statusLabel, jobTypeLabel, workModeLabel } from "@/lib/applications/presentation";
@@ -58,7 +59,7 @@ function SortableHeader({
           "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
         )}
       >
-        <span>{label}</span>
+        <span className="whitespace-nowrap">{label}</span>
 
         {showArrow ? (
           sortDir === "asc" ? (
@@ -139,7 +140,7 @@ export function ApplicationsTable({
       ) : null}
 
       <div className="overflow-x-auto rounded-md border">
-        <table className="w-full text-sm">
+        <table className="min-w-[1100px] w-full text-sm">
           {/* Table header */}
           <thead className="bg-muted/50">
             <tr className="text-center">
@@ -211,27 +212,27 @@ export function ApplicationsTable({
                         return <td key={col.id} className="p-3 w-[60px] text-center"><Star className={application.isFavorite ? "h-4 w-4 fill-yellow-500 text-yellow-500" : "h-4 w-4 text-gray-400 "} /></td>;
 
                       case "company":
-                        return <td key={col.id} className="p-3 font-medium">{application.company}</td>;
+                        return <td key={col.id} className="p-3 font-medium min-w-[150px]">{application.company}</td>;
 
                       case "position":
-                        return <td key={col.id} className="p-3">{application.position}</td>;
+                        return <td key={col.id} className="p-3 min-w-[150px]">{application.position}</td>;
 
                       case "location":
-                        return <td key={col.id} className="p-3 ">{application.location ?? "—"}</td>;
+                        return <td key={col.id} className="p-3 min-w-[150px]">{application.location ?? "—"}</td>;
 
                       case "jobType":
-                        return <td key={col.id} className="p-3 text-muted-foreground">{jobTypeLabel(application.jobType)}</td>;
-
-                      case "salaryText":
-                        return <td key={col.id} className="p-3 text-muted-foreground">{application.salaryText ?? "—"}</td>;
+                        return <td key={col.id} className="p-3 text-muted-foreground min-w-[150px]">{jobTypeLabel(application.jobType)}</td>;
 
                       case "workMode":
-                        return <td key={col.id} className="p-3 text-muted-foreground">{workModeLabel(application.workMode)}</td>;
+                        return <td key={col.id} className="p-3 text-muted-foreground min-w-[150px]">{workModeLabel(application.workMode)}</td>;
+
+                      case "salaryText":
+                        return <td key={col.id} className="p-3 text-muted-foreground min-w-[150px]">{application.salaryText ?? "—"}</td>;
 
                       case "status":{
                         const { wrap, dot } = getStatusPillTokens(application.status);
                         return (
-                          <td key={col.id} className="p-3">
+                          <td key={col.id} className="p-3 text-center">
                             <span className={cn(PILL_BASE_CLASS, wrap)}>
                               <span className={cn("w-1.5 h-1.5 rounded-full", dot)} />
                               {statusLabel(application.status)}
@@ -243,7 +244,7 @@ export function ApplicationsTable({
                       case "fitScore": {
                         const score = application.fitScore;
                         return (
-                          <td key={col.id} className="p-3 text-muted-foreground">
+                          <td key={col.id} className="p-3 text-muted-foreground text-right">
                             {typeof score === "number" ? (
                               <span
                                 className={cn(
@@ -264,15 +265,15 @@ export function ApplicationsTable({
 
                       case "dateApplied":
                         return (
-                          <td key={col.id} className="p-3 text-muted-foreground">
-                            {application.dateApplied ? new Date(application.dateApplied).toLocaleDateString() : "N/A"}
+                          <td key={col.id} className="p-3 text-muted-foreground text-center">
+                            {formatTableDate(application.dateApplied)}
                           </td>
                         );
 
                       case "updatedAt":
                         return (
-                          <td key={col.id} className="p-3 text-muted-foreground">
-                            {new Date(application.updatedAt).toLocaleDateString()}
+                          <td key={col.id} className="p-3 text-muted-foreground text-center">
+                            {formatTableDate(application.updatedAt)}
                           </td>
                         );
 

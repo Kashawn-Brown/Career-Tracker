@@ -27,38 +27,37 @@ export function Header() {
 
   return (
     <header className="border-b bg-background">
-      <div className="mx-auto flex w-full items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+      <div className="mx-auto grid w-full grid-cols-[1fr_auto_1fr] items-center gap-4 px-4 py-3 sm:px-6 lg:px-8">
         {/* Left: brand */}
-        <Link href="/" className="text-lg font-semibold tracking-tight">
-          Career-Tracker
-        </Link>
-
-        {/* Middle: Navigation */}
-        <div className="flex items-center gap-2">
-          <nav className="flex items-center gap-1 text-md">
-            {navItems.map((item) => {
-              const active = isActivePath(pathname, item.href);
-
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  aria-current={active ? "page" : undefined}
-                  className={cn(
-                    "rounded-md px-2 py-1 font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
-                    active && "bg-accent text-foreground"
-                  )}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
+        <div className="flex items-center justify-start">
+          <Link href="/" className="text-lg font-semibold tracking-tight">
+            Career-Tracker
+          </Link>
         </div>
 
-        {/* Right: Greeting + Pro/Admin badge + Logout */}
-        <div className="flex items-center gap-3 sm:gap-4">
-          {/* Hide on very small screens to avoid cramped header */}
+        {/* Center: Navigation */}
+        <nav className="flex items-center gap-1 text-md justify-self-center">
+          {navItems.map((item) => {
+            const active = isActivePath(pathname, item.href);
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "rounded-md px-2 py-1 font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+                  active && "bg-accent text-foreground"
+                )}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* Right: Greeting + badges + Logout */}
+        <div className="flex items-center justify-end gap-3 sm:gap-4">
           <div className="hidden sm:flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Hey, {displayName}</span>
 
@@ -74,6 +73,7 @@ export function Header() {
               </span>
             ) : null}
           </div>
+
           <Button type="button" variant="outline" onClick={logout}>
             Log out
           </Button>
