@@ -107,7 +107,7 @@ export function ProAccessBanner({
       <div className="flex items-center justify-between gap-3">
         <div className="text-sm">
           <span className="font-medium text-muted-foreground">
-            Free AI credits: {remaining}/{AI_FREE_QUOTA} remaining
+            You have <span className="text-foreground">{remaining}</span> free AI credits remaining.
           </span>
         </div>
       </div>

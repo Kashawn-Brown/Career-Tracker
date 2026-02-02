@@ -1,5 +1,23 @@
 // A module for working with dates for the applications table
 
+// Format dates for compact table display (e.g., "Feb 2" or "Feb 2, 2025")
+export function formatTableDate(dateIso: string | null | undefined): string {
+  if (!dateIso) return "—";
+
+  const d = new Date(dateIso);
+  if (Number.isNaN(d.getTime())) return "—";
+
+  const now = new Date();
+  const includeYear = d.getFullYear() !== now.getFullYear();
+
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    ...(includeYear ? { year: "numeric" } : {}),
+  }).format(d);
+}
+
+
 // Helper function to format the date applied
 export function dateAppliedFormat(dateIso: string) {
   const applied = new Date(dateIso);

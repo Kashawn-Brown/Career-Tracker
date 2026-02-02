@@ -9,6 +9,8 @@ import { parseTags, serializeTags, splitTagInput } from "@/lib/applications/tags
 import { ApplicationDocumentsSection } from "@/components/applications/drawer/ApplicationDocumentsSection";
 import { ApplicationConnectionsSection } from "@/components/applications/drawer/ApplicationConnectionsSection";
 import { ApplicationAiToolsSection } from "@/components/applications/drawer/ApplicationAiToolsSection";
+import { cn } from "@/lib/utils";
+import { PILL_BASE_CLASS, getStatusPillTokens } from "@/lib/applications/pills";
 import { documentsApi } from "@/lib/api/documents";
 import { ApiError } from "@/lib/api/client";
 import { Input } from "@/components/ui/input";
@@ -33,10 +35,21 @@ const PREVIEW_MAX_WIDTH_PX = 900;
 function Section({
   title,
   children,
+  noParent = false,
 }: {
   title: string;
   children: React.ReactNode;
+  noParent?: boolean;
 }) {
+  if (noParent) {
+    return (
+      <div className="space-y-2">
+        <div className="text-sm font-medium">{title}</div>
+        <div>{children}</div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-2">
       <div className="text-sm font-medium">{title}</div>
@@ -51,19 +64,37 @@ function Field({
   value,
   details,
   emptyValue = "—",
+  link = false,
 }: {
   label: string;
   value?: string | null | undefined;
   details?: string | null;
   emptyValue?: string;
+  link?: boolean;
 }) {
   const primary = value?.trim() ? value.trim() : emptyValue;
   const secondary = details?.trim() ? details.trim() : null;  // for optional details
 
+  if (link) {
+    return (
+      <div className="grid grid-cols-[140px_1fr] gap-3 text-muted-foreground">
+        <div className="text-sm">{label}</div>
+        <a 
+          href={primary}
+          target="_blank"
+          rel="noreferrer"
+          className="break-all underline underline-offset-4 text-right"
+        >
+          {primary}
+        </a>
+      </div>
+    );
+  }
+
   return (
-    <div className="grid grid-cols-[140px_1fr] gap-3">
+    <div className="grid grid-cols-[140px_1fr] gap-3 space-y-1">
       <div className="text-sm text-muted-foreground">{label}</div>
-      <div className="space-y-1">
+      <div className="space-y-1 text-right">
         <div className="text-sm">{primary}</div>
         {/* Optional details are only shown when present */}
         {secondary ? (
@@ -113,15 +144,22 @@ function ExpandableText({
   const [expanded, setExpanded] = useState(false);
   const canExpand = text.trim().length >= minCharsToEnable;
 
+  const formatText = text.split("\n");
+
   return (
     <div className="space-y-2">
       <div
         className={[
-          "whitespace-pre-wrap",
+          "whitespace-pre-wrap text-muted-foreground",
           expanded || !canExpand ? "" : `${collapsedMaxHeightClass} overflow-hidden`,
         ].join(" ")}
       >
-        {text}
+        {/* {text} */}
+        <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
+          {formatText.map((item) => (
+            <li key={item}>{item.replace(/^-+/, "")}</li>
+          ))}
+        </ul>
       </div>
 
       {canExpand ? (
@@ -140,6 +178,31 @@ function ExpandableText({
     </div>
   );
 }
+
+
+/**
+ * Helper component for creating a status pill
+ */
+type StatusPillProps = {
+  status: ApplicationStatus;
+  className?: string;
+};
+
+function StatusPill({ status, className }: StatusPillProps) {
+  const { wrap, dot } = getStatusPillTokens(status);
+  return (
+    <span className={cn("font-medium text", className)}>
+      <span className={cn(PILL_BASE_CLASS, wrap, "text-md")}>
+        <span className={cn("w-1.5 h-1.5 rounded-full mr-2", dot)} />
+        {statusLabel(status)}
+      </span>
+    </span>
+  );
+}
+
+// Usage example: 
+// <StatusPill status={application.status} />
+
 
 /**
  * The draft of the application details being edited
@@ -560,7 +623,6 @@ export function ApplicationDetailsDrawer({
     return `${fav ? "⭐ " : ""}${position} @ ${company}`;
   }, [application, draft, isEditing]);
 
-
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       
@@ -572,9 +634,8 @@ export function ApplicationDetailsDrawer({
             {application && draft
               ? (
                 <>
-                  Updated: {new Date(application.updatedAt).toLocaleString()}
-                  <br />
-                  <span className="font-medium">Status: {statusLabel(isEditing ? draft.status : application.status)}</span>
+                  <span className="block">Updated: {new Date(application.updatedAt).toLocaleString()}</span>
+                  <StatusPill status={application.status} className="mt-2 inline-flex" />
                 </>
               )
               : "Select an application to view details."}
@@ -639,7 +700,7 @@ export function ApplicationDetailsDrawer({
           <div className="space-y-5">
             
             {/* Job details section */}
-            <Section title="Job details">
+            <Section title="">
               <div className="space-y-2">
                 {/* Displaying the application details */}
                 {!isEditing ? (
@@ -688,6 +749,14 @@ export function ApplicationDetailsDrawer({
                         value={dateAppliedFormat(application.dateApplied)}
                       />
                     ) : null}
+
+                    {application.jobLink ? (
+                      <Field
+                        label="Job link"
+                        value={application.jobLink}
+                        link={true}
+                      />
+                    ) : null}
                   </>
                 ) : (
                   // Editing the application details
@@ -708,6 +777,7 @@ export function ApplicationDetailsDrawer({
                         onChange={(e) =>
                           setDraft({ ...draft, position: e.target.value })
                         }
+                        className="mb-5"
                       />
                     </EditRow>
 
@@ -728,45 +798,8 @@ export function ApplicationDetailsDrawer({
                           setDraft({ ...draft, locationDetails: e.target.value })
                         }
                         placeholder="e.g., 159 St. George St."
+                        className="mb-5"
                       />
-                    </EditRow>
-
-                    <EditRow label="Salary">
-                      <Input
-                        value={draft.salaryText}
-                        onChange={(e) =>
-                          setDraft({ ...draft, salaryText: e.target.value })
-                        }
-                        placeholder="e.g., $90k–110k CAD"
-                      />
-                    </EditRow>
-
-                    <EditRow label="Salary details" labelClassName="font-light">
-                      <Input
-                        value={draft.salaryDetails}
-                        onChange={(e) =>
-                          setDraft({ ...draft, salaryDetails: e.target.value })
-                        }
-                        placeholder="Annual bonus, stock options, etc."
-                      />
-                    </EditRow>
-
-                    <EditRow label="Status">
-                      <Select
-                        value={draft.status}
-                        onChange={(e) =>
-                          setDraft({
-                            ...draft,
-                            status: e.target.value as ApplicationStatus,
-                          })
-                        }
-                      >
-                        {STATUS_OPTIONS.map((o) => (
-                          <option key={o.value} value={o.value}>
-                            {o.label}
-                          </option>
-                        ))}
-                      </Select>
                     </EditRow>
 
                     {/* Job type + details are connected (details is a sub-input) */}
@@ -796,6 +829,7 @@ export function ApplicationDetailsDrawer({
                           setDraft({ ...draft, jobTypeDetails: e.target.value })
                         }
                         placeholder="e.g., 6-month contract, potential for extension..."
+                        className="mb-5"
                       />
                     </EditRow>                    
 
@@ -826,7 +860,47 @@ export function ApplicationDetailsDrawer({
                           setDraft({ ...draft, workModeDetails: e.target.value })
                         }
                         placeholder="e.g., 2 days in office, downtown Toronto, hybrid-flex"
+                        className="mb-5"
                       />
+                    </EditRow>
+
+                    <EditRow label="Salary">
+                      <Input
+                        value={draft.salaryText}
+                        onChange={(e) =>
+                          setDraft({ ...draft, salaryText: e.target.value })
+                        }
+                        placeholder="e.g., $90k–110k CAD"
+                      />
+                    </EditRow>
+
+                    <EditRow label="Salary details" labelClassName="font-light">
+                      <Input
+                        value={draft.salaryDetails}
+                        onChange={(e) =>
+                          setDraft({ ...draft, salaryDetails: e.target.value })
+                        }
+                        placeholder="Annual bonus, stock options, etc."
+                        className="mb-5"
+                      />
+                    </EditRow>
+
+                    <EditRow label="Status">
+                      <Select
+                        value={draft.status}
+                        onChange={(e) =>
+                          setDraft({
+                            ...draft,
+                            status: e.target.value as ApplicationStatus,
+                          })
+                        }
+                      >
+                        {STATUS_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </Select>
                     </EditRow>
 
                     <EditRow label="Date applied">
@@ -842,37 +916,19 @@ export function ApplicationDetailsDrawer({
                         <button className="text-blue-500 hover:text-blue-600 hover:underline" onClick={() => setDraft({ ...draft, dateApplied: "" })}>Clear applied date.</button>
                       </div>
                     </EditRow>
+
+                    <EditRow label="Job link" labelClassName="font-light">
+                    <Input
+                      value={draft.jobLink}
+                      onChange={(e) =>
+                        setDraft({ ...draft, jobLink: e.target.value })
+                      }
+                      placeholder="https://..."
+                    />
+                    </EditRow> 
                   </>
                 )}
               </div>
-            </Section>
-
-            {/* Job link section */}
-            <Section title="Job link">
-              {!isEditing ? (
-                application.jobLink ? (
-                  <a
-                    href={application.jobLink}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="break-all underline underline-offset-4"
-                  >
-                    {application.jobLink}
-                  </a>
-                ) : (
-                  <span className="text-muted-foreground">
-                    No job link available
-                  </span>
-                )
-              ) : (
-                <Input
-                  value={draft.jobLink}
-                  onChange={(e) =>
-                    setDraft({ ...draft, jobLink: e.target.value })
-                  }
-                  placeholder="https://..."
-                />
-              )}
             </Section>
 
             {/* Tags section */}
@@ -969,7 +1025,7 @@ export function ApplicationDetailsDrawer({
             </Section>
 
             {/* Notes section */}
-            <Section title="Notes">
+            <Section title="Highlights">
               {!isEditing ? (
                 application.notes ? (
                   <ExpandableText
@@ -978,7 +1034,7 @@ export function ApplicationDetailsDrawer({
                     collapsedMaxHeightClass="max-h-32"
                   />
                 ) : (
-                  <span className="text-muted-foreground">No notes</span>
+                  <span className="text-muted-foreground">Nothing noted</span>
                 )
               ) : (
                 <Textarea
@@ -993,7 +1049,7 @@ export function ApplicationDetailsDrawer({
             <Section title="Job description">
               {!isEditing ? (
                 application.description ? (
-                  <div className="max-h-[45vh] overflow-auto whitespace-pre-wrap">
+                  <div className="max-h-[45vh] overflow-auto whitespace-pre-wrap text-muted-foreground">
                     {application.description}
                   </div>
                 ) : (
@@ -1014,7 +1070,7 @@ export function ApplicationDetailsDrawer({
             </Section>
 
             {/* Application Connections section */}
-            <Section title="Connections">
+            <Section title="Connections" noParent={true}>
               <ApplicationConnectionsSection
                 applicationId={application.id}
                 open={open}
@@ -1024,7 +1080,7 @@ export function ApplicationDetailsDrawer({
             </Section>
 
             {/* Application Documents section */}
-            <Section title="Documents">
+            <Section title="Documents" noParent={true}>
               <ApplicationDocumentsSection
                 applicationId={application.id}
                 open={open}
@@ -1037,7 +1093,7 @@ export function ApplicationDetailsDrawer({
             </Section>
 
             {/* AI Tools section */}
-            <Section title="AI Tools">
+            <Section title="AI Tools" noParent={true}>
               <ApplicationAiToolsSection 
                 drawerOpen={open}
                 application={application} 
