@@ -154,6 +154,99 @@ describe("Applications core", () => {
     expect(body2.items[0].company).toBe("Gamma");
   });
 
+  // Test that the GET /applications route keeps nulls last when sorting nullable fields.
+  it("GET /applications keeps nulls last for nullable sorts (dateApplied, location)", async () => {
+
+    // Create a verified user.
+    const { token } = await createVerifiedUser("test@test.com", "Passw0rd!");
+
+    // Create 3 applications (one intentionally has null dateApplied + null location).
+    const createNull = await app.inject({
+      method: "POST",
+      url: "/api/v1/applications",
+      headers: authHeader(token),
+      payload: { company: "Null Fields", position: "Dev", status: ApplicationStatus.WISHLIST },
+    });
+
+    const createOld = await app.inject({
+      method: "POST",
+      url: "/api/v1/applications",
+      headers: authHeader(token),
+      payload: { company: "Older", position: "Dev", status: ApplicationStatus.WISHLIST, location: "Toronto" },
+    });
+
+    const createNew = await app.inject({
+      method: "POST",
+      url: "/api/v1/applications",
+      headers: authHeader(token),
+      payload: { company: "Newer", position: "Dev", status: ApplicationStatus.WISHLIST, location: "Waterloo" },
+    });
+
+    const idNull = (createNull.json() as any).application.id as string;
+    const idOld = (createOld.json() as any).application.id as string;
+    const idNew = (createNew.json() as any).application.id as string;
+
+    // Set dateApplied directly (leave Null Fields as null).
+    await prisma.jobApplication.update({
+      where: { id: idOld },
+      data: { dateApplied: new Date("2026-01-01T00:00:00.000Z") },
+    });
+
+    await prisma.jobApplication.update({
+      where: { id: idNew },
+      data: { dateApplied: new Date("2026-01-02T00:00:00.000Z") },
+    });
+
+    // dateApplied asc: non-null first (older -> newer), null last
+    const dateAsc = await app.inject({
+      method: "GET",
+      url: "/api/v1/applications?sortBy=dateApplied&sortDir=asc&pageSize=10",
+      headers: authHeader(token),
+    });
+    expect(dateAsc.statusCode).toBe(200);
+
+    const dateAscBody = dateAsc.json() as any;
+    expect(dateAscBody.items.map((a: any) => a.company)).toEqual(["Older", "Newer", "Null Fields"]);
+    expect(dateAscBody.items[2].dateApplied).toBe(null);
+
+    // dateApplied desc: non-null first (newer -> older), null last
+    const dateDesc = await app.inject({
+      method: "GET",
+      url: "/api/v1/applications?sortBy=dateApplied&sortDir=desc&pageSize=10",
+      headers: authHeader(token),
+    });
+    expect(dateDesc.statusCode).toBe(200);
+
+    const dateDescBody = dateDesc.json() as any;
+    expect(dateDescBody.items.map((a: any) => a.company)).toEqual(["Newer", "Older", "Null Fields"]);
+    expect(dateDescBody.items[2].dateApplied).toBe(null);
+
+    // location asc: non-null first (Toronto -> Waterloo), null last
+    const locAsc = await app.inject({
+      method: "GET",
+      url: "/api/v1/applications?sortBy=location&sortDir=asc&pageSize=10",
+      headers: authHeader(token),
+    });
+    expect(locAsc.statusCode).toBe(200);
+
+    const locAscBody = locAsc.json() as any;
+    expect(locAscBody.items.map((a: any) => a.company)).toEqual(["Older", "Newer", "Null Fields"]);
+    expect(locAscBody.items[2].location).toBe(null);
+
+    // location desc: non-null first (Waterloo -> Toronto), null last
+    const locDesc = await app.inject({
+      method: "GET",
+      url: "/api/v1/applications?sortBy=location&sortDir=desc&pageSize=10",
+      headers: authHeader(token),
+    });
+    expect(locDesc.statusCode).toBe(200);
+
+    const locDescBody = locDesc.json() as any;
+    expect(locDescBody.items.map((a: any) => a.company)).toEqual(["Newer", "Older", "Null Fields"]);
+    expect(locDescBody.items[2].location).toBe(null);
+  });
+
+
   // Test that the GET /applications route supports filters (q, status, isFavorite).
   it("GET /applications supports filters (q, status, isFavorite)", async () => {
 

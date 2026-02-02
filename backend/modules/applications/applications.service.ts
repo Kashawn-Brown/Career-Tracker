@@ -105,13 +105,28 @@ export async function listApplications(params: ListApplicationsParams) {
   // how many rows to ignore/skip (page 1, size 20 = skip 0; page 2, size 20 = skip 20; etc.)
   const skip = (page - 1) * pageSize;
 
+
+    // Some sortable fields are nullable; keep nulls at the bottom for BOTH asc and desc.
+    const NULLS_LAST_SORT_FIELDS: NonNullable<ListApplicationsParams["sortBy"]>[] = [
+      "fitScore",
+      "dateApplied",
+      "location",
+      "salaryText",
+    ];
+  
+    //
+    const orderBy = (NULLS_LAST_SORT_FIELDS.includes(sortBy)
+      ? [{ [sortBy]: { sort: sortDir, nulls: "last" } }, { updatedAt: "desc" }]
+      : [{ [sortBy]: sortDir }, { updatedAt: "desc" }]) as Prisma.JobApplicationOrderByWithRelationInput[];
+  
+
   // Run both queries in a transaction so count + items are consistent
   const [total, items] = await prisma.$transaction([
     prisma.jobApplication.count({ where }),  // total count of the matching rows
     
     prisma.jobApplication.findMany({  // items for the current page
       where,
-      orderBy: sortBy !== "fitScore" ?[{ [sortBy]: sortDir }, { updatedAt: "desc" }] : [{fitScore: {sort: sortDir, nulls: "last"}}, {updatedAt: "desc"}],   // null scores always bottom for fit score sorting
+      orderBy,
       skip,
       take: pageSize,  // how many rows to take/return
       select: applicationListSelect,
