@@ -36,5 +36,7 @@ uploads/
 z-possible_future_features/
 
 # k6 benchmark outputs
-k6/benchmarks/results/
-k6/benchmarks/results_original/
+docs/perf/k6/benchmarks/results/
+docs/perf/k6/benchmarks/results_original/
+
+.cursor/
