@@ -28,6 +28,15 @@ import type {
   CreateConnectionRequest,
 } from "@/types/api";
 
+// Selector for the application details drawer (used to dock dialogs to the left-side available space)
+const DRAWER_SELECTOR = '[data-app-drawer="application-details"]';
+
+// Layout tuning (match FitReportDialog / preview behavior)
+const DOCK_PADDING_PX = 24;
+const DOCK_MAX_WIDTH_PX = 640; // same as previous sm:max-w
+const DOCK_MIN_WIDTH_PX = 420; // keep readable even if overlap happens
+
+
 // AddDraft: a draft of a connection to be added to an application.
 type AddDraft = {
   name: string;
@@ -145,6 +154,10 @@ export function ApplicationConnectionsSection({
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [activeConnection, setActiveConnection] = useState<ApplicationConnection | null>(null);
   const [detailsMode, setDetailsMode] = useState<"view" | "edit">("view");
+
+  const [detailsDockedStyle, setDetailsDockedStyle] =
+  useState<React.CSSProperties | undefined>(undefined);
+
 
   const [editDraft, setEditDraft] = useState<AddDraft>(emptyDraft());
   const [isEditSaving, setIsEditSaving] = useState(false);
@@ -280,6 +293,42 @@ export function ApplicationConnectionsSection({
     if (!detailsOpen || !activeConnection) return;
     setEditDraft(toDraft(activeConnection));
   }, [detailsOpen, activeConnection]);
+
+  useEffect(() => {
+  if (!detailsOpen) {
+    setDetailsDockedStyle(undefined);
+    return;
+  }
+
+  const compute = () => {
+    const drawerEl = document.querySelector(DRAWER_SELECTOR) as HTMLElement | null;
+    const drawerRect = drawerEl?.getBoundingClientRect() ?? null;
+
+    // Space available to the left of the drawer (or full viewport if not found)
+    const availableWidth = drawerRect ? drawerRect.left : window.innerWidth;
+
+    // Center within that region
+    const centerX = Math.max(availableWidth / 2, DOCK_PADDING_PX);
+
+    // Fit within available space (but keep a minimum width; overlap allowed if needed)
+    const preferredMax = Math.min(
+      DOCK_MAX_WIDTH_PX,
+      Math.max(availableWidth - DOCK_PADDING_PX * 2, 0)
+    );
+
+    const maxWidth = Math.max(preferredMax, DOCK_MIN_WIDTH_PX);
+
+    setDetailsDockedStyle({
+      left: `${centerX}px`,
+      maxWidth: `${maxWidth}px`,
+    });
+  };
+
+  compute();
+  window.addEventListener("resize", compute);
+  return () => window.removeEventListener("resize", compute);
+}, [detailsOpen]);
+
 
   // openConnectionDetails: opens the connection details dialog.
   function openConnectionDetails(conn: ApplicationConnection) {
@@ -461,7 +510,7 @@ export function ApplicationConnectionsSection({
 
       {/* View/Edit Current Connection Dialog */}
       <Dialog open={detailsOpen} onOpenChange={(open) => !open && closeConnectionDetails()}>
-        <DialogContent className="sm:max-w-[640px]">
+        <DialogContent className="max-h-[80vh] overflow-y-auto" style={detailsDockedStyle}>
           <DialogHeader>
             <DialogTitle>
               {detailsMode === "edit" ? "Edit connection" : "Connection Details"}
