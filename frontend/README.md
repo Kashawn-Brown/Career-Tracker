@@ -1,206 +1,156 @@
 # Career-Tracker — Frontend (Next.js)
 
-The frontend is a **Next.js App Router** web app focused on a fast, table-first Applications UX, with a **right-side details drawer** for safe viewing/editing.
+Next.js App Router frontend for Career-Tracker. The UI is built around a fast **table-first Applications** experience with a **right-side details drawer** for viewing/editing, plus dedicated flows for auth, onboarding, documents, connections, and AI gating.
 
-This README documents the *current* UI architecture and the key client-side conventions that keep the app stable (draft-based edits, edit-gated destructive actions, FormData-safe API calls, etc.).
+Live site: https://career-tracker.ca
 
 ---
 
 ## Tech stack
 
-- Next.js (App Router) + TypeScript
-- Tailwind CSS
-- shadcn/ui + Radix primitives (Sheet/Dialog/Input/Button/Card/etc.)
-- JWT auth stored in `localStorage` (rehydrated on refresh)
+- Next.js (App Router) + React + TypeScript
+- Tailwind CSS + shadcn/ui (Radix)
+- Fetch wrapper for API requests with cookie support
+- Client-side auth handling (token storage) + CSRF bootstrap for refresh/logout
 
 ---
 
-## Route structure (App Router)
+## High-level UX pattern (why the UI is shaped this way)
 
-- Public routes live under:
-  - `src/app/(public)/login/page.tsx`
-  - `src/app/(public)/register/page.tsx`
-
-- Protected app routes live under:
-  - `src/app/(app)/applications/page.tsx`
-  - `src/app/(app)/profile/page.tsx`
-
-Protection is enforced in:
-- `src/app/(app)/layout.tsx` — wraps app routes with:
-  - `src/components/auth/RequireAuth.tsx`
-  - `src/components/layout/AppShell.tsx`
-
-Global providers:
-- `src/app/providers.tsx` — wraps the app with `AuthProvider`
+- **Table-first** scanning stays fast (sort, filters, paging, column control)
+- **Drawer** holds details without leaving the list context
+- **Explicit Edit mode** (Save/Cancel) prevents accidental changes
+- Dialogs are used for focused flows (confirmations, attachments, connection attach/detach, etc.)
 
 ---
 
-## Auth model (refresh-safe)
+## Folder structure (high level)
 
-Core files:
-- `src/contexts/AuthContext.tsx` — source of truth for `{ user, token, login, register, logout, isHydrated }`
-- `src/hooks/useAuth.ts` — convenience hook to access auth context
-- `src/lib/auth/token.ts` — `getToken/setToken/clearToken` (localStorage)
-
-Behavior:
-- Token is stored in localStorage on login/register.
-- On app load, auth rehydrates by calling the backend `me` endpoint.
-- `apiFetch` supports a global 401 handler via `setUnauthorizedHandler(...)` so the auth layer can logout consistently.
-
----
-
-## Core UX architecture (table + drawer)
-
-### Applications page (table-first)
-Primary page:
-- `src/app/(app)/applications/page.tsx`
-
-Key components:
-- `src/components/applications/ApplicationsTable.tsx` — table rendering + row select
-- `src/components/applications/ApplicationDetailsDrawer.tsx` — right-side Sheet for viewing/editing
-- `src/components/applications/ColumnsControl.tsx` — show/hide columns + persistence
-- `src/components/applications/CreateApplicationForm.tsx` — create flow (including favorite support)
-
-Table helpers live in:
-- `src/lib/applications/tableColumns.ts` — column definitions + localStorage key(s)
-- `src/lib/applications/presentation.ts` — labels, formatting helpers
-- `src/lib/applications/dates.ts` — date parsing/formatting + “no future date” safeguards
-- `src/lib/applications/tags.ts` — tags text parsing/serialization
-
-### Drawer edit model (safety-first)
-Drawer file:
-- `src/components/applications/ApplicationDetailsDrawer.tsx`
-
-Key conventions:
-- **View-first by default**
-- Edits require explicit **Edit mode**
-- **Save/Cancel** only in edit mode
-- Draft is stored as a string-friendly object and converted to a clean request payload on Save
-- On record switch, draft resets safely (avoids overwriting draft while editing)
-
-> Rule of thumb: the table stays lightweight; anything complex (documents, connections, long notes) goes in the drawer/dialogs.
+```txt
+frontend/
+  app/                     # App Router routes (public + authenticated)
+  components/              # shared UI components (table, drawer, dialogs, etc.)
+  lib/                     # API client helpers, date formatting, utilities
+  styles/                  # global styles (Tailwind)
+  public/                  # static assets
+````
 
 ---
 
-## Documents v1 (UI)
+## Environment variables
 
-Documents are surfaced inside the drawer and are **edit-gated** (upload/delete actions require drawer Edit mode).
+Create `frontend/.env.local`:
 
-Key files:
-- `src/components/applications/ApplicationDocumentsSection.tsx` — list/upload/open/delete UI + errors
-- `src/lib/api/documents.ts` — typed client for doc endpoints
-- `src/lib/api/client.ts` — FormData-safe fetch wrapper (critical for uploads)
+```env
+# Local dev (backend running on localhost)
+NEXT_PUBLIC_API_BASE_URL=http://localhost:3002/api/v1
+```
 
-PDF preview:
-- Preview is handled in `ApplicationDetailsDrawer.tsx` via an **iframe overlay positioned outside the Sheet**
-- This keeps the drawer layout stable and avoids heavy PDF tooling
-- Layering/z-index is managed in the drawer so preview doesn’t break close buttons or scrolling
+Production:
 
----
+* `NEXT_PUBLIC_API_BASE_URL` should point to the Cloud Run backend:
 
-## Connections (UI)
+  * `https://<cloud-run-service>/api/v1`
 
-Connections are global entities that can be attached/detached to applications. The UX is intentionally confirm-based (no silent attach).
-
-Key files:
-- `src/components/applications/ApplicationConnectionsSection.tsx`
-  - Lists attached connections
-  - Detach is gated by drawer Edit mode
-  - Add flow supports:
-    - autocomplete → select existing → autofill/lock → explicit confirm attach
-    - create new connection → create → attach
-- `src/hooks/useConnectionAutocomplete.ts`
-  - debounced search for suggestions while typing
-- `src/lib/api/connections.ts` and `src/lib/api/applications.ts`
-  - typed client calls for connection CRUD and app attach/detach
-
-Profile management:
-- `src/app/(app)/profile/page.tsx` orchestrates state + calls
-- UI is modularized into cards under:
-  - `src/components/profile/UserProfileCard.tsx`
-  - `src/components/profile/JobSearchPreferencesCard.tsx`
-  - `src/components/profile/BaseResumeCard.tsx`
-  - `src/components/profile/ProfileConnectionsCard.tsx`
-    - includes the 2-pane “View all connections” modal (list left, details right)
-
----
-
-## API client conventions
-
-Central fetch wrapper:
-- `src/lib/api/client.ts` (`apiFetch`)
-  - Adds Bearer token by default (`auth: true`)
-  - Provides consistent `ApiError`
-  - **FormData-safe**:
-    - if body is `FormData`, it does **not** set JSON `Content-Type`
-    - it does **not** stringify the body
-  - Supports a global 401 handler (`setUnauthorizedHandler`)
-
-Routes are centralized in:
-- `src/lib/api/routes.ts`
-
-Typed clients live in:
-- `src/lib/api/applications.ts`
-- `src/lib/api/documents.ts`
-- `src/lib/api/connections.ts`
-- `src/lib/api/application-documents.ts` (application ↔ documents helpers)
-
-Query params: boolean-safe pattern
-- When building query strings, we check `!== undefined` (not truthy checks), so `false` values are not dropped.
-
-Types live in:
-- `src/types/api.ts` (DTOs + request/response types)
-
----
-
-## Dismissible alerts (UX consistency)
-
-Pattern: status/error banners are dismissible via an × button that clears the message state.
-You’ll see this applied across:
-- Applications page
-- Drawer sections (documents/connections)
-- Auth pages
-- Profile flows
-
-Goal: prevent stale banners from lingering and keep UX consistent.
+> Note: The backend uses a refresh cookie + CSRF token for refresh/logout.
+> Requests that rely on cookies must include credentials (the app does).
 
 ---
 
 ## Running locally
 
-### Environment
-Create `frontend/.env.local`:
-```env
-NEXT_PUBLIC_API_BASE_URL=http://localhost:3002/api/v1
-````
-
-### Commands
-
-From `frontend/`:
+From repo root:
 
 ```bash
 npm install
 npm run dev
-npm run build
-npm run start
-npm run lint
 ```
 
-From repo root (workspaces):
+Defaults:
 
-```bash
-npm run dev:frontend
-npm run build:frontend
-npm run start:frontend
-```
+* Frontend: [http://localhost:3000](http://localhost:3000)
+* Backend: [http://localhost:3002](http://localhost:3002) (API base: `/api/v1`)
 
 ---
 
-## Deployment notes
+## Routes (overview)
 
-* Set `NEXT_PUBLIC_API_BASE_URL` to the deployed backend API base (example: `https://<api-host>/api/v1`)
-* Deploy as a standard Next.js app (Vercel recommended)
+### Public routes
+
+* `/` — marketing/home onboarding
+* `/login`
+* `/register`
+* `/forgot-password`
+* `/reset-password`
+* `/verify-email`
+* `/oauth/callback` — OAuth redirect landing (exchanges code/state with backend callback flow)
+
+### Authenticated app
+
+* `/applications` — main table + drawer
+* `/profile` — profile + settings + connections management
+* `/pro` — Pro request flow (if applicable)
+* `/admin` — admin-only views (Pro approvals / credit operations)
+
+> Actual access control is enforced by backend middleware; frontend routes reflect UI surfaces.
 
 ---
 
-*Last updated: 2026-01-14*
+## Auth flow notes (frontend perspective)
+
+### Password auth
+
+* Register/login returns an access token used for authenticated requests.
+* Some actions require verified email; unverified users are redirected to the verify flow.
+
+### Refresh cookie + CSRF
+
+* On app boot (or before refresh/logout), the frontend calls:
+
+  * `GET /auth/csrf`
+* Refresh requires:
+
+  * refresh cookie + `X-CSRF-Token` header
+
+This protects refresh/logout from cross-site request forgery.
+
+### Google OAuth (PKCE)
+
+High level:
+
+1. User clicks “Continue with Google”
+2. Browser navigates to backend:
+
+   * `GET /auth/oauth/google/start`
+3. Google redirects back through backend callback:
+
+   * `GET /auth/oauth/google/callback`
+4. Frontend receives the final result on:
+
+   * `/oauth/callback` (handles post-login navigation)
+
+---
+
+## API usage (basic)
+
+All API calls use:
+
+* Base: `NEXT_PUBLIC_API_BASE_URL`
+* Auth header: `Authorization: Bearer <accessToken>`
+* Cookie-aware requests for refresh/logout flows
+
+---
+
+## Notes on AI gating (frontend)
+
+AI actions can be blocked by:
+
+* no free credits remaining
+* user not Pro
+
+The frontend shows gating UI (upgrade/request Pro) but the server is the enforcement point.
+
+---
+
+*Last updated: 2026-02-02*
+
