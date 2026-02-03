@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { aiApi } from "@/lib/api/ai";
 import { applicationsApi } from "@/lib/api/applications";
-import type { ApplicationDraftResponse, ApplicationStatus, CreateApplicationRequest, JobType, WorkMode, DocumentKind, Connection } from "@/types/api";
+import { connectionsApi } from "@/lib/api/connections";
+import type { ApplicationDraftResponse, ApplicationStatus, CreateApplicationRequest, JobType, WorkMode, DocumentKind, Connection, CreateConnectionRequest } from "@/types/api";
 import { JOB_TYPE_OPTIONS, STATUS_OPTIONS, WORK_MODE_OPTIONS } from "@/lib/applications/presentation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -132,6 +133,75 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: (args?: 
   // Connections to attach
   const [connectionQuery, setConnectionQuery] = useState("");
   const [selectedConnections, setSelectedConnections] = useState<Connection[]>([]);
+
+  // ---- Create new connection (from this flow) ----
+type NewConnectionDraft = {
+  name: string;
+  company: string;
+  title: string;
+  email: string;
+  linkedInUrl: string;
+};
+
+function emptyNewConnectionDraft(name = ""): NewConnectionDraft {
+  return { name, company: "", title: "", email: "", linkedInUrl: "" };
+}
+
+const [isCreateConnOpen, setIsCreateConnOpen] = useState(false);
+const [newConnDraft, setNewConnDraft] = useState<NewConnectionDraft>(emptyNewConnectionDraft());
+const [isCreateConnSaving, setIsCreateConnSaving] = useState(false);
+const [createConnError, setCreateConnError] = useState<string | null>(null);
+
+function openCreateConn() {
+  setCreateConnError(null);
+  setNewConnDraft(emptyNewConnectionDraft(connectionQuery.trim()));
+  setIsCreateConnOpen(true);
+}
+
+function closeCreateConn() {
+  setIsCreateConnOpen(false);
+  setCreateConnError(null);
+  setNewConnDraft(emptyNewConnectionDraft());
+}
+
+async function createConnAndSelect() {
+  const name = newConnDraft.name.trim();
+  if (!name) {
+    setCreateConnError("Name is required.");
+    return;
+  }
+
+  setIsCreateConnSaving(true);
+  setCreateConnError(null);
+
+  try {
+    const payload: CreateConnectionRequest = { name };
+
+    const company = newConnDraft.company.trim();
+    if (company) payload.company = company;
+
+    const title = newConnDraft.title.trim();
+    if (title) payload.title = title;
+
+    const email = newConnDraft.email.trim();
+    if (email) payload.email = email;
+
+    const linkedInUrl = newConnDraft.linkedInUrl.trim();
+    if (linkedInUrl) payload.linkedInUrl = linkedInUrl;
+
+    const created = await connectionsApi.createConnection(payload);
+
+    // Immediately select it for this application-create flow
+    addConnection(created.connection);
+
+    closeCreateConn();
+  } catch (err) {
+    if (err instanceof ApiError) setCreateConnError(err.message);
+    else setCreateConnError("Failed to create connection.");
+  } finally {
+    setIsCreateConnSaving(false);
+  }
+}
 
   const selectedConnectionIds = useMemo(
     () => new Set(selectedConnections.map((c) => c.id)),
@@ -262,6 +332,12 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: (args?: 
 
     setFitUseOverride(false);
     setFitOverrideFile(null);
+
+    setIsCreateConnOpen(false);
+    setCreateConnError(null);
+    setIsCreateConnSaving(false);
+    setNewConnDraft(emptyNewConnectionDraft());
+
 
   }
   
@@ -957,6 +1033,12 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: (args?: 
                         <div className="text-xs text-muted-foreground">Searching...</div>
                       ) : null}
                     </div>
+                    
+                    <div className="flex justify-end">
+                      <Button type="button" variant="outline" size="sm" onClick={openCreateConn}>
+                        Create new
+                      </Button>
+                    </div>
                 
                     {connectionSuggestions.length ? (
                       <div className="rounded-md border p-2 space-y-1">
@@ -1125,6 +1207,74 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: (args?: 
             </DialogContent>
           </Dialog>
 
+          <Dialog open={isCreateConnOpen} onOpenChange={(open) => (open ? setIsCreateConnOpen(true) : closeCreateConn())}>
+            <DialogContent className="sm:max-w-[640px]">
+              <DialogHeader>
+                <DialogTitle>Create connection</DialogTitle>
+                <DialogDescription>Add a new person, then attach them to this application.</DialogDescription>
+              </DialogHeader>
+
+              {createConnError ? (
+                <div className="rounded-md border px-3 py-2 text-sm text-destructive">{createConnError}</div>
+              ) : null}
+
+              <div className="grid gap-4 py-2">
+                <div className="space-y-2">
+                  <Label>Name</Label>
+                  <Input
+                    value={newConnDraft.name}
+                    onChange={(e) => setNewConnDraft((p) => ({ ...p, name: e.target.value }))}
+                    placeholder="e.g., John Doe"
+                  />
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Company</Label>
+                    <Input
+                      value={newConnDraft.company}
+                      onChange={(e) => setNewConnDraft((p) => ({ ...p, company: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Title</Label>
+                    <Input
+                      value={newConnDraft.title}
+                      onChange={(e) => setNewConnDraft((p) => ({ ...p, title: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Email</Label>
+                    <Input
+                      value={newConnDraft.email}
+                      onChange={(e) => setNewConnDraft((p) => ({ ...p, email: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>LinkedIn URL</Label>
+                    <Input
+                      value={newConnDraft.linkedInUrl}
+                      onChange={(e) => setNewConnDraft((p) => ({ ...p, linkedInUrl: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <DialogFooter className="mt-8">
+                <Button type="button" variant="outline" onClick={closeCreateConn} disabled={isCreateConnSaving}>
+                  Cancel
+                </Button>
+                <Button type="button" onClick={createConnAndSelect} disabled={isCreateConnSaving}>
+                  {isCreateConnSaving ? "Creating..." : "Create & attach"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </form>
       ) : null}
     </div>
