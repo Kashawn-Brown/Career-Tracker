@@ -1,21 +1,20 @@
-<p align="center">
-  <img src="./CareerTrackerLogo.png" alt="Career-Tracker Logo" width="240" />
-</p>
-
 # Career-Tracker
 
-Career-Tracker is a personal job application tracker built around a fast, **table-first Applications** view (Excel/Notion-style) and a **right-side details drawer** for safe viewing/editing.
+Career-Tracker is a production-minded job application tracker built around a fast, **table-first Applications** view (Excel/Notion-style) and a **right-side details drawer** for safe viewing/editing.
 
-The design goal is simple: **scanning stays instant** in the table, while richer details (documents, connections, notes) live in the drawer and dialogs—without cluttering the grid.
+The design goal is simple: **scanning stays instant** in the table, while richer details (documents, connections, notes) live in the drawer and dialogs without cluttering the grid.
 
 ---
 
-## Live Demo (Production)
+## Production
 
-- **App (Vercel):** https://career-tracker-frontend-ten.vercel.app
-- **Backend:** Deployed on **Google Cloud Run (GCP)** (private API; frontend calls it via `NEXT_PUBLIC_API_BASE_URL`)
-- **Database:** **Cloud SQL (Postgres)**
-- **File storage:** **Google Cloud Storage (private bucket)** with **short-lived signed URLs**
+- **App:** https://career-tracker.ca
+- **Frontend:** Vercel (custom domain via Cloudflare)
+- **Backend:** Google Cloud Run (Fastify API)
+- **Database:** Cloud SQL (Postgres)
+- **File storage:** Google Cloud Storage (private bucket) with short-lived signed URLs
+- **Email:** Resend (transactional email: verification, resets, Pro/admin flows)
+- **Rate limiting:** Redis (Upstash) 
 
 ---
 
@@ -28,15 +27,25 @@ The design goal is simple: **scanning stays instant** in the table, while richer
 - Destructive actions are gated/confirmed to prevent accidental changes
 
 ### Documents v1 (real uploads)
-- Upload **PDF/TXT** attachments to a **private Google Cloud Storage bucket**
-- Download via **short-lived signed URLs**
-- Delete removes both the **DB row + the GCS object**
-- PDF preview uses a lightweight **iframe overlay** (outside the drawer)
+- Upload PDF/TXT attachments to a private Google Cloud Storage bucket
+- Download via short-lived signed URLs
+- Delete removes both the DB row + the GCS object
+- PDF preview uses a lightweight iframe overlay (outside the drawer)
 
 ### Connections (people / recruiters / referrals)
 - Create and manage Connections globally (people you interact with)
-- Attach/detach connections to specific applications (intentional confirm flow)
+- Attach/detach connections to specific applications
 - Manage connections from Profile via a 2-pane “View all connections” modal
+
+### AI Assist (JD extraction + FIT scoring)
+- Paste a job description to extract structured fields and prefill an application
+- Run FIT/compatibility scoring (gated by free credits / Pro)
+- Pro access can be requested and is admin-approved
+
+### Auth + Security
+- Password auth with email verification flows
+- Google OAuth sign-in (PKCE)
+- Session refresh uses a refresh cookie + CSRF token (protects refresh/logout)
 
 ---
 
@@ -45,15 +54,17 @@ The design goal is simple: **scanning stays instant** in the table, while richer
 **Modules**
 - `frontend/` — Next.js (App Router) + TypeScript + Tailwind (table + drawer UX, dialogs/overlays)
 - `backend/` — Fastify + TypeScript API (Prisma + Postgres, user-scoped endpoints)
-- `infra/` — local dev infra (Docker Compose Postgres)
-- `k6/` — local performance benchmarks
-- `frontend_legacy/`, `backend_legacy/` — legacy reference only (not the active codepath)
+- `infra/` — local dev infra (Docker Compose dev/test Postgres)
+- `docs/perf/k6/` — local performance benchmarks (k6 scripts + notes)
+- `logo/` — branding assets
 
 **Tech stack**
 - Next.js (App Router), React, TypeScript, Tailwind CSS, shadcn/ui (Radix)
 - Fastify, TypeScript, TypeBox schemas
 - Prisma + PostgreSQL
+- Redis (Upstash in prod)
 - Google Cloud Storage (private bucket + signed URLs)
+- OpenAI API (AI features gated by credits/Pro)
 
 > Detailed docs:
 > - Frontend: `frontend/README.md`
@@ -61,12 +72,13 @@ The design goal is simple: **scanning stays instant** in the table, while richer
 
 ---
 
-### Repo notes
+## Repo notes
 
 - **Prisma source of truth:** `backend/prisma/schema.prisma` (schema + migrations live under `backend/prisma/`)
-- `frontend_legacy/` and `backend_legacy/` are **archived reference only** (not part of builds or deployments)
+- This repo uses **npm workspaces** (root scripts run frontend + backend together)
 
 ---
+
 ## Running locally (quickstart)
 
 ### Prerequisites
@@ -75,26 +87,27 @@ The design goal is simple: **scanning stays instant** in the table, while richer
 
 ### Quickstart
 1) Install deps (repo root):
+
 ```bash
 npm install
 ````
 
-2. Start Postgres:
+2. Start Postgres (dev):
 
 ```bash
 docker compose -f infra/docker-compose.dev.yml up -d
 ```
 
-3. Configure env:
+3. Configure env
 
-* Backend: `backend/.env` (see `backend/.env.example` + `backend/README.md`)
-* Frontend: `frontend/.env.local`
+* Backend: create `backend/.env.local` (see `backend/.env.example` + `backend/README.md`)
+* Frontend: set `frontend/.env.local`:
 
 ```env
 NEXT_PUBLIC_API_BASE_URL=http://localhost:3002/api/v1
 ```
 
-4. Run both:
+4. Run both (repo root):
 
 ```bash
 npm run dev
@@ -102,26 +115,48 @@ npm run dev
 
 Default ports:
 
-* Frontend: `http://localhost:3000`
-* Backend: `http://localhost:3002` (API base: `/api/v1`)
+* Frontend: [http://localhost:3000](http://localhost:3000)
+* Backend: [http://localhost:3002](http://localhost:3002) (API base: `/api/v1`)
 
 > Note: Documents uploads require GCS config + credentials (details in `backend/README.md`).
 
 ---
 
-## Deployment
+## Testing (backend integration tests)
+
+Backend tests are **deterministic integration tests** using:
+
+* Vitest + Fastify inject
+* Docker Postgres test DB
+* Real Prisma writes (external deps mocked: storage/email/LLM)
+
+Typical flow:
+
+```bash
+docker compose -f infra/docker-compose.test.yml up -d
+npm run test --workspace=backend
+```
+
+See: `backend/README.md` for full details.
+
+---
+
+## Deployment (high-level)
 
 ### Frontend — Vercel
-- Deploys from `frontend/` (Next.js App Router)
-- **Public URL:** https://career-tracker-frontend-ten.vercel.app
-- Env var:
-  - `NEXT_PUBLIC_API_BASE_URL` = `https://<CLOUD_RUN_SERVICE_URL>/api/v1`
+
+* Deploys from `frontend/` (Next.js App Router)
+* Public URL: [https://career-tracker.ca](https://career-tracker.ca)
+* Env var:
+
+  * `NEXT_PUBLIC_API_BASE_URL` = `https://<CLOUD_RUN_SERVICE_URL>/api/v1`
 
 ### Backend — Google Cloud Platform (GCP)
-- **Cloud Run** (Fastify API in `backend/`)
-- **Cloud SQL (Postgres)** for the database
-- **Secret Manager** for sensitive env vars (e.g., `DATABASE_URL`, `JWT_SECRET`)
-- **Cloud Storage (GCS)** private bucket for Documents v1 (signed URLs for download)
+
+* **Cloud Run** (Fastify API in `backend/`)
+* **Cloud SQL** (Postgres)
+* **Secret Manager** for sensitive env vars
+* **Cloud Storage (GCS)** private bucket for Documents v1 (signed URLs for download)
 
 ---
 
@@ -129,8 +164,9 @@ Default ports:
 
 * Frontend docs: `frontend/README.md`
 * Backend docs: `backend/README.md`
-* Benchmarks: `k6/benchmarks/README.md`
+* Benchmarks: `docs/perf/k6/benchmarks/README.md`
+* Privacy: `PRIVACY.md`
 
 ---
 
-*Last updated: 2026-01-14*
+*Last updated: 2026-02-02*

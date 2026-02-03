@@ -1,8 +1,13 @@
 # Career-Tracker — Backend (Fastify API)
 
-Fastify + TypeScript API powering Career-Tracker. All data access is **user-scoped** (JWT → `req.user.id`), and core list endpoints return a stable paginated shape.
+Fastify + TypeScript API powering Career-Tracker.
 
-This README documents the current backend architecture, key endpoints, and the Documents v1 + Connections modules that were added after the early MVP.
+- All data access is **user-scoped** (JWT → `req.user.id`)
+- Core list endpoints return a **stable paginated shape**
+- Most user-facing routes require **verified email**
+- AI routes are gated by **free credits / Pro** and enforced server-side
+
+_This README focuses on backend architecture, auth/session model, and the main API surfaces. Frontend and benchmarks have their own docs._
 
 ---
 
@@ -11,8 +16,17 @@ This README documents the current backend architecture, key endpoints, and the D
 - Fastify + TypeScript
 - Prisma + PostgreSQL
 - TypeBox (runtime request validation + derived TS types)
-- JWT auth (`Authorization: Bearer <token>`)
-- Documents v1: `@fastify/multipart` + Google Cloud Storage private bucket + signed URLs
+- Auth/session:
+  - Access token (JWT) in `Authorization: Bearer <token>`
+  - Refresh token in an **httpOnly cookie**
+  - CSRF token required for refresh/logout
+- Google OAuth (PKCE)
+- Rate limiting: `@fastify/rate-limit` (Redis-backed)
+- Documents:
+  - `@fastify/multipart`
+  - Google Cloud Storage private bucket + signed URLs
+- Email: Resend (verification, password reset, Pro/admin workflows)
+- AI: OpenAI API (gated)
 
 ---
 
@@ -20,59 +34,107 @@ This README documents the current backend architecture, key endpoints, and the D
 
 Backend follows a simple “modules” pattern:
 
-```
-
+```txt
 backend/
-app.ts                      # fastify app + plugin + route mounting
-server.ts                   # boots server + loads .env.local (dev)
-lib/
-prisma.ts                 # Prisma client singleton
-env.ts                    # minimal env validation (fail fast)
-gcs.ts                    # GCS config parsing + Storage client (ADC)
-middleware/
-auth.ts                   # requireAuth (JWT -> req.user)
-error-handler.ts          # consistent API errors + 404 handler
-modules/
-auth/                     # login/register/me
-user/                     # profile endpoints
-applications/             # CRUD + list + app-level docs + app-level connections
-documents/                # doc download/delete + base resume endpoints
-connections/              # global connections CRUD/list/search
-debug/                    # dev-only routes (seed)
-
+  app.ts                  # Fastify buildApp() + plugin + route mounting
+  server.ts               # dev server entry (loads .env.local)
+  types/
+    fastify.d.ts          # FastifyRequest type augmentation (req.user)
+  lib/
+    prisma.ts             # Prisma client singleton
+    env.ts                # minimal env validation (fail fast)
+    redis.ts              # redis client
+    gcs.ts                # GCS config parsing + Storage client (ADC)
+  errors/
+    app-error.ts          # AppError for consistent status + codes
+  middleware/
+    auth.ts               # requireAuth (JWT -> req.user)
+    require-verified-email.ts
+    require-ai-access.ts
+    require-admin.ts
+    error-handler.ts      # consistent API errors + 404 handler
+  modules/
+    auth/                 # register/login/me + sessions + email flows
+    oauth/                # Google OAuth PKCE start/callback
+    user/                 # profile endpoints
+    applications/         # CRUD + list + docs + connections + AI artifacts
+    documents/            # base resume + download/delete
+    connections/          # global connections CRUD/list/search
+    ai/                   # JD extraction (standalone AI endpoint)
+    pro/                  # Pro access request
+    admin/                # admin Pro approvals + credit grants
+    debug/                # dev-only routes (seed)
+  prisma/
+    schema.prisma
+    migrations/
+  tests/
+    _helpers/             # docker db lifecycle + factories + shared helpers
+    ...                   # integration test suites by module
 ````
 
 Convention:
-- `*.routes.ts` = routing + request parsing + response shaping
-- `*.service.ts` = Prisma + business rules
-- `*.schemas.ts` = TypeBox request schemas
-- `*.dto.ts` = shared “public select shapes” + service input types
+
+* `*.routes.ts` = routing + request parsing + response shaping
+* `*.service.ts` = Prisma + business rules
+* `*.schemas.ts` = TypeBox schemas
+* `*.dto.ts` = shared “public select shapes” + input types
 
 ---
 
-## Auth + request model
+## Auth + session model
 
-### JWT auth
-Middleware:
-- `middleware/auth.ts` (`requireAuth`)
+### Access token (JWT)
 
-Behavior:
-- Requires `Authorization: Bearer <token>`
-- Verifies token with `JWT_SECRET`
-- Attaches `{ id, email }` to `req.user`
+Most protected routes require:
 
-### Consistent errors
+* Header: `Authorization: Bearer <accessToken>`
+* Middleware: `middleware/auth.ts` (`requireAuth`)
+* `req.user` is attached as `{ id, email }` (see `backend/types/fastify.d.ts`)
+
+### Refresh cookie + CSRF
+
+Sessions use a refresh cookie + CSRF token to protect refresh/logout endpoints.
+
+* Refresh cookie name: `career_tracker_refresh`
+* Cookie is **httpOnly** and scoped to path: `/api/v1/auth`
+* In prod: `secure: true`, `sameSite: "none"` (cross-site cookies for deployed frontend)
+* In local dev: `secure: false`, `sameSite: "lax"`
+
+Endpoints:
+
+* `GET  /api/v1/auth/csrf`
+
+  * If refresh cookie exists: returns `{ csrfToken: "..." }`
+  * If no session: returns `{ csrfToken: null }`
+* `POST /api/v1/auth/refresh`
+
+  * Requires refresh cookie + `X-CSRF-Token` header
+  * Rotates refresh token + rotates CSRF token
+* `POST /api/v1/auth/logout`
+
+  * Requires `X-CSRF-Token` (best-effort revoke) and clears cookie
+
+Security enforcement:
+
+* Refresh/logout also enforce a strict **Origin allowlist** using `CORS_ORIGIN`.
+
+---
+
+## Consistent errors
+
 Global handlers:
-- `middleware/error-handler.ts`
+
+* `middleware/error-handler.ts`
 
 Response shape is intentionally simple:
+
 ```json
 { "message": "..." }
-````
+```
 
-* `AppError` → uses its status code + message (logged as warn)
-* Validation / 4xx → returned consistently (logged as warn)
-* Unexpected → `500 { message: "Internal Server Error" }` (logged as error)
+* `AppError` → uses its status code + message
+* Validation / 4xx → returned consistently
+* Unexpected → `500 { "message": "Internal Server Error" }`
 
 ---
 
@@ -82,21 +144,43 @@ Mounted in `backend/app.ts`:
 
 * Health: `GET /health`
 * Auth: `/api/v1/auth`
+* OAuth: `/api/v1/auth/oauth`
 * Users: `/api/v1/users`
 * Applications: `/api/v1/applications`
 * Documents: `/api/v1/documents`
 * Connections: `/api/v1/connections`
+* AI: `/api/v1/ai`
+* Pro: `/api/v1/pro`
+* Admin: `/api/v1/admin`
 * Debug: `/api/debug/*` (only when `ENABLE_DEBUG_ROUTES="true"`)
 
 ---
 
-## Core endpoints
+## Core endpoints (high level)
 
 ### Auth
 
 * `POST /api/v1/auth/register` (rate-limited)
 * `POST /api/v1/auth/login` (rate-limited)
 * `GET  /api/v1/auth/me`
+
+Sessions:
+
+* `GET  /api/v1/auth/csrf`
+* `POST /api/v1/auth/refresh`
+* `POST /api/v1/auth/logout`
+
+Email verification + password reset:
+
+* `POST /api/v1/auth/verify-email`
+* `POST /api/v1/auth/resend-verification` (non-enumerating)
+* `POST /api/v1/auth/forgot-password` (non-enumerating)
+* `POST /api/v1/auth/reset-password`
+
+### Google OAuth (PKCE)
+
+* `GET /api/v1/auth/oauth/google/start`
+* `GET /api/v1/auth/oauth/google/callback`
 
 ### User / Profile
 
@@ -111,40 +195,60 @@ Mounted in `backend/app.ts`:
 * `PATCH  /api/v1/applications/:id`
 * `DELETE /api/v1/applications/:id`
 
-**List query params** (see `modules/applications/applications.schemas.ts`):
+List query params (see `modules/applications/applications.schemas.ts`):
 
-* Filters:
+* Filters: `q`, `status`, `jobType`, `workMode`, `isFavorite=true|false`
+* Fit filter: `fitMin`, `fitMax` (when provided; excludes null)
+* Pagination: `page`, `pageSize`
+* Sorting: `sortBy`, `sortDir=asc|desc`
 
-  * `q` (search company/position)
-  * `status`
-  * `jobType`
-  * `workMode`
-  * `isFavorite=true|false`
-* Pagination:
+  * Nullable sortable fields force **nulls last** (asc + desc)
 
-  * `page`, `pageSize`
-* Sorting:
+### Application documents
 
-  * `sortBy` (ex: `updatedAt`, `createdAt`, `company`, `position`, `dateApplied`, `isFavorite`, etc.)
-  * `sortDir=asc|desc`
+* `GET  /api/v1/applications/:id/documents`
+* `POST /api/v1/applications/:id/documents` (multipart upload)
 
-Response shape:
+### Application connections (attach/detach)
 
-```json
-{
-  "items": [],
-  "page": 1,
-  "pageSize": 20,
-  "total": 200,
-  "totalPages": 10
-}
-```
+* `GET    /api/v1/applications/:id/connections`
+* `POST   /api/v1/applications/:id/connections/:connectionId`
+* `DELETE /api/v1/applications/:id/connections/:connectionId`
+
+### AI (JD extraction + AI artifacts)
+
+Standalone JD extraction:
+
+* `POST /api/v1/ai/application-from-jd` (requires verified email + AI access)
+
+Per-application AI artifacts:
+
+* `POST /api/v1/applications/:id/ai-artifacts`
+
+  * Supported `kind`: `JD_EXTRACT_V1`, `FIT_V1`
+* `GET  /api/v1/applications/:id/ai-artifacts`
+
+AI gating rules:
+
+* `requireVerifiedEmail` blocks unverified users
+* `requireAiAccess` blocks users without free quota or Pro
+
+### Pro
+
+* `POST /api/v1/pro/request` (rate-limited per user)
+
+### Admin (Pro approvals + credits)
+
+* `GET  /api/v1/admin/pro-requests`
+* `POST /api/v1/admin/pro-requests/:requestId/approve`
+* `POST /api/v1/admin/pro-requests/:requestId/deny`
+* `POST /api/v1/admin/pro-requests/:requestId/grant-credits`
 
 ---
 
-## Documents v1
+## Documents (GCS uploads + signed URLs)
 
-Documents v1 are **real file uploads** to a **private GCS bucket**, with short-lived signed URLs for access.
+Documents are real uploads to a private GCS bucket with short-lived signed URLs.
 
 ### Application documents (attach to a job application)
 
@@ -156,15 +260,14 @@ Routes live under `modules/applications/applications.routes.ts`:
 * `POST /api/v1/applications/:id/documents`
 
   * `multipart/form-data` with one `file`
-  * Optional query param: `?kind=RESUME|COVER_LETTER|OTHER`
-  * Uploads file → writes GCS object → creates `Document` row
-  * Touches `JobApplication.updatedAt` (so recency ordering updates immediately)
-  * Returns `201 { document: Document }`
+  * Optional query: `?kind=RESUME|COVER_LETTER|CAREER_HISTORY|OTHER`
+  * Uploads stream → writes GCS object → creates `Document` row
+  * Touches `JobApplication.updatedAt`
 
-Server-side safeguards:
+Safeguards:
 
-* Max docs per application is capped (guardrail)
-* File size is enforced via Fastify multipart limits + truncation check
+* Max docs per application is capped
+* File size enforced via multipart limits + truncation check
 * Allowed MIME types default to PDF/TXT (configurable via env)
 
 ### Download + delete (by document id)
@@ -173,35 +276,28 @@ Routes live under `modules/documents/documents.routes.ts`:
 
 * `GET /api/v1/documents/:id/download`
 
-  * Returns a signed URL:
-
-    ```json
-    { "downloadUrl": "https://..." }
-    ```
+  * Returns `{ downloadUrl: "https://..." }`
   * Optional query: `?disposition=inline|attachment`
-
 * `DELETE /api/v1/documents/:id`
 
   * Deletes GCS object (best-effort) + deletes DB row
-  * Touches parent application `updatedAt` if the doc belonged to an application
+  * Touches parent application `updatedAt` when applicable
 
 ### GCS configuration
 
-Config helper:
+Helper: `lib/gcs.ts`
 
-* `lib/gcs.ts`
-
-Env vars used:
+Env vars:
 
 * `GCS_BUCKET` (**required** for uploads)
-* `GCS_KEY_PREFIX` (optional; ex: `dev` / `prod` to separate keys)
+* `GCS_KEY_PREFIX` (optional; e.g. `dev` / `prod`)
 * `GCS_MAX_UPLOAD_BYTES` (default ~10MB)
 * `GCS_SIGNED_URL_TTL_SECONDS` (default ~10 minutes)
 * `GCS_ALLOWED_MIME_TYPES` (optional; defaults to `application/pdf,text/plain`)
 
 Auth to GCS:
 
-* In Cloud Run: uses **Application Default Credentials** (runtime service account)
+* Cloud Run: Application Default Credentials (service account)
 * Local dev: set `GOOGLE_APPLICATION_CREDENTIALS` to a service account JSON if needed
 
 ---
@@ -210,7 +306,7 @@ Auth to GCS:
 
 ### Global connections (CRUD + list/search)
 
-Routes live under `modules/connections/connections.routes.ts`:
+Routes: `modules/connections/connections.routes.ts`
 
 * `POST   /api/v1/connections`
 * `GET    /api/v1/connections`
@@ -230,21 +326,18 @@ Returns the same paginated shape as applications list.
 
 ### Attach/detach connections to an application
 
-Routes live under `modules/applications/applications.routes.ts`:
+Routes: `modules/applications/applications.routes.ts`
 
 * `GET    /api/v1/applications/:id/connections`
 
   * Returns `{ connections: ConnectionWithAttachedAt[] }`
-  * Backend flattens join rows into `{ ...connectionFields, attachedAt }`
-
 * `POST   /api/v1/applications/:id/connections/:connectionId`
 
-  * Upserts the join row (idempotent attach)
+  * Upserts join row (idempotent attach)
   * Touches `JobApplication.updatedAt`
-
 * `DELETE /api/v1/applications/:id/connections/:connectionId`
 
-  * Deletes the join row if present
+  * Deletes join row (if present)
   * Touches `JobApplication.updatedAt`
 
 ---
@@ -259,7 +352,7 @@ From repo root:
 docker compose -f infra/docker-compose.dev.yml up -d
 ```
 
-This exposes Postgres on `localhost:5437`.
+Dev DB is exposed on `localhost:5437`.
 
 ### 2) Environment files (important)
 
@@ -273,7 +366,36 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5437/career_tracker?schem
 JWT_SECRET="dev_change_me"
 ```
 
-If using Documents v1 locally:
+Recommended local values (to match your deployed frontend):
+
+```env
+CORS_ORIGIN="http://localhost:3000,https://career-tracker.ca"
+FRONTEND_URL="http://localhost:3000"
+```
+
+Email (required for verification/reset flows in production; optional locally):
+
+```env
+RESEND_API_KEY="..."
+EMAIL_FROM="Career-Tracker <no-reply@yourdomain>"
+FRONTEND_URL="http://localhost:3000"
+```
+
+Google OAuth (optional locally):
+
+```env
+GOOGLE_OAUTH_CLIENT_ID="..."
+GOOGLE_OAUTH_CLIENT_SECRET="..."
+GOOGLE_OAUTH_REDIRECT_URI="http://localhost:3002/api/v1/auth/oauth/google/callback"
+```
+
+AI (optional locally):
+
+```env
+OPENAI_API_KEY="..."
+```
+
+Documents (optional locally):
 
 ```env
 GCS_BUCKET="private-bucket-name"
@@ -282,12 +404,6 @@ GCS_MAX_UPLOAD_BYTES="10485760"
 GCS_SIGNED_URL_TTL_SECONDS="600"
 # optional:
 # GCS_ALLOWED_MIME_TYPES="application/pdf,text/plain"
-```
-
-CORS (comma-separated):
-
-```env
-CORS_ORIGIN="http://localhost:3000"
 ```
 
 ### 3) Install + migrate + run
@@ -308,6 +424,37 @@ Server defaults to:
 
 ---
 
+## Testing (deterministic integration tests)
+
+Tests use:
+
+* Vitest + Fastify inject
+* Docker Postgres test DB (real Prisma writes)
+* External dependencies mocked (storage/email/LLM) where needed
+* Rate limiting is disabled automatically in test env (`NODE_ENV="test"`)
+
+### 1) Start test Postgres
+
+From repo root:
+
+```bash
+docker compose -f infra/docker-compose.test.yml up -d
+```
+
+Test DB is exposed on `localhost:5438`.
+
+### 2) Run tests
+
+From `backend/`:
+
+```bash
+npm run test
+```
+
+The test harness applies env defaults + runs migrations automatically (see `tests/_helpers/globalSetup.ts`).
+
+---
+
 ## Debug routes (dev-only)
 
 Mounted only when:
@@ -323,43 +470,47 @@ ENABLE_DEBUG_ROUTES="true"
 ## Deployment notes (Cloud Run style)
 
 * Cloud Run provides `PORT` (often `8080`) — backend reads `process.env.PORT`
-* Set `CORS_ORIGIN` to the deployed frontend origin(s) only
-* For GCS: ensure the Cloud Run service account has access to the bucket (read/write/delete)
-* For Cloud SQL: use a Cloud SQL connector / unix socket + a Cloud Run–friendly `DATABASE_URL`
+* Set `CORS_ORIGIN` to your deployed frontend origin(s), e.g. `https://career-tracker.ca`
+* Rate limiting:
+
+  * Provide `REDIS_URL` in production for consistent rate limiting across instances
+* Email:
+
+  * `RESEND_API_KEY`, `EMAIL_FROM`, `FRONTEND_URL` should be set in production
+* OAuth:
+
+  * `GOOGLE_OAUTH_*` vars required if enabling Google sign-in
+* Documents:
+
+  * Ensure Cloud Run service account has GCS permissions (read/write/delete)
+* Database:
+
+  * Cloud SQL connector / unix socket + a Cloud Run–friendly `DATABASE_URL`
 
 ---
 
 ## Benchmarks (k6)
 
-Saved results live in:
+Benchmark scripts + notes live here:
 
-* `k6/benchmarks/results/`
+* `../docs/perf/k6/`
 
-### Benchmark conditions
+Saved results live here:
 
-All runs below were executed locally with:
+* `../docs/perf/k6/benchmarks/results/`
 
-* **10 VUs**
-* **20s duration**
-* **<1% failure threshold**
-* Seeded datasets: **200** and **1000** applications for the same user
+Run instructions + output conventions:
 
-### Results summary (local)
+* `../docs/perf/k6/benchmarks/README.md`
 
-**Median and p95 are the headline numbers** (typical + worst-case tail latency).
-
-| Endpoint                | Dataset | Page size | Load         |   Median |      p95 |  Throughput |
-| ----------------------- | ------: | --------: | ------------ | -------: | -------: | ----------: |
-| GET /applications       |     200 |        20 | 10 VUs / 20s | ~8.75ms  | ~15.92ms | ~46.8 req/s |
-| GET /applications       |     200 |       100 | 10 VUs / 20s | ~7.97ms  | ~13.39ms | ~47.1 req/s |
-| GET /applications       |    1000 |        20 | 10 VUs / 20s | ~13.73ms | ~19.15ms | ~45.7 req/s |
-| GET /applications       |    1000 |       100 | 10 VUs / 20s | ~8.98ms  | ~15.43ms | ~46.8 req/s |
-| POST /applications      |     200 |         - | 10 VUs / 20s | ~12.69ms | ~18.93ms | ~46.2 req/s |
-| POST /applications      |    1000 |         - | 10 VUs / 20s | ~12.85ms | ~21.24ms | ~46.1 req/s |
-| PATCH /applications/:id |     200 |         - | 10 VUs / 20s | ~22.70ms | ~28.40ms | ~44.4 req/s |
-| PATCH /applications/:id |    1000 |         - | 10 VUs / 20s | ~22.82ms | ~29.13ms | ~44.4 req/s |
-
-> Note: These are **local** benchmarks 
 ---
 
-*Last updated: 2026-01-14*
+## Quick links
+
+- Root overview: `../README.md`
+- Frontend docs: `../frontend/README.md`
+- Benchmarks: `../docs/perf/k6/benchmarks/README.md`
+
+---
+
+*Last updated: 2026-02-02*
