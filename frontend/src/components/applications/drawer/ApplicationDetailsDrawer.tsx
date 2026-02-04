@@ -9,6 +9,7 @@ import { parseTags, serializeTags, splitTagInput } from "@/lib/applications/tags
 import { ApplicationDocumentsSection } from "@/components/applications/drawer/ApplicationDocumentsSection";
 import { ApplicationConnectionsSection } from "@/components/applications/drawer/ApplicationConnectionsSection";
 import { ApplicationAiToolsSection } from "@/components/applications/drawer/ApplicationAiToolsSection";
+import type { FitRunsController } from "@/hooks/useFitRuns";
 import { cn } from "@/lib/utils";
 import { PILL_BASE_CLASS, getStatusPillTokens } from "@/lib/applications/pills";
 import { documentsApi } from "@/lib/api/documents";
@@ -273,6 +274,7 @@ export function ApplicationDetailsDrawer({
   onDocumentsChanged,
   onConnectionsChanged,
   onApplicationChanged,
+  fitRuns,
   autoOpenFitForAppId,
   onAutoOpenFitConsumed,
 }: {
@@ -286,6 +288,7 @@ export function ApplicationDetailsDrawer({
   onDocumentsChanged?: (applicationId: string) => void;
   onConnectionsChanged?: (applicationId: string) => void;
   onApplicationChanged?: (applicationId: string) => void;
+  fitRuns: FitRunsController;
   autoOpenFitForAppId?: string | null;
   onAutoOpenFitConsumed?: () => void;
 }) {
@@ -1097,6 +1100,7 @@ export function ApplicationDetailsDrawer({
               <ApplicationAiToolsSection 
                 drawerOpen={open}
                 application={application} 
+                fitRuns={fitRuns}
                 baseResumeExists={baseResumeExists} 
                 baseResumeId={baseResumeId}
                 useOverride={useAiOverride}

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { applicationDocumentsApi } from "@/lib/api/application-documents";
 import { applicationsApi } from "@/lib/api/applications";
 import type { Application, AiArtifact, FitV1Payload } from "@/types/api";
+import type { FitRunsController } from "@/hooks/useFitRuns";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -50,6 +51,7 @@ function getFitBand(score: number): FitBand {
 type Props = {
   drawerOpen: boolean;
   application: Application;
+  fitRuns: FitRunsController;
   baseResumeExists: boolean;
   baseResumeId: number | null;
 
@@ -72,6 +74,7 @@ type Props = {
 export function ApplicationAiToolsSection({ 
   drawerOpen,
   application, 
+  fitRuns,
   baseResumeExists, 
   baseResumeId, 
   useOverride, 
