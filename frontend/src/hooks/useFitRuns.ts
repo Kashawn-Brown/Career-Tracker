@@ -66,8 +66,9 @@ export function useFitRuns(): FitRunsController {
     setRunsByAppId((prev) => {
       if (!prev[applicationId]) return prev;
 
-      const { [applicationId]: _removed, ...rest } = prev;
-      return rest;
+      const next = { ...prev };
+      delete next[applicationId];
+      return next;
     });
   }, []);
 
