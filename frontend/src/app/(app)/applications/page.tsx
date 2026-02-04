@@ -21,7 +21,7 @@ import { Alert } from "@/components/ui/alert";
 import {  Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Slider } from "@/components/ui/slider";
 
-import { ChevronDown, ChevronRight, Filter, Plus, Star, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Filter, Plus, Star, X, CheckCircle2 } from "lucide-react";
 
 
 // ApplicationsPage: fetches and displays the user's applications (GET /applications) with pagination.
@@ -85,6 +85,18 @@ export default function ApplicationsPage() {
 
   // Tracks in-flight FIT runs so they survive drawer close / navigation.
   const fitRuns = useFitRuns();
+
+  // Global completion notifications (simple in-page “toast” style).
+  type FitCompletionNotice = {
+    id: string;
+    applicationId: string;
+    label: string;
+    createdAt: number;
+  };
+
+  const [fitNotices, setFitNotices] = useState<FitCompletionNotice[]>([]);
+  const prevFitRunStatusRef = useRef<Record<string, string>>({});
+
 
   // Prevent overwriting saved settings on first render
   const skipFirstColumnsSaveRef = useRef(true);
@@ -211,6 +223,35 @@ export default function ApplicationsPage() {
   
     return () => window.clearTimeout(handle);
   }, [queryInput, query]);
+
+  // When a drawer-run FIT completes, show a global notification (unless the user is already viewing that application).
+  useEffect(() => {
+    const prev = prevFitRunStatusRef.current;
+    const current = fitRuns.runsByAppId;
+
+    for (const [applicationId, run] of Object.entries(current)) {
+      const prevStatus = prev[applicationId];
+
+      if (prevStatus !== "success" && run.status === "success") {
+        const isViewingThatApp = detailsOpen && selectedApplication?.id === applicationId;
+
+        if (!isViewingThatApp) {
+          addFitNotice(applicationId);
+        }
+
+        // Once we’ve reacted to success, clear the run entry to avoid stale state.
+        fitRuns.clearRun(applicationId);
+      }
+
+      prev[applicationId] = run.status;
+    }
+
+    // Clean up statuses for runs that no longer exist
+    for (const applicationId of Object.keys(prev)) {
+      if (!current[applicationId]) delete prev[applicationId];
+    }
+  }, [fitRuns.runsByAppId, fitRuns, detailsOpen, selectedApplication?.id]);
+
 
   // handleSaveDetails: handles the saving of the details of the application.
   async function handleSaveDetails(
@@ -366,8 +407,89 @@ export default function ApplicationsPage() {
     setPage(1);
   }
 
+  function getApplicationLabel(applicationId: string) {
+    if (selectedApplication?.id === applicationId) {
+      return `${selectedApplication.position} @ ${selectedApplication.company}`;
+    }
+
+    const item = data?.items?.find((a) => a.id === applicationId);
+    if (item) return `${item.position} @ ${item.company}`;
+
+    return "this application";
+  }
+
+  function addFitNotice(applicationId: string) {
+    // Avoid stacking duplicates for the same application at the same time.
+    setFitNotices((prev) => {
+      if (prev.some((n) => n.applicationId === applicationId)) return prev;
+
+      const label = getApplicationLabel(applicationId);
+      return [
+        {
+          id: `${applicationId}-${Date.now()}`,
+          applicationId,
+          label,
+          createdAt: Date.now(),
+        },
+        ...prev,
+      ];
+    });
+  }
+
+  function dismissFitNotice(noticeId: string) {
+    setFitNotices((prev) => prev.filter((n) => n.id !== noticeId));
+  }
+
+
   return (
     <div className="space-y-6">     
+    
+      {/* Global completion notifications */}
+      {fitNotices.length ? (
+        <div className="fixed bottom-4 right-4 z-[80] w-[360px] space-y-2">
+          {fitNotices.map((n) => (
+            <div
+              key={n.id}
+              role="button"
+              tabIndex={0}
+              className="rounded-lg border bg-background p-3 shadow-lg cursor-pointer hover:bg-muted/40"
+              onClick={async () => {
+                dismissFitNotice(n.id);
+                await openDrawerForApplication(n.applicationId, { autoOpenFit: true });
+              }}
+              onKeyDown={async (e) => {
+                if (e.key !== "Enter" && e.key !== " ") return;
+                e.preventDefault();
+                dismissFitNotice(n.id);
+                await openDrawerForApplication(n.applicationId, { autoOpenFit: true });
+              }}
+            >
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="mt-0.5 h-5 w-5" />
+
+                <div className="flex-1">
+                  <div className="text-sm font-medium">Compatibility report generated</div>
+                  <div className="text-xs text-muted-foreground">{n.label}</div>
+                </div>
+
+                <button
+                  type="button"
+                  className="rounded-md p-1 opacity-70 hover:bg-black/5 hover:opacity-100"
+                  title="Dismiss"
+                  aria-label="Dismiss"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    dismissFitNotice(n.id);
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      
       <section className="space-y-4">
                
         {/* Header section */}
