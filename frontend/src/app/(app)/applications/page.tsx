@@ -11,6 +11,7 @@ import { CreateApplicationFromJdForm } from "@/components/applications/CreateApp
 import { ApplicationDetailsDrawer } from "@/components/applications/drawer/ApplicationDetailsDrawer";
 import { ColumnsControl } from "@/components/applications/ColumnsControl";
 import { APPLICATION_COLUMNS_STORAGE_KEY, DEFAULT_VISIBLE_APPLICATION_COLUMNS, normalizeVisibleColumns, type ApplicationColumnId} from "@/lib/applications/tableColumns";
+import { useFitRuns } from "@/hooks/useFitRuns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -82,7 +83,8 @@ export default function ApplicationsPage() {
   const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
   const [autoOpenFitAppId, setAutoOpenFitAppId] = useState<string | null>(null);
 
-
+  // Tracks in-flight FIT runs so they survive drawer close / navigation.
+  const fitRuns = useFitRuns();
 
   // Prevent overwriting saved settings on first render
   const skipFirstColumnsSaveRef = useRef(true);
@@ -97,7 +99,6 @@ export default function ApplicationsPage() {
 
   // Add mode: "manual" for manual application creation, "jd" for JD-based application creation (using AI)
   const [addMode, setAddMode] = useState<"manual" | "jd">("manual");
-
 
 
   // Fetching applications when the page first mounts (& again whenever page or pageSize changes or reloadKey is changed)
@@ -841,6 +842,7 @@ export default function ApplicationsPage() {
         onApplicationChanged={handleApplicationChange}
         autoOpenFitForAppId={autoOpenFitAppId}
         onAutoOpenFitConsumed={() => setAutoOpenFitAppId(null)}
+        fitRuns={fitRuns}
       />
     </div>
   );
