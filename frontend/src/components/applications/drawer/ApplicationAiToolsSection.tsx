@@ -93,8 +93,12 @@ export function ApplicationAiToolsSection({
   const [isLoadingLatest, setIsLoadingLatest] = useState(false);
 
   // UI state
-  const [isRunning, setIsRunning] = useState(false);
+  // const [isRunning, setIsRunning] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Run state (lives outside the drawer)
+  const run = fitRuns.getRun(application.id);
+  const isRunning = run?.status === "running";
 
   // Details dialog state
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -201,76 +205,48 @@ export function ApplicationAiToolsSection({
       setErrorMessage("Missing job description on this application.");
       return;
     }
-  
+
     // If override is selected, require a file (no silent fallback)
     if (useOverride && !overrideFile) {
       setErrorMessage("Select a file to use for this run (or turn off override).");
       return;
     }
-  
+
     // If override is off, require base resume
     if (!useOverride && !baseResumeExists) {
       setErrorMessage("Upload a Base Resume in Profile (or use an override file).");
       return;
     }
-  
-    setIsRunning(true);
+
     setErrorMessage(null);
+
+    // Drawer-run should be non-interrupting: don’t auto-open the report dialog.
     setIsDetailsOpen(false);
-  
+
     try {
-      let sourceDocumentId: number | undefined = undefined;
-  
-      // 1) If override, upload CAREER_HISTORY attached to THIS application
-      if (useOverride && overrideFile) {
-        const uploadRes = await applicationDocumentsApi.upload({
-          applicationId: application.id,
-          kind: "CAREER_HISTORY",
-          file: overrideFile,
-        });
-  
-        const docId = Number(uploadRes.document.id);
-        if (!Number.isFinite(docId)) {
-          throw new Error("Override upload returned an invalid document id.");
-        }
-  
-        sourceDocumentId = docId;
-  
-        // Let drawer/table refresh any doc views if needed
-        onDocumentsChanged?.(application.id);
-      }
-  
-      // 2) Generate FIT artifact
-      const created = await applicationsApi.generateAiArtifact(application.id, {
-        kind: "FIT_V1",
-        sourceDocumentId,
+      const created = await fitRuns.startFitRun({
+        applicationId: application.id,
+        overrideFile: useOverride ? overrideFile : null,
+        onDocumentsChanged,
+        onApplicationChanged,
+        onRefreshMe: () => void refreshMe(),
       });
-  
-      setFitArtifact(created as AiArtifact<FitV1Payload>);
 
-      // Refresh user so credits/pro state updates immediately after successful AI use.
-      void refreshMe();
-
-      // Refresh the application so the fit score and updated at updates immediately.
-      onApplicationChanged?.(application.id);
+      if (created) {
+        setFitArtifact(created as AiArtifact<FitV1Payload>);
+      }
 
       setIsRerunMode(false);
 
-      // After a successful run, default to showing the detailed report.
-      setIsDetailsOpen(true);
-      onRequestClosePreview?.();   // Close any active preview
-  
-      // Optional: clear override after a successful run (keeps behavior predictable)
+      // Keep behavior predictable after a successful run.
       onToggleOverride(false);
       onOverrideFile(null);
-  
     } catch (err) {
       if (err instanceof ApiError) setErrorMessage(err.message);
       else setErrorMessage("Failed to generate fit result.");
-    } finally {
-      setIsRunning(false);
     }
   }
+
   
   const jobLabel = [application.position, application.company].filter(Boolean).join(" @ ");
 
