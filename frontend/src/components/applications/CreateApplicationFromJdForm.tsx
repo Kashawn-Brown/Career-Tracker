@@ -38,6 +38,7 @@ import { applicationDocumentsApi } from "@/lib/api/application-documents";
 // Arguments for the onCreated callback
 type OnCreatedArgs = {
   applicationId: string;
+  label?: string;
   openDrawer?: boolean;
   openFitReport?: boolean;
 };
@@ -612,6 +613,7 @@ async function createConnAndSelect() {
       if (opts.runFit && fitSucceeded) {
         onCreated({
           applicationId: created.id,
+          label: `${position} @ ${company}`,
           openDrawer: true,
           openFitReport: true,
         });
