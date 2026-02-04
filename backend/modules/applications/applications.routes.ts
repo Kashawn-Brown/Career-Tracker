@@ -10,6 +10,7 @@ import { AppError } from "../../errors/app-error.js";
 import * as DocumentsService from "../documents/documents.service.js";
 import * as AiService from "../ai/ai.service.js";
 import { DocumentKind } from "@prisma/client";
+import { resolveAiTierForUser } from "../ai/ai-tier.js";
 
 
 export async function applicationsRoutes(app: FastifyInstance) {
@@ -313,8 +314,10 @@ export async function applicationsRoutes(app: FastifyInstance) {
           sourceDocumentId,
         });
 
-        // Generate FIT payload
-        const payload = await AiService.buildFitV1(application.description, candidate.text);
+        const tier = await resolveAiTierForUser(userId);
+
+        // Generate FIT payload using tiered policy
+        const { payload, model } = await AiService.buildFitV1(application.description, candidate.text, { tier });
 
         // Create the AI artifact (record which doc was used)
         const artifact = await ApplicationsService.createAiArtifact({
@@ -322,7 +325,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
           jobApplicationId: id,
           kind,
           payload,
-          model: getOpenAIModel(), 
+          model, 
           sourceDocumentId: candidate.documentIdUsed,
         });
 
