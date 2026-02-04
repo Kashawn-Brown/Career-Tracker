@@ -1,6 +1,6 @@
 import { AppError } from "../../errors/app-error.js";
-import { getOpenAIClient, getOpenAIModel, getJdExtractOpenAIModel } from "./openai.js";
-import { ApplicationFromJdJsonObject, normalizeApplicationFromJdResponse, FitV1JsonObject, normalizeFitV1Response } from "./ai.dto.js";
+import { getOpenAIClient, getJdExtractOpenAIModel } from "./openai.js";
+import { ApplicationFromJdJsonObject, normalizeApplicationFromJdResponse, FitV1JsonObject, normalizeFitV1Response, getFitPolicyForTier, FitV1RunResult } from "./ai.dto.js";
 import type { ApplicationFromJdResponse, FitV1Response } from "./ai.dto.js";
 import { AiTier } from "./ai-tier.js";
 
@@ -8,66 +8,6 @@ import { AiTier } from "./ai-tier.js";
 // Output bounds (cost-control later)
 const JD_EXTRACT_MAX_OUTPUT_TOKENS = 900;
 const FIT_MAX_OUTPUT_TOKENS = 10000;
-
-
-// Tiered caps for FIT. Kept high enough to avoid truncation.
-const FIT_MAX_OUTPUT_TOKENS_BY_TIER: Record<AiTier, number> = {
-  regular: 9000,
-  pro: 11000,
-  admin: 15000,
-};
-
-type FitVerbosity = "low" | "medium" | "high";
-type FitEffort = "low" | "medium" | "high" | "xhigh";
-
-type FitPolicy = {
-  tier: AiTier;
-  model: string;
-  verbosity: FitVerbosity;
-  effort: FitEffort;
-  maxOutputTokens: number;
-};
-
-/**
- * Central place to decide FIT model + settings by tier.
- * Keep these conservative and predictable for cost control.
- */
-function getFitPolicyForTier(tier: AiTier): FitPolicy {
-  if (tier === "admin") {
-    return {
-      tier,
-      model: "gpt-5.2",
-      verbosity: "medium",
-      effort: "high",
-      maxOutputTokens: FIT_MAX_OUTPUT_TOKENS_BY_TIER.admin,
-    };
-  }
-
-  if (tier === "pro") {
-    return {
-      tier,
-      model: "gpt-5-mini",
-      verbosity: "medium",
-      effort: "medium",
-      maxOutputTokens: FIT_MAX_OUTPUT_TOKENS_BY_TIER.pro,
-    };
-  }
-
-  // regular
-  return {
-    tier: "regular",
-    model: "gpt-5-mini",
-    verbosity: "low",
-    effort: "low", // start low to reduce reasoning-token blowups
-    maxOutputTokens: FIT_MAX_OUTPUT_TOKENS_BY_TIER.regular,
-  };
-}
-
-export type FitV1RunResult = {
-  payload: FitV1Response;
-  model: string; // the model we actually requested
-  tier: AiTier;
-};
 
 
 
@@ -218,87 +158,95 @@ function buildExtractJdSystemPrompt(): string {
     "You extract structured fields from a pasted job description (JD).",
     "Return ONLY valid JSON matching the provided schema. No markdown. No extra keys.",
     "",
-    "Hard rule: Use ONLY the JD text provided. Do NOT guess or infer missing specifics.",
+    "Hard constraints (must follow):",
+    "- Use ONLY information explicitly present in the JD text.",
+    "- If a field is not clearly present, OMIT it entirely (do NOT output null, empty string, 'UNKNOWN', 'NONE', 'N/A', 'Other locations: None', or placeholder text).",
+    "- NEVER output the literal strings: 'NONE', 'N/A', 'Unknown', 'Other locations: None'.",
     "",
-    "Missing-field policy (strict):",
-    "- If a field is not explicitly and clearly present, OMIT the field entirely (do not output null, empty string, 'UNKNOWN', or placeholder values).",
-    "- Prefer omitting workMode and jobType rather than using any default or unknown value.",
+    "Determinism / consistency rules:",
+    "- If multiple candidates exist for a field, choose the earliest explicit mention that best matches the field semantics.",
+    "- If unsure whether something qualifies for a field, OMIT it and (optionally) add a warning describing the ambiguity.",
     "",
-    "Do NOT invent details:",
-    "- Do NOT invent hybrid days, onsite cadence, contract length, salary ranges, seniority, or requirements unless explicitly stated.",
-    "- Do NOT convert benefits into salary, and do NOT assume currency if not stated.",
+    "Company / position rules:",
+    "- company: choose the canonical employer name (e.g., 'Amazon', 'Google', 'Deloitte').",
+    "- If the JD mentions a sub-org (e.g., 'Amazon Transportation', 'SCOT'), do NOT put that in company unless the employer name is absent. Instead, include the sub-org in tagsText or notes.",
+    "- position: the role title (e.g., 'Software Development Engineer').",
     "",
-    "jdSummary requirements (2–4 sentences, your own words):",
-    "- Must cover, if present: (1) what the role does (core responsibilities), (2) key stack/tools, (3) must-have requirements, (4) location/work arrangement.",
-    "- Do NOT copy sentences verbatim from the JD.",
+    "Job ID rules:",
+    "- If a Job ID / Req ID is present (e.g., 'Job ID: 3133498'), include it as a bullet in notes exactly like: 'Job ID: 3133498'.",
     "",
-    "notes requirements (5–10 short bullet strings):",
-    "- Must span responsibilities, stack/tools, requirements, and constraints if present.",
-    "- Avoid repeating jdSummary. Avoid fluff. Each bullet should be short and specific.",
-    "- If a disqualifying constraint exists, include ONE bullet at the end starting with 'Constraint: ...'.",
+    "jobLink rules (very strict):",
+    "- jobLink must be a meaningful link present in the JD text. NEVER try to find a link not explicitly included.",
+    "- Allowed jobLink values:",
+    "  (1) A direct job posting URL (preferred), OR",
+    "  (2) A company homepage URL ONLY IF it is explicitly included in the JD text.",
+    "- Consider a URL a 'direct job posting' ONLY if it clearly looks like a posting, for example it contains:",
+    "  * '/jobs/' or '/job/' or '/careers/' with a job detail path, OR",
+    "  * a known ATS domain/path (greenhouse.io, lever.co, workday, ashbyhq, icims, smartrecruiters), OR",
+    "  * the job/req id in the URL (e.g., '3133498' appears in the URL).",
+    "- If the only URLs are informational/support links (e.g., accommodations pages, generic videos, org pages), OMIT jobLink.",
     "",
-    "Field semantics (do NOT mix categories):",
+    "location rules (fix internal codes like K03):",
+    "- location must be a geographic place only (country/city/region).",
+    "- Ignore internal site/building codes and non-geographic suffixes like 'K03', 'R260000290', 'Req-123', etc. These are NOT locations.",
+    "- If the only 'location-ish' text is a non-geographic code, OMIT location and add a warning like: 'Location unclear (only internal site code provided)'.",
+    "- If the JD explicitly indicates a country/region (e.g., contains 'Canada', 'United States', 'Ontario', 'Toronto'), set location to that geographic place.",
+    "- If multiple real geographic locations are listed, set location to '<primary> +<N>' where N is count of additional locations.",
     "",
-    "jobLink:",
-    "- jobLink must be a direct job posting URL only, beginning with 'https://'.",
-    "- Prefer the canonical posting link on an ATS/job board (e.g., Greenhouse/Lever/Workday/Ashby) over company homepage or social links.",
-    "- If multiple posting URLs exist, choose the most direct posting (deepest path) and avoid generic homepages.",
-    "- Omit if no direct posting URL exists in the text.",
+    "locationDetails rules:",
+    "- locationDetails contains ONLY geographic specifics/constraints/alternatives:",
+    "  * residency constraints (e.g., 'Must reside in Ontario', 'Canada only')",
+    "  * time zone constraints",
+    "  * office address",
+    "  * additional locations (ONLY if actually present) formatted exactly: 'Other locations: <loc1>, <loc2>, ...' using comma+space delimiter.",
+    "- NEVER put work arrangement cadence here (no days/week).",
+    "- NEVER output locationDetails if there are no real details.",
     "",
-    "location:",
-    "- location is geographic place text only (city/region/country).",
-    "- Use the FIRST listed location as the primary.",
-    "- If multiple locations are listed, set location to '<primary> +<N>' where N is the count of additional locations.",
-    "- Never include 'Remote/Hybrid/Onsite' in location.",
-    "",
-    "locationDetails:",
-    "- locationDetails contains ONLY geographic constraints/alternatives/specifics, such as:",
-    "  * additional locations (if location uses '+N') formatted as: 'Other locations: <loc1>; <loc2>; ...'",
-    "  * residency constraints (e.g., 'Must reside in Ontario', 'Canada only', 'US-only', time zone)",
-    "  * specific office address if present",
-    "- Do NOT put schedule/cadence here (no days/week, no 'in-office 3 days').",
-    "- Omit if no location-related details exist.",
-    "",
-    "workMode:",
+    "workMode rules:",
     "- workMode must be EXACTLY one of: 'REMOTE' | 'HYBRID' | 'ONSITE' (uppercase).",
-    "- Only set it if explicitly stated in the JD. Otherwise omit.",
+    "- Only set if explicitly stated (e.g., 'remote', 'hybrid', 'in office', 'on-site'). Otherwise omit.",
     "",
-    "workModeDetails:",
-    "- workModeDetails is ONLY schedule/cadence expectations: onsite days/week, travel cadence, quarterly onsite, remote-first rules, etc.",
-    "- Only include if explicitly stated. Otherwise omit.",
+    "workModeDetails rules:",
+    "- workModeDetails is ONLY schedule/cadence expectations explicitly stated (e.g., 'Hybrid: 3 days/week in office', 'Quarterly onsite').",
+    "- Do NOT put benefits text here. If not explicitly stated, omit.",
     "",
-    "jobType / jobTypeDetails:",
-    "- jobType must be set ONLY if explicitly stated in the JD (e.g., 'FULL_TIME', 'PART_TIME', 'CONTRACT', etc.) according to the schema enums. Otherwise omit.",
-    "- jobTypeDetails is ONLY extra constraints if explicitly stated: contract length, hours, shift, on-call, travel requirement, overtime rules.",
-    "- Omit jobTypeDetails if not stated.",
+    "jobType / jobTypeDetails rules:",
+    "- jobType: only set if explicitly stated and matches schema enums.",
+    "- jobTypeDetails: only extra constraints explicitly stated (contract length, hours, shift, on-call, travel).",
+    "- Do NOT put benefits text here. If not stated, omit.",
     "",
-    "salaryText:",
+    "salaryText rules:",
     "- salaryText must contain ONLY the base pay numeric amount/range with currency (e.g., 'CAD $80k-$120k').",
-    "- Exclude bonus/equity/benefits/commission/signing bonus/OTE wording from salaryText.",
     "- If salary is not explicitly stated, omit salaryText.",
     "",
-    "salaryDetails:",
-    "- salaryDetails captures ONLY non-base compensation details if explicitly stated (bonus %, equity, RSUs, commission/OTE, signing bonus, relocation, matching, overtime/shift premiums, conditions).",
-    "- Keep it short. Do NOT repeat base salary numbers.",
-    "- Omit if not stated.",
+    "salaryDetails rules:",
+    "- salaryDetails: ONLY non-base compensation explicitly stated (bonus %, equity, commission/OTE, signing, relocation, matching, premiums).",
+    "- Keep short. Do NOT repeat base salary numbers. Omit if not stated.",
     "",
-    "tagsText:",
-    "- tagsText is 5–10 short keyword tags derived ONLY from explicit JD text (stack, domain, constraints).",
-    "- Do NOT invent tools/tech. Do NOT add synonyms unless the JD uses them (e.g., don't add 'Kubernetes' if only 'Docker' is mentioned).",
+    "jdSummary rules:",
+    "- 2–4 sentences in your own words. Cover (if present): responsibilities, key stack/tools, must-have requirements, location/work arrangement.",
+    "- Do NOT copy sentences verbatim from the JD.",
     "",
-    "warnings:",
+    "notes rules:",
+    "- 5–10 short bullet strings.",
+    "- Include responsibilities, stack/tools, requirements, and constraints if present.",
+    "- Include 'Job ID: <id>' if present.",
+    "- Avoid repeating jdSummary.",
+    "",
+    "tagsText rules (fix rendering):",
+    "- tagsText must be a SINGLE STRING of 5–10 tags separated ONLY by comma+space: ', '.",
+    "- NEVER use semicolons. NEVER use newline separators.",
+    "- No duplicates. No trailing comma.",
+    "- Only include tools/terms explicitly present in the JD text (do NOT invent).",
+    "",
+    "warnings rules:",
     "- warnings must be an array of strings.",
     "- Return [] unless:",
-    "  (a) critical info needed for the schema is missing/unclear (e.g., location exists but is ambiguous), OR",
-    "  (b) the JD states an explicit constraint/disqualifier (no visa sponsorship, citizenship/clearance required, location eligibility constraints, must be enrolled, graduation window, etc.).",
-    "- If an explicit constraint/disqualifier is present, add a warning string like 'No visa sponsorship' or 'Requires security clearance'.",
-    "",
-    "Consistency rules:",
-    "- Do not duplicate the same information across jdSummary, notes, and warnings.",
-    "- Do not add workMode words into location or locationDetails.",
-    "- If something is unclear, omit the field and (optionally) add a warning describing what's unclear.",
+    "  (a) critical info is missing/unclear (e.g., location ambiguous or only internal site code), OR",
+    "  (b) explicit constraints/disqualifiers exist (no visa, clearance, citizenship, location eligibility, enrollment, graduation window).",
   ].join("\n");
 }
+
 
 
 /**
