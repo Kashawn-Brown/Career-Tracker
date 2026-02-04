@@ -418,12 +418,12 @@ export default function ApplicationsPage() {
     return "this application";
   }
 
-  function addFitNotice(applicationId: string) {
+  function addFitNotice(applicationId: string, labelOverride?: string) {
     // Avoid stacking duplicates for the same application at the same time.
     setFitNotices((prev) => {
       if (prev.some((n) => n.applicationId === applicationId)) return prev;
 
-      const label = getApplicationLabel(applicationId);
+      const label = labelOverride?.trim() || getApplicationLabel(applicationId);
       return [
         {
           id: `${applicationId}-${Date.now()}`,
@@ -564,16 +564,21 @@ export default function ApplicationsPage() {
                   />
                 ) : (
                   <CreateApplicationFromJdForm
-                  onCreated={async (args) => {
-                    setPage(1);
-                    refreshList();
+                    onCreated={async (args) => {
+                      setPage(1);
+                      refreshList();
+
+                      // If FIT completed during the create flow, show a global completion notice.
+                      if (args?.applicationId && args.openFitReport) {
+                        addFitNotice(args.applicationId, args.label);
+                      }
                 
-                    if (args?.applicationId && args.openDrawer) {
-                      await openDrawerForApplication(args.applicationId, {
-                        autoOpenFit: !!args.openFitReport,
-                      });
-                    }
-                  }}
+                      // if (args?.applicationId && args.openDrawer) {
+                      //   await openDrawerForApplication(args.applicationId, {
+                      //     autoOpenFit: !!args.openFitReport,
+                      //   });
+                      // }
+                    }}
                   />
                 )}
               </CardContent>
