@@ -187,13 +187,17 @@ describe("Applications > AI artifacts > FIT_V1", () => {
 
     // Mock AI FIT response.
     vi.mocked(AiService.buildFitV1).mockResolvedValue({
-      score: 87,
-      confidence: "high",
-      strengths: ["Node.js APIs", "PostgreSQL"],
-      gaps: ["AWS depth"],
-      keywordGaps: ["Lambda", "SQS"],
-      recommendedEdits: ["Add AWS project bullet"],
-      questionsToAsk: ["What is the on-call expectation?"],
+      payload: {
+        score: 87,
+        confidence: "high",
+        strengths: ["Node.js APIs", "PostgreSQL"],
+        gaps: ["AWS depth"],
+        keywordGaps: ["Lambda", "SQS"],
+        recommendedEdits: ["Add AWS project bullet"],
+        questionsToAsk: ["What is the on-call expectation?"],
+      },
+      model: "gpt-5-mini",
+      tier: "regular",
     });
 
     // Call FIT_V1 route with the Bearer token
@@ -218,7 +222,8 @@ describe("Applications > AI artifacts > FIT_V1", () => {
     expect(vi.mocked(DocumentsService.getCandidateTextOrThrow)).toHaveBeenCalledTimes(1);
     expect(vi.mocked(AiService.buildFitV1)).toHaveBeenCalledTimes(1);
 
-    const [calledJd, calledCandidate] = vi.mocked(AiService.buildFitV1).mock.calls[0];
+    const [calledJd, calledCandidate, calledOpts] = vi.mocked(AiService.buildFitV1).mock.calls[0];
+    expect(calledOpts).toMatchObject({ tier: expect.any(String) });
     expect(calledJd).toBe(jdText);
     expect(typeof calledCandidate).toBe("string");
     expect(calledCandidate).toContain("Candidate history");
@@ -269,13 +274,17 @@ describe("Applications > AI artifacts > FIT_V1", () => {
 
     // Mock AI FIT response.
     vi.mocked(AiService.buildFitV1).mockResolvedValue({
-      score: 55,
-      confidence: "medium",
-      strengths: ["One"],
-      gaps: ["Two"],
-      keywordGaps: [],
-      recommendedEdits: [],
-      questionsToAsk: [],
+      payload: {
+        score: 55,
+        confidence: "medium",
+        strengths: ["One"],
+        gaps: ["Two"],
+        keywordGaps: [],
+        recommendedEdits: [],
+        questionsToAsk: [],
+      },
+      model: "gpt-5-mini",
+      tier: "regular",
     });
 
     // Call FIT_V1 route with the Bearer token
