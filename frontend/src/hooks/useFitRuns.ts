@@ -48,7 +48,11 @@ export type FitRunsController = {
   runsByAppId: Record<string, FitRunState>;
   getRun: (applicationId: string) => FitRunState | null;
   startFitRun: (args: StartFitRunArgs) => Promise<AiArtifact<FitV1Payload> | null>;
+
+  // Clears a run entry (useful for dismissing background errors).
+  clearRun: (applicationId: string) => void;
 };
+
 
 export function useFitRuns(): FitRunsController {
   const [runsByAppId, setRunsByAppId] = useState<Record<string, FitRunState>>({});
@@ -57,6 +61,16 @@ export function useFitRuns(): FitRunsController {
     (applicationId: string) => runsByAppId[applicationId] ?? null,
     [runsByAppId]
   );
+
+  const clearRun = useCallback((applicationId: string) => {
+    setRunsByAppId((prev) => {
+      if (!prev[applicationId]) return prev;
+
+      const { [applicationId]: _removed, ...rest } = prev;
+      return rest;
+    });
+  }, []);
+
 
   const startFitRun = useCallback(
     async (args: StartFitRunArgs) => {
@@ -185,5 +199,6 @@ export function useFitRuns(): FitRunsController {
     runsByAppId,
     getRun,
     startFitRun,
+    clearRun,
   };
 }

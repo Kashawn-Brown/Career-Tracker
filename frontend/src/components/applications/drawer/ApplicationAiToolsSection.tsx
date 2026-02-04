@@ -107,6 +107,11 @@ export function ApplicationAiToolsSection({
   const run = fitRuns.getRun(application.id);
   const isRunning = run?.status === "running";
 
+  // Prefer local errors, but fall back to background-run errors if the drawer was closed.
+  const displayedError =
+    errorMessage ?? (run?.status === "error" ? run.errorMessage ?? null : null);
+
+
   // Avoid setting state after drawer closes / component unmounts
   const mountedRef = useRef(true);
   useEffect(() => {
@@ -263,12 +268,19 @@ export function ApplicationAiToolsSection({
   return (
     <Card className="p-4 space-y-3">
       {/* Error message */}
-      {errorMessage ? (
+      {displayedError ? (
         <div className="relative rounded-md border px-3 py-2 pr-10 text-sm text-destructive">
-          {errorMessage}
+          {displayedError}
           <button
             type="button"
-            onClick={() => setErrorMessage(null)}
+            onClick={() => {
+              setErrorMessage(null);
+
+              // If this error came from a background run, clear it so the UI isn't stuck.
+              if (run?.status === "error") {
+                fitRuns.clearRun(application.id);
+              }
+            }}
             className="absolute right-2 top-1 rounded-md px-2 py-1 opacity-70 hover:bg-black/5 hover:opacity-100"
             aria-label="Dismiss message"
             title="Dismiss"
@@ -277,6 +289,7 @@ export function ApplicationAiToolsSection({
           </button>
         </div>
       ) : null}
+
 
       {/* Pro access banner */}
       <ProAccessBanner
