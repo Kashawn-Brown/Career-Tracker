@@ -338,7 +338,7 @@ export function ApplicationAiToolsSection({
           </div>
 
           {/* Steps list (same icon language as CreateApplicationFromJdForm) */}
-          {steps.length ? (
+          {steps.length > 1 ? (
             <div className="mt-4 space-y-2 text-sm">
               {steps.map((s, idx) => {
                 const isDone = idx < activeIndex;
@@ -362,10 +362,6 @@ export function ApplicationAiToolsSection({
               })}
             </div>
           ) : null}
-
-          <div className="mt-4 text-xs text-muted-foreground">
-            You can close this drawer — generation will continue in the background.
-          </div>
         </div>
       ) : (
         <>
