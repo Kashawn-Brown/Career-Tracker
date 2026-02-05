@@ -11,6 +11,7 @@ import * as DocumentsService from "../documents/documents.service.js";
 import * as AiService from "../ai/ai.service.js";
 import { DocumentKind } from "@prisma/client";
 import { resolveAiTierForUser } from "../ai/ai-tier.js";
+import { createAbortControllerFromRawRequest, isAbortError, throwIfAborted } from "../../lib/request-abort.js";
 
 
 export async function applicationsRoutes(app: FastifyInstance) {
@@ -269,71 +270,80 @@ export async function applicationsRoutes(app: FastifyInstance) {
       },
     },
     async (req, reply) => {
-      const userId = req.user!.id;
-      const { id } = req.params as ApplicationIdParamsType;
-      const { kind, sourceDocumentId = undefined } = req.body as GenerateAiArtifactBodyType;
-
-      // Ensure app exists and belongs to user (also gives us description)
-      const application = await ApplicationsService.getApplicationById(userId, id);
-
-      // Check if the kind is supported.
-      if (kind === "JD_EXTRACT_V1") {
-        
-        // Check if the application has a job description.
-        if (!application.description || application.description.trim().length === 0) {
-          throw new AppError("Application is missing a job description.", 400);
+      const controller = createAbortControllerFromRawRequest(req.raw);
+      const { signal } = controller;
+    
+      try {
+        const userId = req.user!.id;
+        const { id } = req.params as ApplicationIdParamsType;
+        const { kind, sourceDocumentId = undefined } = req.body as GenerateAiArtifactBodyType;
+    
+        const application = await ApplicationsService.getApplicationById(userId, id);
+    
+        if (kind === "JD_EXTRACT_V1") {
+          if (!application.description || application.description.trim().length === 0) {
+            throw new AppError("Application is missing a job description.", 400);
+          }
+    
+          const payload = await AiService.buildApplicationDraftFromJd(application.description, { signal });
+    
+          // If the client cancelled while OpenAI was running, do NOT persist/consume quota.
+          throwIfAborted(signal);
+    
+          const artifact = await ApplicationsService.createAiArtifact({
+            userId,
+            jobApplicationId: id,
+            kind,
+            payload,
+            model: getJdExtractOpenAIModel(),
+          });
+    
+          return reply.status(201).send(artifact);
         }
-
-        // Generate the AI artifact.
-        const payload = await AiService.buildApplicationDraftFromJd(application.description);
-
-        // Create the AI artifact.
-        const artifact = await ApplicationsService.createAiArtifact({
-          userId,
-          jobApplicationId: id,
-          kind,
-          payload,
-          model: getJdExtractOpenAIModel(),
-        });
-
-        // Return the AI artifact.
-        return reply.status(201).send(artifact);
-      }
-
-      if (kind === "FIT_V1") {
-        
-        // Needs canonical JD text
-        if (!application.description || application.description.trim().length === 0) {
-          throw new AppError("Application is missing a job description.", 400);
+    
+        if (kind === "FIT_V1") {
+          if (!application.description || application.description.trim().length === 0) {
+            throw new AppError("Application is missing a job description.", 400);
+          }
+    
+          const candidate = await DocumentsService.getCandidateTextOrThrow({
+            userId,
+            jobApplicationId: id,
+            sourceDocumentId,
+          });
+    
+          const tier = await resolveAiTierForUser(userId);
+    
+          const { payload, model } = await AiService.buildFitV1(
+            application.description,
+            candidate.text,
+            { tier, signal }
+          );
+    
+          // If the client cancelled, don't write artifact or consume quota.
+          throwIfAborted(signal);
+    
+          const artifact = await ApplicationsService.createAiArtifact({
+            userId,
+            jobApplicationId: id,
+            kind,
+            payload,
+            model,
+            sourceDocumentId: candidate.documentIdUsed,
+          });
+    
+          return reply.status(201).send(artifact);
         }
-
-        // Resolve candidate-history text (Base Resume by default, override allowed)
-        const candidate = await DocumentsService.getCandidateTextOrThrow({
-          userId,
-          jobApplicationId: id,
-          sourceDocumentId,
-        });
-
-        const tier = await resolveAiTierForUser(userId);
-
-        // Generate FIT payload using tiered policy
-        const { payload, model } = await AiService.buildFitV1(application.description, candidate.text, { tier });
-
-        // Create the AI artifact (record which doc was used)
-        const artifact = await ApplicationsService.createAiArtifact({
-          userId,
-          jobApplicationId: id,
-          kind,
-          payload,
-          model, 
-          sourceDocumentId: candidate.documentIdUsed,
-        });
-
-        return reply.status(201).send(artifact);
+    
+        throw new AppError(`Unsupported AI artifact kind: ${kind}`, 400);
+    
+      } catch (err) {
+        // Cancellation is expected: don't log as failure, don't try to reply.
+        if (signal.aborted || isAbortError(err)) return;
+    
+        throw err;
       }
-
-      throw new AppError(`Unsupported AI artifact kind: ${kind}`, 400);
-    }
+    }    
   );
 
   /**

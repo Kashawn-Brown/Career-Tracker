@@ -3,6 +3,7 @@ import { getOpenAIClient, getJdExtractOpenAIModel } from "./openai.js";
 import { ApplicationFromJdJsonObject, normalizeApplicationFromJdResponse, FitV1JsonObject, normalizeFitV1Response, getFitPolicyForTier, FitV1RunResult } from "./ai.dto.js";
 import type { ApplicationFromJdResponse, FitV1Response } from "./ai.dto.js";
 import { AiTier } from "./ai-tier.js";
+import { throwIfAborted } from "../../lib/request-abort.js";
 
 
 // Output bounds (cost-control later)
@@ -20,7 +21,17 @@ const FIT_MAX_OUTPUT_TOKENS = 10000;
 /**
  * JD_EXTRACT_V1: Turns pasted JD text into an application draft response.
  */
-export async function buildApplicationDraftFromJd(jdText: string): Promise<ApplicationFromJdResponse> {
+export async function buildApplicationDraftFromJd(
+  jdText: string,
+  opts?: { signal?: AbortSignal}
+): Promise<ApplicationFromJdResponse> {
+
+  const jd = (jdText ?? "").trim();
+
+  // Validate inputs
+  if (!jd) throw new AppError("Job description is missing.", 400, "JOB_DESCRIPTION_MISSING");
+
+  throwIfAborted(opts?.signal);
   
   // Get the OpenAI client and model.
   const openai = getOpenAIClient();
@@ -28,28 +39,30 @@ export async function buildApplicationDraftFromJd(jdText: string): Promise<Appli
   
     
   // Make the OpenAI request.
-  const resp = await openai.responses.create({
-    model,
-    input: [
-      { role: "system", content: buildExtractJdSystemPrompt() }, // The system prompt.
-      { role: "user", content: jdText }, // The pasted JD text.
-    ],
-    text: {
-      format: {
-        type: "json_schema",
-        name: "application_from_jd_v1",
-        strict: true,
-        schema: ApplicationFromJdJsonObject,
+  const resp = await openai.responses.create(
+    {
+      model,
+      input: [
+        { role: "system", content: buildExtractJdSystemPrompt() },
+        { role: "user", content: jd },
+      ],
+      text: {
+        format: {
+          type: "json_schema",
+          name: "application_from_jd_v1",
+          strict: true,
+          schema: ApplicationFromJdJsonObject,
+        },
       },
+      max_output_tokens: JD_EXTRACT_MAX_OUTPUT_TOKENS,
     },
-    // Guardrail: keep output bounded (cost + response size)
-    max_output_tokens: JD_EXTRACT_MAX_OUTPUT_TOKENS,
-  });
+    { signal: opts?.signal }
+  );  
 
   // Parse the output text into a JSON object
   const parsed = parseJsonSchemaOutputOrThrow<ApplicationFromJdResponse>(resp, {
     tag: "jd_extract_v1",
-    meta: { jdLen: jdText.length },
+    meta: { jdLen: jd.length },
   });
 
   // Return the normalized response
@@ -61,7 +74,11 @@ export async function buildApplicationDraftFromJd(jdText: string): Promise<Appli
 /**
  *  FIT_V1: Generates a fit of compatibility between the candidate and the job description using the canonical JD text + extracted candidate-history text.
  */
-export async function buildFitV1(jdText: string, candidateText: string, opts?: { tier?: AiTier }): Promise<FitV1RunResult> {
+export async function buildFitV1(
+  jdText: string, 
+  candidateText: string, 
+  opts?: { tier?: AiTier; signal?: AbortSignal}
+): Promise<FitV1RunResult> {
   const jd = (jdText ?? "").trim();
   const candidate = (candidateText ?? "").trim();
 
@@ -72,32 +89,34 @@ export async function buildFitV1(jdText: string, candidateText: string, opts?: {
   const tier: AiTier = opts?.tier ?? "regular";
   const policy = getFitPolicyForTier(tier);
 
+  throwIfAborted(opts?.signal);
+
 
   // Get the OpenAI client and model.
   const openai = getOpenAIClient();
 
   // Make the OpenAI request for the fit evaluation.
-  const resp = await openai.responses.create({
-    model: policy.model,
-    input: [
-      { role: "system", content: buildFitSystemPrompt() },
-      { role: "user", content: buildFitUserPrompt(jd, candidate) },
-    ],
-    text: {
-      verbosity: policy.verbosity,
-      format: {
-        type: "json_schema",
-        name: "fit_v1",
-        strict: true,
-        schema: FitV1JsonObject,
+  const resp = await openai.responses.create(
+    {
+      model: policy.model,
+      input: [
+        { role: "system", content: buildFitSystemPrompt() },
+        { role: "user", content: buildFitUserPrompt(jd, candidate) },
+      ],
+      text: {
+        verbosity: policy.verbosity,
+        format: {
+          type: "json_schema",
+          name: "fit_v1",
+          strict: true,
+          schema: FitV1JsonObject,
+        },
       },
+      reasoning: { effort: policy.effort },        // Controls how much the model "thinks"
+      max_output_tokens: policy.maxOutputTokens,   // Keep output bounded
     },
-    // Controls how much the model "thinks"
-    reasoning: { effort: policy.effort },
-
-    // Keep output bounded
-    max_output_tokens: policy.maxOutputTokens,
-  });
+    { signal: opts?.signal }
+  );
 
 
   // Parse the output text into a JSON object
