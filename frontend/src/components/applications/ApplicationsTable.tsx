@@ -213,7 +213,7 @@ export function ApplicationsTable({
                         return <td key={col.id} className="p-3 min-w-[150px]">{application.location ?? "—"}</td>;
 
                       case "jobType":
-                        return <td key={col.id} className="p-3 text-muted-foreground min-w-[150px]">{jobTypeLabel(application.jobType)}</td>;
+                        return <td key={col.id} className="p-3 text-muted-foreground min-w-[140px]">{jobTypeLabel(application.jobType)}</td>;
 
                       case "workMode":
                         return <td key={col.id} className="p-3 text-muted-foreground min-w-[150px]">{workModeLabel(application.workMode)}</td>;
