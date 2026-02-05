@@ -188,7 +188,7 @@ export function ApplicationDocumentsSection({
 
 
   return (
-    <div className="space-y-4">
+    <div className={`space-y-4${isEditing ? " border rounded-md p-2" : ""}`}>
       {/* Error message */}
       {errorMessage ? (
         <div className="relative rounded-md border px-3 py-2 pr-10 text-sm text-destructive">
@@ -241,49 +241,45 @@ export function ApplicationDocumentsSection({
 
                 {/* Document Actions */}
                 <div className="flex items-center gap-1">
-                  {!isEditing ? (
-                    <>
-                      {doc.mimeType === "application/pdf" ? (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onPreviewRequested?.(doc);
-                          }}
-                          title="Preview"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      ) : null}
-                    
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDownload(doc);
-                        }}
-                        title="Download"
-                      >
-                        <Download className="h-4 w-4" />
-                      </Button>
-                    </>
-                  ): 
-                    <>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDelete(doc);
-                        }}
-                        title="Delete"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </>
-                  }
+                  {doc.mimeType === "application/pdf" ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onPreviewRequested?.(doc);
+                      }}
+                      title="Preview"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  ) : null}
+
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDownload(doc);
+                    }}
+                    title="Download"
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
+
+                  {isEditing && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete(doc);
+                      }}
+                      title="Delete"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}
@@ -293,7 +289,7 @@ export function ApplicationDocumentsSection({
 
       {/* Upload row */}
       {isEditing && (
-        <div className="rounded-md border p-3 space-y-3">
+        <div className="rounded-md border p-3 space-y-3 mt-5">
           <div className="text-sm font-medium">Upload document</div>
 
           <div className="space-y-3 grid grid-cols-1 gap-2">
