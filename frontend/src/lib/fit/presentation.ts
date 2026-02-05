@@ -15,15 +15,15 @@ export type FitBand = {
       return {
         label: "Strong fit",
         stripeClass: "border-l-green-500",
-        badgeClass: "border-green-200 bg-green-50 text-green-700",
+        badgeClass: "border-green-200 bg-green-100 text-green-700",
       };
     }
   
     if (score >= 70) {
       return {
         label: "Good fit",
-        stripeClass: "border-l-emerald-500",
-        badgeClass: "border-emerald-200 bg-emerald-50 text-emerald-700",
+        stripeClass: "border-l-lime-500",
+        badgeClass: "border-lime-200 bg-lime-50 text-lime-700",
       };
     }
   
