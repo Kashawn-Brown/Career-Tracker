@@ -16,7 +16,7 @@ export const applicationDocumentsApi = {
     },
 
     // Upload a document to an application.
-    upload(params: UploadApplicationDocumentParams): Promise<UploadApplicationDocumentResponse> {
+    upload(params: UploadApplicationDocumentParams, opts?: { signal?: AbortSignal }): Promise<UploadApplicationDocumentResponse> {
         const { applicationId, kind, file } = params;
 
         const form = new FormData();
@@ -25,6 +25,7 @@ export const applicationDocumentsApi = {
         return apiFetch<UploadApplicationDocumentResponse>(routes.applications.documents.upload(applicationId, kind), {
             method: "POST",
             body: form,
+            signal: opts?.signal,
         });
     },
     

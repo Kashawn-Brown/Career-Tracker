@@ -297,6 +297,15 @@ export function ApplicationAiToolsSection({
               <div className="mt-1 text-xs text-muted-foreground">
                 Step {Math.min(activeIndex + 1, steps.length)} of {steps.length}
               </div>
+              <div className="mt-3 flex justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => fitRuns.cancelRun(application.id)}
+                >
+                  Cancel
+                </Button>
+              </div>
             </div>
           </div>
 

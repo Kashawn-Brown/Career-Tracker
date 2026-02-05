@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { applicationDocumentsApi } from "@/lib/api/application-documents";
 import { applicationsApi } from "@/lib/api/applications";
@@ -13,7 +13,7 @@ export type FitRunStep = {
   label: string;
 };
 
-export type FitRunStatus = "idle" | "running" | "success" | "error";
+export type FitRunStatus = "idle" | "running" | "success" | "error" | "cancelled";
 
 export type FitRunState = {
   applicationId: string;
@@ -51,11 +51,15 @@ export type FitRunsController = {
 
   // Clears a run entry (useful for dismissing background errors).
   clearRun: (applicationId: string) => void;
+
+  cancelRun: (applicationId: string) => void;
 };
 
 
 export function useFitRuns(): FitRunsController {
   const [runsByAppId, setRunsByAppId] = useState<Record<string, FitRunState>>({});
+
+  const abortControllersRef = useRef<Record<string, AbortController>>({});
 
   const getRun = useCallback(
     (applicationId: string) => runsByAppId[applicationId] ?? null,
@@ -71,6 +75,31 @@ export function useFitRuns(): FitRunsController {
       return next;
     });
   }, []);
+
+
+  const cancelRun = useCallback((applicationId: string) => {
+    const controller = abortControllersRef.current[applicationId];
+    if (controller) controller.abort();
+  
+    // Mark as cancelled (if it exists + was running)
+    setRunsByAppId((prev) => {
+      const current = prev[applicationId];
+      if (!current) return prev;
+      if (current.status !== "running") return prev;
+  
+      return {
+        ...prev,
+        [applicationId]: {
+          ...current,
+          status: "cancelled",
+          errorMessage: null,
+        },
+      };
+    });
+  
+    delete abortControllersRef.current[applicationId];
+  }, []);
+  
 
 
   const startFitRun = useCallback(
@@ -94,6 +123,10 @@ export function useFitRuns(): FitRunsController {
       steps.push({ key: "RUN_COMPATIBILITY", label: "Generating compatibility report" });
 
       const runStepIndex = overrideFile ? 1 : 0;
+      
+      // Create a controller and pass signals
+      const controller = new AbortController();
+      abortControllersRef.current[applicationId] = controller;
 
       // Create the run state (this is the initial state - NOT a guarded update).
       setRunsByAppId((prev) => ({
@@ -128,11 +161,11 @@ export function useFitRuns(): FitRunsController {
         if (overrideFile) {
           safeUpdateRun((current) => ({ ...current, activeIndex: 0 }));
 
-          const uploadRes = await applicationDocumentsApi.upload({
-            applicationId,
-            kind: "CAREER_HISTORY",
-            file: overrideFile,
-          });
+          const uploadRes = await applicationDocumentsApi.upload(
+            { applicationId, kind: "CAREER_HISTORY", file: overrideFile, },
+            { signal: controller.signal }
+          
+          );
 
           const docId = Number(uploadRes.document.id);
           if (!Number.isFinite(docId)) {
@@ -149,10 +182,11 @@ export function useFitRuns(): FitRunsController {
         // Step 2: generate FIT artifact
         safeUpdateRun((current) => ({ ...current, activeIndex: runStepIndex }));
 
-        const created = await applicationsApi.generateAiArtifact(applicationId, {
-          kind: "FIT_V1",
-          sourceDocumentId,
-        });
+        const created = await applicationsApi.generateAiArtifact(
+          applicationId, 
+          { kind: "FIT_V1", sourceDocumentId, }, 
+          { signal: controller.signal }
+      );
 
         // Mark success
         safeUpdateRun((current) => ({
@@ -175,21 +209,43 @@ export function useFitRuns(): FitRunsController {
           // non-blocking
         }
 
+        delete abortControllersRef.current[applicationId];
+
         return created as AiArtifact<FitV1Payload>;
+
       } catch (err) {
+        const isAbort =
+          err instanceof DOMException
+            ? err.name === "AbortError"
+            : err instanceof Error
+              ? err.name === "AbortError" || /abort/i.test(err.message)
+              : false;
+      
+        if (isAbort) {
+          safeUpdateRun((current) => ({
+            ...current,
+            status: "cancelled",
+            errorMessage: null,
+          }));
+      
+          delete abortControllersRef.current[applicationId];
+          return null;
+        }
+      
         const message =
           err instanceof ApiError
             ? err.message
             : err instanceof Error
-            ? err.message
-            : "Failed to generate compatibility report.";
-
+              ? err.message
+              : "Failed to generate compatibility report.";
+      
         safeUpdateRun((current) => ({
           ...current,
           status: "error",
           errorMessage: message,
         }));
-
+      
+        delete abortControllersRef.current[applicationId];
         throw err;
       }
     },
@@ -201,5 +257,6 @@ export function useFitRuns(): FitRunsController {
     getRun,
     startFitRun,
     clearRun,
+    cancelRun,
   };
 }
