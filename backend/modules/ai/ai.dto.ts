@@ -138,6 +138,7 @@ function cleanString(v: unknown): string | undefined {
     "unknown",
     "null",
     "undefined",
+    "none indicated",
     "other locations: none",
     "other locations: n/a",
     "other locations: null",
@@ -167,28 +168,23 @@ function normalizeTagsText(v: unknown): string | undefined {
   const raw = cleanString(v);
   if (!raw) return undefined;
 
-  // Accept commas or semicolons, but normalize output to ", "
-  const parts = raw
-    .split(/[;,]/g)
-    .map((x) => x.trim())
-    .filter(Boolean);
+  const hasSemicolon = raw.includes(";");
 
-  const unique: string[] = [];
-  const seen = new Set<string>();
+  if (hasSemicolon) {
+    // Split on comma or semicolon, preserve original casing for each token
+    const parts = raw
+      .split(/[;,]/g)
+      .map((x) => x.trim())
+      .filter(Boolean);
 
-  for (const p of parts) {
-    const key = p.toLowerCase();
-    if (!seen.has(key)) {
-      seen.add(key);
-      unique.push(p);
-    }
+    if (!parts.length) return undefined;
+
+    return parts.join(", ");
   }
 
-  if (!unique.length) return undefined;
-
-  // Cap to keep UI stable
-  return unique.slice(0, 12).join(", ");
+  return  raw;
 }
+  
   
 /**
  * Normalize the AI response so the UI doesn't get noisy values.
