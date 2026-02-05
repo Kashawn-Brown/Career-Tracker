@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { aiApi } from "@/lib/api/ai";
 import { applicationsApi } from "@/lib/api/applications";
@@ -116,6 +116,22 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: (args?: 
   // Fit source selection (default = Base Resume)
   const [fitUseOverride, setFitUseOverride] = useState(false);
   const [fitOverrideFile, setFitOverrideFile] = useState<File | null>(null);
+
+  // Cancel support for the "Run compatibility after create" pipeline
+  const fitAbortRef = useRef<AbortController | null>(null);
+  const [isFitCancelling, setIsFitCancelling] = useState(false);
+
+  const isAbortError = (err: unknown) => {
+    if (err instanceof DOMException) return err.name === "AbortError";
+    if (err instanceof Error) return err.name === "AbortError";
+    return false;
+  };
+
+  const handleCancelFit = () => {
+    setIsFitCancelling(true);
+    fitAbortRef.current?.abort();
+  };
+  
 
 
   // Document types
@@ -541,6 +557,12 @@ async function createConnAndSelect() {
       let fitSucceeded = false;
   
       if (opts.runFit) {
+
+        // Create a controller for the create+fit pipeline run
+        const controller = new AbortController();
+        fitAbortRef.current = controller;
+        setIsFitCancelling(false);
+
         try {
           let sourceDocumentId: number | undefined = undefined;
   
@@ -548,29 +570,48 @@ async function createConnAndSelect() {
             // Go to the upload override step
             goToStep("UPLOAD_OVERRIDE", "Uploading your selected override file for this run.");
 
-            // Upload the override file
-            const uploadRes = await applicationDocumentsApi.upload({
-              applicationId: created.id,
-              kind: "CAREER_HISTORY",
-              file: stagedFitOverrideFile,
-            });
+            // Upload the override file (abortable)
+            const uploadRes = await applicationDocumentsApi.upload(
+              {
+                applicationId: created.id,
+                kind: "CAREER_HISTORY",
+                file: stagedFitOverrideFile,
+              },
+              { signal: controller.signal }
+            );
   
             sourceDocumentId = Number(uploadRes.document.id);
           }
   
           goToStep("RUN_COMPATIBILITY", "This can take a few seconds — generating your compatibility report.");
-          await applicationsApi.generateAiArtifact(created.id, {
-            kind: "FIT_V1",
-            sourceDocumentId,
-          });
+          
+          // Generate FIT (abortable)
+          await applicationsApi.generateAiArtifact(
+            created.id,
+            {
+              kind: "FIT_V1",
+              sourceDocumentId,
+            },
+            { signal: controller.signal }
+          );
 
           fitSucceeded = true;
   
           // Credits + table refresh
           void refreshMe();
           onCreated();
-        } catch {
-          fitFailed = true;
+
+        } catch (err) {
+          // If user cancelled, do NOT mark as failed
+          if (isAbortError(err)) {
+            // optional: you can set a small hint/toast later if you want,
+            // but do not show "Application created, but compatibility check failed."
+          } else {
+            fitFailed = true;
+          }
+        } finally {
+          fitAbortRef.current = null;
+          setIsFitCancelling(false);
         }
       }
 
@@ -735,6 +776,30 @@ async function createConnAndSelect() {
                   })}
                 </div>
               ) : null}
+
+              {/* Cancel (only during FIT-related steps) */}
+              {(() => {
+                const activeKey = submitProgress?.steps?.[submitProgress.activeIndex]?.key;
+
+                const canCancel =
+                  !!fitAbortRef.current &&
+                  (activeKey === "UPLOAD_OVERRIDE" || activeKey === "RUN_COMPATIBILITY");
+
+                if (!canCancel) return null;
+
+                return (
+                  <div className="mt-5 flex justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleCancelFit}
+                      disabled={isFitCancelling}
+                    >
+                      {isFitCancelling ? "Cancelling..." : "Cancel compatibility"}
+                    </Button>
+                  </div>
+                );
+              })()}
 
               {/* Hint (optional, short) */}
               {submitProgress?.hint ? (
