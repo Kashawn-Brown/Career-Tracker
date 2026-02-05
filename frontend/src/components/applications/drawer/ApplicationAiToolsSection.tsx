@@ -10,40 +10,11 @@ import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api/client";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
-import { FitReportDialog, type FitBand } from "@/components/applications/drawer/FitReportDialog";
+import { FitReportDialog} from "@/components/applications/drawer/FitReportDialog";
+import { getFitBand } from "@/lib/fit/presentation";
 import { ProAccessBanner } from "@/components/pro/ProAccessBanner";
 import { RequestProDialog } from "@/components/pro/RequestProDialog";
 import { Loader2, CheckCircle2, Circle } from "lucide-react";
-
-// Get the fit band based on the score
-function getFitBand(score: number): FitBand {
-  if (score >= 85) {
-    return {
-      label: "Strong fit",
-      stripeClass: "border-l-green-500",
-      badgeClass: "border-green-200 bg-green-50 text-green-700",
-    };
-  }
-  if (score >= 70) {
-    return {
-      label: "Good fit",
-      stripeClass: "border-l-emerald-500",
-      badgeClass: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    };
-  }
-  if (score >= 50) {
-    return {
-      label: "Mixed fit",
-      stripeClass: "border-l-amber-500",
-      badgeClass: "border-amber-200 bg-amber-50 text-amber-800",
-    };
-  }
-  return {
-    label: "Weak fit",
-    stripeClass: "border-l-red-500",
-    badgeClass: "border-red-200 bg-red-50 text-red-700",
-    };
-}
 
 // Props for the ApplicationAiToolsSection component
 type Props = {
