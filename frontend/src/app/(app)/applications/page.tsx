@@ -20,7 +20,7 @@ import { Select } from "@/components/ui/select";
 import { Alert } from "@/components/ui/alert";
 import {  Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Slider } from "@/components/ui/slider";
-
+import { Portal } from "@/components/ui/portal";
 import { ChevronDown, ChevronRight, Filter, Plus, Star, X, CheckCircle2 } from "lucide-react";
 
 
@@ -446,48 +446,50 @@ export default function ApplicationsPage() {
     
       {/* Global completion notifications */}
       {fitNotices.length ? (
-        <div className="fixed bottom-4 right-4 z-[80] w-[360px] space-y-2">
-          {fitNotices.map((n) => (
-            <div
-              key={n.id}
-              role="button"
-              tabIndex={0}
-              className="rounded-lg border bg-background p-3 shadow-lg cursor-pointer hover:bg-muted/40"
-              onClick={async () => {
-                dismissFitNotice(n.id);
-                await openDrawerForApplication(n.applicationId, { autoOpenFit: true });
-              }}
-              onKeyDown={async (e) => {
-                if (e.key !== "Enter" && e.key !== " ") return;
-                e.preventDefault();
-                dismissFitNotice(n.id);
-                await openDrawerForApplication(n.applicationId, { autoOpenFit: true });
-              }}
-            >
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="mt-0.5 h-5 w-5" />
+        <Portal>
+          <div className="fixed bottom-4 right-4 z-[9999] w-[360px] space-y-2">
+            {fitNotices.map((n) => (
+              <div
+                key={n.id}
+                role="button"
+                tabIndex={0}
+                className="pointer-events-auto rounded-lg border bg-background p-3 shadow-lg cursor-pointer hover:bg-muted/40"
+                onClick={async () => {
+                  dismissFitNotice(n.id);
+                  await openDrawerForApplication(n.applicationId, { autoOpenFit: true });
+                }}
+                onKeyDown={async (e) => {
+                  if (e.key !== "Enter" && e.key !== " ") return;
+                  e.preventDefault();
+                  dismissFitNotice(n.id);
+                  await openDrawerForApplication(n.applicationId, { autoOpenFit: true });
+                }}
+              >
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="mt-0.5 h-5 w-5" />
 
-                <div className="flex-1">
-                  <div className="text-sm font-medium">Compatibility report generated</div>
-                  <div className="text-xs text-muted-foreground">{n.label}</div>
+                  <div className="flex-1">
+                    <div className="text-sm font-medium">Compatibility report generated</div>
+                    <div className="text-xs text-muted-foreground">{n.label}</div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="rounded-md p-1 opacity-70 hover:bg-black/5 hover:opacity-100"
+                    title="Dismiss"
+                    aria-label="Dismiss"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      dismissFitNotice(n.id);
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
-
-                <button
-                  type="button"
-                  className="rounded-md p-1 opacity-70 hover:bg-black/5 hover:opacity-100"
-                  title="Dismiss"
-                  aria-label="Dismiss"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    dismissFitNotice(n.id);
-                  }}
-                >
-                  <X className="h-4 w-4" />
-                </button>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </Portal>
       ) : null}
       
       <section className="space-y-4">
