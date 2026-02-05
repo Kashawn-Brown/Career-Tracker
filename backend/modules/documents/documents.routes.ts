@@ -6,6 +6,8 @@ import * as DocumentsService from "./documents.service.js";
 import { DocumentIdParams, DocumentDownloadQuery } from "./documents.schemas.js";
 import type { DocumentIdParamsType, DocumentDownloadQueryType } from "./documents.schemas.js";
 import * as UserService from "../user/user.service.js";
+import { createAbortControllerFromRawRequest, isAbortError } from "../../lib/request-abort.js";
+
 
 export async function documentsRoutes(app: FastifyInstance) {
 
@@ -68,6 +70,12 @@ export async function documentsRoutes(app: FastifyInstance) {
    * Create/replace the base resume file for the current user.
    */
   app.post("/base-resume", { preHandler: [requireAuth, requireVerifiedEmail] }, async (req, reply) => {
+
+    const controller = createAbortControllerFromRawRequest(req.raw);
+    const { signal } = controller;
+
+    try {
+
       const userId = req.user!.id;
 
       // Get the file from the request
@@ -84,6 +92,7 @@ export async function documentsRoutes(app: FastifyInstance) {
         
         // If the file is too large, fastify-multipart sets truncated to true
         isTruncated: (data.file as any).truncated === true,
+        signal,
       });
 
       // Update the user's base resume URL in the database
@@ -92,8 +101,11 @@ export async function documentsRoutes(app: FastifyInstance) {
       });
 
       return reply.status(201).send({ baseResume: created });
+    } catch (err) {
+      if (signal.aborted || isAbortError(err)) return;
+      throw err;
     }
-  );
+  });
 
   /**
    * Delete base resume for the current user.

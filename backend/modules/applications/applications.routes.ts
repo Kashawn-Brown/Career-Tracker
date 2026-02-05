@@ -180,31 +180,41 @@ export async function applicationsRoutes(app: FastifyInstance) {
       schema: { params: ApplicationIdParams, querystring: UploadApplicationDocumentQuery },
     },
     async (req, reply) => {
-      const userId = req.user!.id;
-      const { id: applicationId } = req.params as ApplicationIdParamsType;
-      const query = req.query as UploadApplicationDocumentQueryType;
 
-      // Ensure the application exists and belongs to the user
-      await ApplicationsService.getApplicationById(userId, applicationId);
+      const controller = createAbortControllerFromRawRequest(req.raw);
+      const { signal } = controller;
 
-      const data = await req.file();
-      if (!data) {
-        throw new AppError("No file uploaded.", 400);
+      try {
+        const userId = req.user!.id;
+        const { id: applicationId } = req.params as ApplicationIdParamsType;
+        const query = req.query as UploadApplicationDocumentQueryType;
+
+        // Ensure the application exists and belongs to the user
+        await ApplicationsService.getApplicationById(userId, applicationId);
+
+        const data = await req.file();
+        if (!data) {
+          throw new AppError("No file uploaded.", 400);
+        }
+
+        const kind = (query.kind ?? "OTHER") as DocumentKind;
+
+        const created = await DocumentsService.uploadApplicationDocument({
+          userId,
+          jobApplicationId: applicationId, 
+          kind,
+          stream: data.file,
+          filename: data.filename,
+          mimeType: data.mimetype,
+          isTruncated: (data.file as any).truncated === true,
+          signal,
+        });
+
+        return reply.status(201).send({ document: created });
+      } catch (err) {
+        if (signal.aborted || isAbortError(err)) return;
+        throw err;
       }
-
-      const kind = (query.kind ?? "OTHER") as DocumentKind;
-
-      const created = await DocumentsService.uploadApplicationDocument({
-        userId,
-        jobApplicationId: applicationId, 
-        kind,
-        stream: data.file,
-        filename: data.filename,
-        mimeType: data.mimetype,
-        isTruncated: (data.file as any).truncated === true,
-      });
-
-      return reply.status(201).send({ document: created });
     }
   );
   
