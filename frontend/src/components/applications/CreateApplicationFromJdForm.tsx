@@ -34,6 +34,8 @@ import { RequestProDialog } from "@/components/pro/RequestProDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useConnectionAutocomplete } from "@/hooks/useConnectionAutocomplete";
 import { applicationDocumentsApi } from "@/lib/api/application-documents";
+import { createPortal } from "react-dom";
+
 
 // Arguments for the onCreated callback
 type OnCreatedArgs = {
@@ -669,75 +671,79 @@ async function createConnAndSelect() {
   return (
     <div className="space-y-4">
       {isSubmitting ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm px-4"
-          aria-live="polite"
-          aria-busy="true"
-        >
-          <div className="w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg">
-            <div className="flex items-start gap-3">
-              <Loader2 className="mt-1 h-5 w-5 animate-spin" />
-              <div className="flex-1">
-                <div className="text-base font-medium">
-                  {submitProgress?.steps?.[submitProgress.activeIndex]?.label ?? "Working..."}
-                </div>
-
-                {submitProgress?.steps?.length ? (
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    Step {submitProgress.activeIndex + 1} of {submitProgress.steps.length}
+        typeof document !== "undefined"
+        ? createPortal(
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm px-4"
+            aria-live="polite"
+            aria-busy="true"
+          >
+            <div className="w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg">
+              <div className="flex items-start gap-3">
+                <Loader2 className="mt-1 h-5 w-5 animate-spin" />
+                <div className="flex-1">
+                  <div className="text-base font-medium">
+                    {submitProgress?.steps?.[submitProgress.activeIndex]?.label ?? "Working..."}
                   </div>
-                ) : (
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    Please keep this tab open.
-                  </div>
-                )}
-              </div>
-            </div>
 
-            {/* Progress bar */}
-            <div className="mt-4 h-2 w-full rounded bg-muted">
-              <div
-                className="h-2 rounded bg-primary transition-all"
-                style={{
-                  width: submitProgress?.steps?.length
-                    ? `${Math.round(((submitProgress.activeIndex + 1) / submitProgress.steps.length) * 100)}%`
-                    : "30%",
-                }}
-              />
-            </div>
-
-            {/* Steps list */}
-            {submitProgress?.steps?.length ? (
-              <div className="mt-4 space-y-2 text-sm">
-                {submitProgress.steps.map((s, idx) => {
-                  const isDone = idx < submitProgress.activeIndex;
-                  const isActive = idx === submitProgress.activeIndex;
-
-                  return (
-                    <div key={s.key} className="flex items-center gap-2">
-                      {isDone ? (
-                        <CheckCircle2 className="h-4 w-4" />
-                      ) : isActive ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Circle className="h-4 w-4 opacity-60" />
-                      )}
-
-                      <span className={isActive ? "font-medium" : "text-muted-foreground"}>
-                        {s.label}
-                      </span>
+                  {submitProgress?.steps?.length ? (
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      Step {submitProgress.activeIndex + 1} of {submitProgress.steps.length}
                     </div>
-                  );
-                })}
+                  ) : (
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      Please keep this tab open.
+                    </div>
+                  )}
+                </div>
               </div>
-            ) : null}
 
-            {/* Hint (optional, short) */}
-            {submitProgress?.hint ? (
-              <div className="mt-4 text-xs text-muted-foreground">{submitProgress.hint}</div>
-            ) : null}
-          </div>
-        </div>
+              {/* Progress bar */}
+              <div className="mt-4 h-2 w-full rounded bg-muted">
+                <div
+                  className="h-2 rounded bg-primary transition-all"
+                  style={{
+                    width: submitProgress?.steps?.length
+                      ? `${Math.round(((submitProgress.activeIndex + 1) / submitProgress.steps.length) * 100)}%`
+                      : "30%",
+                  }}
+                />
+              </div>
+
+              {/* Steps list */}
+              {submitProgress?.steps?.length ? (
+                <div className="mt-4 space-y-2 text-sm">
+                  {submitProgress.steps.map((s, idx) => {
+                    const isDone = idx < submitProgress.activeIndex;
+                    const isActive = idx === submitProgress.activeIndex;
+
+                    return (
+                      <div key={s.key} className="flex items-center gap-2">
+                        {isDone ? (
+                          <CheckCircle2 className="h-4 w-4" />
+                        ) : isActive ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Circle className="h-4 w-4 opacity-60" />
+                        )}
+
+                        <span className={isActive ? "font-medium" : "text-muted-foreground"}>
+                          {s.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
+
+              {/* Hint (optional, short) */}
+              {submitProgress?.hint ? (
+                <div className="mt-4 text-xs text-muted-foreground">{submitProgress.hint}</div>
+              ) : null}
+            </div>
+          </div>,
+          document.body
+        ) :null
       ) : null}
 
       {errorMessage ? <div className="text-sm text-red-600">{errorMessage}</div> : null}
