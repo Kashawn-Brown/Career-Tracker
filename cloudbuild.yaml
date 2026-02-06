@@ -26,11 +26,9 @@ steps:
       - |
         set -euo pipefail
 
-        IMAGE="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA"
-
         # Deploy/update the migration job to use the new image
         gcloud run jobs deploy "${_MIGRATE_JOB}" \
-          --image "${_IMAGE}" \
+          --image "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA" \
           --region "${_REGION}" \
           --service-account "${_RUNTIME_SA}" \
           --add-cloudsql-instances "${_CLOUDSQL_CONNECTION_NAME}" \
