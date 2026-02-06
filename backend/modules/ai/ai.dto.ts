@@ -1,4 +1,6 @@
 import { JobType, WorkMode } from "@prisma/client";
+import { AiTier } from "./ai-tier.js";
+
 
 // ------------------- EXTRACT JOB DESCRIPTION -------------------
 
@@ -125,7 +127,25 @@ export const ApplicationFromJdJsonObject = {
 function cleanString(v: unknown): string | undefined {
   if (typeof v !== "string") return undefined;
   const trimmed = v.trim();
-  return trimmed.length ? trimmed : undefined;
+  if (!trimmed.length) return undefined;
+
+  // Never allow placeholder strings into UI
+  const lower = trimmed.toLowerCase();
+  const banned = new Set([
+    "none",
+    "n/a",
+    "na",
+    "unknown",
+    "null",
+    "undefined",
+    "none indicated",
+    "other locations: none",
+    "other locations: n/a",
+    "other locations: null",
+  ]);
+  if (banned.has(lower)) return undefined;
+
+  return trimmed;
 }
 
 // Helper function to clean an array of strings. (trim and remove empty strings)
@@ -143,6 +163,29 @@ function cleanEnum<T extends string>(v: unknown, allowed: readonly T[]): T | und
     const trimmed = v.trim() as T;
     return allowed.includes(trimmed) ? trimmed : undefined;
   }
+
+function normalizeTagsText(v: unknown): string | undefined {
+  const raw = cleanString(v);
+  if (!raw) return undefined;
+
+  const hasSemicolon = raw.includes(";");
+
+  if (hasSemicolon) {
+    // Split on comma or semicolon, preserve original casing for each token
+    const parts = raw
+      .split(/[;,]/g)
+      .map((x) => x.trim())
+      .filter(Boolean);
+
+    if (!parts.length) return undefined;
+
+    return parts.join(", ");
+  }
+
+  return  raw;
+}
+  
+  
 /**
  * Normalize the AI response so the UI doesn't get noisy values.
  * - trims strings
@@ -170,7 +213,7 @@ export function normalizeApplicationFromJdResponse(raw: ApplicationFromJdRespons
       salaryText: cleanString(extracted.salaryText),
       salaryDetails: cleanString(extracted.salaryDetails),
       jobLink: cleanString(extracted.jobLink),
-      tagsText: cleanString(extracted.tagsText),
+      tagsText: normalizeTagsText(extracted.tagsText),
 
       notes: cleanStringArray(extracted.notes, 20),
     },
@@ -230,6 +273,70 @@ export const FitV1JsonObject = {
 
 
 // ------------ FIT_V1 HELPER FUNCTIONS ------------
+
+// Output bounds (cost-control later)
+const JD_EXTRACT_MAX_OUTPUT_TOKENS = 900;
+const FIT_MAX_OUTPUT_TOKENS = 10000;
+
+
+// Tiered caps for FIT. Kept high enough to avoid truncation.
+export const FIT_MAX_OUTPUT_TOKENS_BY_TIER: Record<AiTier, number> = {
+  regular: 10000,
+  pro: 12000,
+  admin: 15000,
+};
+
+type FitVerbosity = "low" | "medium" | "high";
+type FitEffort = "low" | "medium" | "high" | "xhigh";
+
+type FitPolicy = {
+  tier: AiTier;
+  model: string;
+  verbosity: FitVerbosity;
+  effort: FitEffort;
+  maxOutputTokens: number;
+};
+
+/**
+ * Central place to decide FIT model + settings by tier.
+ * Keep these conservative and predictable for cost control.
+ */
+export function getFitPolicyForTier(tier: AiTier): FitPolicy {
+  if (tier === "admin") {
+    return {
+      tier,
+      model: "gpt-5.2",
+      verbosity: "medium",
+      effort: "high",
+      maxOutputTokens: FIT_MAX_OUTPUT_TOKENS_BY_TIER.admin,
+    };
+  }
+
+  if (tier === "pro") {
+    return {
+      tier,
+      model: "gpt-5-mini",
+      verbosity: "high",
+      effort: "medium",
+      maxOutputTokens: FIT_MAX_OUTPUT_TOKENS_BY_TIER.pro,
+    };
+  }
+
+  // regular
+  return {
+    tier: "regular",
+    model: "gpt-5-mini",
+    verbosity: "medium",
+    effort: "medium", // start low to reduce reasoning-token blowups
+    maxOutputTokens: FIT_MAX_OUTPUT_TOKENS_BY_TIER.regular,
+  };
+}
+
+export type FitV1RunResult = {
+  payload: FitV1Response;
+  model: string; // the model we actually requested
+  tier: AiTier;
+};
 
 // Helper: clamp score into 0–100 (and round)
 function clampFitScore(v: unknown): number {

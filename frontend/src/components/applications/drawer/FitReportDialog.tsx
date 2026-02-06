@@ -12,6 +12,7 @@ import {
   DialogTitle,
   DialogClose,
 } from "@/components/ui/dialog";
+import type { FitBand } from "@/lib/fit/presentation";
 
 // Selector for the application details drawer
 const DRAWER_SELECTOR = '[data-app-drawer="application-details"]';
@@ -20,13 +21,6 @@ const DRAWER_SELECTOR = '[data-app-drawer="application-details"]';
 const DOCK_PADDING_PX = 24;     // desired breathing room from edges
 const DOCK_MAX_WIDTH_PX = 960;  // cap modal width on big screens
 const DOCK_MIN_WIDTH_PX = 520;  // minimum width before overlap is allowed
-
-
-export type FitBand = {
-  label: string;
-  stripeClass: string;
-  badgeClass: string;
-};
 
 type Props = {
   open: boolean;

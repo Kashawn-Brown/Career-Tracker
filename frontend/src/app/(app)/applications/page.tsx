@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { ApiError } from "@/lib/api/client";
 import { applicationsApi } from "@/lib/api/applications";
 import type { Application, ApplicationsListResponse, UpdateApplicationRequest, ApplicationStatus, ApplicationSortBy, ApplicationSortDir, JobType, WorkMode, ListApplicationsParams } from "@/types/api";
@@ -20,7 +20,7 @@ import { Select } from "@/components/ui/select";
 import { Alert } from "@/components/ui/alert";
 import {  Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Slider } from "@/components/ui/slider";
-
+import { Portal } from "@/components/ui/portal";
 import { ChevronDown, ChevronRight, Filter, Plus, Star, X, CheckCircle2 } from "lucide-react";
 
 
@@ -201,56 +201,7 @@ export default function ApplicationsPage() {
     setQueryInput(query);
   }, [query]);
 
-  // Debounce query input to prevent excessive API calls
-  useEffect(() => {
-    const normalized = queryInput.trim();
-  
-    // If cleared, apply immediately (snappy UX)
-    if (normalized.length === 0) {
-      if (query !== "") {
-        setQuery("");
-        resetToFirstPage();
-      }
-      return;
-    }
-  
-    const handle = window.setTimeout(() => {
-      if (normalized !== query) {
-        setQuery(normalized);
-        resetToFirstPage();
-      }
-    }, DEBOUNCE_MS);
-  
-    return () => window.clearTimeout(handle);
-  }, [queryInput, query]);
 
-  // When a drawer-run FIT completes, show a global notification (unless the user is already viewing that application).
-  useEffect(() => {
-    const prev = prevFitRunStatusRef.current;
-    const current = fitRuns.runsByAppId;
-
-    for (const [applicationId, run] of Object.entries(current)) {
-      const prevStatus = prev[applicationId];
-
-      if (prevStatus !== "success" && run.status === "success") {
-        const isViewingThatApp = detailsOpen && selectedApplication?.id === applicationId;
-
-        if (!isViewingThatApp) {
-          addFitNotice(applicationId);
-        }
-
-        // Once we’ve reacted to success, clear the run entry to avoid stale state.
-        fitRuns.clearRun(applicationId);
-      }
-
-      prev[applicationId] = run.status;
-    }
-
-    // Clean up statuses for runs that no longer exist
-    for (const applicationId of Object.keys(prev)) {
-      if (!current[applicationId]) delete prev[applicationId];
-    }
-  }, [fitRuns.runsByAppId, fitRuns, detailsOpen, selectedApplication?.id]);
 
 
   // handleSaveDetails: handles the saving of the details of the application.
@@ -407,87 +358,146 @@ export default function ApplicationsPage() {
     setPage(1);
   }
 
-  function getApplicationLabel(applicationId: string) {
-    if (selectedApplication?.id === applicationId) {
-      return `${selectedApplication.position} @ ${selectedApplication.company}`;
-    }
+  const getApplicationLabel = useCallback(
+    (applicationId: string) => {
+      if (selectedApplication?.id === applicationId) {
+        return `${selectedApplication.position} @ ${selectedApplication.company}`;
+      }
+  
+      const item = data?.items?.find((a) => a.id === applicationId);
+      if (item) return `${item.position} @ ${item.company}`;
+  
+      return "this application";
+    },
+    [selectedApplication?.id, selectedApplication?.position, selectedApplication?.company, data?.items]
+  );
+  
 
-    const item = data?.items?.find((a) => a.id === applicationId);
-    if (item) return `${item.position} @ ${item.company}`;
-
-    return "this application";
-  }
-
-  function addFitNotice(applicationId: string, labelOverride?: string) {
-    // Avoid stacking duplicates for the same application at the same time.
-    setFitNotices((prev) => {
-      if (prev.some((n) => n.applicationId === applicationId)) return prev;
-
-      const label = labelOverride?.trim() || getApplicationLabel(applicationId);
-      return [
-        {
-          id: `${applicationId}-${Date.now()}`,
-          applicationId,
-          label,
-          createdAt: Date.now(),
-        },
-        ...prev,
-      ];
-    });
-  }
+  const addFitNotice = useCallback(
+    (applicationId: string, labelOverride?: string) => {
+      setFitNotices((prev) => {
+        if (prev.some((n) => n.applicationId === applicationId)) return prev;
+  
+        const label = labelOverride?.trim() || getApplicationLabel(applicationId);
+        return [
+          {
+            id: `${applicationId}-${Date.now()}`,
+            applicationId,
+            label,
+            createdAt: Date.now(),
+          },
+          ...prev,
+        ];
+      });
+    },
+    [getApplicationLabel]
+  );
+  
 
   function dismissFitNotice(noticeId: string) {
     setFitNotices((prev) => prev.filter((n) => n.id !== noticeId));
   }
 
+    // Debounce query input to prevent excessive API calls
+    useEffect(() => {
+      const normalized = queryInput.trim();
+    
+      // If cleared, apply immediately (snappy UX)
+      if (normalized.length === 0) {
+        if (query !== "") {
+          setQuery("");
+          resetToFirstPage();
+        }
+        return;
+      }
+    
+      const handle = window.setTimeout(() => {
+        if (normalized !== query) {
+          setQuery(normalized);
+          resetToFirstPage();
+        }
+      }, DEBOUNCE_MS);
+    
+      return () => window.clearTimeout(handle);
+    }, [queryInput, query]);
+  
+    // When a drawer-run FIT completes, show a global notification (unless the user is already viewing that application).
+    useEffect(() => {
+      const prev = prevFitRunStatusRef.current;
+      const current = fitRuns.runsByAppId;
+  
+      for (const [applicationId, run] of Object.entries(current)) {
+        const prevStatus = prev[applicationId];
+  
+        if (prevStatus !== "success" && run.status === "success") {
+          const isViewingThatApp = detailsOpen && selectedApplication?.id === applicationId;
+  
+          if (!isViewingThatApp) {
+            addFitNotice(applicationId);
+          }
+  
+          // Once we’ve reacted to success, clear the run entry to avoid stale state.
+          fitRuns.clearRun(applicationId);
+        }
+  
+        prev[applicationId] = run.status;
+      }
+  
+      // Clean up statuses for runs that no longer exist
+      for (const applicationId of Object.keys(prev)) {
+        if (!current[applicationId]) delete prev[applicationId];
+      }
+    }, [fitRuns.runsByAppId, fitRuns, detailsOpen, selectedApplication?.id, addFitNotice]);
 
   return (
     <div className="space-y-6">     
     
       {/* Global completion notifications */}
       {fitNotices.length ? (
-        <div className="fixed bottom-4 right-4 z-[80] w-[360px] space-y-2">
-          {fitNotices.map((n) => (
-            <div
-              key={n.id}
-              role="button"
-              tabIndex={0}
-              className="rounded-lg border bg-background p-3 shadow-lg cursor-pointer hover:bg-muted/40"
-              onClick={async () => {
-                dismissFitNotice(n.id);
-                await openDrawerForApplication(n.applicationId, { autoOpenFit: true });
-              }}
-              onKeyDown={async (e) => {
-                if (e.key !== "Enter" && e.key !== " ") return;
-                e.preventDefault();
-                dismissFitNotice(n.id);
-                await openDrawerForApplication(n.applicationId, { autoOpenFit: true });
-              }}
-            >
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="mt-0.5 h-5 w-5" />
+        <Portal>
+          <div className="fixed bottom-4 right-4 z-[9999] w-[360px] space-y-2">
+            {fitNotices.map((n) => (
+              <div
+                key={n.id}
+                role="button"
+                tabIndex={0}
+                className="pointer-events-auto rounded-lg border bg-background p-3 shadow-lg cursor-pointer hover:bg-muted/40"
+                onClick={async () => {
+                  dismissFitNotice(n.id);
+                  await openDrawerForApplication(n.applicationId, { autoOpenFit: true });
+                }}
+                onKeyDown={async (e) => {
+                  if (e.key !== "Enter" && e.key !== " ") return;
+                  e.preventDefault();
+                  dismissFitNotice(n.id);
+                  await openDrawerForApplication(n.applicationId, { autoOpenFit: true });
+                }}
+              >
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="mt-0.5 h-5 w-5" />
 
-                <div className="flex-1">
-                  <div className="text-sm font-medium">Compatibility report generated</div>
-                  <div className="text-xs text-muted-foreground">{n.label}</div>
+                  <div className="flex-1">
+                    <div className="text-sm font-medium">Compatibility report generated</div>
+                    <div className="text-xs text-muted-foreground">{n.label}</div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="rounded-md p-1 opacity-70 hover:bg-black/5 hover:opacity-100"
+                    title="Dismiss"
+                    aria-label="Dismiss"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      dismissFitNotice(n.id);
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
-
-                <button
-                  type="button"
-                  className="rounded-md p-1 opacity-70 hover:bg-black/5 hover:opacity-100"
-                  title="Dismiss"
-                  aria-label="Dismiss"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    dismissFitNotice(n.id);
-                  }}
-                >
-                  <X className="h-4 w-4" />
-                </button>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </Portal>
       ) : null}
       
       <section className="space-y-4">

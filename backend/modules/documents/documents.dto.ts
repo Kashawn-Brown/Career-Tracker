@@ -25,6 +25,7 @@ export type UploadBaseResumeArgs = {
   filename: string;
   mimeType: string;
   isTruncated?: boolean;
+  signal?: AbortSignal;
 };
 
 // Upload application document input.
@@ -36,4 +37,5 @@ export type UploadApplicationDocumentArgs = {
   filename: string;
   mimeType: string;
   isTruncated?: boolean;
+  signal?: AbortSignal;
 };

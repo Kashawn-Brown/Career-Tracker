@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { aiApi } from "@/lib/api/ai";
 import { applicationsApi } from "@/lib/api/applications";
@@ -34,6 +34,8 @@ import { RequestProDialog } from "@/components/pro/RequestProDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useConnectionAutocomplete } from "@/hooks/useConnectionAutocomplete";
 import { applicationDocumentsApi } from "@/lib/api/application-documents";
+import { createPortal } from "react-dom";
+
 
 // Arguments for the onCreated callback
 type OnCreatedArgs = {
@@ -114,6 +116,48 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: (args?: 
   // Fit source selection (default = Base Resume)
   const [fitUseOverride, setFitUseOverride] = useState(false);
   const [fitOverrideFile, setFitOverrideFile] = useState<File | null>(null);
+
+  // Cancel support for the "Run compatibility after create" pipeline
+  const fitAbortRef = useRef<AbortController | null>(null);
+  const [isFitCancelling, setIsFitCancelling] = useState(false);
+
+  // Tracks cancel intent + override doc for this submit-run (so Cancel can clean it up)
+  const fitCancelRequestedRef = useRef(false);
+  const fitUploadedOverrideDocIdRef = useRef<number | null>(null);
+
+
+  const isAbortError = (err: unknown) => {
+    if (err instanceof DOMException) return err.name === "AbortError";
+    if (err instanceof Error) return err.name === "AbortError";
+    return false;
+  };
+
+  const handleCancelFit = () => {
+    const ok = window.confirm(
+      "Cancel compatibility check?\n\n Are you sure?"
+    );
+    if (!ok) return;
+
+    fitCancelRequestedRef.current = true;
+    setIsFitCancelling(true);
+  
+    // Abort any in-flight request (upload or FIT generation)
+    fitAbortRef.current?.abort();
+  
+    // Best-effort cleanup if override upload already completed
+    const docId = fitUploadedOverrideDocIdRef.current;
+    if (docId) {
+      void (async () => {
+        try {
+          await documentsApi.deleteById(docId);
+        } catch {
+          // best-effort cleanup
+        }
+      })();
+    }
+  };
+  
+  
 
 
   // Document types
@@ -539,6 +583,16 @@ async function createConnAndSelect() {
       let fitSucceeded = false;
   
       if (opts.runFit) {
+
+        // Create a controller for the create+fit pipeline run
+        const controller = new AbortController();
+        fitAbortRef.current = controller;
+        setIsFitCancelling(false);
+
+        fitCancelRequestedRef.current = false;
+        fitUploadedOverrideDocIdRef.current = null;
+
+
         try {
           let sourceDocumentId: number | undefined = undefined;
   
@@ -546,29 +600,74 @@ async function createConnAndSelect() {
             // Go to the upload override step
             goToStep("UPLOAD_OVERRIDE", "Uploading your selected override file for this run.");
 
-            // Upload the override file
-            const uploadRes = await applicationDocumentsApi.upload({
-              applicationId: created.id,
-              kind: "CAREER_HISTORY",
-              file: stagedFitOverrideFile,
-            });
+            // Upload the override file (abortable)
+            const uploadRes = await applicationDocumentsApi.upload(
+              {
+                applicationId: created.id,
+                kind: "CAREER_HISTORY",
+                file: stagedFitOverrideFile,
+              },
+              { signal: controller.signal }
+            );
   
-            sourceDocumentId = Number(uploadRes.document.id);
+            const docId = Number(uploadRes.document.id);
+            sourceDocumentId = docId;
+            fitUploadedOverrideDocIdRef.current = docId;
+
+            // Upload finished quickly; if user already hit Cancel, cleanup and stop the FIT run.
+            if (fitCancelRequestedRef.current || controller.signal.aborted) {
+              try {
+                await documentsApi.deleteById(docId);
+              } catch {
+                // best-effort cleanup
+              }
+
+              const abortErr = new Error("Cancelled");
+              abortErr.name = "AbortError";
+              throw abortErr;
+            }
+
           }
   
           goToStep("RUN_COMPATIBILITY", "This can take a few seconds — generating your compatibility report.");
-          await applicationsApi.generateAiArtifact(created.id, {
-            kind: "FIT_V1",
-            sourceDocumentId,
-          });
+          
+          // Generate FIT (abortable)
+          await applicationsApi.generateAiArtifact(
+            created.id,
+            {
+              kind: "FIT_V1",
+              sourceDocumentId,
+            },
+            { signal: controller.signal }
+          );
 
           fitSucceeded = true;
   
           // Credits + table refresh
           void refreshMe();
           onCreated();
-        } catch {
-          fitFailed = true;
+
+        } catch (err) {
+          // If user cancelled, do NOT mark as failed
+          if (isAbortError(err)) {
+            const docId = fitUploadedOverrideDocIdRef.current;
+            if (docId) {
+              try {
+                await documentsApi.deleteById(docId);
+              } catch {
+                // best-effort cleanup
+              }
+            }
+          } else {
+            fitFailed = true;
+          }
+        } finally {
+          fitAbortRef.current = null;
+          setIsFitCancelling(false);
+
+          fitCancelRequestedRef.current = false;
+          fitUploadedOverrideDocIdRef.current = null;
+
         }
       }
 
@@ -669,75 +768,103 @@ async function createConnAndSelect() {
   return (
     <div className="space-y-4">
       {isSubmitting ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm px-4"
-          aria-live="polite"
-          aria-busy="true"
-        >
-          <div className="w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg">
-            <div className="flex items-start gap-3">
-              <Loader2 className="mt-1 h-5 w-5 animate-spin" />
-              <div className="flex-1">
-                <div className="text-base font-medium">
-                  {submitProgress?.steps?.[submitProgress.activeIndex]?.label ?? "Working..."}
-                </div>
-
-                {submitProgress?.steps?.length ? (
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    Step {submitProgress.activeIndex + 1} of {submitProgress.steps.length}
+        typeof document !== "undefined"
+        ? createPortal(
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm px-4"
+            aria-live="polite"
+            aria-busy="true"
+          >
+            <div className="w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg">
+              <div className="flex items-start gap-3">
+                <Loader2 className="mt-1 h-5 w-5 animate-spin" />
+                <div className="flex-1">
+                  <div className="text-base font-medium">
+                    {submitProgress?.steps?.[submitProgress.activeIndex]?.label ?? "Working..."}
                   </div>
-                ) : (
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    Please keep this tab open.
-                  </div>
-                )}
-              </div>
-            </div>
 
-            {/* Progress bar */}
-            <div className="mt-4 h-2 w-full rounded bg-muted">
-              <div
-                className="h-2 rounded bg-primary transition-all"
-                style={{
-                  width: submitProgress?.steps?.length
-                    ? `${Math.round(((submitProgress.activeIndex + 1) / submitProgress.steps.length) * 100)}%`
-                    : "30%",
-                }}
-              />
-            </div>
-
-            {/* Steps list */}
-            {submitProgress?.steps?.length ? (
-              <div className="mt-4 space-y-2 text-sm">
-                {submitProgress.steps.map((s, idx) => {
-                  const isDone = idx < submitProgress.activeIndex;
-                  const isActive = idx === submitProgress.activeIndex;
-
-                  return (
-                    <div key={s.key} className="flex items-center gap-2">
-                      {isDone ? (
-                        <CheckCircle2 className="h-4 w-4" />
-                      ) : isActive ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Circle className="h-4 w-4 opacity-60" />
-                      )}
-
-                      <span className={isActive ? "font-medium" : "text-muted-foreground"}>
-                        {s.label}
-                      </span>
+                  {submitProgress?.steps?.length ? (
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      Step {submitProgress.activeIndex + 1} of {submitProgress.steps.length}
                     </div>
-                  );
-                })}
+                  ) : (
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      Please keep this tab open.
+                    </div>
+                  )}
+                </div>
               </div>
-            ) : null}
 
-            {/* Hint (optional, short) */}
-            {submitProgress?.hint ? (
-              <div className="mt-4 text-xs text-muted-foreground">{submitProgress.hint}</div>
-            ) : null}
-          </div>
-        </div>
+              {/* Progress bar */}
+              <div className="mt-4 h-2 w-full rounded bg-muted">
+                <div
+                  className="h-2 rounded bg-primary transition-all"
+                  style={{
+                    width: submitProgress?.steps?.length
+                      ? `${Math.round(((submitProgress.activeIndex + 1) / submitProgress.steps.length) * 100)}%`
+                      : "30%",
+                  }}
+                />
+              </div>
+
+              {/* Steps list */}
+              {submitProgress?.steps?.length ? (
+                <div className="mt-4 space-y-2 text-sm">
+                  {submitProgress.steps.map((s, idx) => {
+                    const isDone = idx < submitProgress.activeIndex;
+                    const isActive = idx === submitProgress.activeIndex;
+
+                    return (
+                      <div key={s.key} className="flex items-center gap-2">
+                        {isDone ? (
+                          <CheckCircle2 className="h-4 w-4" />
+                        ) : isActive ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Circle className="h-4 w-4 opacity-60" />
+                        )}
+
+                        <span className={isActive ? "font-medium" : "text-muted-foreground"}>
+                          {s.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
+
+              {/* Cancel (only during FIT-related steps) */}
+              {(() => {
+                const activeKey = submitProgress?.steps?.[submitProgress.activeIndex]?.key;
+
+                const canCancel =
+                  !!fitAbortRef.current &&
+                  (activeKey === "UPLOAD_OVERRIDE" || activeKey === "RUN_COMPATIBILITY");
+
+                if (!canCancel) return null;
+
+                return (
+                  <div className="mt-5 flex justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleCancelFit}
+                      disabled={isFitCancelling}
+                    >
+                      {isFitCancelling ? "Cancelling..." : "Cancel compatibility"}
+                    </Button>
+                  </div>
+                );
+              })()}
+
+              {/* Hint (optional, short) */}
+              {submitProgress?.hint ? (
+                <div className="mt-4 text-xs text-muted-foreground">{submitProgress.hint}</div>
+              ) : null}
+            </div>
+          </div>,
+          document.body
+        ) :null
       ) : null}
 
       {errorMessage ? <div className="text-sm text-red-600">{errorMessage}</div> : null}
@@ -1118,10 +1245,10 @@ async function createConnAndSelect() {
                 <DialogDescription>
                   We’ll create the application and run a compatibility check using your Base Resume (or an override file).
                   {!aiProEnabled ? (
-                    <div className="mt-2 text-xs text-muted-foreground">
+                    <span className="block mt-2 text-xs text-muted-foreground">
                       Running compatibility uses <span className="font-medium text-foreground">1</span> AI credit.
                       You have <span className="font-medium text-foreground">{aiFreeRemaining}</span> free uses left.
-                    </div>
+                    </span>
                   ) : null}
                 </DialogDescription>
               </DialogHeader>

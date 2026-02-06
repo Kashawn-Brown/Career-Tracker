@@ -2,7 +2,7 @@ import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { getGcsConfig, getStorageClient } from "./gcs.js";
 import { AppError } from "../errors/app-error.js";
-
+import { throwIfAborted } from "./request-abort.js";
 
 /**
  * Storage helper functions for GCS.
@@ -21,6 +21,9 @@ export type UploadStreamArgs = {
    * We pass this in from the route because it’s request-parser specific.
    */
   isTruncated?: boolean;
+
+  // Optional: abort upload if the client cancels the request.
+  signal?: AbortSignal;
 };
 
 // Result type of the upload stream function
@@ -38,10 +41,14 @@ export async function uploadStreamToGcs({
   stream,
   contentType,
   isTruncated,
+  signal,
 }: UploadStreamArgs): Promise<UploadStreamResult> {
   const cfg = getGcsConfig();
   const bucket = getStorageClient().bucket(cfg.bucketName);
   const gcsFile = bucket.file(storageKey);
+
+  // If request is already cancelled, bail early.
+  throwIfAborted(signal);
 
   let bytes = 0;
   const counter = new Transform({
@@ -58,12 +65,18 @@ export async function uploadStreamToGcs({
       gcsFile.createWriteStream({
         resumable: false,
         metadata: { contentType },
-      })
+      }),
+      { signal }
     );
   } catch (err) {
-    // Best-effort cleanup so we don’t leave orphan blobs on partial upload failures
     await deleteGcsObject(storageKey);
     throw err;
+  }
+
+  // If the client cancelled right as the upload finished, treat as cancelled + cleanup.
+  if (signal?.aborted) {
+    await deleteGcsObject(storageKey);
+    throwIfAborted(signal);
   }
 
   // If multipart parser truncated the stream, delete the partial object and fail.

@@ -7,6 +7,7 @@ import type { SignedUrlDisposition } from "../../lib/storage.js";
 import { AppError } from "../../errors/app-error.js";
 import crypto from "node:crypto";
 import { extractTextFromBuffer } from "../../lib/text-extraction.js";
+import { throwIfAborted } from "../../lib/request-abort.js";
 
 /**
  * Service Layer
@@ -124,7 +125,7 @@ export async function deleteDocumentById(userId: string, documentId: string) {
  * - url is stored as null (download is via signed URL endpoint when needed).
  */
 export async function uploadBaseResume(args: UploadBaseResumeArgs) {
-  const { userId, stream, filename, mimeType, isTruncated } = args;
+  const { userId, stream, filename, mimeType, isTruncated, signal } = args;
 
   if (!isAllowedMimeType(mimeType)) {
     throw new AppError(`Unsupported file type: ${mimeType}`, 400);
@@ -138,6 +139,7 @@ export async function uploadBaseResume(args: UploadBaseResumeArgs) {
     stream,
     contentType: mimeType,
     isTruncated,
+    signal,
   });
 
   // Fetch the old key (if any) to delete after the DB commit
@@ -145,6 +147,11 @@ export async function uploadBaseResume(args: UploadBaseResumeArgs) {
     where: { userId, kind: DocumentKind.BASE_RESUME },
     select: { id: true, storageKey: true },
   });
+
+  if (signal?.aborted) {
+    await deleteGcsObject(newKey);
+    throwIfAborted(signal);
+  }  
 
   try {
     // Replace behavior: only one base resume per user
@@ -237,7 +244,7 @@ const MAX_DOCS_PER_APPLICATION = 25;
  * 4) if DB fails -> delete uploaded object (compensation)
  */
 export async function uploadApplicationDocument(args: UploadApplicationDocumentArgs) {
-  const { userId, jobApplicationId, kind, stream, filename, mimeType, isTruncated } = args;
+  const { userId, jobApplicationId, kind, stream, filename, mimeType, isTruncated, signal } = args;
 
   // Just a sanity check to prevent BASE_RESUME from being uploaded to an application
   if (kind === DocumentKind.BASE_RESUME) {
@@ -262,7 +269,13 @@ export async function uploadApplicationDocument(args: UploadApplicationDocumentA
     stream,
     contentType: mimeType,
     isTruncated,
+    signal,
   });
+
+  if (signal?.aborted) {
+    await deleteGcsObject(storageKey);
+    throwIfAborted(signal);
+  }  
 
   try {
     
