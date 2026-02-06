@@ -66,7 +66,7 @@ export async function listConnections(params: ListConnectionsParams) {
     ];
   }
 
-  if (params.name) where.name = { startsWith: params.name, mode: "insensitive" };
+  if (params.name?.trim()) where.name = { contains: params.name.trim(), mode: "insensitive" };
   if (params.company) where.company = { startsWith: params.company, mode: "insensitive" };
   if (params.relationship) where.relationship = { startsWith: params.relationship, mode: "insensitive" };
 
