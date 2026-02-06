@@ -1079,6 +1079,7 @@ export function ApplicationDetailsDrawer({
                 open={open}
                 isEditing={isEditing}
                 onConnectionsChanged={onConnectionsChanged}
+                closeDocPreview={clearPreview}
               />
             </Section>
 
