@@ -497,7 +497,7 @@ export function ApplicationAiToolsSection({
                 </div>
                 <div className="flex items-center justify-between">
                   <span>Base Resume</span>
-                  <span className={baseResumeExists ? "text-foreground" : "text-muted-foreground"}>
+                  <span className={baseResumeExists ? "text-foreground" : "text-destructive"}>
                     {baseResumeExists ? "Saved" : "Not uploaded"}
                   </span>
                 </div>

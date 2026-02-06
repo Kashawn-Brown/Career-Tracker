@@ -121,6 +121,11 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: (args?: 
   const fitAbortRef = useRef<AbortController | null>(null);
   const [isFitCancelling, setIsFitCancelling] = useState(false);
 
+  // Tracks cancel intent + override doc for this submit-run (so Cancel can clean it up)
+  const fitCancelRequestedRef = useRef(false);
+  const fitUploadedOverrideDocIdRef = useRef<number | null>(null);
+
+
   const isAbortError = (err: unknown) => {
     if (err instanceof DOMException) return err.name === "AbortError";
     if (err instanceof Error) return err.name === "AbortError";
@@ -132,9 +137,24 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: (args?: 
       "Cancel compatibility check?\n\n Are you sure?"
     );
     if (!ok) return;
-  
+
+    fitCancelRequestedRef.current = true;
     setIsFitCancelling(true);
+  
+    // Abort any in-flight request (upload or FIT generation)
     fitAbortRef.current?.abort();
+  
+    // Best-effort cleanup if override upload already completed
+    const docId = fitUploadedOverrideDocIdRef.current;
+    if (docId) {
+      void (async () => {
+        try {
+          await documentsApi.deleteById(docId);
+        } catch {
+          // best-effort cleanup
+        }
+      })();
+    }
   };
   
   
@@ -569,6 +589,10 @@ async function createConnAndSelect() {
         fitAbortRef.current = controller;
         setIsFitCancelling(false);
 
+        fitCancelRequestedRef.current = false;
+        fitUploadedOverrideDocIdRef.current = null;
+
+
         try {
           let sourceDocumentId: number | undefined = undefined;
   
@@ -586,7 +610,23 @@ async function createConnAndSelect() {
               { signal: controller.signal }
             );
   
-            sourceDocumentId = Number(uploadRes.document.id);
+            const docId = Number(uploadRes.document.id);
+            sourceDocumentId = docId;
+            fitUploadedOverrideDocIdRef.current = docId;
+
+            // Upload finished quickly; if user already hit Cancel, cleanup and stop the FIT run.
+            if (fitCancelRequestedRef.current || controller.signal.aborted) {
+              try {
+                await documentsApi.deleteById(docId);
+              } catch {
+                // best-effort cleanup
+              }
+
+              const abortErr = new Error("Cancelled");
+              abortErr.name = "AbortError";
+              throw abortErr;
+            }
+
           }
   
           goToStep("RUN_COMPATIBILITY", "This can take a few seconds — generating your compatibility report.");
@@ -610,14 +650,24 @@ async function createConnAndSelect() {
         } catch (err) {
           // If user cancelled, do NOT mark as failed
           if (isAbortError(err)) {
-            // optional: you can set a small hint/toast later if you want,
-            // but do not show "Application created, but compatibility check failed."
+            const docId = fitUploadedOverrideDocIdRef.current;
+            if (docId) {
+              try {
+                await documentsApi.deleteById(docId);
+              } catch {
+                // best-effort cleanup
+              }
+            }
           } else {
             fitFailed = true;
           }
         } finally {
           fitAbortRef.current = null;
           setIsFitCancelling(false);
+
+          fitCancelRequestedRef.current = false;
+          fitUploadedOverrideDocIdRef.current = null;
+
         }
       }
 
