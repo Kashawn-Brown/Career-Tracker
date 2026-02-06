@@ -62,6 +62,13 @@ export function useFitRuns(): FitRunsController {
 
   const abortControllersRef = useRef<Record<string, AbortController>>({});
 
+  // Tracks the override doc uploaded for the current run (so Cancel can clean it up).
+  const uploadedOverrideDocIdRef = useRef<Record<string, number>>({});
+
+  // Keeps the latest onDocumentsChanged callback for an in-flight run (so cancel can refresh UI).
+  const onDocumentsChangedRef = useRef<Record<string, ((applicationId: string) => void) | undefined>>({});
+
+
   const getRun = useCallback(
     (applicationId: string) => runsByAppId[applicationId] ?? null,
     [runsByAppId]
@@ -76,6 +83,25 @@ export function useFitRuns(): FitRunsController {
       return next;
     });
   }, []);
+
+
+  async function cleanupOverrideDoc(applicationId: string) {
+    const docId = uploadedOverrideDocIdRef.current[applicationId];
+    if (!docId) return;
+  
+    // Prevent double-delete attempts (cancelRun + catch)
+    delete uploadedOverrideDocIdRef.current[applicationId];
+  
+    try {
+      await documentsApi.deleteById(docId);
+  
+      // Refresh docs list if the caller provided a refresh hook
+      onDocumentsChangedRef.current[applicationId]?.(applicationId);
+    } catch (err) {
+      // Best-effort cleanup; don't block cancellation UX.
+      console.warn("Failed to cleanup override doc after cancel:", err);
+    }
+  }  
 
 
   const cancelRun = useCallback((applicationId: string) => {
@@ -99,6 +125,9 @@ export function useFitRuns(): FitRunsController {
     });
   
     delete abortControllersRef.current[applicationId];
+
+    // Best-effort cleanup if override file was uploaded for this run.
+    void cleanupOverrideDoc(applicationId);
   }, []);
   
 
@@ -112,6 +141,8 @@ export function useFitRuns(): FitRunsController {
         onApplicationChanged,
         onRefreshMe,
       } = args;
+
+      onDocumentsChangedRef.current[applicationId] = onDocumentsChanged;
 
       // Prevent double-start for the same application.
       const existing = runsByAppId[applicationId];
@@ -157,7 +188,6 @@ export function useFitRuns(): FitRunsController {
       
       
       let sourceDocumentId: number | undefined = undefined;
-      let uploadedOverrideDocId: number | undefined = undefined; // cleanup if cancelled after upload
 
       try {
         // Step 1 (optional): upload override
@@ -171,7 +201,7 @@ export function useFitRuns(): FitRunsController {
           );
 
           const docId = Number(uploadRes.document.id);
-          uploadedOverrideDocId = docId;
+          uploadedOverrideDocIdRef.current[applicationId] = docId;
   
           if (!Number.isFinite(docId)) {
             throw new Error("Override upload returned an invalid document id.");
@@ -216,6 +246,10 @@ export function useFitRuns(): FitRunsController {
 
         delete abortControllersRef.current[applicationId];
 
+        delete onDocumentsChangedRef.current[applicationId];
+        delete uploadedOverrideDocIdRef.current[applicationId]; // only clears tracking, does NOT delete the doc
+
+
         return created as AiArtifact<FitV1Payload>;
 
       } catch (err) {
@@ -235,16 +269,7 @@ export function useFitRuns(): FitRunsController {
       
           delete abortControllersRef.current[applicationId];
 
-          // If we uploaded an override doc for THIS run and then cancelled, remove it (best-effort).
-          if (uploadedOverrideDocId) {
-            try {
-              await documentsApi.deleteById(uploadedOverrideDocId);
-              onDocumentsChanged?.(applicationId);
-            } catch {
-              // best-effort cleanup (don’t block cancellation UX)
-            }
-          }
-
+          await cleanupOverrideDoc(applicationId);
 
           return null;
         }
@@ -263,6 +288,10 @@ export function useFitRuns(): FitRunsController {
         }));
       
         delete abortControllersRef.current[applicationId];
+        
+        delete onDocumentsChangedRef.current[applicationId];
+        delete uploadedOverrideDocIdRef.current[applicationId];
+
         throw err;
       }
     },
