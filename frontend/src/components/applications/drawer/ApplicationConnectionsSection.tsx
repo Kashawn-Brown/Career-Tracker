@@ -128,11 +128,14 @@ export function ApplicationConnectionsSection({
   open,
   isEditing,
   onConnectionsChanged,
+  closeDocPreview
 }: {
   applicationId: string;
   open: boolean;
   isEditing: boolean;
   onConnectionsChanged?: (applicationId: string) => void;
+  closeDocPreview?: () => void;
+
 }) {
   // State for the connections attached to the application.
   const [connections, setConnections] = useState<ApplicationConnection[]>([]);
@@ -199,10 +202,22 @@ export function ApplicationConnectionsSection({
   
     refresh();
   }, [open, applicationId, refresh]);
+
+  useEffect(() => {
+    // If any connection modal opens, close the document preview in the parent drawer.
+    if (isAddOpen || detailsOpen) {
+      closeDocPreview?.();
+    }
+  }, [isAddOpen, detailsOpen, closeDocPreview]);
   
 
   // starts the add connection dialog.
   function startAdd() {
+    closeDocPreview?.();
+    // Only one dialog at a time (prevents stacked modals)
+    if (detailsOpen) closeConnectionDetails();
+    
+
     setAddError(null);
     setSelectedExisting(null);
     setAddDraft(emptyDraft());
@@ -295,43 +310,45 @@ export function ApplicationConnectionsSection({
   }, [detailsOpen, activeConnection]);
 
   useEffect(() => {
-  if (!detailsOpen) {
-    setDetailsDockedStyle(undefined);
-    return;
-  }
-
-  const compute = () => {
-    const drawerEl = document.querySelector(DRAWER_SELECTOR) as HTMLElement | null;
-    const drawerRect = drawerEl?.getBoundingClientRect() ?? null;
-
-    // Space available to the left of the drawer (or full viewport if not found)
-    const availableWidth = drawerRect ? drawerRect.left : window.innerWidth;
-
-    // Center within that region
-    const centerX = Math.max(availableWidth / 2, DOCK_PADDING_PX);
-
-    // Fit within available space (but keep a minimum width; overlap allowed if needed)
-    const preferredMax = Math.min(
-      DOCK_MAX_WIDTH_PX,
-      Math.max(availableWidth - DOCK_PADDING_PX * 2, 0)
-    );
-
-    const maxWidth = Math.max(preferredMax, DOCK_MIN_WIDTH_PX);
-
-    setDetailsDockedStyle({
-      left: `${centerX}px`,
-      maxWidth: `${maxWidth}px`,
-    });
-  };
-
-  compute();
-  window.addEventListener("resize", compute);
-  return () => window.removeEventListener("resize", compute);
-}, [detailsOpen]);
+    // Use a single docked style for BOTH dialogs (details + add)
+    if (!detailsOpen && !isAddOpen) {
+      setDetailsDockedStyle(undefined);
+      return;
+    }
+  
+    const compute = () => {
+      const drawerEl = document.querySelector(DRAWER_SELECTOR) as HTMLElement | null;
+      const drawerRect = drawerEl?.getBoundingClientRect() ?? null;
+  
+      const availableWidth = drawerRect ? drawerRect.left : window.innerWidth;
+      const centerX = Math.max(availableWidth / 2, DOCK_PADDING_PX);
+  
+      const preferredMax = Math.min(
+        DOCK_MAX_WIDTH_PX,
+        Math.max(availableWidth - DOCK_PADDING_PX * 2, 0)
+      );
+  
+      const maxWidth = Math.max(preferredMax, DOCK_MIN_WIDTH_PX);
+  
+      setDetailsDockedStyle({
+        left: `${centerX}px`,
+        maxWidth: `${maxWidth}px`,
+      });
+    };
+  
+    compute();
+    window.addEventListener("resize", compute);
+    return () => window.removeEventListener("resize", compute);
+  }, [detailsOpen, isAddOpen]);
 
 
   // openConnectionDetails: opens the connection details dialog.
   function openConnectionDetails(conn: ApplicationConnection) {
+    closeDocPreview?.(); // close doc preview before opening details
+    
+    // Only one dialog at a time
+    if (isAddOpen) closeAdd();
+
     setActiveConnection(conn);
     setDetailsMode(isEditing ? "edit" : "view");
     setEditError(null);
@@ -419,13 +436,9 @@ export function ApplicationConnectionsSection({
             <div className="text-xs text-muted-foreground">
               {isLoading ? "Loading..." : `${connections.length} connection(s)`}
             </div>
-
-            {isEditing ? (
               <Button variant="secondary" size="sm" onClick={startAdd} className="hover:bg-muted/60 hover:text-muted-foreground">
                 <Plus className="h-4 w-4 mr-1" />
-                Add
               </Button>
-            ) : null}
           </div>
         </div>
 
@@ -692,8 +705,14 @@ export function ApplicationConnectionsSection({
       </Dialog>
 
       {/* Add Connection Dialog */}
-      <Dialog open={isAddOpen} onOpenChange={(open) => (open ? setIsAddOpen(true) : closeAdd())}>
-        <DialogContent className="sm:max-w-[640px]">
+      <Dialog 
+        open={isAddOpen} 
+        onOpenChange={(open) => {
+          if (open) closeDocPreview?.();
+          return open ? setIsAddOpen(true) : closeAdd();
+        }}
+      >
+        <DialogContent className="max-h-[80vh] overflow-y-auto" style={detailsDockedStyle}>
           <DialogHeader>
             <DialogTitle>Add connection</DialogTitle>
             {/* <DialogDescription>

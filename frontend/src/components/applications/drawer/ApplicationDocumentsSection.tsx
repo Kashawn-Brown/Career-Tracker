@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Download, Eye, FileText, Trash2, Upload } from "lucide-react";
+import { Download, Eye, FileText, Trash2, Upload, Plus, Minus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,6 +63,8 @@ export function ApplicationDocumentsSection({
   const [isUploading, setIsUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const [isAddOpen, setIsAddOpen] = useState(false)
+
   // Helps reset the <input type="file" />
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -79,6 +81,24 @@ export function ApplicationDocumentsSection({
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applicationId, open, docsReloadKey]);
+
+  // opens the add document dropdown.
+  function startAdd() {
+    setErrorMessage(null);
+    setIsUploading(false);
+    setFile(null);
+    setIsAddOpen(true);
+    // setIsNameFocused(false);
+  }
+
+  // closes the the add document dropdown.
+  function closeAdd() {
+    setErrorMessage(null);
+    setIsUploading(false);
+    setFile(null);
+    setIsAddOpen(false);
+    // setIsNameFocused(false);
+  }
   
   // Refreshes the list of documents for the application.
   async function refresh() {
@@ -188,7 +208,7 @@ export function ApplicationDocumentsSection({
 
 
   return (
-    <div className={`space-y-4${isEditing ? " border rounded-md p-2" : ""}`}>
+    <div className={`space-y-4${isAddOpen ? " border rounded-md p-1" : ""}`}>
       {/* Error message */}
       {errorMessage ? (
         <div className="relative rounded-md border px-3 py-2 pr-10 text-sm text-destructive">
@@ -210,8 +230,23 @@ export function ApplicationDocumentsSection({
       <div className="rounded-md border">
         <div className="px-3 py-2 border-b flex items-center justify-between">
           <div className="text-sm font-medium">Files</div>
-          <div className="text-xs text-muted-foreground">
-            {isLoading ? "Loading..." : `${docs.length} file(s)`}
+
+          <div className="flex items-center gap-2">
+            <div className="text-xs text-muted-foreground">
+              {isLoading ? "Loading..." : `${docs.length} file(s)`}
+            </div>
+            <div>
+              {!isAddOpen ? (
+                <Button variant="secondary" size="sm" onClick={startAdd} className="hover:bg-muted/60 hover:text-muted-foreground">
+                  <Plus className="h-4 w-4 mr-1" />
+                </Button>
+              ) : (
+                <Button variant="secondary" size="sm" onClick={closeAdd} className="hover:bg-muted/60 hover:text-muted-foreground">
+                  <Minus className="h-4 w-4 mr-1" />
+                </Button>
+              )}
+              
+            </div>
           </div>
         </div>
 
@@ -286,7 +321,7 @@ export function ApplicationDocumentsSection({
       </div>
 
       {/* Upload row */}
-      {isEditing && (
+      {isAddOpen && (
         <div className="rounded-md border p-3 space-y-3 mt-5">
           <div className="text-sm font-medium">Upload document</div>
 
