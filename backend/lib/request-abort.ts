@@ -1,4 +1,4 @@
-import type { IncomingMessage } from "node:http";
+import type { IncomingMessage, ServerResponse} from "node:http";
 
 /**
  * Creates an AbortController that is aborted when the client disconnects.
@@ -7,19 +7,24 @@ import type { IncomingMessage } from "node:http";
  * - OpenAI requests (fetch under the hood)
  * - streaming uploads (node pipeline supports AbortSignal)
  */
-export function createAbortControllerFromRawRequest(rawReq: IncomingMessage): AbortController {
+export function createAbortControllerFromRawRequest(
+  rawReq: IncomingMessage,
+  rawRes?: ServerResponse
+): AbortController {
   const controller = new AbortController();
 
   const abort = () => {
     if (!controller.signal.aborted) controller.abort();
   };
 
-  // If the request is already aborted by the time we attach listeners
   if ((rawReq as any).aborted) abort();
 
-  // Node will emit these when the client disconnects mid-request
+  // Cancels during request body streaming (uploads)
   rawReq.on("aborted", abort);
-  rawReq.on("close", abort);
+
+  // Cancels while we’re processing / waiting to reply
+  rawReq.socket?.on("close", abort);
+  rawRes?.on("close", abort);
 
   return controller;
 }

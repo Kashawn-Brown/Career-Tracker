@@ -71,7 +71,7 @@ export async function documentsRoutes(app: FastifyInstance) {
    */
   app.post("/base-resume", { preHandler: [requireAuth, requireVerifiedEmail] }, async (req, reply) => {
 
-    const controller = createAbortControllerFromRawRequest(req.raw);
+    const controller = createAbortControllerFromRawRequest(req.raw, reply.raw);
     const { signal } = controller;
 
     try {
@@ -91,7 +91,7 @@ export async function documentsRoutes(app: FastifyInstance) {
         mimeType: data.mimetype,
         
         // If the file is too large, fastify-multipart sets truncated to true
-        isTruncated: (data.file as any).truncated === true,
+        isTruncated: (data as any).truncated === true,
         signal,
       });
 

@@ -181,7 +181,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
     },
     async (req, reply) => {
 
-      const controller = createAbortControllerFromRawRequest(req.raw);
+      const controller = createAbortControllerFromRawRequest(req.raw, reply.raw);
       const { signal } = controller;
 
       try {
@@ -206,7 +206,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
           stream: data.file,
           filename: data.filename,
           mimeType: data.mimetype,
-          isTruncated: (data.file as any).truncated === true,
+          isTruncated: (data as any).truncated === true,
           signal,
         });
 
@@ -280,7 +280,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
       },
     },
     async (req, reply) => {
-      const controller = createAbortControllerFromRawRequest(req.raw);
+      const controller = createAbortControllerFromRawRequest(req.raw, reply.raw);
       const { signal } = controller;
     
       try {

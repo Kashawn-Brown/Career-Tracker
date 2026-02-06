@@ -1189,10 +1189,10 @@ async function createConnAndSelect() {
                 <DialogDescription>
                   We’ll create the application and run a compatibility check using your Base Resume (or an override file).
                   {!aiProEnabled ? (
-                    <div className="mt-2 text-xs text-muted-foreground">
+                    <span className="block mt-2 text-xs text-muted-foreground">
                       Running compatibility uses <span className="font-medium text-foreground">1</span> AI credit.
                       You have <span className="font-medium text-foreground">{aiFreeRemaining}</span> free uses left.
-                    </div>
+                    </span>
                   ) : null}
                 </DialogDescription>
               </DialogHeader>
