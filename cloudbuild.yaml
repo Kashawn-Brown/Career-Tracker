@@ -31,7 +31,7 @@ steps:
           --image "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA" \
           --region "${_REGION}" \
           --service-account "${_RUNTIME_SA}" \
-          --add-cloudsql-instances "${_CLOUDSQL_CONNECTION_NAME}" \
+          --set-cloudsql-instances "${_CLOUDSQL_CONNECTION_NAME}" \
           --set-secrets "DATABASE_URL=DATABASE_URL:latest" \
           --set-env-vars "NODE_ENV=production" \
           --command "bash" \
