@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { applicationDocumentsApi } from "@/lib/api/application-documents";
 import { applicationsApi } from "@/lib/api/applications";
+import { documentsApi } from "@/lib/api/documents";
 import type { AiArtifact, FitV1Payload } from "@/types/api";
 
 export type FitRunStepKey = "UPLOAD_OVERRIDE" | "RUN_COMPATIBILITY";
@@ -153,10 +154,12 @@ export function useFitRuns(): FitRunsController {
           };
         });
       };
+      
+      
+      let sourceDocumentId: number | undefined = undefined;
+      let uploadedOverrideDocId: number | undefined = undefined; // cleanup if cancelled after upload
 
       try {
-        let sourceDocumentId: number | undefined = undefined;
-
         // Step 1 (optional): upload override
         if (overrideFile) {
           safeUpdateRun((current) => ({ ...current, activeIndex: 0 }));
@@ -168,6 +171,8 @@ export function useFitRuns(): FitRunsController {
           );
 
           const docId = Number(uploadRes.document.id);
+          uploadedOverrideDocId = docId;
+  
           if (!Number.isFinite(docId)) {
             throw new Error("Override upload returned an invalid document id.");
           }
@@ -229,6 +234,18 @@ export function useFitRuns(): FitRunsController {
           }));
       
           delete abortControllersRef.current[applicationId];
+
+          // If we uploaded an override doc for THIS run and then cancelled, remove it (best-effort).
+          if (uploadedOverrideDocId) {
+            try {
+              await documentsApi.deleteById(uploadedOverrideDocId);
+              onDocumentsChanged?.(applicationId);
+            } catch {
+              // best-effort cleanup (don’t block cancellation UX)
+            }
+          }
+
+
           return null;
         }
       
