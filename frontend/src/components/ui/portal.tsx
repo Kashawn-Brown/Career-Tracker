@@ -13,8 +13,10 @@ export function Portal({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
+  
 
   // Avoid SSR/"document is not defined" issues.
   if (!mounted) return null;
