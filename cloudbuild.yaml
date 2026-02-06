@@ -30,7 +30,7 @@ steps:
 
         # Deploy/update the migration job to use the new image
         gcloud run jobs deploy "${_MIGRATE_JOB}" \
-          --image "$IMAGE" \
+          --image "${_IMAGE}" \
           --region "${_REGION}" \
           --service-account "${_RUNTIME_SA}" \
           --add-cloudsql-instances "${_CLOUDSQL_CONNECTION_NAME}" \
