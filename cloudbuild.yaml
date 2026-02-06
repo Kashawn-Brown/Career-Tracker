@@ -18,6 +18,35 @@ steps:
         "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA",
       ]
 
+  # Run DB migrations once (Cloud Run Job) BEFORE deploying the new service revision
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+
+        IMAGE="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA"
+
+        # Deploy/update the migration job to use the new image
+        gcloud run jobs deploy "${_MIGRATE_JOB}" \
+          --image "$IMAGE" \
+          --region "${_REGION}" \
+          --service-account "${_RUNTIME_SA}" \
+          --add-cloudsql-instances "${_CLOUDSQL_CONNECTION_NAME}" \
+          --set-secrets "DATABASE_URL=DATABASE_URL:latest" \
+          --set-env-vars "NODE_ENV=production" \
+          --command "bash" \
+          --args "-lc,cd backend && npx prisma migrate deploy" \
+          --quiet
+
+        # Execute migrations and wait for completion (fail build if it fails)
+        gcloud run jobs execute "${_MIGRATE_JOB}" \
+          --region "${_REGION}" \
+          --wait \
+          --quiet
+
+
   # Deploy to Cloud Run + attach Cloud SQL + inject Secret
   - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
     entrypoint: gcloud
@@ -58,6 +87,9 @@ substitutions:
 
   # Cloud Run service name
   _SERVICE: "career-tracker-api"
+
+  # Cloud Run job name (runs prisma migrate deploy once per build)
+  _MIGRATE_JOB: "career-tracker-api-migrate"
 
   # Cloud Run runtime service account
   _RUNTIME_SA: "career-tracker-api@${PROJECT_ID}.iam.gserviceaccount.com"
