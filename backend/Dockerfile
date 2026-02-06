@@ -35,6 +35,6 @@ COPY --from=build /app/backend/package.json ./backend/package.json
 # Cloud Run uses PORT=8080 by default; your server reads process.env.PORT.
 EXPOSE 8080
 
-# Run migrations on startup, then start server
-# (Simple MVP approach; later we can move migrations to a separate deploy step.)
-CMD ["sh", "-c", "cd backend && npx prisma migrate deploy && node dist/server.js"]
+# Migrations run in the deploy pipeline (Cloud Run Job) so instances start fast.
+CMD ["sh", "-c", "cd backend && node dist/server.js"]
+
