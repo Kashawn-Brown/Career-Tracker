@@ -301,7 +301,15 @@ export function ApplicationAiToolsSection({
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => fitRuns.cancelRun(application.id)}
+                  onClick={() => {
+                    const ok = window.confirm(
+                      "Cancel compatibility check?\n\nAre you sure?"
+                    );
+                    if (!ok) return;
+                  
+                    fitRuns.cancelRun(application.id);
+                  }}
+                  
                 >
                   Cancel
                 </Button>

@@ -128,9 +128,15 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: (args?: 
   };
 
   const handleCancelFit = () => {
+    const ok = window.confirm(
+      "Cancel compatibility check?\n\n Are you sure?"
+    );
+    if (!ok) return;
+  
     setIsFitCancelling(true);
     fitAbortRef.current?.abort();
   };
+  
   
 
 
