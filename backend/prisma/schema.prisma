@@ -13,8 +13,6 @@ model User {
   name         String
   passwordHash String
   
-  // Deprecated
-  isAdmin       Boolean @default(false)
   isActive      Boolean @default(true)
 
   // Authorization role (source of truth for admin access)
@@ -42,7 +40,6 @@ model User {
   baseResumeUrl String?
 
   // AI access control 
-  aiProEnabled   Boolean @default(false)
   aiFreeUsesUsed Int     @default(0)
   
 
