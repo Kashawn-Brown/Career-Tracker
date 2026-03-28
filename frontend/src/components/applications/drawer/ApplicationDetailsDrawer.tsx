@@ -1088,7 +1088,6 @@ export function ApplicationDetailsDrawer({
               <ApplicationDocumentsSection
                 applicationId={application.id}
                 open={open}
-                isEditing={isEditing}
                 onDocumentsChanged={onDocumentsChanged}
                 activePreviewDocId={previewDocId}
                 onPreviewRequested={handlePreviewRequest}
