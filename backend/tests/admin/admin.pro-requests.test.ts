@@ -3,7 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { buildApp } from "../../app.js";
 import { prisma } from "../../lib/prisma.js";
 import { createUser, signAccessToken } from "../_helpers/factories.js";
-import { UserRole } from "@prisma/client";
+import { UserRole, UserPlan } from "@prisma/client";
 
 // Test suite for admin pro requests functionality
 describe("Admin > Pro requests", () => {
@@ -250,9 +250,9 @@ describe("Admin > Pro requests", () => {
     // Confirm user flipped to Pro
     const dbUser = await prisma.user.findUnique({
       where: { id: user.id },
-      select: { aiProEnabled: true },
+      select: { plan: true },
     });
-    expect(dbUser?.aiProEnabled).toBe(true);
+    expect(dbUser?.plan).toBe(UserPlan.PRO);
 
     // Assert request status updated
     const dbReq = await prisma.aiProRequest.findUnique({

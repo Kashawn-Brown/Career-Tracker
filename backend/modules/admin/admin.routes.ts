@@ -2,8 +2,8 @@ import type { FastifyInstance } from "fastify";
 import { requireAuth } from "../../middleware/auth.js";
 import { requireVerifiedEmail } from "../../middleware/require-verified-email.js";
 import { requireAdmin } from "../../middleware/require-admin.js";
-import { ProDecisionBody } from "./admin.schemas.js";
-import type { ProDecisionBodyType } from "./admin.schemas.js";
+import { ProDecisionBody, ListUsersQuery, AdminUserIdParams, UpdateUserPlanBody } from "./admin.schemas.js";
+import type { ProDecisionBodyType, ListUsersQueryType, AdminUserIdParamsType, UpdateUserPlanBodyType } from "./admin.schemas.js";
 import * as AdminService from "./admin.service.js";
 
 export async function adminRoutes(app: FastifyInstance) {
@@ -93,6 +93,41 @@ export async function adminRoutes(app: FastifyInstance) {
     async (req) => {
       const { userId } = req.params as { userId: string };
       return AdminService.makeUserProPlus(userId);
+    }
+  );
+
+  /**
+   * List users for admin.
+   * Supports optional search (q), role filter, plan filter, pagination.
+   */
+  app.get(
+    "/users",
+    {
+      preHandler: [requireAuth, requireVerifiedEmail, requireAdmin],
+      schema: { querystring: ListUsersQuery },
+    },
+    async (req, reply) => {
+      const query = req.query as ListUsersQueryType;
+      const result = await AdminService.listUsersForAdmin(query);
+      return reply.send(result);
+    }
+  );
+
+  /**
+   * Update a user's plan (admin only).
+   * Role editing is intentionally not exposed here.
+   */
+  app.patch(
+    "/users/:userId/plan",
+    {
+      preHandler: [requireAuth, requireVerifiedEmail, requireAdmin],
+      schema: { params: AdminUserIdParams, body: UpdateUserPlanBody },
+    },
+    async (req, reply) => {
+      const { userId } = req.params as AdminUserIdParamsType;
+      const { plan }   = req.body   as UpdateUserPlanBodyType;
+      const result = await AdminService.updateUserPlan(userId, plan);
+      return reply.send(result);
     }
   );
 }

@@ -1,8 +1,9 @@
 import { prisma } from "../../lib/prisma.js";
 import { AppError } from "../../errors/app-error.js";
 import { sendEmail } from "../../lib/email.js";
-import { proRequestsSelect } from "./admin.dto.js";
-import { UserPlan } from "@prisma/client";
+import { proRequestsSelect, adminUserSelect } from "./admin.dto.js";
+import { Prisma, UserPlan } from "@prisma/client";
+import type { ListUsersQueryType } from "./admin.schemas.js";
 
 const NOTE_MAX = 500;
 
@@ -194,6 +195,67 @@ export async function makeUserProPlus(userId: string) {
   });
 }
 
+
+/**
+ * List users for admin with optional search + role/plan filtering.
+ */
+export async function listUsersForAdmin(params: ListUsersQueryType) {
+  const page     = params.page     ?? 1;
+  const pageSize = params.pageSize ?? 20;
+  const skip     = (page - 1) * pageSize;
+
+  // Build where clause
+  const where: Prisma.UserWhereInput = {};
+
+  if (params.role) where.role = params.role;
+  if (params.plan) where.plan = params.plan;
+
+  if (params.q) {
+    where.OR = [
+      { email: { contains: params.q, mode: "insensitive" } },
+      { name:  { contains: params.q, mode: "insensitive" } },
+    ];
+  }
+
+  const [total, items] = await prisma.$transaction([
+    prisma.user.count({ where }),
+    prisma.user.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: pageSize,
+      select: adminUserSelect,
+    }),
+  ]);
+
+  return {
+    items,
+    page,
+    pageSize,
+    total,
+    totalPages: Math.ceil(total / pageSize),
+  };
+}
+
+/**
+ * Update a user's plan (admin only).
+ * Role editing is intentionally excluded — role is authorization-sensitive.
+ */
+export async function updateUserPlan(userId: string, plan: UserPlan) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true },
+  });
+
+  if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { plan },
+  });
+
+  return { ok: true as const };
+}
 
 // ----------------- Helper Functions -----------------
 
