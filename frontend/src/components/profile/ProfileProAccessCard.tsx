@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,10 +13,8 @@ import {
 } from "@/components/ui/card";
 import { RequestProDialog } from "@/components/pro/RequestProDialog";
 import type { AiProRequestSummary } from "@/types/api";
-
-const AI_FREE_QUOTA = 5;
-const PENDING_REREQUEST_COOLDOWN_DAYS = 7;
-const DENIED_REREQUEST_COOLDOWN_DAYS = 14;
+import { getEffectivePlan, hasProPlan, getRemainingAiCredits } from "@/lib/plans";
+import { AI_FREE_QUOTA, PENDING_REQUEST_COOLDOWN_DAYS, DENIED_REQUEST_COOLDOWN_DAYS } from "@/lib/constants";
 
 function addDays(iso: string, days: number) {
   const d = new Date(iso);
@@ -47,7 +45,7 @@ function buildRequestInfo(aiProRequest: AiProRequestSummary | null): RequestInfo
   if (!aiProRequest) return null;
 
   if (aiProRequest.status === "PENDING") {
-    const eligibleAt = addDays(aiProRequest.requestedAt, PENDING_REREQUEST_COOLDOWN_DAYS);
+    const eligibleAt = addDays(aiProRequest.requestedAt, PENDING_REQUEST_COOLDOWN_DAYS);
     const canRetry = Date.now() >= eligibleAt.getTime();
     return {
       title: "Request pending",
@@ -59,7 +57,7 @@ function buildRequestInfo(aiProRequest: AiProRequestSummary | null): RequestInfo
 
   if (aiProRequest.status === "DENIED") {
     const baseIso = aiProRequest.decidedAt ?? aiProRequest.requestedAt;
-    const eligibleAt = addDays(baseIso, DENIED_REREQUEST_COOLDOWN_DAYS);
+    const eligibleAt = addDays(baseIso, DENIED_REQUEST_COOLDOWN_DAYS);
     const canRetry = Date.now() >= eligibleAt.getTime();
     return {
       title: "Request denied",
@@ -86,11 +84,13 @@ export function ProfileProAccessCard() {
   const { user, aiProRequest, refreshMe } = useAuth();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const aiProEnabled = Boolean(user?.aiProEnabled);
-  const used = user?.aiFreeUsesUsed ?? 0;
-  const remaining = Math.max(0, AI_FREE_QUOTA - used);
+  const requestInfo = buildRequestInfo(aiProRequest);
 
-  const requestInfo = useMemo(() => buildRequestInfo(aiProRequest), [aiProRequest]);
+  if (!user) return null;
+
+  const effectivePlan = getEffectivePlan(user);
+  const isPro = hasProPlan(effectivePlan);
+  const remainingAiCredits = getRemainingAiCredits(user);
 
   const disableRequest = Boolean(requestInfo && requestInfo.canRetry === false);
 
@@ -99,17 +99,17 @@ export function ProfileProAccessCard() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            AI Access {aiProEnabled ? <ProPill /> : null}
+            AI Access {isPro ? <ProPill /> : null}
           </CardTitle>
 
           <CardDescription>
-            {aiProEnabled
+            {isPro
               ? "Your account has Pro access (unlimited AI tools)."
-              : `Free AI credits: ${remaining}/${AI_FREE_QUOTA} remaining`}
+              : `Free AI credits: ${remainingAiCredits ?? 0}/${AI_FREE_QUOTA} remaining`}
           </CardDescription>
 
           <CardAction>
-            {!aiProEnabled ? (
+            {!isPro ? (
               <Button
                 type="button"
                 size="sm"
@@ -124,7 +124,7 @@ export function ProfileProAccessCard() {
           </CardAction>
         </CardHeader>
 
-        {!aiProEnabled ? (
+        {!isPro ? (
           <CardContent className="">
             {requestInfo ? (
               <div className="text-sm text-muted-foreground space-y-1">

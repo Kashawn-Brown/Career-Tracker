@@ -41,7 +41,6 @@ function safeDocId(doc: Document): number {
 export function ApplicationDocumentsSection({
   applicationId,
   open,
-  isEditing,
   onDocumentsChanged,
   activePreviewDocId,
   onPreviewRequested,
@@ -49,7 +48,6 @@ export function ApplicationDocumentsSection({
 }: {
   applicationId: string;
   open: boolean;
-  isEditing: boolean;
   onDocumentsChanged?: (applicationId: string) => void;
   activePreviewDocId?: string | null;
   onPreviewRequested?: (doc: Document | null) => void;

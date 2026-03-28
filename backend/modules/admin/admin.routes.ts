@@ -68,33 +68,33 @@ export async function adminRoutes(app: FastifyInstance) {
     }
   );
 
-  /**
-   * Admin make a user a Pro user by userId
-   */
-  app.post(
-    "/users/:userId/make-pro",
-    {
-      preHandler: [requireAuth, requireVerifiedEmail, requireAdmin],
-    },
-    async (req) => {
-      const { userId } = req.params as { userId: string };
-      return AdminService.makeUserPro(userId);
-    }
-  );
+  // /**
+  //  * Admin make a user a Pro user by userId
+  //  */
+  // app.post(
+  //   "/users/:userId/make-pro",
+  //   {
+  //     preHandler: [requireAuth, requireVerifiedEmail, requireAdmin],
+  //   },
+  //   async (req) => {
+  //     const { userId } = req.params as { userId: string };
+  //     return AdminService.makeUserPro(userId);
+  //   }
+  // );
 
-  /**
-   * Admin make a user a Pro Plus user by userId
-   */
-  app.post(
-    "/users/:userId/make-pro-plus",
-    {
-      preHandler: [requireAuth, requireVerifiedEmail, requireAdmin],
-    },
-    async (req) => {
-      const { userId } = req.params as { userId: string };
-      return AdminService.makeUserProPlus(userId);
-    }
-  );
+  // /**
+  //  * Admin make a user a Pro Plus user by userId
+  //  */
+  // app.post(
+  //   "/users/:userId/make-pro-plus",
+  //   {
+  //     preHandler: [requireAuth, requireVerifiedEmail, requireAdmin],
+  //   },
+  //   async (req) => {
+  //     const { userId } = req.params as { userId: string };
+  //     return AdminService.makeUserProPlus(userId);
+  //   }
+  // );
 
   /**
    * List users for admin.

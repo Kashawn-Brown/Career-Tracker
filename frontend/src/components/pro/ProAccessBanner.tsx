@@ -3,15 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { AiProRequestSummary } from "@/types/api";
+import { PENDING_REQUEST_COOLDOWN_DAYS, DENIED_REQUEST_COOLDOWN_DAYS } from "@/lib/constants";
 
-// Constants for the Pro access banner.
-const AI_FREE_QUOTA = 5;
-const PENDING_REREQUEST_COOLDOWN_DAYS = 7;
-const DENIED_REREQUEST_COOLDOWN_DAYS = 14;
 
 type Props = {
-  aiProEnabled: boolean;
-  aiFreeUsesUsed: number;
+  isPro: boolean;
+  remainingAiCredits: number;
+  canUseAi: boolean;
   aiProRequest: AiProRequestSummary | null;
   onRequestPro: () => void;
 };
@@ -52,21 +50,20 @@ function useNowMs(intervalMs = 60_000) {
 
 // Lets the user request Pro access if they have run out of free AI credits.
 export function ProAccessBanner({
-  aiProEnabled,
-  aiFreeUsesUsed,
+  isPro,
+  remainingAiCredits,
+  canUseAi,
   aiProRequest,
   onRequestPro,
 }: Props) {
-  const remaining = Math.max(0, AI_FREE_QUOTA - aiFreeUsesUsed);
-  const isLocked = !aiProEnabled && remaining === 0;
-
+  
   const now = useNowMs();
 
   const requestInfo = useMemo(() => {
     if (!aiProRequest) return null;
 
     if (aiProRequest.status === "PENDING") {
-      const eligibleAt = addDays(aiProRequest.requestedAt, PENDING_REREQUEST_COOLDOWN_DAYS);
+      const eligibleAt = addDays(aiProRequest.requestedAt, PENDING_REQUEST_COOLDOWN_DAYS);
       const canRetry = now >= eligibleAt.getTime();
       return {
         title: "Request pending",
@@ -78,7 +75,7 @@ export function ProAccessBanner({
 
     if (aiProRequest.status === "DENIED") {
       const baseIso = aiProRequest.decidedAt ?? aiProRequest.requestedAt;
-      const eligibleAt = addDays(baseIso, DENIED_REREQUEST_COOLDOWN_DAYS);
+      const eligibleAt = addDays(baseIso, DENIED_REQUEST_COOLDOWN_DAYS);
       const canRetry = now >= eligibleAt.getTime();
       return {
         title: "Request denied",
@@ -100,19 +97,19 @@ export function ProAccessBanner({
     return null;
   }, [aiProRequest, now]);
 
-  if (aiProEnabled) return null;
+  if (isPro) return null;
 
   return (
     <div className="rounded-md border p-3">
       <div className="flex items-center justify-between gap-3">
         <div className="text-sm">
           <span className="font-medium text-muted-foreground">
-            You have <span className="text-foreground">{remaining}</span> free AI credits remaining.
+            You have <span className="text-foreground">{remainingAiCredits ?? 0}</span> free AI credits remaining.
           </span>
         </div>
       </div>
 
-      {isLocked ? (
+      {!canUseAi ? (
         <div className="mt-3 space-y-2">
           {/* Avoid react/no-unescaped-entities */}
           <div className="text-sm font-medium">{"You've run out of your free AI credits."}</div>

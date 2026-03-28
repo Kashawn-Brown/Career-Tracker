@@ -35,6 +35,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useConnectionAutocomplete } from "@/hooks/useConnectionAutocomplete";
 import { applicationDocumentsApi } from "@/lib/api/application-documents";
 import { createPortal } from "react-dom";
+import { canUseAi, getRemainingAiCredits, hasProPlan, getEffectivePlan } from "@/lib/plans";
 
 
 // Arguments for the onCreated callback
@@ -286,15 +287,9 @@ async function createConnAndSelect() {
 
   // Pro access state
   const { user, aiProRequest, refreshMe } = useAuth();
-  const aiProEnabled = !!user?.aiProEnabled;
-  const aiFreeUsesUsed = user?.aiFreeUsesUsed ?? 0;
-  // const isAiLocked = !!user && !aiProEnabled && aiFreeUsesUsed >= 5;
-
-  const aiFreeRemaining = Math.max(0, 5 - aiFreeUsesUsed);
-  const canRunFit =
-    aiProEnabled ||
-    aiFreeRemaining > 0;
-
+  const canUse   = user ? canUseAi(user) : false;
+  const remainingAiCredits = user ? getRemainingAiCredits(user) : 0;
+  const isPro    = user ? hasProPlan(getEffectivePlan(user)) : false;
 
   const [isProDialogOpen, setIsProDialogOpen] = useState(false);
 
@@ -519,7 +514,7 @@ async function createConnAndSelect() {
   
     // If running fit, validate requirements up front.
     if (opts.runFit) {
-      if (!canRunFit) {
+      if (!canUse) {
         setErrorMessage("No free AI credits remaining. Request Pro to run compatibility.");
         return;
       }
@@ -872,8 +867,9 @@ async function createConnAndSelect() {
 
       {/* Pro/credits state + request modal */}
       <ProAccessBanner
-        aiProEnabled={aiProEnabled}
-        aiFreeUsesUsed={aiFreeUsesUsed}
+        isPro={isPro}
+        remainingAiCredits={remainingAiCredits ?? 0}
+        canUseAi={canUse}
         aiProRequest={aiProRequest}
         onRequestPro={() => setIsProDialogOpen(true)}
       />
@@ -1244,10 +1240,10 @@ async function createConnAndSelect() {
                 <DialogTitle className="text-2xl font-medium">Create and Run Compatibility?</DialogTitle>
                 <DialogDescription>
                   We’ll create the application and run a compatibility check using your Base Resume (or an override file).
-                  {!aiProEnabled ? (
+                  {!canUseAi ? (
                     <span className="block mt-2 text-xs text-muted-foreground">
                       Running compatibility uses <span className="font-medium text-foreground">1</span> AI credit.
-                      You have <span className="font-medium text-foreground">{aiFreeRemaining}</span> free uses left.
+                      You have <span className="font-medium text-foreground">{remainingAiCredits ?? 0}</span> free uses left.
                     </span>
                   ) : null}
                 </DialogDescription>
@@ -1322,7 +1318,7 @@ async function createConnAndSelect() {
                   type="button"
                   disabled={
                     isSubmitting ||
-                    !canRunFit ||
+                    !canUseAi ||
                     (fitUseOverride ? !fitOverrideFile : !baseResumeExists)
                   }
                   onClick={() => {

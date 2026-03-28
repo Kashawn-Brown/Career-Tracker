@@ -6,8 +6,8 @@ import { resolvePlanForUser, hasUnlimitedAiAccess } from "../plans/plan-resolver
 
 
 const NOTE_MAX = 500;
-const PENDING_REQUEST_COOLDOWN_DAYS = 7;
-const DENIED_REQUEST_COOLDOWN_DAYS = 14;
+const PENDING_REQUEST_COOLDOWN_DAYS = 3;
+const DENIED_REQUEST_COOLDOWN_DAYS = 7;
 
 
 /**

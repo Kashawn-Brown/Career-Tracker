@@ -12,6 +12,9 @@ export type Paginated<T> = {
 
 // --- Auth + User DTOs: matches backend ---
 
+export type UserRole = "USER" | "ADMIN";
+export type UserPlan = "REGULAR" | "PRO" | "PRO_PLUS";
+
 export type AuthUser = {
   id: string;
   email: string;
@@ -19,8 +22,9 @@ export type AuthUser = {
   emailVerifiedAt: string | null;
   isActive: boolean;
   
-  isAdmin: boolean;
-  
+  role: UserRole;
+  plan: UserPlan;
+
   baseResumeUrl: string | null;
 
   // Profile fields (post-MVP foundation)
@@ -40,7 +44,6 @@ export type AuthUser = {
   jobSearchWorkMode: WorkMode;
 
   // AI access control
-  aiProEnabled: boolean;
   aiFreeUsesUsed: number;
 
   createdAt: string; // JSON-serialized Date from backend
@@ -130,7 +133,7 @@ export type AdminProRequestItem = {
     id: string;
     email: string;
     name: string | null;
-    aiProEnabled: boolean;
+    plan: UserPlan;
   };
 };
 
@@ -140,6 +143,30 @@ export type AdminProRequestsListResponse = {
 
 export type AdminDecisionBody = {
   decisionNote?: string;
+};
+
+export type AdminUserListItem = {
+  id:             string;
+  email:          string;
+  name:           string;
+  role:           UserRole;
+  plan:           UserPlan;
+  isActive:       boolean;
+  aiFreeUsesUsed: number;
+  createdAt:      string;
+  updatedAt:      string;
+};
+
+export type AdminUsersListResponse = {
+  items: AdminUserListItem[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
+
+export type UpdateUserPlanRequest = {
+  plan: UserPlan;
 };
 
 
