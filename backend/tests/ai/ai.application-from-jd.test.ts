@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
+import { UserPlan } from "@prisma/client";
 
 // Mock the AI service so tests are deterministic (no OpenAI calls happen).
 vi.mock("../../modules/ai/ai.service.js", () => ({
@@ -61,7 +62,7 @@ describe("AI > application-from-jd", () => {
     const { userId, token } = await registerUser();
 
     // Set the user to unverified
-    await setUserState(userId, { verified: false, aiFreeUsesUsed: 0, aiProEnabled: false });
+    await setUserState(userId, { verified: false, isPro: false, aiFreeUsesUsed: 0 });
 
     // Mock the AI service to return a deterministic response
     vi.mocked(AiService.buildApplicationDraftFromJd).mockResolvedValue({
@@ -89,7 +90,7 @@ describe("AI > application-from-jd", () => {
     const { userId, token } = await registerUser();
 
     // Set the user to not Pro and with free quota exhausted
-    await setUserState(userId, { verified: true, aiProEnabled: false, aiFreeUsesUsed: 5 });
+    await setUserState(userId, { verified: true, isPro: false, aiFreeUsesUsed: 5 });
 
     // Call application-from-jd route
     const res = await app.inject({
@@ -111,7 +112,7 @@ describe("AI > application-from-jd", () => {
     const { userId, token } = await registerUser();
 
     // Set the user to not Pro and with free quota under the limit
-    await setUserState(userId, { verified: true, aiProEnabled: false, aiFreeUsesUsed: 4 });
+    await setUserState(userId, { verified: true, isPro: false, aiFreeUsesUsed: 4 });
 
     // Mock the AI service to return a deterministic response
     vi.mocked(AiService.buildApplicationDraftFromJd).mockResolvedValue({
@@ -143,7 +144,7 @@ describe("AI > application-from-jd", () => {
 
     // Get the AI counters for the user after the call (should go up by 1)
     const after = await getAiCounters(userId);
-    expect(after.aiProEnabled).toBe(false);
+    expect(after.plan).toBe(UserPlan.REGULAR);
     expect(after.aiFreeUsesUsed).toBe(5); // consumed exactly one
   });
 
@@ -153,7 +154,7 @@ describe("AI > application-from-jd", () => {
     const { userId, token } = await registerUser();
 
     // Set the user to Pro and with free quota under the limit
-    await setUserState(userId, { verified: true, aiProEnabled: true, aiFreeUsesUsed: 4 });
+    await setUserState(userId, { verified: true, isPro: true, aiFreeUsesUsed: 4 });
 
     // Mock the AI service to return a deterministic response
     vi.mocked(AiService.buildApplicationDraftFromJd).mockResolvedValue({
@@ -173,7 +174,7 @@ describe("AI > application-from-jd", () => {
 
     // Get the AI counters for the user after the call (should not change)
     const after = await getAiCounters(userId);
-    expect(after.aiProEnabled).toBe(true);
+    expect(after.plan).toBe(UserPlan.PRO);
     expect(after.aiFreeUsesUsed).toBe(4); // unchanged
   });
 
@@ -184,7 +185,7 @@ describe("AI > application-from-jd", () => {
     const { userId, token } = await registerUser();
 
     // Set the user to not Pro and with free quota under the limit
-    await setUserState(userId, { verified: true, aiProEnabled: false, aiFreeUsesUsed: 0 });
+    await setUserState(userId, { verified: true, isPro: false, aiFreeUsesUsed: 0 });
 
     // Force the AI service to fail; route should map this to a 502 AppError.
     vi.mocked(AiService.buildApplicationDraftFromJd).mockRejectedValue(new Error("OpenAI down"));
@@ -203,7 +204,7 @@ describe("AI > application-from-jd", () => {
 
     // Get the AI counters for the user after the call (should not change)
     const after = await getAiCounters(userId);
-    expect(after.aiProEnabled).toBe(false);
+    expect(after.plan).toBe(UserPlan.REGULAR);
     expect(after.aiFreeUsesUsed).toBe(0); // not consumed on failure
   });
 
@@ -213,7 +214,7 @@ describe("AI > application-from-jd", () => {
     const { userId, token } = await registerUser();
 
     // Set the user to Pro and with free quota fully exhausted
-    await setUserState(userId, { verified: true, aiProEnabled: true, aiFreeUsesUsed: 5 });
+    await setUserState(userId, { verified: true, isPro: true, aiFreeUsesUsed: 5 });
 
     // Mock the AI service to return a deterministic response
     vi.mocked(AiService.buildApplicationDraftFromJd).mockResolvedValue({
@@ -267,22 +268,22 @@ async function registerUser() {
 }
 
 // Helper function to set the user states in the database (verified, aiProEnabled, aiFreeUsesUsed)
-async function setUserState(userId: string, state: { verified?: boolean; aiProEnabled?: boolean; aiFreeUsesUsed?: number }) {
+async function setUserState(userId: string, state: { verified?: boolean; isPro?: boolean; aiFreeUsesUsed?: number }) {
   await prisma.user.update({
     where: { id: userId },
     data: {
       ...(state.verified !== undefined ? { emailVerifiedAt: state.verified ? new Date() : null } : {}),
-      ...(state.aiProEnabled !== undefined ? { aiProEnabled: state.aiProEnabled } : {}),
+      // Set plan=PRO for pro users, REGULAR for non-pro
+      ...(state.isPro !== undefined ? { plan: state.isPro ? "PRO" : "REGULAR" } : {}),
       ...(state.aiFreeUsesUsed !== undefined ? { aiFreeUsesUsed: state.aiFreeUsesUsed } : {}),
     },
   });
 }
 
-// Helper function to get the AI counters for a user
 async function getAiCounters(userId: string) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { aiProEnabled: true, aiFreeUsesUsed: true },
+    select: { plan: true, aiFreeUsesUsed: true },
   });
 
   if (!user) throw new Error("Test invariant: user should exist");

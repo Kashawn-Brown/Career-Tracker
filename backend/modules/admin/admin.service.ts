@@ -1,8 +1,9 @@
 import { prisma } from "../../lib/prisma.js";
 import { AppError } from "../../errors/app-error.js";
 import { sendEmail } from "../../lib/email.js";
-import { proRequestsSelect } from "./admin.dto.js";
-
+import { proRequestsSelect, adminUserSelect } from "./admin.dto.js";
+import { Prisma, UserPlan } from "@prisma/client";
+import type { ListUsersQueryType } from "./admin.schemas.js";
 
 const NOTE_MAX = 500;
 
@@ -48,7 +49,7 @@ export async function approveProRequest(requestId: string, decisionNoteRaw?: str
   await prisma.$transaction(async (db) => {
     await db.user.update({
       where: { id: reqRow.userId },
-      data: { aiProEnabled: true },
+      data: { plan: UserPlan.PRO },
     });
 
     await db.aiProRequest.update({
@@ -133,7 +134,7 @@ export async function grantMoreCredits(requestId: string) {
   const proRequest = await prisma.aiProRequest.findUnique({
     where: { id: requestId },
     include: {
-      user: { select: { id: true, email: true, name: true, aiProEnabled: true } },
+      user: { select: { id: true, email: true, name: true, plan: true } },
     },
   });
 
@@ -170,6 +171,154 @@ export async function grantMoreCredits(requestId: string) {
   return { ok: true as const };
 }
 
+/**
+ * Make a user a Pro user.
+ * 
+ * - Updates the user's plan to PRO.
+ */
+export async function makeUserPro(userId: string) {
+  await prisma.user.update({
+    where: { id: userId },
+    data: { plan: UserPlan.PRO },
+  });
+}
+
+/**
+ * Make a user a Pro Plus user.
+ * 
+ * - Updates the user's plan to PRO_PLUS.
+ */
+export async function makeUserProPlus(userId: string) {
+  await prisma.user.update({
+    where: { id: userId },
+    data: { plan: UserPlan.PRO_PLUS },
+  });
+}
+
+
+/**
+ * List users for admin with optional search + role/plan filtering.
+ */
+export async function listUsersForAdmin(params: ListUsersQueryType) {
+  const page     = params.page     ?? 1;
+  const pageSize = params.pageSize ?? 20;
+  const skip     = (page - 1) * pageSize;
+
+  // Build where clause
+  const where: Prisma.UserWhereInput = {};
+
+  if (params.role) where.role = params.role;
+  if (params.plan) where.plan = params.plan;
+
+  if (params.q) {
+    where.OR = [
+      { email: { contains: params.q, mode: "insensitive" } },
+      { name:  { contains: params.q, mode: "insensitive" } },
+    ];
+  }
+
+  const [total, items] = await prisma.$transaction([
+    prisma.user.count({ where }),
+    prisma.user.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: pageSize,
+      select: adminUserSelect,
+    }),
+  ]);
+
+  return {
+    items,
+    page,
+    pageSize,
+    total,
+    totalPages: Math.ceil(total / pageSize),
+  };
+}
+
+/**
+ * Update a user's plan (admin only).
+ * Role editing is intentionally excluded — role is authorization-sensitive.
+ */
+export async function updateUserPlan(userId: string, plan: UserPlan) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, role: true },
+  });
+
+  if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+
+  // Protect admin accounts from being updated
+  if (user.role === "ADMIN") {
+    throw new AppError("Cannot update plan of admin users", 403, "ADMIN_PROTECTED");
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { plan },
+  });
+
+  return { ok: true as const };
+}
+
+/**
+ * Get a single user's detail for admin.
+ */
+export async function getUserDetailForAdmin(userId: string) {
+  const user = await prisma.user.findUnique({
+    where:  { id: userId },
+    select: adminUserSelect,
+  });
+
+  if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+
+  // Get application count + status breakdown in one query
+  const applications = await prisma.jobApplication.groupBy({
+    by:     ["status"],
+    where:  { userId },
+    _count: { status: true },
+  });
+
+  // Get the # of connections for the user
+  const connectionCount = await prisma.connection.count({ where: { userId } });
+
+  // Get the status breakdown for the user's applications
+  const statusBreakdown = Object.fromEntries(
+    applications.map((a) => [a.status, a._count.status])
+  );
+
+  // Get the total number of applications for the user
+  const applicationCount = applications.reduce((sum, a) => sum + a._count.status, 0);
+
+  // Return the user detail
+  return { ...user, applicationCount, connectionCount, statusBreakdown };
+}
+
+/**
+ * Activate or deactivate a user account (admin only).
+ * Admins cannot be deactivated through this endpoint.
+ */
+export async function setUserActiveStatus(userId: string, isActive: boolean) {
+  const user = await prisma.user.findUnique({
+    where:  { id: userId },
+    select: { id: true, role: true },
+  });
+
+  if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+
+  // Protect admin accounts from being deactivated
+  if (user.role === "ADMIN") {
+    throw new AppError("Cannot change active status of admin users", 403, "ADMIN_PROTECTED");
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data:  { isActive },
+  });
+
+  return { ok: true as const };
+}
 
 
 // ----------------- Helper Functions -----------------

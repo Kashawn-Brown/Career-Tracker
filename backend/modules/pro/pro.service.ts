@@ -2,10 +2,12 @@ import { prisma } from "../../lib/prisma.js";
 import { AppError } from "../../errors/app-error.js";
 import { sendEmail } from "../../lib/email.js";
 import { aiProRequestSummarySelect } from "./pro.dto.js";
+import { resolvePlanForUser, hasUnlimitedAiAccess } from "../plans/plan-resolver.js";
+
 
 const NOTE_MAX = 500;
-const PENDING_REQUEST_COOLDOWN_DAYS = 7;
-const DENIED_REQUEST_COOLDOWN_DAYS = 14;
+const PENDING_REQUEST_COOLDOWN_DAYS = 3;
+const DENIED_REQUEST_COOLDOWN_DAYS = 7;
 
 
 /**
@@ -20,18 +22,18 @@ const DENIED_REQUEST_COOLDOWN_DAYS = 14;
  * - Returns the latest AI Pro request for the user.
  */
 export async function requestProAccess(userId: string, noteRaw?: string) {
+  
   // Find the user
-    const user = await prisma.user.findUnique({
+  const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, email: true, name: true, aiProEnabled: true },
+    select: { id: true, email: true, name: true, role: true, plan: true },
   });
 
   if (!user) throw new AppError("User not found", 404);
 
-  // If already Pro, just short-circuit (UI shouldn't call, but safe)
-  if (user.aiProEnabled) {
-    return { alreadyPro: true, request: null as any };
-  }
+  // Get the effective plan for the user
+  const effectivePlan = resolvePlanForUser(user);
+  if (hasUnlimitedAiAccess(effectivePlan)) return { alreadyPro: true, request: null as any };
 
   // Get the latest AI Pro request for the user
   const latest = await getLatestRequest(userId);

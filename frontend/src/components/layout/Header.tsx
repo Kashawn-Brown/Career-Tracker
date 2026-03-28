@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { isAdminUser, getPlanBadgeLabel, hasProPlan, getEffectivePlan } from "@/lib/plans";
 
 // Helper function to check if the current pathname is the same as the href
 function isActivePath(pathname: string, href: string) {
@@ -22,7 +23,8 @@ export function Header() {
   const navItems = [
     { label: "Applications", href: "/applications" },
     { label: "Profile", href: "/profile" },
-    ...(user?.isAdmin ? [{ label: "Admin", href: "/admin/pro-requests" }] : []),
+    ...(user && isAdminUser(user) ? [{ label: "Pro Requests", href: "/admin/pro-requests" }] : []),
+    ...(user && isAdminUser(user) ? [{ label: "Users", href: "/admin/users" }] : []),
   ];
 
   return (
@@ -61,13 +63,13 @@ export function Header() {
           <div className="hidden sm:flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Hey, {displayName}</span>
 
-            {user?.aiProEnabled ? (
+            {user && hasProPlan(getEffectivePlan(user)) && !isAdminUser(user) ? (
               <span className="rounded border px-2 py-0.5 text-[10px] font-semibold tracking-wide">
-                PRO
+                {getPlanBadgeLabel(user)}
               </span>
             ) : null}
 
-            {user?.isAdmin ? (
+            {user && isAdminUser(user) ? (
               <span className="rounded border px-2 py-0.5 text-[10px] font-semibold tracking-wide">
                 ADMIN
               </span>

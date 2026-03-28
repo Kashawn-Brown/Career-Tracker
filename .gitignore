@@ -40,3 +40,7 @@ docs/perf/k6/benchmarks/results/
 docs/perf/k6/benchmarks/results_original/
 
 .cursor/
+
+planning/
+
+backend/dist/

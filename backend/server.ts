@@ -9,8 +9,8 @@ const envPath = path.resolve(".env.local");
 
 // Make sure we are running locally (not in prod) + the file if it actually exists
 if (process.env.NODE_ENV !== "production" && fs.existsSync(envPath)) {
-    dotenv.config({ path: envPath });
-  }
+  dotenv.config({ path: envPath });
+}
 
 validateEnv();
 

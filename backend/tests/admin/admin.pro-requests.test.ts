@@ -2,7 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../../app.js";
 import { prisma } from "../../lib/prisma.js";
-import { createUser, signAccessToken } from "../_helpers/factories.js";
+import { createUser, createVerifiedAdmin, signAccessToken } from "../_helpers/factories.js";
+import { UserPlan } from "@prisma/client";
 
 // Test suite for admin pro requests functionality
 describe("Admin > Pro requests", () => {
@@ -249,9 +250,9 @@ describe("Admin > Pro requests", () => {
     // Confirm user flipped to Pro
     const dbUser = await prisma.user.findUnique({
       where: { id: user.id },
-      select: { aiProEnabled: true },
+      select: { plan: true },
     });
-    expect(dbUser?.aiProEnabled).toBe(true);
+    expect(dbUser?.plan).toBe(UserPlan.PRO);
 
     // Assert request status updated
     const dbReq = await prisma.aiProRequest.findUnique({
@@ -311,9 +312,9 @@ describe("Admin > Pro requests", () => {
     // Confirm user not flipped to Pro
     const dbUser = await prisma.user.findUnique({
       where: { id: user.id },
-      select: { aiProEnabled: true },
+      select: { plan: true },
     });
-    expect(dbUser?.aiProEnabled).toBe(false);
+    expect(dbUser?.plan).toBe(UserPlan.REGULAR);
   });
 
   // Test that admin users granting credits succeed when the request is pending
@@ -408,22 +409,3 @@ describe("Admin > Pro requests", () => {
   });
 });
 
-
-// ---------------- Helpers ----------------
-
-// Create a verified admin user
-async function createVerifiedAdmin(email: string) {
-  const admin = await createUser({
-    email,
-    password: "Passw0rd!",
-    emailVerifiedAt: new Date(),
-  });
-
-  // Admin flag is not part of the shared createUser helper, so update it explicitly.
-  await prisma.user.update({
-    where: { id: admin.id },
-    data: { isAdmin: true },
-  });
-
-  return { user: admin, token: signAccessToken(admin) };
-}

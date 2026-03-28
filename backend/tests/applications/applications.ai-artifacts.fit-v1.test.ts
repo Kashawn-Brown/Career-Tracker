@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
-import { DocumentKind } from "@prisma/client";
-
+import { DocumentKind, UserPlan } from "@prisma/client";
 import { createUser, signAccessToken } from "../_helpers/factories.js";
+
 
 // Mock AI service so tests are deterministic (no OpenAI calls).
 vi.mock("../../modules/ai/ai.service.js", () => ({
@@ -70,7 +70,7 @@ describe("Applications > AI artifacts > FIT_V1", () => {
     // Create a user with an unverified email
     const { userId, token } = await createUserWithState({
       verified: false,
-      aiProEnabled: false,
+      isPro: false,
       aiFreeUsesUsed: 0,
     });
 
@@ -96,7 +96,7 @@ describe("Applications > AI artifacts > FIT_V1", () => {
     // Create a user with a verified email, no Pro access, and 5 free uses used
     const { userId, token } = await createUserWithState({
       verified: true,
-      aiProEnabled: false,
+      isPro: false,
       aiFreeUsesUsed: 5,
     });
 
@@ -122,7 +122,7 @@ describe("Applications > AI artifacts > FIT_V1", () => {
     // Create a user with a verified email, no Pro access, and 0 free uses used
     const { userId, token } = await createUserWithState({
       verified: true,
-      aiProEnabled: false,
+      isPro: false,
       aiFreeUsesUsed: 0,
     });
 
@@ -152,7 +152,7 @@ describe("Applications > AI artifacts > FIT_V1", () => {
     // Create a user with a verified email, no Pro access, and 4 free uses used
     const { userId, token } = await createUserWithState({
       verified: true,
-      aiProEnabled: false,
+      isPro: false,
       aiFreeUsesUsed: 4,
     });
 
@@ -197,7 +197,7 @@ describe("Applications > AI artifacts > FIT_V1", () => {
         questionsToAsk: ["What is the on-call expectation?"],
       },
       model: "gpt-5-mini",
-      tier: "regular",
+      tier: UserPlan.REGULAR,
     });
 
     // Call FIT_V1 route with the Bearer token
@@ -245,7 +245,7 @@ describe("Applications > AI artifacts > FIT_V1", () => {
 
     // Verify quota consumption: +1 for non-pro
     const after = await getAiCounters(userId);
-    expect(after.aiProEnabled).toBe(false);
+    expect(after.plan).toBe(UserPlan.REGULAR);
     expect(after.aiFreeUsesUsed).toBe(5);
   });
 
@@ -255,7 +255,7 @@ describe("Applications > AI artifacts > FIT_V1", () => {
     // Create a user with a verified email, Pro access, and 4 free uses used
     const { userId, token } = await createUserWithState({
       verified: true,
-      aiProEnabled: true,
+      isPro: true,
       aiFreeUsesUsed: 4,
     });
 
@@ -284,7 +284,7 @@ describe("Applications > AI artifacts > FIT_V1", () => {
         questionsToAsk: [],
       },
       model: "gpt-5-mini",
-      tier: "regular",
+      tier: UserPlan.REGULAR,
     });
 
     // Call FIT_V1 route with the Bearer token
@@ -300,7 +300,7 @@ describe("Applications > AI artifacts > FIT_V1", () => {
 
     // Verify quota consumption: +0 for Pro
     const after = await getAiCounters(userId);
-    expect(after.aiProEnabled).toBe(true);
+    expect(after.plan).toBe(UserPlan.PRO);
     expect(after.aiFreeUsesUsed).toBe(4); // unchanged
   });
 
@@ -310,7 +310,7 @@ describe("Applications > AI artifacts > FIT_V1", () => {
     // Create a user with a verified email, no Pro access, and 0 free uses used
     const { userId, token } = await createUserWithState({
       verified: true,
-      aiProEnabled: false,
+      isPro: false,
       aiFreeUsesUsed: 0,
     });
 
@@ -362,7 +362,7 @@ function uniqueEmail(prefix = "fit") {
 
 async function createUserWithState(state: {
   verified: boolean;
-  aiProEnabled: boolean;
+  isPro: boolean;
   aiFreeUsesUsed: number;
 }) {
   const email = uniqueEmail();
@@ -376,7 +376,7 @@ async function createUserWithState(state: {
   await prisma.user.update({
     where: { id: user.id },
     data: {
-      aiProEnabled: state.aiProEnabled,
+      plan: state.isPro ? UserPlan.PRO : UserPlan.REGULAR,
       aiFreeUsesUsed: state.aiFreeUsesUsed,
     },
   });
@@ -402,7 +402,7 @@ async function createApplicationInDb(userId: string, args: { description: string
 async function getAiCounters(userId: string) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { aiProEnabled: true, aiFreeUsesUsed: true },
+    select: { plan: true, aiFreeUsesUsed: true },
   });
 
   if (!user) throw new Error("Test invariant: user should exist");

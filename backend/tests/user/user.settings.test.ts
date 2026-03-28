@@ -99,8 +99,8 @@ describe("User settings", () => {
     const body = res.json();
     expect(body).toHaveProperty("user");
     expect(body.user.email).toBe(email);
-    expect(body).toHaveProperty("aiProRequest");
-    expect(body.aiProRequest).toBeNull();
+    expect(body.user.role).toBe("USER");
+    expect(body.user.plan).toBe("REGULAR");
   });
 
   // Test that the PATCH /users/me endpoint is blocked when email is not verified; succeeds after verification + normalizes fields

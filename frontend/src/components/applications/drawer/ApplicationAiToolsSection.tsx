@@ -15,6 +15,7 @@ import { getFitBand } from "@/lib/fit/presentation";
 import { ProAccessBanner } from "@/components/pro/ProAccessBanner";
 import { RequestProDialog } from "@/components/pro/RequestProDialog";
 import { Loader2, CheckCircle2, Circle } from "lucide-react";
+import { canUseAi, getRemainingAiCredits, hasProPlan, getEffectivePlan } from "@/lib/plans";
 
 // Props for the ApplicationAiToolsSection component
 type Props = {
@@ -69,8 +70,9 @@ export function ApplicationAiToolsSection({
 
   // Pro access state
   const { user, aiProRequest, refreshMe } = useAuth();
-  const aiProEnabled = !!user?.aiProEnabled;
-  const aiFreeUsesUsed = user?.aiFreeUsesUsed ?? 0;
+  const canUse   = user ? canUseAi(user) : false;
+  const remainingAiCredits = user ? getRemainingAiCredits(user) : 0;
+  const isPro    = user ? hasProPlan(getEffectivePlan(user)) : false;
 
   const [isProDialogOpen, setIsProDialogOpen] = useState(false);
 
@@ -264,8 +266,9 @@ export function ApplicationAiToolsSection({
 
       {/* Pro access banner */}
       <ProAccessBanner
-        aiProEnabled={aiProEnabled}
-        aiFreeUsesUsed={aiFreeUsesUsed}
+        isPro={isPro}
+        remainingAiCredits={remainingAiCredits ?? 0}
+        canUseAi={canUse}
         aiProRequest={aiProRequest}
         onRequestPro={() => setIsProDialogOpen(true)}
       />

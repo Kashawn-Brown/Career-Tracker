@@ -1,6 +1,7 @@
+import { UserPlan } from "@prisma/client";
 import { AppError } from "../../errors/app-error.js";
 import { getOpenAIClient, getJdExtractOpenAIModel } from "./openai.js";
-import { ApplicationFromJdJsonObject, normalizeApplicationFromJdResponse, FitV1JsonObject, normalizeFitV1Response, getFitPolicyForTier, FitV1RunResult } from "./ai.dto.js";
+import { ApplicationFromJdJsonObject, normalizeApplicationFromJdResponse, FitV1JsonObject, normalizeFitV1Response, getFitPolicyForPlan, FitV1RunResult } from "./ai.dto.js";
 import type { ApplicationFromJdResponse, FitV1Response } from "./ai.dto.js";
 import { AiTier } from "./ai-tier.js";
 import { throwIfAborted } from "../../lib/request-abort.js";
@@ -86,8 +87,9 @@ export async function buildFitV1(
   if (!jd) throw new AppError("Job description is missing.", 400, "JOB_DESCRIPTION_MISSING");
   if (!candidate) throw new AppError("Candidate history is missing.", 400, "CANDIDATE_HISTORY_MISSING");
 
-  const tier: AiTier = opts?.tier ?? "regular";
-  const policy = getFitPolicyForTier(tier);
+  // Get the fit policy for the user's plan (AI model + settings)
+  const tier: AiTier = opts?.tier ?? UserPlan.REGULAR;
+  const policy = getFitPolicyForPlan(tier);
 
   throwIfAborted(opts?.signal);
 
