@@ -173,7 +173,12 @@ export function UserDetailSheet({ user, open, onClose, onUserUpdated }: Props) {
                         <Button
                           key={p}
                           size="sm"
-                          variant="outline"
+                          // variant="outline"
+                          className={
+                            "Regular" === PLAN_LABELS[p] ? "bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200" 
+                            : "Pro" === PLAN_LABELS[p] ? "bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
+                            : "Pro+" === PLAN_LABELS[p] ? "bg-blue-600 text-white hover:bg-blue-700"
+                            : ""}
                           onClick={() => setPendingAction({ type: "plan", plan: p })}
                         >
                           Set {PLAN_LABELS[p]}
