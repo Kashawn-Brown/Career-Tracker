@@ -8,6 +8,9 @@ type CreateUserArgs = {
   name?: string;
   isActive?: boolean;
   emailVerifiedAt?: Date | null;
+  role?: "USER" | "ADMIN";
+  plan?: "REGULAR" | "PRO" | "PRO_PLUS";
+  aiFreeUsesUsed?: number;
 };
 
 export function uniqueEmail() {
@@ -18,19 +21,42 @@ export function uniqueEmail() {
  * Creates a user directly in the DB (bypasses /register).
  * Use this when you need a specific user state (ex: isActive=false).
  */
+/**
+ * Creates a user directly in the DB (bypasses /register).
+ * Use this when you need a specific user state (ex: role=ADMIN, plan=PRO).
+ */
 export async function createUser(args: CreateUserArgs) {
   const passwordHash = await bcrypt.hash(args.password, 12);
 
   return prisma.user.create({
     data: {
-      email: args.email,
-      name: args.name ?? "Test User",
+      email:          args.email,
+      name:           args.name ?? "Test User",
       passwordHash,
-      isActive: args.isActive ?? true,
+      isActive:       args.isActive ?? true,
       emailVerifiedAt: typeof args.emailVerifiedAt === "undefined" ? null : args.emailVerifiedAt,
+      role:           args.role ?? "USER",
+      plan:           args.plan ?? "REGULAR",
+      aiFreeUsesUsed: args.aiFreeUsesUsed ?? 0,
     },
-    select: { id: true, email: true, isActive: true, emailVerifiedAt: true },
+    select: { id: true, email: true, isActive: true, emailVerifiedAt: true, role: true, plan: true },
   });
+}
+
+/**
+ * Creates a verified admin user and signs an access token.
+ * Convenience wrapper so test files don't repeat the role=ADMIN pattern.
+ */
+export async function createVerifiedAdmin(email: string, password = "Passw0rd!") {
+  const user = await createUser({
+    email,
+    password,
+    emailVerifiedAt: new Date(),
+    role: "ADMIN",
+    plan: "PRO_PLUS",
+  });
+  const token = signAccessToken(user);
+  return { user, token };
 }
 
 /**

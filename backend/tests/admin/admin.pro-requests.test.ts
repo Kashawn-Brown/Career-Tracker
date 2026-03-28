@@ -2,8 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../../app.js";
 import { prisma } from "../../lib/prisma.js";
-import { createUser, signAccessToken } from "../_helpers/factories.js";
-import { UserRole, UserPlan } from "@prisma/client";
+import { createUser, createVerifiedAdmin, signAccessToken } from "../_helpers/factories.js";
+import { UserPlan } from "@prisma/client";
 
 // Test suite for admin pro requests functionality
 describe("Admin > Pro requests", () => {
@@ -312,9 +312,9 @@ describe("Admin > Pro requests", () => {
     // Confirm user not flipped to Pro
     const dbUser = await prisma.user.findUnique({
       where: { id: user.id },
-      select: { aiProEnabled: true },
+      select: { plan: true },
     });
-    expect(dbUser?.aiProEnabled).toBe(false);
+    expect(dbUser?.plan).toBe(UserPlan.REGULAR);
   });
 
   // Test that admin users granting credits succeed when the request is pending
@@ -409,22 +409,3 @@ describe("Admin > Pro requests", () => {
   });
 });
 
-
-// ---------------- Helpers ----------------
-
-// Create a verified admin user
-async function createVerifiedAdmin(email: string) {
-  const admin = await createUser({
-    email,
-    password: "Passw0rd!",
-    emailVerifiedAt: new Date(),
-  });
-
-  // Set role=ADMIN (source of truth for admin access post-refactor).
-  await prisma.user.update({
-    where: { id: admin.id },
-    data: { role: UserRole.ADMIN },
-  });
-
-  return { user: admin, token: signAccessToken(admin) };
-}
