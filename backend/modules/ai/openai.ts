@@ -21,12 +21,19 @@ export function getOpenAIClient(): OpenAI {
   return client;
 }
 
-// Get the OpenAI model.
-export function getOpenAIModel(): string {
-  return process.env.OPENAI_MODEL?.trim() || "gpt-5-mini";
+/**
+ * Model used for FIT_V1 generation.
+ * Override via OPENAI_MODEL_FIT env var.
+ */
+export function getFitOpenAIModel(): string {
+  return process.env.OPENAI_MODEL_FIT ?? "o4-mini";
 }
 
-// Get the OpenAI model for JD extraction. (uses gpt-4o-mini model)
+/**
+ * Model used for JD extraction (JD_EXTRACT_V1).
+ * Defaults to gpt-5-mini — fast and cost-effective for structured extraction.
+ * Override via OPENAI_MODEL_JD_EXTRACT env var.
+ */
 export function getJdExtractOpenAIModel(): string {
-  return process.env.OPENAI_MODEL_JD_EXTRACT?.trim() || "gpt-4o-mini";
+  return process.env.OPENAI_MODEL_JD_EXTRACT ?? "gpt-5-mini";
 }

@@ -1,5 +1,6 @@
 import { JobType, WorkMode } from "@prisma/client";
-import { AiTier } from "./ai-tier.js";
+import { UserPlan } from "@prisma/client";
+import type { AiTier } from "./ai-tier.js";
 
 
 // ------------------- EXTRACT JOB DESCRIPTION -------------------
@@ -278,14 +279,6 @@ export const FitV1JsonObject = {
 const JD_EXTRACT_MAX_OUTPUT_TOKENS = 900;
 const FIT_MAX_OUTPUT_TOKENS = 10000;
 
-
-// Tiered caps for FIT. Kept high enough to avoid truncation.
-export const FIT_MAX_OUTPUT_TOKENS_BY_TIER: Record<AiTier, number> = {
-  regular: 10000,
-  pro: 12000,
-  admin: 15000,
-};
-
 type FitVerbosity = "low" | "medium" | "high";
 type FitEffort = "low" | "medium" | "high" | "xhigh";
 
@@ -297,39 +290,51 @@ type FitPolicy = {
   maxOutputTokens: number;
 };
 
+
 /**
- * Central place to decide FIT model + settings by tier.
- * Keep these conservative and predictable for cost control.
+ * Output token budgets by plan.
+ * Higher plans get more tokens for richer output.
  */
-export function getFitPolicyForTier(tier: AiTier): FitPolicy {
-  if (tier === "admin") {
-    return {
-      tier,
-      model: "gpt-5.2",
-      verbosity: "medium",
-      effort: "high",
-      maxOutputTokens: FIT_MAX_OUTPUT_TOKENS_BY_TIER.admin,
-    };
-  }
+const FIT_MAX_OUTPUT_TOKENS_BY_PLAN: Record<AiTier, number> = {
+  [UserPlan.REGULAR]:  10_000,
+  [UserPlan.PRO]:      12_000,
+  [UserPlan.PRO_PLUS]: 15_000,
+};
 
-  if (tier === "pro") {
-    return {
-      tier,
-      model: "gpt-5-mini",
-      verbosity: "high",
-      effort: "medium",
-      maxOutputTokens: FIT_MAX_OUTPUT_TOKENS_BY_TIER.pro,
-    };
-  }
+/**
+ * Returns the model/effort/verbosity config for a FIT_V1 run
+ * based on the user's plan.
+ */
+export function getFitPolicyForPlan(plan: AiTier): FitPolicy {
+  const maxOutputTokens = FIT_MAX_OUTPUT_TOKENS_BY_PLAN[plan] ?? 5_000;
 
-  // regular
-  return {
-    tier: "regular",
-    model: "gpt-5-mini",
-    verbosity: "medium",
-    effort: "medium", // start low to reduce reasoning-token blowups
-    maxOutputTokens: FIT_MAX_OUTPUT_TOKENS_BY_TIER.regular,
-  };
+  switch (plan) {
+    case UserPlan.PRO_PLUS:
+      return {
+        tier: plan,
+        model: "o4-mini",
+        effort: "high",
+        verbosity: "high",
+        maxOutputTokens,
+      };
+    case UserPlan.PRO:
+      return {
+        tier: plan,
+        model: "gpt-5-mini",
+        effort: "medium",
+        verbosity: "medium",
+        maxOutputTokens,
+      };
+    case UserPlan.REGULAR:
+    default:
+      return {
+        tier: plan,
+        model: "gpt-5-mini",
+        effort: "low",
+        verbosity: "low",
+        maxOutputTokens,
+      };
+  }
 }
 
 export type FitV1RunResult = {

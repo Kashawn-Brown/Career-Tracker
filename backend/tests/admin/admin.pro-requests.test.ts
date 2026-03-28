@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { buildApp } from "../../app.js";
 import { prisma } from "../../lib/prisma.js";
 import { createUser, signAccessToken } from "../_helpers/factories.js";
+import { UserRole } from "@prisma/client";
 
 // Test suite for admin pro requests functionality
 describe("Admin > Pro requests", () => {
@@ -419,10 +420,10 @@ async function createVerifiedAdmin(email: string) {
     emailVerifiedAt: new Date(),
   });
 
-  // Admin flag is not part of the shared createUser helper, so update it explicitly.
+  // Set role=ADMIN (source of truth for admin access post-refactor).
   await prisma.user.update({
     where: { id: admin.id },
-    data: { isAdmin: true },
+    data: { role: UserRole.ADMIN },
   });
 
   return { user: admin, token: signAccessToken(admin) };

@@ -2,7 +2,7 @@ import { prisma } from "../../lib/prisma.js";
 import { AppError } from "../../errors/app-error.js";
 import { sendEmail } from "../../lib/email.js";
 import { proRequestsSelect } from "./admin.dto.js";
-
+import { UserPlan } from "@prisma/client";
 
 const NOTE_MAX = 500;
 
@@ -48,7 +48,7 @@ export async function approveProRequest(requestId: string, decisionNoteRaw?: str
   await prisma.$transaction(async (db) => {
     await db.user.update({
       where: { id: reqRow.userId },
-      data: { aiProEnabled: true },
+      data: { plan: UserPlan.PRO },
     });
 
     await db.aiProRequest.update({
@@ -133,7 +133,7 @@ export async function grantMoreCredits(requestId: string) {
   const proRequest = await prisma.aiProRequest.findUnique({
     where: { id: requestId },
     include: {
-      user: { select: { id: true, email: true, name: true, aiProEnabled: true } },
+      user: { select: { id: true, email: true, name: true, plan: true } },
     },
   });
 
@@ -170,6 +170,29 @@ export async function grantMoreCredits(requestId: string) {
   return { ok: true as const };
 }
 
+/**
+ * Make a user a Pro user.
+ * 
+ * - Updates the user's plan to PRO.
+ */
+export async function makeUserPro(userId: string) {
+  await prisma.user.update({
+    where: { id: userId },
+    data: { plan: UserPlan.PRO },
+  });
+}
+
+/**
+ * Make a user a Pro Plus user.
+ * 
+ * - Updates the user's plan to PRO_PLUS.
+ */
+export async function makeUserProPlus(userId: string) {
+  await prisma.user.update({
+    where: { id: userId },
+    data: { plan: UserPlan.PRO_PLUS },
+  });
+}
 
 
 // ----------------- Helper Functions -----------------

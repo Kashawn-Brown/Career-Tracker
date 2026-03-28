@@ -1,5 +1,5 @@
 import type { FastifyInstance, } from "fastify";
-import { getOpenAIModel, getJdExtractOpenAIModel } from "../ai/openai.js";
+import { getJdExtractOpenAIModel, getFitOpenAIModel } from "../ai/openai.js";
 import { CreateApplicationBody, ListApplicationsQuery, ApplicationIdParams, UpdateApplicationBody, UploadApplicationDocumentQuery, ApplicationConnectionParams, GenerateAiArtifactBody, ListAiArtifactsQuery } from "./applications.schemas.js";
 import type { CreateApplicationBodyType, ListApplicationsQueryType, ApplicationIdParamsType, UpdateApplicationBodyType, UploadApplicationDocumentQueryType, GenerateAiArtifactBodyType, ListAiArtifactsQueryType } from "./applications.schemas.js";
 import * as ApplicationsService from "./applications.service.js";

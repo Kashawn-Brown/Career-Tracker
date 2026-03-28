@@ -1,27 +1,30 @@
-import type { FastifyRequest } from "fastify";
+import type { FastifyRequest, FastifyReply } from "fastify";
 import { prisma } from "../lib/prisma.js";
 import { AppError } from "../errors/app-error.js";
+import { UserRole } from "@prisma/client";
 
 /**
- * Blocks access to admin endpoints if the user is not an admin.
- * Assumes requireAuth ran first.
+ * Middleware: blocks requests from non-admin users.
+ * Checks user.role === ADMIN (source of truth for admin access).
+ * Must be used after requireAuth (relies on req.user being set).
  */
-export async function requireAdmin(req: FastifyRequest) {
+export async function requireAdmin(req: FastifyRequest, _reply: FastifyReply) {
 
   // Get the user ID from the request
   const userId = req.user?.id;
-
   if (!userId) throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
-  
+
   // Find the user by ID
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { isAdmin: true },
+    select: { role: true },
   });
 
   // If the user is not found, throw an unauthorized error
   if (!user) throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
 
   // If the user is not an admin, throw a forbidden error
-  if (!user.isAdmin) throw new AppError("Forbidden", 403, "ADMIN_FORBIDDEN");
+  if (user.role !== UserRole.ADMIN) {
+    throw new AppError("Admin access required", 403, "ADMIN_FORBIDDEN");
+  }
 }

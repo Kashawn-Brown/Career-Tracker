@@ -12,7 +12,7 @@ export const proRequestsSelect = {
         id: true,
         email: true,
         name: true,
-        aiProEnabled: true,
+        plan: true,
       },
     },
   } as const;

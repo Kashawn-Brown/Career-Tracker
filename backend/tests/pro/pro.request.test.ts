@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { prisma } from "../../lib/prisma.js";
+import { UserPlan } from "@prisma/client";
 
 // Test suite for pro request functionality
 describe("Pro requests", () => {
@@ -162,7 +163,7 @@ describe("Pro requests", () => {
     // Set the user to Pro
     await prisma.user.update({
       where: { id: userId },
-      data: { aiProEnabled: true },
+      data: { plan: UserPlan.PRO },
     });
 
     // Call the pro request endpoint with the Bearer token and a note

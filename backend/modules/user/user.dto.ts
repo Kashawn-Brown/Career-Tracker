@@ -6,8 +6,10 @@ export const userSelect = {
   id: true,
   email: true,
   name: true,
-  isAdmin: true,
   isActive: true,
+
+  role: true,
+  plan: true,
 
   baseResumeUrl: true,
 
@@ -28,7 +30,6 @@ export const userSelect = {
   jobSearchWorkMode: true,
 
   // AI access control
-  aiProEnabled: true,
   aiFreeUsesUsed: true,
 
   createdAt: true,
