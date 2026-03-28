@@ -12,8 +12,15 @@ model User {
   email        String   @unique
   name         String
   passwordHash String
+  
+  // Deprecated
   isAdmin       Boolean @default(false)
   isActive      Boolean @default(true)
+
+  // Authorization role (source of truth for admin access)
+  role          UserRole @default(USER)
+  // Entitlement plan (source of truth for feature/AI access)
+  plan          UserPlan @default(REGULAR)
 
   // Profile fields
   location     String?
@@ -41,6 +48,7 @@ model User {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  // lastActiveAt DateTime @default(now())
   emailVerifiedAt DateTime?
 
   jobApplications JobApplication[]
@@ -58,7 +66,20 @@ model User {
   oauthAccounts OAuthAccount[]
 
 
+  @@index([role])
+  @@index([plan])
   @@map("users")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum UserPlan {
+  REGULAR
+  PRO
+  PRO_PLUS
 }
 
 model AuthSession {
