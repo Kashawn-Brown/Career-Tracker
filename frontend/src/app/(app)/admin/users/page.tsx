@@ -5,18 +5,18 @@ import { adminApi } from "@/lib/api/admin";
 import { ApiError } from "@/lib/api/client";
 import type { AdminUserListItem, UserPlan } from "@/types/api";
 import { RequireAdmin } from "@/components/auth/RequireAdmin";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Alert } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { UserDetailSheet } from "@/components/admin/UserDetailSheet";
 import { AI_FREE_QUOTA } from "@/lib/constants";
 
 const PLAN_OPTIONS: { value: UserPlan | "ALL"; label: string }[] = [
-  { value: "ALL",      label: "All plans"  },
-  { value: "REGULAR",  label: "Regular"    },
-  { value: "PRO",      label: "Pro"        },
-  { value: "PRO_PLUS", label: "Pro+"       },
+  { value: "ALL",      label: "All plans" },
+  { value: "REGULAR",  label: "Regular"   },
+  { value: "PRO",      label: "Pro"       },
+  { value: "PRO_PLUS", label: "Pro+"      },
 ];
 
 const PLAN_LABELS: Record<UserPlan, string> = {
@@ -39,22 +39,22 @@ function AdminUsersContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError]         = useState<string | null>(null);
 
-  const [q, setQ]           = useState("");
+  const [q, setQ]                 = useState("");
   const [planFilter, setPlanFilter] = useState<UserPlan | "ALL">("ALL");
 
-  const [updatingId, setUpdatingId]   = useState<string | null>(null);
-  const [updateError, setUpdateError] = useState<string | null>(null);
+  // Sheet state
+  const [selectedUser, setSelectedUser] = useState<AdminUserListItem | null>(null);
+  const [sheetOpen, setSheetOpen]       = useState(false);
 
   const load = useCallback(async () => {
     setIsLoading(true);
-  
+    setError(null);
     try {
       const res = await adminApi.listUsers({
-        q,
+        q:    q.trim() || undefined,
         plan: planFilter === "ALL" ? undefined : planFilter,
       });
-  
-      setUsers(res.items.filter((u) => u.role !== "ADMIN"));
+      setUsers(res.items);
       setTotal(res.total);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load users.");
@@ -63,22 +63,18 @@ function AdminUsersContent() {
     }
   }, [q, planFilter]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
-  async function handlePlanChange(userId: string, plan: UserPlan) {
-    setUpdatingId(userId);
-    setUpdateError(null);
-    try {
-      await adminApi.updateUserPlan(userId, plan);
-      // Refresh list after update
-      await load();
-    } catch (err) {
-      setUpdateError(err instanceof ApiError ? err.message : "Failed to update plan.");
-    } finally {
-      setUpdatingId(null);
-    }
+  function handleRowClick(user: AdminUserListItem) {
+    // Admin rows are not interactive
+    if (user.role === "ADMIN") return;
+    setSelectedUser(user);
+    setSheetOpen(true);
+  }
+
+  function handleSheetClose() {
+    setSheetOpen(false);
+    setSelectedUser(null);
   }
 
   return (
@@ -111,8 +107,7 @@ function AdminUsersContent() {
         </Select>
       </div>
 
-      {error      && <Alert variant="destructive">{error}</Alert>}
-      {updateError && <Alert variant="destructive">{updateError}</Alert>}
+      {error && <Alert variant="destructive">{error}</Alert>}
 
       <Card>
         <CardHeader>
@@ -125,9 +120,9 @@ function AdminUsersContent() {
                 <th className="text-left px-4 py-3 font-medium">User</th>
                 <th className="text-left px-4 py-3 font-medium">Role</th>
                 <th className="text-left px-4 py-3 font-medium">Plan</th>
-                <th className="text-left px-4 py-3 font-medium">AI Credits Used</th>
+                <th className="text-left px-4 py-3 font-medium">AI Credits</th>
+                <th className="text-left px-4 py-3 font-medium">Last Active</th>
                 <th className="text-left px-4 py-3 font-medium">Status</th>
-                <th className="text-left px-4 py-3 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -145,79 +140,61 @@ function AdminUsersContent() {
                   </td>
                 </tr>
               )}
-              {!isLoading && users.map((user) => (
-                <tr key={user.id} className="border-b last:border-0 hover:bg-muted/20">
-                  <td className="px-4 py-3">
-                    <div className="font-medium">{user.name}</div>
-                    <div className="text-muted-foreground text-xs">{user.email}</div>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">{user.role}</td>
-                  <td className="px-4 py-3">
-                    <span className="font-medium">{PLAN_LABELS[user.plan]}</span>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {user.aiFreeUsesUsed}/{AI_FREE_QUOTA}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={user.isActive ? "text-green-600" : "text-muted-foreground"}>
-                      {user.isActive ? "Active" : "Inactive"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-2">
-                      {/* {user.plan === "REGULAR" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200"
-                          disabled={updatingId === user.id}
-                          onClick={() => handlePlanChange(user.id, "REGULAR")}
-                        >
-                          Grant 5 AI Credits
-                        </Button>
-                      )} */}
-                      {user.plan !== "REGULAR" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200"
-                          disabled={updatingId === user.id}
-                          onClick={() => handlePlanChange(user.id, "REGULAR")}
-                        >
-                          Set Regular
-                        </Button>
-                      )}
-                      {user.plan !== "PRO" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
-                          disabled={updatingId === user.id}
-                          onClick={() => handlePlanChange(user.id, "PRO")}
-                        >
-                          Set Pro
-                        </Button>
-                      )}
-                      {user.plan !== "PRO_PLUS" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="bg-indigo-600 text-white hover:bg-indigo-700"
-                          disabled={updatingId === user.id}
-                          onClick={() => handlePlanChange(user.id, "PRO_PLUS")}
-                        >
-                          Set Pro+
-                        </Button>
-                      )}
-                      
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {!isLoading && users.map((user) => {
+                const isAdmin = user.role === "ADMIN";
+                return (
+                  <tr
+                    key={user.id}
+                    className={[
+                      "border-b last:border-0 transition-colors",
+                      isAdmin
+                        ? "opacity-60"                                          // admins: visually muted, not clickable
+                        : "cursor-pointer hover:bg-muted/20",                  // regular users: clickable
+                    ].join(" ")}
+                    onClick={() => handleRowClick(user)}
+                  >
+                    <td className="px-4 py-3">
+                      <div className="font-medium">{user.name}</div>
+                      <div className="text-muted-foreground text-xs">{user.email}</div>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">{user.role}</td>
+                    <td className="px-4 py-3">
+                      <span className="font-medium">{PLAN_LABELS[user.plan]}</span>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {user.aiFreeUsesUsed} / {AI_FREE_QUOTA}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {user.lastActiveAt ? fmtDate(user.lastActiveAt) : "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={user.isActive ? "text-green-600" : "text-muted-foreground"}>
+                        {user.isActive ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </CardContent>
       </Card>
+
+      {/* User detail sheet */}
+      <UserDetailSheet
+        user={selectedUser}
+        open={sheetOpen}
+        onClose={handleSheetClose}
+        onUserUpdated={load}
+      />
     </div>
   );
+}
+
+function fmtDate(iso: string | Date) {
+  return new Date(iso).toLocaleDateString(undefined, {
+    year:  "numeric",
+    month: "short",
+    day:   "numeric",
+  });
 }

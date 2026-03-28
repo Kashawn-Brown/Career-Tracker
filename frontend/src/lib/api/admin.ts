@@ -6,7 +6,9 @@ import type {
   OkResponse,
   UserPlan, 
   AdminUsersListResponse, 
-  UpdateUserPlanRequest
+  UpdateUserPlanRequest,
+  AdminUserDetail,
+  UpdateUserStatusRequest,
 } from "@/types/api";
 
 export const adminApi = {
@@ -80,6 +82,23 @@ export const adminApi = {
     return apiFetch<OkResponse>(routes.admin.updateUserPlan(userId), {
       method: "PATCH",
       body: { plan } satisfies UpdateUserPlanRequest,
+    });
+  },
+
+  /**
+   * Get a single user's details by userId.
+   */
+  getUserDetail(userId: string) {
+    return apiFetch<AdminUserDetail>(routes.admin.getUserDetail(userId), { method: "GET" });
+  },
+
+  /**
+   * Update a user's active status by userId.
+   */
+  updateUserStatus(userId: string, isActive: boolean) {
+    return apiFetch<OkResponse>(routes.admin.updateUserStatus(userId), {
+      method: "PATCH",
+      body: { isActive } satisfies UpdateUserStatusRequest,
     });
   },
 

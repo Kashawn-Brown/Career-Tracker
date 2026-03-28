@@ -85,6 +85,12 @@ export async function login(email: string, password: string) {
     });
   }
 
+  // Update lastActiveAt on login
+  prisma.user.update({
+    where: { id: userRecord.id },
+    data: { lastActiveAt: new Date() },
+  }).catch(() => {});
+
   // Remove passwordHash from the user object
   const { passwordHash: _passwordHash, ...user } = userRecord;
 
@@ -221,6 +227,7 @@ export async function refreshSession(refreshToken: string, csrfToken: string) {
   });
   if (!user) throw new AppError("Invalid session", 401);
 
+  // Revoke session if account is deactivated
   if (!user.isActive) {
     // Defensive: revoke the session so this refresh token can’t be reused.
     await prisma.authSession.update({
@@ -231,7 +238,13 @@ export async function refreshSession(refreshToken: string, csrfToken: string) {
     throw new AppError("Account deactivated", 403, "ACCOUNT_DEACTIVATED");
   }
 
+  // Update lastActiveAt on successful refresh
+  await prisma.user.update({
+    where: { id: session.userId },
+    data: { lastActiveAt: now() },
+  }).catch(() => {});
 
+  // Update session
   await prisma.authSession.update({
     where: { id: session.id },
     data: {

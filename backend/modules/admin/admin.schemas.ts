@@ -45,8 +45,20 @@ export const UpdateUserPlanBody = Type.Object(
   { additionalProperties: false }
 );
 
+/**
+ * Body for updating a user's active status (admin).
+ */
+export const UpdateUserStatusBody = Type.Object(
+  {
+    isActive: Type.Boolean(),
+  },
+  { additionalProperties: false }
+);
+
+
 // Derived TS types
 export type ProDecisionBodyType = Static<typeof ProDecisionBody>;
 export type ListUsersQueryType     = Static<typeof ListUsersQuery>;
 export type AdminUserIdParamsType  = Static<typeof AdminUserIdParams>;
 export type UpdateUserPlanBodyType = Static<typeof UpdateUserPlanBody>;
+export type UpdateUserStatusBodyType = Static<typeof UpdateUserStatusBody>;

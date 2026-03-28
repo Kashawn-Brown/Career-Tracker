@@ -2,8 +2,8 @@ import type { FastifyInstance } from "fastify";
 import { requireAuth } from "../../middleware/auth.js";
 import { requireVerifiedEmail } from "../../middleware/require-verified-email.js";
 import { requireAdmin } from "../../middleware/require-admin.js";
-import { ProDecisionBody, ListUsersQuery, AdminUserIdParams, UpdateUserPlanBody } from "./admin.schemas.js";
-import type { ProDecisionBodyType, ListUsersQueryType, AdminUserIdParamsType, UpdateUserPlanBodyType } from "./admin.schemas.js";
+import { ProDecisionBody, ListUsersQuery, AdminUserIdParams, UpdateUserPlanBody, UpdateUserStatusBody } from "./admin.schemas.js";
+import type { ProDecisionBodyType, ListUsersQueryType, AdminUserIdParamsType, UpdateUserPlanBodyType, UpdateUserStatusBodyType } from "./admin.schemas.js";
 import * as AdminService from "./admin.service.js";
 
 export async function adminRoutes(app: FastifyInstance) {
@@ -115,7 +115,7 @@ export async function adminRoutes(app: FastifyInstance) {
 
   /**
    * Update a user's plan (admin only).
-   * Role editing is intentionally not exposed here.
+   * Admin accounts are protected from this action.
    */
   app.patch(
     "/users/:userId/plan",
@@ -130,4 +130,40 @@ export async function adminRoutes(app: FastifyInstance) {
       return reply.send(result);
     }
   );
+  
+  /**
+   * Get a single user's details (admin).
+   */
+  app.get(
+    "/users/:userId",
+    {
+      preHandler: [requireAuth, requireVerifiedEmail, requireAdmin],
+      schema: { params: AdminUserIdParams },
+    },
+    async (req, reply) => {
+      const { userId } = req.params as AdminUserIdParamsType;
+      const result = await AdminService.getUserDetailForAdmin(userId);
+      return reply.send(result);
+    }
+  );
+
+  /**
+   * Activate or deactivate a user (admin only).
+   * Admin accounts are protected from this action.
+   */
+  app.patch(
+    "/users/:userId/status",
+    {
+      preHandler: [requireAuth, requireVerifiedEmail, requireAdmin],
+      schema: { params: AdminUserIdParams, body: UpdateUserStatusBody },
+    },
+    async (req, reply) => {
+      const { userId } = req.params as AdminUserIdParamsType;
+      const { isActive } = req.body as UpdateUserStatusBodyType;
+      const result = await AdminService.setUserActiveStatus(userId, isActive);
+      return reply.send(result);
+    }
+  );
+
+
 }

@@ -155,6 +155,7 @@ export type AdminUserListItem = {
   aiFreeUsesUsed: number;
   createdAt:      string;
   updatedAt:      string;
+  lastActiveAt:   string | null;
 };
 
 export type AdminUsersListResponse = {
@@ -167,6 +168,16 @@ export type AdminUsersListResponse = {
 
 export type UpdateUserPlanRequest = {
   plan: UserPlan;
+};
+
+export type AdminUserDetail = AdminUserListItem & {
+  applicationCount: number;
+  connectionCount:  number;
+  statusBreakdown:  Record<string, number>;
+};
+
+export type UpdateUserStatusRequest = {
+  isActive: boolean;
 };
 
 

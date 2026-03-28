@@ -35,6 +35,8 @@ export const routes = {
     grantCredits: (requestId: string) => `/admin/pro-requests/${requestId}/grant-credits`,
     updateUserPlan: (userId: string) => `/admin/users/${userId}/plan`,
     listUsers: () => "/admin/users",
+    getUserDetail: (userId: string) => `/admin/users/${userId}`,
+    updateUserStatus: (userId: string) => `/admin/users/${userId}/status`,
   },
   users: {
     me: () => "/users/me",

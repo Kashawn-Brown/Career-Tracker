@@ -244,10 +244,15 @@ export async function listUsersForAdmin(params: ListUsersQueryType) {
 export async function updateUserPlan(userId: string, plan: UserPlan) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true },
+    select: { id: true, role: true },
   });
 
   if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+
+  // Protect admin accounts from being updated
+  if (user.role === "ADMIN") {
+    throw new AppError("Cannot update plan of admin users", 403, "ADMIN_PROTECTED");
+  }
 
   await prisma.user.update({
     where: { id: userId },
@@ -256,6 +261,65 @@ export async function updateUserPlan(userId: string, plan: UserPlan) {
 
   return { ok: true as const };
 }
+
+/**
+ * Get a single user's detail for admin.
+ */
+export async function getUserDetailForAdmin(userId: string) {
+  const user = await prisma.user.findUnique({
+    where:  { id: userId },
+    select: adminUserSelect,
+  });
+
+  if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+
+  // Get application count + status breakdown in one query
+  const applications = await prisma.jobApplication.groupBy({
+    by:     ["status"],
+    where:  { userId },
+    _count: { status: true },
+  });
+
+  // Get the # of connections for the user
+  const connectionCount = await prisma.connection.count({ where: { userId } });
+
+  // Get the status breakdown for the user's applications
+  const statusBreakdown = Object.fromEntries(
+    applications.map((a) => [a.status, a._count.status])
+  );
+
+  // Get the total number of applications for the user
+  const applicationCount = applications.reduce((sum, a) => sum + a._count.status, 0);
+
+  // Return the user detail
+  return { ...user, applicationCount, connectionCount, statusBreakdown };
+}
+
+/**
+ * Activate or deactivate a user account (admin only).
+ * Admins cannot be deactivated through this endpoint.
+ */
+export async function setUserActiveStatus(userId: string, isActive: boolean) {
+  const user = await prisma.user.findUnique({
+    where:  { id: userId },
+    select: { id: true, role: true },
+  });
+
+  if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+
+  // Protect admin accounts from being deactivated
+  if (user.role === "ADMIN") {
+    throw new AppError("Cannot change active status of admin users", 403, "ADMIN_PROTECTED");
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data:  { isActive },
+  });
+
+  return { ok: true as const };
+}
+
 
 // ----------------- Helper Functions -----------------
 
