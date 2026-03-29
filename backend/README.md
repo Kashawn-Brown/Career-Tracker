@@ -224,6 +224,37 @@ When plural (CSV) versions are present, they take precedence.
 - `updatedFrom` > `updatedTo` → `INVALID_DATE_RANGE`
 - `fitMin` > `fitMax` → `INVALID_FIT_RANGE`
 
+### Export applications as CSV `GET /api/v1/applications/export.csv`
+
+Exports **all** applications matching the current filters and sort order as a CSV file.
+Not limited to the current page — fetches all matching rows up to the export cap.
+
+**Response headers:**
+- `Content-Type: text/csv; charset=utf-8`
+- `Content-Disposition: attachment; filename="CT_Applications_YYYY-MM-DD.csv"`
+
+**Accepts the same filter and sort params as the list endpoint**, except:
+- No `page` or `pageSize` (always exports all matching rows)
+- Adds `columns` param for column selection
+
+| Parameter  | Type   | Description                                                         |
+|------------|--------|---------------------------------------------------------------------|
+| `columns`  | string | CSV of export column ids to include (default: all standard columns) |
+
+**Exportable column ids:**
+`favorite`, `company`, `position`, `location`, `jobType`, `salaryText`, `workMode`, `status`, `fitScore`, `dateApplied`, `updatedAt`
+
+**CSV output:**
+- UTF-8 BOM prefix for Excel/Sheets compatibility
+- CRLF line endings (RFC 4180)
+- Human-readable status, job type, and work mode labels
+- Dates formatted as `YYYY-MM-DD`
+- Values sanitized against spreadsheet formula injection
+
+**Error responses:**
+- Invalid column id in `columns` → `400 INVALID_EXPORT_COLUMN`
+- Matching rows exceed 10,000 → `400 EXPORT_TOO_MANY_ROWS`
+
 ### Application documents
 
 * `GET  /api/v1/applications/:id/documents`
