@@ -1,6 +1,7 @@
 import { JobType, WorkMode } from "@prisma/client";
 import { UserPlan } from "@prisma/client";
 import type { AiTier } from "./ai-tier.js";
+import { AI_MODELS } from "./openai.js";
 
 
 // ------------------- EXTRACT JOB DESCRIPTION -------------------
@@ -304,34 +305,36 @@ const FIT_MAX_OUTPUT_TOKENS_BY_PLAN: Record<AiTier, number> = {
 /**
  * Returns the model/effort/verbosity config for a FIT_V1 run
  * based on the user's plan.
+ *
+ * Models are defined in openai.ts AI_MODELS.
  */
 export function getFitPolicyForPlan(plan: AiTier): FitPolicy {
-  const maxOutputTokens = FIT_MAX_OUTPUT_TOKENS_BY_PLAN[plan] ?? 5_000;
+  const maxOutputTokens = FIT_MAX_OUTPUT_TOKENS_BY_PLAN[plan] ?? 10_000;
 
   switch (plan) {
     case UserPlan.PRO_PLUS:
       return {
-        tier: plan,
-        model: "o4-mini",
-        effort: "high",
-        verbosity: "high",
+        tier:             plan,
+        model:            AI_MODELS.FIT_PRO_PLUS,
+        effort:           "high",
+        verbosity:        "high",
         maxOutputTokens,
       };
     case UserPlan.PRO:
       return {
-        tier: plan,
-        model: "gpt-5-mini",
-        effort: "medium",
-        verbosity: "medium",
+        tier:             plan,
+        model:            AI_MODELS.FIT_PRO,
+        effort:           "medium",
+        verbosity:        "medium",
         maxOutputTokens,
       };
     case UserPlan.REGULAR:
     default:
       return {
-        tier: plan,
-        model: "gpt-5-mini",
-        effort: "low",
-        verbosity: "low",
+        tier:             plan,
+        model:            AI_MODELS.FIT_REGULAR,
+        effort:           "low",
+        verbosity:        "low",
         maxOutputTokens,
       };
   }
