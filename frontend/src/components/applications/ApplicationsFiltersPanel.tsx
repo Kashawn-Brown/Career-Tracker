@@ -9,7 +9,6 @@ import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import type { ApplicationStatus, JobType, WorkMode } from "@/types/api";
 import {
   type ApplicationFilters,
   DEFAULT_FIT_RANGE,
@@ -17,6 +16,11 @@ import {
   toggleMultiValue,
   formatSelectedLabels,
 } from "@/lib/applications/filters";
+import {
+  STATUS_OPTIONS,
+  JOB_TYPE_OPTIONS,
+  WORK_MODE_OPTIONS,
+} from "@/lib/applications/presentation";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,31 +33,6 @@ type Props = {
   onToggleOpen:    (open: boolean) => void;
   onReset:         () => void;
 };
-
-// ─── Option definitions ───────────────────────────────────────────────────────
-
-// Wishlist is excluded from filter options (rarely useful as a filter)
-const STATUS_OPTIONS: { value: ApplicationStatus; label: string }[] = [
-  { value: "WISHLIST",  label: "Interested"  },
-  { value: "APPLIED",   label: "Applied"   },
-  { value: "INTERVIEW", label: "Interviewing" },
-  { value: "OFFER",     label: "Offer Received"     },
-  { value: "REJECTED",  label: "Rejected"  },
-  { value: "WITHDRAWN", label: "Withdrawn" },
-];
-
-const JOB_TYPE_OPTIONS: { value: JobType; label: string }[] = [
-  { value: "FULL_TIME",  label: "Full-time"  },
-  { value: "PART_TIME",  label: "Part-time"  },
-  { value: "CONTRACT",   label: "Contract"   },
-  { value: "INTERNSHIP", label: "Internship" },
-];
-
-const WORK_MODE_OPTIONS: { value: WorkMode; label: string }[] = [
-  { value: "REMOTE", label: "Remote" },
-  { value: "HYBRID", label: "Hybrid" },
-  { value: "ONSITE", label: "On-site" },
-];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -225,7 +204,7 @@ export function ApplicationsFiltersPanel({
   onToggleOpen,
   onReset,
 }: Props) {
-  const activeCount = countActiveFilters({ ...filters, q: queryInput });
+  const activeCount = countActiveFilters(filters, queryInput );
   const hasActiveFilters = activeCount > 0;
 
   return (
@@ -316,7 +295,7 @@ export function ApplicationsFiltersPanel({
             <MultiSelectDropdown
               label="Work Mode"
               placeholder="Any work mode"
-              options={WORK_MODE_OPTIONS}
+              options={WORK_MODE_OPTIONS.filter((o) => o.value !== "UNKNOWN")}
               selected={filters.workModes}
               onToggle={(v) => onFiltersChange({ workModes: toggleMultiValue(filters.workModes, v) })}
               onClear={() => onFiltersChange({ workModes: [] })}
@@ -324,7 +303,7 @@ export function ApplicationsFiltersPanel({
             <MultiSelectDropdown
               label="Job Type"
               placeholder="Any job type"
-              options={JOB_TYPE_OPTIONS}
+              options={JOB_TYPE_OPTIONS.filter((o) => o.value !== "UNKNOWN")}
               selected={filters.jobTypes}
               onToggle={(v) => onFiltersChange({ jobTypes: toggleMultiValue(filters.jobTypes, v) })}
               onClear={() => onFiltersChange({ jobTypes: [] })}

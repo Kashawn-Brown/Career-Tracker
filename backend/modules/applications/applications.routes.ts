@@ -44,13 +44,14 @@ export async function applicationsRoutes(app: FastifyInstance) {
 
   /**
    * List job applications for the current user.
-   * 
-   * Supports filters: 
-   *  - text query (q) on company/position
-   *  - status filter
-   *  - job type filter
-   *  - work mode filter
-   *  - is favorite.
+   *
+   * Supports filters:
+   *  - text search (q) across company, position, location, and tags
+   *  - multi-select status, job type, and work mode (CSV params: statuses, jobTypes, workModes)
+   *  - favorites only (isFavorite)
+   *  - fit score range (fitMin, fitMax)
+   *  - date applied range (dateAppliedFrom, dateAppliedTo)
+   *  - last updated range (updatedFrom, updatedTo)
    */
   app.get(
     "/",
