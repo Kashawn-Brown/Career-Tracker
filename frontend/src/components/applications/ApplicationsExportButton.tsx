@@ -1,44 +1,79 @@
 "use client";
 
 import { useState } from "react";
-import { Download } from "lucide-react";
+import { Download, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
 import { applicationsApi } from "@/lib/api/applications";
 import { ApiError } from "@/lib/api/client";
+import { STATUS_OPTIONS } from "@/lib/applications/presentation";
+import { getStatusPillTokens, PILL_BASE_CLASS } from "@/lib/applications/pills";
 import type { ApplicationFilters } from "@/lib/applications/filters";
-import type { ApplicationSortBy, ApplicationSortDir, ApplicationExportColumn } from "@/types/api";
+import type {
+  ApplicationSortBy,
+  ApplicationSortDir,
+  ApplicationExportColumn,
+  ApplicationStatus,
+} from "@/types/api";
 import type { ApplicationColumnId } from "@/lib/applications/tableColumns";
 import {
   EXPORTABLE_APPLICATION_COLUMNS,
+  EXPORT_COLUMN_LABELS,
   toExportColumns,
 } from "@/lib/applications/export";
 import { dateInputToStartIso, dateInputToEndIso } from "@/lib/applications/dates";
+import { cn } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type ColumnsMode = "visible" | "all";
-
 type Props = {
   filters:        ApplicationFilters;
-  query:          string;          // committed (debounced) search query
+  query:          string;
   sortBy:         ApplicationSortBy;
   sortDir:        ApplicationSortDir;
   visibleColumns: ApplicationColumnId[];
-  total:          number;          // total matching rows — used for summary + disabled state
+  total:          number;
 };
+
+// ─── Section wrapper ──────────────────────────────────────────────────────────
+
+function Section({ title, children, action }: {
+  title:    string;
+  children: React.ReactNode;
+  action?:  React.ReactNode;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium">{title}</p>
+        {action}
+      </div>
+      {children}
+    </div>
+  );
+}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 /**
  * ApplicationsExportButton
  *
- * Export CSV button with a small configuration popover.
- * Exports all rows matching the current filters and sort — not just the current page.
+ * Opens a dialog to configure and download a CSV export.
+ * Inherits the current filters and sort from the table.
  *
- * The user can choose between:
- *   - Visible columns (matches what they see in the table)
- *   - All standard columns (full export regardless of column visibility)
+ * User can:
+ *  - Exclude specific statuses from the export (e.g. Rejected, Withdrawn)
+ *  - Choose which columns to include
  */
 export function ApplicationsExportButton({
   filters,
@@ -48,47 +83,101 @@ export function ApplicationsExportButton({
   visibleColumns,
   total,
 }: Props) {
-  const [open, setOpen]               = useState(false);
-  const [columnsMode, setColumnsMode] = useState<ColumnsMode>("visible");
+  const [open, setOpen] = useState(false);
+
+  // Statuses to exclude — all included by default
+  const [excludedStatuses, setExcludedStatuses] = useState<ApplicationStatus[]>([]);
+
+  // Columns to include — starts with visible table columns
+  const [selectedColumns, setSelectedColumns] = useState<ApplicationExportColumn[]>(() =>
+    toExportColumns(visibleColumns)
+  );
+
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError]             = useState<string | null>(null);
 
-  const isEmpty = total === 0;
+  const isEmpty           = total === 0;
+  const allStatusesExcluded = excludedStatuses.length === STATUS_OPTIONS.length;
 
-  // Resolve which export columns to send based on the selected mode
-  function resolveColumns(): ApplicationExportColumn[] {
-    if (columnsMode === "all") return [...EXPORTABLE_APPLICATION_COLUMNS];
-    return toExportColumns(visibleColumns);
+  // Show "up to N" when statuses are excluded since we don't re-query for exact count
+  const rowSummary = excludedStatuses.length > 0
+    ? `up to ${total.toLocaleString()}`
+    : total.toLocaleString();
+
+  function handleOpen() {
+    setExcludedStatuses([]);
+    setSelectedColumns(toExportColumns(visibleColumns));
+    setError(null);
+    setOpen(true);
   }
 
+  // ── Status toggle ─────────────────────────────────────────────────────────
+
+  function toggleExcludedStatus(status: ApplicationStatus) {
+    setExcludedStatuses((prev) =>
+      prev.includes(status)
+        ? prev.filter((s) => s !== status)
+        : [...prev, status]
+    );
+  }
+
+  function includeAllStatuses() {
+    setExcludedStatuses([]);
+  }
+
+  // ── Column toggle ─────────────────────────────────────────────────────────
+
+  function toggleColumn(col: ApplicationExportColumn) {
+    setSelectedColumns((prev) =>
+      prev.includes(col)
+        ? prev.filter((c) => c !== col)
+        : EXPORTABLE_APPLICATION_COLUMNS.filter((c) => [...prev, col].includes(c))
+    );
+  }
+
+  function selectAllColumns() {
+    setSelectedColumns([...EXPORTABLE_APPLICATION_COLUMNS]);
+  }
+
+  // ── Download ──────────────────────────────────────────────────────────────
+
   async function handleDownload() {
+    if (selectedColumns.length === 0) {
+      setError("Select at least one column to export.");
+      return;
+    }
+    if (allStatusesExcluded) return;
+
     setError(null);
     setIsExporting(true);
 
     try {
+      const baseStatuses = filters.statuses.length
+        ? filters.statuses
+        : (STATUS_OPTIONS.map((o) => o.value) as ApplicationStatus[]);
+
+      const effectiveStatuses = baseStatuses.filter(
+        (s) => !excludedStatuses.includes(s)
+      );
+
       const { blob, filename } = await applicationsApi.exportCsv({
-        // Filters
-        statuses:  filters.statuses.length  ? filters.statuses  : undefined,
-        jobTypes:  filters.jobTypes.length   ? filters.jobTypes  : undefined,
-        workModes: filters.workModes.length  ? filters.workModes : undefined,
-        isFavorite: filters.favoritesOnly || undefined,
-        q:          query || undefined,
+        statuses:  effectiveStatuses.length < STATUS_OPTIONS.length
+          ? effectiveStatuses : undefined,
+        jobTypes:  filters.jobTypes.length  ? filters.jobTypes  : undefined,
+        workModes: filters.workModes.length ? filters.workModes : undefined,
+        isFavorite: filters.favoritesOnly   || undefined,
+        q:          query                   || undefined,
         fitMin:     filters.fitRange[0] !== 0   ? filters.fitRange[0] : undefined,
         fitMax:     filters.fitRange[1] !== 100 ? filters.fitRange[1] : undefined,
         dateAppliedFrom: dateInputToStartIso(filters.dateAppliedFrom) ?? undefined,
         dateAppliedTo:   dateInputToEndIso(filters.dateAppliedTo)     ?? undefined,
         updatedFrom:     dateInputToStartIso(filters.updatedFrom)     ?? undefined,
         updatedTo:       dateInputToEndIso(filters.updatedTo)         ?? undefined,
-
-        // Sort
         sortBy,
         sortDir,
-
-        // Columns
-        columns: resolveColumns(),
+        columns: selectedColumns,
       });
 
-      // Trigger browser file download
       const url  = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href     = url;
@@ -107,92 +196,173 @@ export function ApplicationsExportButton({
     }
   }
 
+  // ── Render ────────────────────────────────────────────────────────────────
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          disabled={isEmpty}
-          title={isEmpty ? "No applications to export" : "Export applications as CSV"}
-        >
-          <Download className="h-4 w-4" />
-          Export
-        </Button>
-      </PopoverTrigger>
+    <>
+      <Button
+        variant="outline"
+        disabled={isEmpty}
+        title={isEmpty ? "No applications to export" : "Export applications as CSV"}
+        onClick={handleOpen}
+      >
+        <Download className="h-4 w-4" />
+        Export
+      </Button>
 
-      <PopoverContent className="w-72 p-4 space-y-4" align="end">
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
 
-        {/* Summary */}
-        <div className="space-y-0.5">
-          <p className="text-sm font-medium">Export as CSV</p>
-          <p className="text-xs text-muted-foreground">
-            {total.toLocaleString()} application{total !== 1 ? "s" : ""} matching
-            your current filters and sort. Not limited to the current page.
-          </p>
-        </div>
+          {/* ── Header ── */}
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <FileDown className="h-4 w-4 shrink-0" />
+              Export Applications
+            </DialogTitle>
+            <DialogDescription asChild>
+              <div className="text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">{rowSummary}</span>
+                {" "}application{total !== 1 ? "s" : ""} will be exported
+                based on your current filters and sort order.
+              </div>
+            </DialogDescription>
+          </DialogHeader>
 
-        {/* Columns mode */}
-        <div className="space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Columns
-          </p>
-          <div className="space-y-1">
-            {(["visible", "all"] as ColumnsMode[]).map((mode) => {
-              const isSelected = columnsMode === mode;
-              const label      = mode === "visible"
-                ? "Visible columns"
-                : "All standard columns";
-              const description = mode === "visible"
-                ? "Matches what you see in the table"
-                : `All ${EXPORTABLE_APPLICATION_COLUMNS.length} exportable columns`;
+          <div className="space-y-5 pt-1">
 
-              return (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => setColumnsMode(mode)}
-                  className={[
-                    "w-full text-left rounded-md border px-3 py-2 text-sm transition-colors",
-                    isSelected
-                      ? "border-primary bg-primary/5 text-primary"
-                      : "border-input hover:bg-accent/50",
-                  ].join(" ")}
-                >
-                  <div className="font-medium">{label}</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    {description}
+            {/* ── Statuses ── */}
+            <Section
+              title="Statuses"
+              action={
+                excludedStatuses.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={includeAllStatuses}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    All
+                  </button>
+                ) : null
+              }
+            >
+              <div className="rounded-md border bg-muted/10 p-3 space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  {STATUS_OPTIONS.map((option) => {
+                    const isExcluded = excludedStatuses.includes(option.value);
+                    const { wrap, dot } = getStatusPillTokens(option.value);
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => toggleExcludedStatus(option.value)}
+                        aria-pressed={!isExcluded}
+                        className={cn(
+                          PILL_BASE_CLASS,
+                          "cursor-pointer transition-all duration-150 select-none",
+                          isExcluded
+                            ? "opacity-30 bg-muted/40 text-muted-foreground border-border line-through"
+                            : cn(wrap, "hover:opacity-80")
+                        )}
+                      >
+                        {!isExcluded && (
+                          <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", dot)} />
+                        )}
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Click a status to exclude it from the export.
+                </p>
+                {allStatusesExcluded && (
+                  <p className="text-xs text-destructive">
+                    At least one status must be included.
+                  </p>
+                )}
+              </div>
+            </Section>
+
+            {/* ── Columns ── */}
+            <Section
+              title={`Columns — ${selectedColumns.length} / ${EXPORTABLE_APPLICATION_COLUMNS.length}`}
+              action={
+                selectedColumns.length < EXPORTABLE_APPLICATION_COLUMNS.length ? (
+                  <button
+                    type="button"
+                    onClick={selectAllColumns}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    All
+                  </button>
+                ) : null
+              }
+            >
+              <div className="rounded-md border bg-muted/10 p-3 grid grid-cols-2 gap-x-6 gap-y-3">
+                {EXPORTABLE_APPLICATION_COLUMNS.map((col) => (
+                  <div key={col} className="flex items-center gap-2.5">
+                    <Checkbox
+                      id={`col-${col}`}
+                      checked={selectedColumns.includes(col)}
+                      onCheckedChange={() => toggleColumn(col)}
+                    />
+                    <Label
+                      htmlFor={`col-${col}`}
+                      className="text-sm cursor-pointer leading-none"
+                    >
+                      {EXPORT_COLUMN_LABELS[col]}
+                    </Label>
                   </div>
-                </button>
-              );
-            })}
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1.5">
+                Click a column to include or exclude it from the export.
+              </p>
+              {selectedColumns.length === 0 && (
+                <p className="text-xs text-destructive mt-1">
+                  Select at least one column.
+                </p>
+              )}
+            </Section>
+
+            {/* ── Error ── */}
+            {error && (
+              <p className="text-sm text-destructive">{error}</p>
+            )}
+
           </div>
-        </div>
 
-        {/* Error */}
-        {error && (
-          <p className="text-xs text-destructive">{error}</p>
-        )}
+          {/* ── Footer ── */}
+          <DialogFooter className="mt-2">
+            <DialogClose asChild>
+              <Button variant="outline" disabled={isExporting}>
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button
+              disabled={
+                isExporting ||
+                selectedColumns.length === 0 ||
+                allStatusesExcluded
+              }
+              onClick={handleDownload}
+            >
+              {isExporting ? (
+                <>
+                  <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent mr-2" />
+                  Exporting...
+                </>
+              ) : (
+                <>
+                  <Download className="h-3.5 w-3.5 mr-2" />
+                  Download CSV
+                </>
+              )}
+            </Button>
+          </DialogFooter>
 
-        {/* Download button */}
-        <Button
-          className="w-full"
-          disabled={isExporting}
-          onClick={handleDownload}
-        >
-          {isExporting ? (
-            <span className="flex items-center gap-2">
-              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-              Exporting...
-            </span>
-          ) : (
-            <span className="flex items-center gap-2">
-              <Download className="h-3.5 w-3.5" />
-              Download CSV
-            </span>
-          )}
-        </Button>
-
-      </PopoverContent>
-    </Popover>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
