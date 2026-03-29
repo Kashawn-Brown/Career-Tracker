@@ -70,3 +70,31 @@ export function todayInputValue() {
   const dd = String(d.getDate()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd}`; // yyyy-mm-dd
 }
+
+/**
+ * Converts a YYYY-MM-DD date input value to an ISO string at the
+ * start of that day in local time (00:00:00.000).
+ * Returns null if the value is empty.
+ */
+export function dateInputToStartIso(value: string): string | null {
+  if (!value) return null;
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return null;
+  // Set to start of day in local time
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString();
+}
+
+/**
+ * Converts a YYYY-MM-DD date input value to an ISO string at the
+ * end of that day in local time (23:59:59.999).
+ * Returns null if the value is empty.
+ */
+export function dateInputToEndIso(value: string): string | null {
+  if (!value) return null;
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return null;
+  // Set to end of day in local time
+  d.setHours(23, 59, 59, 999);
+  return d.toISOString();
+}

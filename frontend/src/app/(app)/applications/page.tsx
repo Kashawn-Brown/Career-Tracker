@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useState, useRef } from "react";
 import { ApiError } from "@/lib/api/client";
 import { applicationsApi } from "@/lib/api/applications";
-import type { Application, ApplicationsListResponse, UpdateApplicationRequest, ApplicationStatus, ApplicationSortBy, ApplicationSortDir, JobType, WorkMode, ListApplicationsParams } from "@/types/api";
-import { STATUS_FILTER_OPTIONS, JOB_TYPE_FILTER_OPTIONS, WORK_MODE_FILTER_OPTIONS, statusLabel, jobTypeLabel, workModeLabel } from "@/lib/applications/presentation";
+import type { Application, ApplicationsListResponse, UpdateApplicationRequest, ApplicationSortBy, ApplicationSortDir, ListApplicationsParams } from "@/types/api";
 import { ApplicationsTable } from "@/components/applications/ApplicationsTable";
 import { CreateApplicationForm } from "@/components/applications/CreateApplicationForm";
 import { CreateApplicationFromJdForm } from "@/components/applications/CreateApplicationFromJdForm";
@@ -13,16 +12,19 @@ import { ColumnsControl } from "@/components/applications/ColumnsControl";
 import { APPLICATION_COLUMNS_STORAGE_KEY, DEFAULT_VISIBLE_APPLICATION_COLUMNS, normalizeVisibleColumns, type ApplicationColumnId} from "@/lib/applications/tableColumns";
 import { useFitRuns } from "@/hooks/useFitRuns";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { Alert } from "@/components/ui/alert";
 import {  Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Slider } from "@/components/ui/slider";
 import { Portal } from "@/components/ui/portal";
-import { ChevronDown, ChevronRight, Filter, Plus, Star, X, CheckCircle2 } from "lucide-react";
-
+import { ChevronDown, ChevronRight, Plus, X, CheckCircle2 } from "lucide-react";
+import { ApplicationsFiltersPanel } from "@/components/applications/ApplicationsFiltersPanel";
+import {
+  type ApplicationFilters,
+  DEFAULT_FILTERS,
+} from "@/lib/applications/filters";
+import { dateInputToStartIso, dateInputToEndIso } from "@/lib/applications/dates";
 
 // ApplicationsPage: fetches and displays the user's applications (GET /applications) with pagination.
 export default function ApplicationsPage() {
@@ -58,21 +60,14 @@ export default function ApplicationsPage() {
   const DEBOUNCE_MS = 250;    // Debounce time for query input (to prevent excessive API calls)
   const [query, setQuery] = useState("");       // what the user has searched for (committed query used by API)
   const [queryInput, setQueryInput] = useState(""); // what the user is typing
-  const [status, setStatus] = useState<"ALL" | ApplicationStatus>("ALL");
-  const [jobType, setJobType] = useState<"ALL" | JobType>("ALL");
-  const [workMode, setWorkMode] = useState<"ALL" | WorkMode>("ALL");
-  const [favoritesOnly, setFavoritesOnly] = useState(false);
-  const [fitRange, setFitRange] = useState<[number, number]>([0, 100]);
+  // All filter state in one object — easier to reset and pass to the panel
+  const [filters, setFilters] = useState<ApplicationFilters>(DEFAULT_FILTERS);
 
-  const activeFilterCount =
-  (queryInput.trim() ? 1 : 0) +
-  (status !== "ALL" ? 1 : 0) +
-  (jobType !== "ALL" ? 1 : 0) +
-  (workMode !== "ALL" ? 1 : 0) +
-  (favoritesOnly ? 1 : 0) +
-  (fitRange[0] !== 0 || fitRange[1] !== 100 ? 1 : 0);
-
-  const hasActiveFilters = activeFilterCount > 0;
+  // Convenience patcher — merges partial updates into filter state
+  function patchFilters(patch: Partial<ApplicationFilters>) {
+    setFilters((prev) => ({ ...prev, ...patch }));
+    setPage(1); // always reset to page 1 when filters change
+  }
 
   // Column visibility state
   const [showColumns, setShowColumns] = useState(false);
@@ -126,15 +121,20 @@ export default function ApplicationsPage() {
           page,
           pageSize,
           q: query,
-          status,
           sortBy,
           sortDir,
-          jobType,
-          workMode,
-          favoritesOnly,
-          ...(fitRange[0] !== 0 || fitRange[1] !== 100
-            ? { fitMin: fitRange[0], fitMax: fitRange[1] }
+          statuses:  filters.statuses.length  ? filters.statuses  : undefined,
+          jobTypes:  filters.jobTypes.length   ? filters.jobTypes  : undefined,
+          workModes: filters.workModes.length  ? filters.workModes : undefined,
+          favoritesOnly: filters.favoritesOnly,
+          ...(filters.fitRange[0] !== 0 || filters.fitRange[1] !== 100
+            ? { fitMin: filters.fitRange[0], fitMax: filters.fitRange[1] }
             : {}),
+          // Convert YYYY-MM-DD to ISO boundaries before sending
+          dateAppliedFrom: dateInputToStartIso(filters.dateAppliedFrom) ?? undefined,
+          dateAppliedTo:   dateInputToEndIso(filters.dateAppliedTo)     ?? undefined,
+          updatedFrom:     dateInputToStartIso(filters.updatedFrom)     ?? undefined,
+          updatedTo:       dateInputToEndIso(filters.updatedTo)         ?? undefined,
         } satisfies ListApplicationsParams;
 
         // Call the backend API to get the paginated applications.
@@ -152,7 +152,7 @@ export default function ApplicationsPage() {
     }
 
     load();
-  }, [page, pageSize, query, status, sortBy, sortDir, jobType, workMode, favoritesOnly, fitRange, reloadKey]);
+  }, [page, pageSize, query, sortBy, sortDir, filters, reloadKey]);
 
   // Load column visibility settings from localStorage
   useEffect(() => {
@@ -344,17 +344,19 @@ export default function ApplicationsPage() {
     setPage(1);
   }
 
-  // resetControls: returns filters/sort back to MVP defaults.
-  function resetControls() {
-    setQuery("");
+  // // resetControls: returns filters/sort back to MVP defaults.
+  // function resetControls() {
+  //   setQuery("");
+  //   setQueryInput("");
+  //   setSortBy("updatedAt");
+  //   setSortDir("desc");
+  //   setPage(1);
+  // }
+
+  function resetFilters() {
+    setFilters(DEFAULT_FILTERS);
     setQueryInput("");
-    setStatus("ALL");
-    setSortBy("updatedAt");
-    setSortDir("desc");
-    setJobType("ALL");
-    setWorkMode("ALL");
-    setFavoritesOnly(false);
-    setFitRange([0, 100]);
+    setQuery("");
     setPage(1);
   }
 
@@ -609,218 +611,18 @@ export default function ApplicationsPage() {
           ) : null}
 
           {/* Filters control */}
-          <Collapsible open={isFiltersOpen} onOpenChange={setIsFiltersOpen}>
-            <div className="rounded-lg border bg-background">
-              <CollapsibleTrigger asChild>
-                <button
-                  type="button"
-                  className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
-                >
-                  <div className="flex items-center gap-2">
-                    <Filter className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">Filters</span>
-                    {hasActiveFilters ? (
-                      <span className="bg-primary text-primary-foreground px-2 py-0.5 rounded-full text-xs">
-                        {activeFilterCount}
-                      </span>
-                    ) : null}
-                  </div>
-
-                  {isFiltersOpen ? (
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </button>
-              </CollapsibleTrigger>
-
-              <CollapsibleContent className="border-t px-6 py-6">
-                {/* Clear all filters button */}
-                <div className="flex justify-end mb-6">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={resetControls}
-                    disabled={!hasActiveFilters}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <X className="h-3 w-3 mr-1" />
-                    Clear All
-                  </Button>
-                </div>
-          
-                {/* Filters Grid */}
-                <div className="grid gap-x-6 gap-y-6 md:grid-cols-12">
-                  
-                  {/* Search */}
-                  <div className="space-y-2 md:col-span-5">
-                    <Label htmlFor="q">Search</Label>
-                    <Input
-                      id="q"
-                      value={queryInput}
-                      onChange={(e) => setQueryInput(e.target.value)}
-                      placeholder="Search company or position..."
-                    />
-                  </div>
-
-                  {/* Status */}
-                  <div className="space-y-2 md:col-span-5">
-                    <Label htmlFor="status">Status</Label>
-                    <Select
-                      id="status"
-                      value={status}
-                      onChange={(e) => {
-                        setStatus(e.target.value as "ALL" | ApplicationStatus);
-                        resetToFirstPage();
-                      }}
-                    >
-                      {STATUS_FILTER_OPTIONS.map((s) => (
-                        <option key={s} value={s}>
-                          {s === "ALL" ? "All statuses" : statusLabel(s)}
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
-
-                  {/* Favorites */}
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="favoritesOnly">Favorites</Label>
-                    <label className="flex h-9 items-center gap-2 rounded-md border px-3 text-sm">
-                      <input
-                        id="favoritesOnly"
-                        type="checkbox"
-                        checked={favoritesOnly}
-                        onChange={(e) => {
-                          setFavoritesOnly(e.target.checked);
-                          resetToFirstPage();
-                        }}
-                        className="h-4 w-4"
-                      />
-                      {favoritesOnly ? (
-                        <span className="flex items-center gap-1">
-                          <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" /> Favorites only
-                        </span>
-                      ) : (
-                        <span> All applications</span>
-                      )}
-                    </label>
-                  </div>
-
-                  {/* Job type */}
-                  <div className="space-y-2 md:col-span-4">
-                    <Label htmlFor="jobType">Job type</Label>
-                    <Select
-                      id="jobType"
-                      value={jobType}
-                      onChange={(e) => {
-                        setJobType(e.target.value as "ALL" | JobType);
-                        resetToFirstPage();
-                      }}
-                    >
-                      {JOB_TYPE_FILTER_OPTIONS.map((j) => (
-                        <option key={j} value={j}>
-                          {j === "ALL" ? "All types" : jobTypeLabel(j)}
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
-
-                  {/* Fit score */}
-                  <div className="space-y-2 md:col-span-4">
-                    <div className="flex items-center justify-between">
-                      <Label>Fit score</Label>
-                      <span className="text-xs text-muted-foreground tabular-nums">
-                        {fitRange[0]}–{fitRange[1]}
-                      </span>
-                    </div>
-
-                    <Slider
-                      value={fitRange}
-                      min={0}
-                      max={100}
-                      step={1}
-                      onValueChange={(v) => {
-                        // v is a number[] of length 2 for range sliders
-                        setFitRange([v[0], v[1]]);
-                        resetToFirstPage();
-                      }}
-                    />
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">Min</Label>
-                        <Input
-                          type="number"
-                          min={0}
-                          max={100}
-                          value={fitRange[0]}
-                          onChange={(e) => {
-                            const nextMin = Number(e.target.value);
-                            const clamped = Number.isFinite(nextMin) ? Math.max(0, Math.min(100, nextMin)) : 0;
-                            setFitRange([Math.min(clamped, fitRange[1]), fitRange[1]]);
-                            resetToFirstPage();
-                          }}
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">Max</Label>
-                        <Input
-                          type="number"
-                          min={0}
-                          max={100}
-                          value={fitRange[1]}
-                          onChange={(e) => {
-                            const nextMax = Number(e.target.value);
-                            const clamped = Number.isFinite(nextMax) ? Math.max(0, Math.min(100, nextMax)) : 100;
-                            setFitRange([fitRange[0], Math.max(clamped, fitRange[0])]);
-                            resetToFirstPage();
-                          }}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setFitRange([0, 100]);
-                          resetToFirstPage();
-                        }}
-                        disabled={fitRange[0] === 0 && fitRange[1] === 100}
-                      >
-                        Reset fit range
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Work mode */}
-                  <div className="space-y-2 md:col-span-4">
-                    <Label htmlFor="workMode">Work Arrangement</Label>
-                    <Select
-                      id="workMode"
-                      value={workMode}
-                      onChange={(e) => {
-                        setWorkMode(e.target.value as "ALL" | WorkMode);
-                        resetToFirstPage();
-                      }}
-                    >
-                      {WORK_MODE_FILTER_OPTIONS.map((w) => (
-                        <option key={w} value={w}>
-                          {w === "ALL" ? "All arrangements" : workModeLabel(w)}
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
-
-                  
-
-                </div>
-              </CollapsibleContent>
-            </div>
-          </Collapsible>
+          <ApplicationsFiltersPanel
+            filters={filters}
+            isOpen={isFiltersOpen}
+            queryInput={queryInput}
+            onQueryChange={(v) => {
+              setQueryInput(v);
+              setPage(1);
+            }}
+            onFiltersChange={patchFilters}
+            onToggleOpen={setIsFiltersOpen}
+            onReset={resetFilters}
+          />
 
           {/* Error message */}
           {errorMessage ? (

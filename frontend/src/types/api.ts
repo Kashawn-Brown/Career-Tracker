@@ -253,22 +253,29 @@ export type ApplicationListItem = {
 export type ApplicationsListResponse = Paginated<ApplicationListItem>;
 
 export type ListApplicationsParams = {
-  page: number;
+  page:     number;
   pageSize: number;
 
   q?: string;
-  status?: "ALL" | ApplicationStatus;
 
-  sortBy?: ApplicationSortBy;
+  // Multi-value filters (replaces old singular status/jobType/workMode)
+  statuses?:  ApplicationStatus[];
+  jobTypes?:  JobType[];
+  workModes?: WorkMode[];
+
+  sortBy?:  ApplicationSortBy;
   sortDir?: ApplicationSortDir;
 
-  jobType?: "ALL" | JobType;
-  workMode?: "ALL" | WorkMode;
-
-  favoritesOnly?: boolean; // frontend-friendly name
+  favoritesOnly?: boolean;
 
   fitMin?: number;
   fitMax?: number;
+
+  // Date range filters (ISO strings sent to backend)
+  dateAppliedFrom?: string;
+  dateAppliedTo?:   string;
+  updatedFrom?:     string;
+  updatedTo?:       string;
 };
 
 // CreateApplicationRequest: matches backend schema for POST /applications.
