@@ -3,7 +3,7 @@
 
 import { getToken, setToken } from "@/lib/auth/token";
 import { routes } from "@/lib/api/routes";
-import { setCsrfToken as setCsrfTokenStore } from "@/lib/auth/csrf";
+import { setCsrfToken as setCsrfTokenStore, getCsrfToken } from "@/lib/auth/csrf";
 import type { CsrfResponse, RefreshResponse } from "@/types/api";
 
 
@@ -237,6 +237,56 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
 
   // Return the data as whatever we parsed, typed as T
   return data as T;
+}
+
+/**
+ * Fetches a binary/text file response (e.g. CSV download).
+ * Uses the same auth, refresh, and error handling as apiFetch.
+ * Returns the blob and the filename from Content-Disposition if present.
+ */
+export async function apiFetchBlob(
+  path: string,
+  options: Omit<ApiFetchOptions, "body"> = {}
+): Promise<{ blob: Blob; filename: string | null }> {
+  const url    = `${getBaseUrl()}${path}`;
+  const token  = getToken();
+
+  const headers: Record<string, string> = {
+    ...(options.headers ?? {}),
+  };
+
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const csrfToken = getCsrfToken();
+  if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
+
+  const res = await fetch(url, {
+    method:      options.method ?? "GET",
+    headers,
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    // Try to parse error body as JSON for a clean error message
+    let message = `Request failed (${res.status})`;
+    try {
+      const body = await res.json();
+      if (typeof body?.message === "string") message = body.message;
+    } catch {
+      // ignore parse failure — use default message
+    }
+    throw new ApiError(message, res.status);
+  }
+
+  const blob = await res.blob();
+
+  // Extract filename from Content-Disposition header if present
+  // e.g. attachment; filename="applications-2026-03-29.csv"
+  const disposition = res.headers.get("Content-Disposition") ?? "";
+  const match       = disposition.match(/filename="([^"]+)"/);
+  const filename    = match ? match[1] : null;
+
+  return { blob, filename };
 }
 
 /**

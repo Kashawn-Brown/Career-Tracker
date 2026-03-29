@@ -1,4 +1,4 @@
-import { apiFetch } from "@/lib/api/client";
+import { apiFetch, apiFetchBlob } from "@/lib/api/client";
 import { routes } from "@/lib/api/routes";
 import type { 
   OkResponse, 
@@ -10,10 +10,53 @@ import type {
   ListApplicationConnectionsResponse,
   AiArtifactKind,
   AiArtifact,
+  ExportApplicationsCsvParams, 
 } from "@/types/api";
 
-//
+
 type ApplicationEnvelope = { application: Application };
+
+/**
+ * Builds URLSearchParams for application list/export queries.
+ * Shared between list() and exportCsv() so serialization never drifts.
+ *
+ * opts.includePagination — set false for export (no page/pageSize)
+ */
+function buildApplicationsSearchParams(
+  params: Omit<ListApplicationsParams, "page" | "pageSize"> & {
+    page?:     number;
+    pageSize?: number;
+  },
+  opts: { includePagination: boolean } = { includePagination: true }
+): URLSearchParams {
+  const search = new URLSearchParams();
+
+  if (opts.includePagination) {
+    if (params.page     != null) search.set("page",     String(params.page));
+    if (params.pageSize != null) search.set("pageSize", String(params.pageSize));
+  }
+
+  if (params.q?.trim())        search.set("q",        params.q.trim());
+
+  if (params.statuses?.length)  search.set("statuses",  params.statuses.join(","));
+  if (params.jobTypes?.length)  search.set("jobTypes",  params.jobTypes.join(","));
+  if (params.workModes?.length) search.set("workModes", params.workModes.join(","));
+
+  if (params.sortBy)  search.set("sortBy",  params.sortBy);
+  if (params.sortDir) search.set("sortDir", params.sortDir);
+
+  if (params.favoritesOnly) search.set("isFavorite", "true");
+
+  if (typeof params.fitMin === "number") search.set("fitMin", String(params.fitMin));
+  if (typeof params.fitMax === "number") search.set("fitMax", String(params.fitMax));
+
+  if (params.dateAppliedFrom) search.set("dateAppliedFrom", params.dateAppliedFrom);
+  if (params.dateAppliedTo)   search.set("dateAppliedTo",   params.dateAppliedTo);
+  if (params.updatedFrom)     search.set("updatedFrom",     params.updatedFrom);
+  if (params.updatedTo)       search.set("updatedTo",       params.updatedTo);
+
+  return search;
+}
 
 /**
  * Mini client with small helpers for application endpoints.
@@ -27,35 +70,34 @@ export const applicationsApi = {
    * Fetch paginated applications with optional filters and sorting.
    */
   list(params: ListApplicationsParams) {
-    const search = new URLSearchParams({
-      page:     String(params.page),
-      pageSize: String(params.pageSize),
-    });
-  
-    if (params.q?.trim())       search.set("q", params.q.trim());
-  
-    // Multi-value filters serialized as CSV
-    if (params.statuses?.length)  search.set("statuses",  params.statuses.join(","));
-    if (params.jobTypes?.length)  search.set("jobTypes",  params.jobTypes.join(","));
-    if (params.workModes?.length) search.set("workModes", params.workModes.join(","));
-  
-    if (params.sortBy)  search.set("sortBy",  params.sortBy);
-    if (params.sortDir) search.set("sortDir", params.sortDir);
-  
-    if (params.favoritesOnly) search.set("isFavorite", "true");
-  
-    if (typeof params.fitMin === "number") search.set("fitMin", String(params.fitMin));
-    if (typeof params.fitMax === "number") search.set("fitMax", String(params.fitMax));
-  
-    // Date range filters
-    if (params.dateAppliedFrom) search.set("dateAppliedFrom", params.dateAppliedFrom);
-    if (params.dateAppliedTo)   search.set("dateAppliedTo",   params.dateAppliedTo);
-    if (params.updatedFrom)     search.set("updatedFrom",     params.updatedFrom);
-    if (params.updatedTo)       search.set("updatedTo",       params.updatedTo);
-  
+    const search = buildApplicationsSearchParams(params, { includePagination: true });
+
     return apiFetch<ApplicationsListResponse>(
       `${routes.applications.list()}?${search.toString()}`,
       { method: "GET" }
+    );
+  },
+
+  /**
+   * Exports all applications matching the current filters and sort as a CSV file.
+   * Not limited to the current page — fetches all matching rows from the backend.
+   */
+  exportCsv(params: ExportApplicationsCsvParams) {
+    const search = buildApplicationsSearchParams(
+      {
+        ...params,
+        // ExportApplicationsCsvParams uses favoritesOnly, list uses it too
+        favoritesOnly: params.isFavorite,
+      },
+      { includePagination: false }
+    );
+
+    if (params.columns?.length) {
+      search.set("columns", params.columns.join(","));
+    }
+
+    return apiFetchBlob(
+      `${routes.applications.exportCsv()}?${search.toString()}`
     );
   },
 

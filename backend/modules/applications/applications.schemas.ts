@@ -125,6 +125,78 @@ export const ListApplicationsQuery = Type.Object(
 
 
 /**
+ * Exportable column id schema — validated against the allowed set.
+ */
+export const ApplicationExportColumnSchema = Type.Union([
+  Type.Literal("favorite"),
+  Type.Literal("company"),
+  Type.Literal("position"),
+  Type.Literal("location"),
+  Type.Literal("jobType"),
+  Type.Literal("salaryText"),
+  Type.Literal("workMode"),
+  Type.Literal("status"),
+  Type.Literal("fitScore"),
+  Type.Literal("dateApplied"),
+  Type.Literal("updatedAt"),
+]);
+
+/**
+ * Query params for CSV export.
+ * Reuses the same filter/sort params as the list endpoint.
+ * No page/pageSize — export always fetches all matching rows.
+ * Optional columns CSV param controls which columns appear in the output.
+ */
+export const ExportApplicationsQuery = Type.Object(
+  {
+    // Same filters as list (copy without page/pageSize)
+    status:   Type.Optional(ApplicationStatusSchema),
+    jobType:  Type.Optional(JobTypeSchema),
+    workMode: Type.Optional(WorkModeSchema),
+    statuses:  Type.Optional(Type.String({ maxLength: 200 })),
+    jobTypes:  Type.Optional(Type.String({ maxLength: 200 })),
+    workModes: Type.Optional(Type.String({ maxLength: 200 })),
+    isFavorite: Type.Optional(
+      Type.Union([Type.Literal("true"), Type.Literal("false")])
+    ),
+    fitMin: Type.Optional(Type.Integer({ minimum: 0, maximum: 100 })),
+    fitMax: Type.Optional(Type.Integer({ minimum: 0, maximum: 100 })),
+    dateAppliedFrom: Type.Optional(Type.String({ format: "date-time" })),
+    dateAppliedTo:   Type.Optional(Type.String({ format: "date-time" })),
+    updatedFrom:     Type.Optional(Type.String({ format: "date-time" })),
+    updatedTo:       Type.Optional(Type.String({ format: "date-time" })),
+    q: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
+
+    // Sorting
+    sortBy: Type.Optional(
+      Type.Union([
+        Type.Literal("updatedAt"),
+        Type.Literal("createdAt"),
+        Type.Literal("company"),
+        Type.Literal("position"),
+        Type.Literal("location"),
+        Type.Literal("status"),
+        Type.Literal("dateApplied"),
+        Type.Literal("jobType"),
+        Type.Literal("workMode"),
+        Type.Literal("salaryText"),
+        Type.Literal("isFavorite"),
+        Type.Literal("fitScore"),
+      ])
+    ),
+    sortDir: Type.Optional(
+      Type.Union([Type.Literal("asc"), Type.Literal("desc")])
+    ),
+
+    // Export-specific: CSV of column ids to include
+    columns: Type.Optional(Type.String({ maxLength: 500 })),
+  },
+  { additionalProperties: false }
+);
+
+
+
+/**
  * Schema for the :id in the URL (route params) -> the :id in the URL (route params)
  */
 export const ApplicationIdParams = Type.Object(
@@ -229,6 +301,7 @@ export const ListAiArtifactsQuery = Type.Object(
 // Gives real TS types that matches the schema exactly
 export type CreateApplicationBodyType = Static<typeof CreateApplicationBody>;
 export type ListApplicationsQueryType = Static<typeof ListApplicationsQuery>;
+export type ExportApplicationsQueryType = Static<typeof ExportApplicationsQuery>;
 export type ApplicationIdParamsType = Static<typeof ApplicationIdParams>;
 export type UpdateApplicationBodyType = Static<typeof UpdateApplicationBody>;
 export type ApplicationStatusType = Static<typeof ApplicationStatusSchema>;

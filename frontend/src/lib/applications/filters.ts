@@ -8,13 +8,12 @@ export const DEFAULT_FIT_RANGE: [number, number] = [0, 100];
  * Kept in one type so the page, panel, and API client stay in sync.
  */
 export type ApplicationFilters = {
-  q:               string;
   statuses:        ApplicationStatus[];
   jobTypes:        JobType[];
   workModes:       WorkMode[];
   favoritesOnly:   boolean;
   fitRange:        [number, number];
-  dateAppliedFrom: string; // YYYY-MM-DD input value, empty string = unset
+  dateAppliedFrom: string;
   dateAppliedTo:   string;
   updatedFrom:     string;
   updatedTo:       string;
@@ -22,7 +21,6 @@ export type ApplicationFilters = {
 
 /** Initial/reset state for all filters. */
 export const DEFAULT_FILTERS: ApplicationFilters = {
-  q:               "",
   statuses:        [],
   jobTypes:        [],
   workModes:       [],
@@ -39,9 +37,9 @@ export const DEFAULT_FILTERS: ApplicationFilters = {
  * Each category counts as 1 regardless of how many values are selected.
  * Used for the filter badge count on the collapsible trigger.
  */
-export function countActiveFilters(filters: ApplicationFilters): number {
+export function countActiveFilters(filters: ApplicationFilters, q = ""): number {
   return [
-    filters.q.trim().length > 0,
+    q.trim().length > 0,
     filters.statuses.length > 0,
     filters.jobTypes.length > 0,
     filters.workModes.length > 0,

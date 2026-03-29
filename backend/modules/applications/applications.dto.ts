@@ -161,5 +161,58 @@ export type ListApplicationsParams = {
   sortDir?: "asc" | "desc";
 };
 
+// ─── Export ───────────────────────────────────────────────────────────────────
 
+/**
+ * The exportable column ids for CSV export.
+ * Matches the table column ids but excludes UI-only columns (actions).
+ * Full description fields (notes, description, jobLink) are excluded from
+ * table-style export intentionally.
+ */
+export const APPLICATION_EXPORT_COLUMNS = [
+  "favorite",
+  "company",
+  "position",
+  "location",
+  "jobType",
+  "salaryText",
+  "workMode",
+  "status",
+  "fitScore",
+  "dateApplied",
+  "updatedAt",
+] as const;
+
+export type ApplicationExportColumn = (typeof APPLICATION_EXPORT_COLUMNS)[number];
+
+/**
+ * Params for the export service function.
+ * Same filter/sort shape as list but no pagination.
+ */
+export type ExportApplicationsParams = {
+  userId: string;
+
+  // Filters (same as list)
+  status?:   ApplicationStatus;
+  statuses?: ApplicationStatus[];
+  jobType?:  JobType;
+  jobTypes?: JobType[];
+  workMode?: WorkMode;
+  workModes?: WorkMode[];
+  isFavorite?: boolean;
+  q?: string;
+  fitMin?: number;
+  fitMax?: number;
+  dateAppliedFrom?: string;
+  dateAppliedTo?:   string;
+  updatedFrom?:     string;
+  updatedTo?:       string;
+
+  // Sorting (same as list)
+  sortBy?:  ListApplicationsParams["sortBy"];
+  sortDir?: ListApplicationsParams["sortDir"];
+
+  // Export-specific
+  columns?: ApplicationExportColumn[];
+};
 

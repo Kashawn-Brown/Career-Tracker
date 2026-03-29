@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, useRef } from "react";
 import { ApiError } from "@/lib/api/client";
 import { applicationsApi } from "@/lib/api/applications";
+import { cn } from "@/lib/utils";
 import type { Application, ApplicationsListResponse, UpdateApplicationRequest, ApplicationSortBy, ApplicationSortDir, ListApplicationsParams } from "@/types/api";
 import { ApplicationsTable } from "@/components/applications/ApplicationsTable";
 import { CreateApplicationForm } from "@/components/applications/CreateApplicationForm";
@@ -25,6 +26,7 @@ import {
   DEFAULT_FILTERS,
 } from "@/lib/applications/filters";
 import { dateInputToStartIso, dateInputToEndIso } from "@/lib/applications/dates";
+import { ApplicationsExportButton } from "@/components/applications/ApplicationsExportButton";
 
 // ApplicationsPage: fetches and displays the user's applications (GET /applications) with pagination.
 export default function ApplicationsPage() {
@@ -511,6 +513,16 @@ export default function ApplicationsPage() {
             
             
             <div className="flex items-center justify-end gap-3">
+            
+            {/* Export button */}
+            <ApplicationsExportButton
+              filters={filters}
+              query={query}
+              sortBy={sortBy}
+              sortDir={sortDir}
+              visibleColumns={visibleColumns}
+              total={total}
+            />
               
               {/* Column controls button */}
               <Button variant="outline" onClick={() => setShowColumns((v) => !v)}>
@@ -647,31 +659,37 @@ export default function ApplicationsPage() {
 
         {/* Applications table */}
         {isLoading && !data ? (
-          <div className="rounded-md border bg-muted/20 p-4 text-sm text-muted-foreground">
-            Loading applications...
+          // First load — no previous data to show
+          <div className="rounded-md border bg-muted/20 p-12 text-center">
+            <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+              Loading applications...
+            </div>
           </div>
         ) : (
-          <ApplicationsTable
-            items={data?.items ?? []}
-            sortBy={sortBy}
-            sortDir={sortDir}
-            isDefaultSort={isDefaultSort}
-            onSort={handleHeaderSortClick}
-            onChanged={() => setReloadKey((k) => k + 1)}
-            visibleColumns={visibleColumns}
-            onRowClick={async (row) => {
-              setAutoOpenFitAppId(null);
-              try {
-                setErrorMessage(null);
-                const fullApplication = await applicationsApi.get(row.id);
-                setSelectedApplication(fullApplication);
-                setDetailsOpen(true);
-              } catch (err) {
-                if (err instanceof ApiError) setErrorMessage(err.message);
-                else setErrorMessage("Failed to load application details. Please try again.");
-              }
-            }}
-          />
+          <div className={cn("transition-opacity duration-150", isLoading && "opacity-50 pointer-events-none")}>
+            <ApplicationsTable
+              items={data?.items ?? []}
+              sortBy={sortBy}
+              sortDir={sortDir}
+              isDefaultSort={isDefaultSort}
+              onSort={handleHeaderSortClick}
+              onChanged={() => setReloadKey((k) => k + 1)}
+              visibleColumns={visibleColumns}
+              onRowClick={async (row) => {
+                setAutoOpenFitAppId(null);
+                try {
+                  setErrorMessage(null);
+                  const fullApplication = await applicationsApi.get(row.id);
+                  setSelectedApplication(fullApplication);
+                  setDetailsOpen(true);
+                } catch (err) {
+                  if (err instanceof ApiError) setErrorMessage(err.message);
+                  else setErrorMessage("Failed to load application details. Please try again.");
+                }
+              }}
+            />
+          </div>
         )}
 
         {/* Pagination surface */}

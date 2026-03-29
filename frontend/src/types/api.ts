@@ -327,6 +327,34 @@ export type UpdateApplicationRequest = {
 };
 
 
+// CSV export
+export type ApplicationExportColumn =
+  | "favorite" | "company"  | "position" | "location"
+  | "jobType"  | "salaryText" | "workMode" | "status"
+  | "fitScore" | "dateApplied" | "updatedAt";
+
+export type ExportApplicationsCsvParams = {
+  // Same filters as list — no page/pageSize
+  statuses?:  ApplicationStatus[];
+  jobTypes?:  JobType[];
+  workModes?: WorkMode[];
+  isFavorite?: boolean;
+  q?: string;
+  fitMin?: number;
+  fitMax?: number;
+  dateAppliedFrom?: string;
+  dateAppliedTo?:   string;
+  updatedFrom?:     string;
+  updatedTo?:       string;
+
+  // Sorting
+  sortBy?:  ApplicationSortBy;
+  sortDir?: ApplicationSortDir;
+
+  // Export-specific
+  columns?: ApplicationExportColumn[];
+};
+
 
 // --- Document DTOs: matches backend ---
 
