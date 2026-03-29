@@ -5,6 +5,7 @@ import { applicationSelect, applicationConnectionSelect, applicationListSelect }
 import type { CreateApplicationInput, UpdateApplicationInput, ListApplicationsParams } from "./applications.dto.js";
 import type { AiArtifactKindType } from "./applications.schemas.js";
 import { consumeAiFreeUseOnSuccessOrThrow } from "../ai/ai-access.js";
+import { buildApplicationsWhere, buildApplicationsOrderBy } from "./applications.query.js";
 
 
 /**
@@ -64,93 +65,11 @@ export async function listApplications(params: ListApplicationsParams) {
   const pageSize = params.pageSize ?? 20;
   const sortBy   = params.sortBy   ?? "updatedAt";
   const sortDir  = params.sortDir  ?? "desc";
+  const skip     = (page - 1) * pageSize;
 
-  // Build typed Prisma where-clause
-  const where: Prisma.JobApplicationWhereInput = { userId: params.userId };
-
-  // ── Multi-select enum filters (plural wins over singular) ──────────────
-
-  if (params.statuses?.length) {
-    where.status = { in: params.statuses };
-  } else if (params.status) {
-    where.status = params.status;
-  }
-
-  if (params.jobTypes?.length) {
-    where.jobType = { in: params.jobTypes };
-  } else if (params.jobType) {
-    where.jobType = params.jobType;
-  }
-
-  if (params.workModes?.length) {
-    where.workMode = { in: params.workModes };
-  } else if (params.workMode) {
-    where.workMode = params.workMode;
-  }
-
-  // ── Favorites filter ───────────────────────────────────────────────────
-
-  if (params.isFavorite !== undefined) {
-    where.isFavorite = params.isFavorite;
-  }
-
-  // ── Text search: company, position, location, tagsText ─────────────────
-
-  if (params.q) {
-    where.OR = [
-      { company:  { contains: params.q, mode: "insensitive" } },
-      { position: { contains: params.q, mode: "insensitive" } },
-      { location: { contains: params.q, mode: "insensitive" } },
-      { tagsText: { contains: params.q, mode: "insensitive" } },
-    ];
-  }
-
-  // ── Fit score range ────────────────────────────────────────────────────
-
-  const fitMin = params.fitMin ?? 0;
-  const fitMax = params.fitMax ?? 100;
-
-  const hasFitFilter =
-    (params.fitMin !== undefined || params.fitMax !== undefined) &&
-    !(fitMin === 0 && fitMax === 100);
-
-  if (hasFitFilter) {
-    where.fitScore = { gte: fitMin, lte: fitMax };
-  }
-
-  // ── Date range filters ─────────────────────────────────────────────────
-
-  if (params.dateAppliedFrom || params.dateAppliedTo) {
-    where.dateApplied = {
-      ...(params.dateAppliedFrom ? { gte: new Date(params.dateAppliedFrom) } : {}),
-      ...(params.dateAppliedTo   ? { lte: new Date(params.dateAppliedTo)   } : {}),
-    };
-  }
-
-  if (params.updatedFrom || params.updatedTo) {
-    where.updatedAt = {
-      ...(params.updatedFrom ? { gte: new Date(params.updatedFrom) } : {}),
-      ...(params.updatedTo   ? { lte: new Date(params.updatedTo)   } : {}),
-    };
-  }
-
-  // ── Pagination ─────────────────────────────────────────────────────────
-
-  const skip = (page - 1) * pageSize;
-
-  // Nullable fields: keep nulls at the bottom for both asc and desc
-  const NULLS_LAST_FIELDS: NonNullable<ListApplicationsParams["sortBy"]>[] = [
-    "fitScore",
-    "dateApplied",
-    "location",
-    "salaryText",
-  ];
-
-  const orderBy = (
-    NULLS_LAST_FIELDS.includes(sortBy)
-      ? [{ [sortBy]: { sort: sortDir, nulls: "last" } }, { updatedAt: "desc" }]
-      : [{ [sortBy]: sortDir }, { updatedAt: "desc" }]
-  ) as Prisma.JobApplicationOrderByWithRelationInput[];
+  // Build shared where + orderBy (reused by export)
+  const where   = buildApplicationsWhere(params);
+  const orderBy = buildApplicationsOrderBy(sortBy, sortDir);
 
   // Run count + items in a single transaction for consistency
   const [total, items] = await prisma.$transaction([
