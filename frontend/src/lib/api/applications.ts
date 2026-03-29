@@ -11,7 +11,6 @@ import type {
   AiArtifactKind,
   AiArtifact,
   ExportApplicationsCsvParams, 
-  ApplicationExportColumn
 } from "@/types/api";
 
 

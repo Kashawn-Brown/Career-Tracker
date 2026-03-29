@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download, ChevronDown } from "lucide-react";
+import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { applicationsApi } from "@/lib/api/applications";
@@ -11,7 +11,6 @@ import type { ApplicationSortBy, ApplicationSortDir, ApplicationExportColumn } f
 import type { ApplicationColumnId } from "@/lib/applications/tableColumns";
 import {
   EXPORTABLE_APPLICATION_COLUMNS,
-  EXPORT_COLUMN_LABELS,
   toExportColumns,
 } from "@/lib/applications/export";
 import { dateInputToStartIso, dateInputToEndIso } from "@/lib/applications/dates";

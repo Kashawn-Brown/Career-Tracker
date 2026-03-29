@@ -15,16 +15,39 @@ function parseCsvLines(body: string): string[][] {
     .replace(/^\uFEFF/, "")   // strip BOM
     .split(/\r\n|\n/)          // handle CRLF and LF
     .filter((l) => l.trim())   // drop empty trailing lines
-    .map((line) =>
-      // Minimal CSV split — handles quoted cells with commas/newlines
-      line.match(/("(?:[^"]|"")*"|[^,]*)/g)!
-        .filter((_, i) => i % 2 === 0)       // every other match is the separator
-        .map((cell) =>
-          cell.startsWith('"') && cell.endsWith('"')
-            ? cell.slice(1, -1).replace(/""/g, '"')
-            : cell
-        )
-    );
+    .map((line) => {
+      const cells: string[] = [];
+      let i = 0;
+      while (i < line.length) {
+        if (line[i] === '"') {
+          // Quoted cell — consume until closing quote
+          let cell = "";
+          i++; // skip opening quote
+          while (i < line.length) {
+            if (line[i] === '"' && line[i + 1] === '"') {
+              cell += '"'; i += 2; // escaped quote
+            } else if (line[i] === '"') {
+              i++; break; // closing quote
+            } else {
+              cell += line[i++];
+            }
+          }
+          cells.push(cell);
+          if (line[i] === ",") i++; // skip comma
+        } else {
+          // Unquoted cell
+          const end = line.indexOf(",", i);
+          if (end === -1) {
+            cells.push(line.slice(i));
+            break;
+          } else {
+            cells.push(line.slice(i, end));
+            i = end + 1;
+          }
+        }
+      }
+      return cells;
+    });
 }
 
 
