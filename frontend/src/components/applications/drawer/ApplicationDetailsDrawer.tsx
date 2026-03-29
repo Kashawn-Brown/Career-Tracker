@@ -86,7 +86,7 @@ function Field({
           rel="noreferrer"
           className="break-all underline underline-offset-4 text-right"
         >
-          {primary}
+          View Job Posting
         </a>
       </div>
     );
