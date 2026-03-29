@@ -93,7 +93,7 @@ export function ApplicationsExportButton({
       const url  = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href     = url;
-      link.download = filename ?? "applications.csv";
+      link.download = filename ?? `CT_Applications_${new Date().toISOString().slice(0, 10)}.csv`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
