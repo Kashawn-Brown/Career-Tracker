@@ -54,81 +54,112 @@ export async function createApplication(input: CreateApplicationInput) {
 
 
 /**
- * Lists the current users applications. 
- * Supports pagination + sorting + filtering.
+ * Lists the current user's applications.
+ * Supports pagination, sorting, text search, and advanced filtering.
  */
 export async function listApplications(params: ListApplicationsParams) {
 
-  // Build Pagination
-  const page = params.page ?? 1;
+  // Pagination defaults
+  const page     = params.page     ?? 1;
   const pageSize = params.pageSize ?? 20;
+  const sortBy   = params.sortBy   ?? "updatedAt";
+  const sortDir  = params.sortDir  ?? "desc";
 
-  const sortBy = params.sortBy ?? "updatedAt";
-  const sortDir = params.sortDir ?? "desc";
-
-  // Build a typed Prisma where-clause so TS can validate our query shape.
+  // Build typed Prisma where-clause
   const where: Prisma.JobApplicationWhereInput = { userId: params.userId };
 
-  // Optional filters
-  if (params.status) where.status = params.status;
+  // ── Multi-select enum filters (plural wins over singular) ──────────────
 
-  if (params.jobType) where.jobType = params.jobType;
-  if (params.workMode) where.workMode = params.workMode;
-  if (params.isFavorite !== undefined) where.isFavorite = params.isFavorite;
+  if (params.statuses?.length) {
+    where.status = { in: params.statuses };
+  } else if (params.status) {
+    where.status = params.status;
+  }
 
-  // Basic text search across company and position
+  if (params.jobTypes?.length) {
+    where.jobType = { in: params.jobTypes };
+  } else if (params.jobType) {
+    where.jobType = params.jobType;
+  }
+
+  if (params.workModes?.length) {
+    where.workMode = { in: params.workModes };
+  } else if (params.workMode) {
+    where.workMode = params.workMode;
+  }
+
+  // ── Favorites filter ───────────────────────────────────────────────────
+
+  if (params.isFavorite !== undefined) {
+    where.isFavorite = params.isFavorite;
+  }
+
+  // ── Text search: company, position, location, tagsText ─────────────────
+
   if (params.q) {
     where.OR = [
-      { company: { contains: params.q, mode: "insensitive" } },
+      { company:  { contains: params.q, mode: "insensitive" } },
       { position: { contains: params.q, mode: "insensitive" } },
+      { location: { contains: params.q, mode: "insensitive" } },
+      { tagsText: { contains: params.q, mode: "insensitive" } },
     ];
   }
 
-  // Fit score filters
+  // ── Fit score range ────────────────────────────────────────────────────
+
   const fitMin = params.fitMin ?? 0;
   const fitMax = params.fitMax ?? 100;
-  
-  // Only add fit score filter if it's not the default (0-100)
-  const hasFitFilter = (params.fitMin !== undefined || params.fitMax !== undefined) && !(fitMin === 0 && fitMax === 100);
+
+  const hasFitFilter =
+    (params.fitMin !== undefined || params.fitMax !== undefined) &&
+    !(fitMin === 0 && fitMax === 100);
 
   if (hasFitFilter) {
-    if (fitMin > fitMax) {
-      throw new AppError("Fit score range is invalid.", 400);
-    }
-
-    // Add the fit score filter (excludes null values)
     where.fitScore = { gte: fitMin, lte: fitMax };
   }
 
-  
+  // ── Date range filters ─────────────────────────────────────────────────
 
-  // how many rows to ignore/skip (page 1, size 20 = skip 0; page 2, size 20 = skip 20; etc.)
+  if (params.dateAppliedFrom || params.dateAppliedTo) {
+    where.dateApplied = {
+      ...(params.dateAppliedFrom ? { gte: new Date(params.dateAppliedFrom) } : {}),
+      ...(params.dateAppliedTo   ? { lte: new Date(params.dateAppliedTo)   } : {}),
+    };
+  }
+
+  if (params.updatedFrom || params.updatedTo) {
+    where.updatedAt = {
+      ...(params.updatedFrom ? { gte: new Date(params.updatedFrom) } : {}),
+      ...(params.updatedTo   ? { lte: new Date(params.updatedTo)   } : {}),
+    };
+  }
+
+  // ── Pagination ─────────────────────────────────────────────────────────
+
   const skip = (page - 1) * pageSize;
 
+  // Nullable fields: keep nulls at the bottom for both asc and desc
+  const NULLS_LAST_FIELDS: NonNullable<ListApplicationsParams["sortBy"]>[] = [
+    "fitScore",
+    "dateApplied",
+    "location",
+    "salaryText",
+  ];
 
-    // Some sortable fields are nullable; keep nulls at the bottom for BOTH asc and desc.
-    const NULLS_LAST_SORT_FIELDS: NonNullable<ListApplicationsParams["sortBy"]>[] = [
-      "fitScore",
-      "dateApplied",
-      "location",
-      "salaryText",
-    ];
-  
-    //
-    const orderBy = (NULLS_LAST_SORT_FIELDS.includes(sortBy)
+  const orderBy = (
+    NULLS_LAST_FIELDS.includes(sortBy)
       ? [{ [sortBy]: { sort: sortDir, nulls: "last" } }, { updatedAt: "desc" }]
-      : [{ [sortBy]: sortDir }, { updatedAt: "desc" }]) as Prisma.JobApplicationOrderByWithRelationInput[];
-  
+      : [{ [sortBy]: sortDir }, { updatedAt: "desc" }]
+  ) as Prisma.JobApplicationOrderByWithRelationInput[];
 
-  // Run both queries in a transaction so count + items are consistent
+  // Run count + items in a single transaction for consistency
   const [total, items] = await prisma.$transaction([
-    prisma.jobApplication.count({ where }),  // total count of the matching rows
-    
-    prisma.jobApplication.findMany({  // items for the current page
+    prisma.jobApplication.count({ where }),
+    prisma.jobApplication.findMany({
       where,
       orderBy,
       skip,
-      take: pageSize,  // how many rows to take/return
+      take: pageSize,
       select: applicationListSelect,
     }),
   ]);

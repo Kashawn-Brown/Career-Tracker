@@ -127,19 +127,39 @@ export type UpdateApplicationInput = {
 
 export type ListApplicationsParams = {
   userId: string;
-  status?: ApplicationStatus;
-  q?: string;
-  jobType?: JobType;
-  workMode?: WorkMode;
-  isFavorite?: boolean;
-  fitMin?: number;
-  fitMax?: number;
 
-  page?: number;
+  // Text search
+  q?: string;
+
+  // Legacy single-value filters (kept for compatibility; plural wins if both present)
+  status?:   ApplicationStatus;
+  jobType?:  JobType;
+  workMode?: WorkMode;
+
+  // Multi-value filters (post-parse arrays)
+  statuses?:  ApplicationStatus[];
+  jobTypes?:  JobType[];
+  workModes?: WorkMode[];
+
+  // Favorites + fit score
+  isFavorite?: boolean;
+  fitMin?:     number;
+  fitMax?:     number;
+
+  // Date range filters (ISO strings)
+  dateAppliedFrom?: string;
+  dateAppliedTo?:   string;
+  updatedFrom?:     string;
+  updatedTo?:       string;
+
+  // Pagination
+  page?:     number;
   pageSize?: number;
-  sortBy?: "updatedAt" | "createdAt" | "company" | "position" | "location" | "status" | "dateApplied" | "jobType" | "workMode" | "salaryText" | "isFavorite" | "fitScore";
+
+  // Sorting
+  sortBy?:  "updatedAt" | "createdAt" | "company" | "position" | "location" | "status" | "dateApplied" | "jobType" | "workMode" | "salaryText" | "isFavorite" | "fitScore";
   sortDir?: "asc" | "desc";
-}
+};
 
 
 
