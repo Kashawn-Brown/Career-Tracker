@@ -5,11 +5,16 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildApp } from "../../app.js";
 import { prisma } from "../../lib/prisma.js";
 
-import { createUser, createVerifiedUser, signAccessToken } from "../_helpers/factories.js";
+import { createVerifiedUser } from "../_helpers/factories.js";
 
 function authHeader(token: string) {
   return { authorization: `Bearer ${token}` };
 }
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Core CRUD + basic filtering
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Test suite for the applications core routes.
 describe("Applications core", () => {
@@ -42,6 +47,7 @@ describe("Applications core", () => {
 
   // Test that the GET /applications route is blocked when user email is not verified.
   it("GET /applications is blocked when email is not verified", async () => {
+    const { createUser, signAccessToken } = await import("../_helpers/factories.js");
 
     // Create an unverified user.
     const user = await createUser({ email: "test@test.com", password: "Passw0rd!", emailVerifiedAt: null });
@@ -183,28 +189,26 @@ describe("Applications core", () => {
     });
 
     const idNull = (createNull.json() as any).application.id as string;
-    const idOld = (createOld.json() as any).application.id as string;
-    const idNew = (createNew.json() as any).application.id as string;
+    const idOld  = (createOld.json()  as any).application.id as string;
+    const idNew  = (createNew.json()  as any).application.id as string;
 
     // Set dateApplied directly (leave Null Fields as null).
     await prisma.jobApplication.update({
       where: { id: idOld },
-      data: { dateApplied: new Date("2026-01-01T00:00:00.000Z") },
+      data:  { dateApplied: new Date("2026-01-01T00:00:00.000Z") },
     });
-
     await prisma.jobApplication.update({
       where: { id: idNew },
-      data: { dateApplied: new Date("2026-01-02T00:00:00.000Z") },
+      data:  { dateApplied: new Date("2026-01-02T00:00:00.000Z") },
     });
 
     // dateApplied asc: non-null first (older -> newer), null last
     const dateAsc = await app.inject({
       method: "GET",
-      url: "/api/v1/applications?sortBy=dateApplied&sortDir=asc&pageSize=10",
+      url:    "/api/v1/applications?sortBy=dateApplied&sortDir=asc&pageSize=10",
       headers: authHeader(token),
     });
     expect(dateAsc.statusCode).toBe(200);
-
     const dateAscBody = dateAsc.json() as any;
     expect(dateAscBody.items.map((a: any) => a.company)).toEqual(["Older", "Newer", "Null Fields"]);
     expect(dateAscBody.items[2].dateApplied).toBe(null);
@@ -212,11 +216,10 @@ describe("Applications core", () => {
     // dateApplied desc: non-null first (newer -> older), null last
     const dateDesc = await app.inject({
       method: "GET",
-      url: "/api/v1/applications?sortBy=dateApplied&sortDir=desc&pageSize=10",
+      url:    "/api/v1/applications?sortBy=dateApplied&sortDir=desc&pageSize=10",
       headers: authHeader(token),
     });
     expect(dateDesc.statusCode).toBe(200);
-
     const dateDescBody = dateDesc.json() as any;
     expect(dateDescBody.items.map((a: any) => a.company)).toEqual(["Newer", "Older", "Null Fields"]);
     expect(dateDescBody.items[2].dateApplied).toBe(null);
@@ -224,11 +227,10 @@ describe("Applications core", () => {
     // location asc: non-null first (Toronto -> Waterloo), null last
     const locAsc = await app.inject({
       method: "GET",
-      url: "/api/v1/applications?sortBy=location&sortDir=asc&pageSize=10",
+      url:    "/api/v1/applications?sortBy=location&sortDir=asc&pageSize=10",
       headers: authHeader(token),
     });
     expect(locAsc.statusCode).toBe(200);
-
     const locAscBody = locAsc.json() as any;
     expect(locAscBody.items.map((a: any) => a.company)).toEqual(["Older", "Newer", "Null Fields"]);
     expect(locAscBody.items[2].location).toBe(null);
@@ -236,16 +238,14 @@ describe("Applications core", () => {
     // location desc: non-null first (Waterloo -> Toronto), null last
     const locDesc = await app.inject({
       method: "GET",
-      url: "/api/v1/applications?sortBy=location&sortDir=desc&pageSize=10",
+      url:    "/api/v1/applications?sortBy=location&sortDir=desc&pageSize=10",
       headers: authHeader(token),
     });
     expect(locDesc.statusCode).toBe(200);
-
     const locDescBody = locDesc.json() as any;
     expect(locDescBody.items.map((a: any) => a.company)).toEqual(["Newer", "Older", "Null Fields"]);
     expect(locDescBody.items[2].location).toBe(null);
   });
-
 
   // Test that the GET /applications route supports filters (q, status, isFavorite).
   it("GET /applications supports filters (q, status, isFavorite)", async () => {
@@ -253,38 +253,35 @@ describe("Applications core", () => {
     // Create a verified user.
     const { token } = await createVerifiedUser("test@test.com", "Passw0rd!");
 
-    // Create 2 application.
+    // Create 2 applications.
     await app.inject({
       method: "POST",
       url: "/api/v1/applications",
       headers: authHeader(token),
       payload: {
-        company: "Alpha Company",
-        position: "Dev",
-        status: ApplicationStatus.WISHLIST,
+        company:    "Alpha Company",
+        position:   "Dev",
+        status:     ApplicationStatus.WISHLIST,
         isFavorite: true,
       },
     });
-
     await app.inject({
       method: "POST",
       url: "/api/v1/applications",
       headers: authHeader(token),
       payload: {
-        company: "Beta Company",
+        company:  "Beta Company",
         position: "Dev",
-        status: ApplicationStatus.OFFER,
+        status:   ApplicationStatus.OFFER,
       },
     });
 
     // Get applications with "alpha" in the company or position.
     const qRes = await app.inject({
       method: "GET",
-      url: "/api/v1/applications?q=alpha",
+      url:    "/api/v1/applications?q=alpha",
       headers: authHeader(token),
     });
-
-    // Expect the response to be successful 200 + body has the "Alpha Company" application.
     expect(qRes.statusCode).toBe(200);
     const qBody = qRes.json() as any;
     expect(qBody.total).toBe(1);
@@ -293,11 +290,9 @@ describe("Applications core", () => {
     // Get applications with status "WISHLIST".
     const statusRes = await app.inject({
       method: "GET",
-      url: `/api/v1/applications?status=${ApplicationStatus.WISHLIST}`,
+      url:    `/api/v1/applications?status=${ApplicationStatus.WISHLIST}`,
       headers: authHeader(token),
     });
-
-    // Expect the response to be successful 200 + body has the "Alpha Company" application with status "WISHLIST".
     expect(statusRes.statusCode).toBe(200);
     const statusBody = statusRes.json() as any;
     expect(statusBody.total).toBe(1);
@@ -306,11 +301,9 @@ describe("Applications core", () => {
     // Get applications with isFavorite "true".
     const favRes = await app.inject({
       method: "GET",
-      url: "/api/v1/applications?isFavorite=true",
+      url:    "/api/v1/applications?isFavorite=true",
       headers: authHeader(token),
     });
-
-    // Expect the response to be successful 200 + body has the "Alpha Company" application with isFavorite "true".
     expect(favRes.statusCode).toBe(200);
     const favBody = favRes.json() as any;
     expect(favBody.total).toBe(1);
@@ -326,41 +319,37 @@ describe("Applications core", () => {
     // Create 2 applications.
     const createA = await app.inject({
       method: "POST",
-      url: "/api/v1/applications",
+      url:    "/api/v1/applications",
       headers: authHeader(token),
       payload: { company: "High Fit", position: "Dev" },
     });
     const createB = await app.inject({
       method: "POST",
-      url: "/api/v1/applications",
+      url:    "/api/v1/applications",
       headers: authHeader(token),
       payload: { company: "Low Fit", position: "Dev" },
     });
 
-    // Get the ids of the created applications.
     const idA = (createA.json() as any).application.id as string;
     const idB = (createB.json() as any).application.id as string;
 
     // Set fitScore directly to isolate list filtering behavior.
     await prisma.jobApplication.update({
       where: { id: idA },
-      data: { fitScore: 80, fitUpdatedAt: new Date() },
+      data:  { fitScore: 80, fitUpdatedAt: new Date() },
     });
     await prisma.jobApplication.update({
       where: { id: idB },
-      data: { fitScore: 40, fitUpdatedAt: new Date() },
+      data:  { fitScore: 40, fitUpdatedAt: new Date() },
     });
 
-    // Get applications with fitScore between 50 and 100 (sorted by fitScore descending).
+    // Get applications with fitScore >= 50 (sorted by fitScore descending).
     const res = await app.inject({
       method: "GET",
-      url: "/api/v1/applications?fitMin=50&sortBy=fitScore&sortDir=desc",
+      url:    "/api/v1/applications?fitMin=50&sortBy=fitScore&sortDir=desc",
       headers: authHeader(token),
     });
-
-    // Expect the response to be successful 200 + body has the "High Fit" application with fitScore 80.
     expect(res.statusCode).toBe(200);
-
     const body = res.json() as any;
     expect(body.total).toBe(1);
     expect(body.items[0].company).toBe("High Fit");
@@ -376,12 +365,10 @@ describe("Applications core", () => {
     // Create an application.
     const createRes = await app.inject({
       method: "POST",
-      url: "/api/v1/applications",
+      url:    "/api/v1/applications",
       headers: authHeader(tokenA),
       payload: { company: "Acme", position: "Dev" },
     });
-
-    // Get the id of the created application.
     const appId = (createRes.json() as any).application.id as string;
 
     // Create another verified user.
@@ -390,11 +377,11 @@ describe("Applications core", () => {
     // Request the GET /applications/:id route with the other user's token.
     const res = await app.inject({
       method: "GET",
-      url: `/api/v1/applications/${appId}`,
+      url:    `/api/v1/applications/${appId}`,
       headers: authHeader(tokenB),
     });
 
-    // Expect the response to be unsuccessful 404 + body has the message "Application not found". (user B does not own the application)
+    // Expect 404 — user B does not own the application.
     expect(res.statusCode).toBe(404);
     expect(res.json()).toMatchObject({ message: "Application not found" });
   });
@@ -405,43 +392,37 @@ describe("Applications core", () => {
     // Create a verified user.
     const { token } = await createVerifiedUser("test@test.com", "Passw0rd!");
 
-    // Create an application.
+    // Create an application in WISHLIST status.
     const createRes = await app.inject({
       method: "POST",
-      url: "/api/v1/applications",
+      url:    "/api/v1/applications",
       headers: authHeader(token),
       payload: {
-        company: "Acme",
+        company:  "Acme",
         position: "Dev",
-        status: ApplicationStatus.WISHLIST,
+        status:   ApplicationStatus.WISHLIST,
       },
     });
-
-    // Get the id of the created application.
     const appId = (createRes.json() as any).application.id as string;
 
-    // Request the PATCH /applications/:id route with the application id.
+    // Patch to APPLIED with whitespace-only notes.
     const patchRes = await app.inject({
       method: "PATCH",
-      url: `/api/v1/applications/${appId}`,
+      url:    `/api/v1/applications/${appId}`,
       headers: authHeader(token),
       payload: {
         status: ApplicationStatus.APPLIED,
-        // Whitespace-only optional fields are normalized to null.
-        notes: "   ",
+        notes:  "   ", // whitespace-only → null
       },
     });
-
-    // Expect the response to be successful 200 + body has the updated application.
     expect(patchRes.statusCode).toBe(200);
 
     const patched = patchRes.json() as any;
     expect(patched.application.status).toBe(ApplicationStatus.APPLIED);
     expect(patched.application.notes).toBe(null);
 
-    // dateApplied is auto-set when switching to APPLIED and dateApplied is currently null.
+    // dateApplied is auto-set when switching to APPLIED and was previously null.
     expect(patched.application.dateApplied).toBeTruthy();
-
     const appliedAt = new Date(patched.application.dateApplied).getTime();
     expect(Number.isFinite(appliedAt)).toBe(true);
     expect(Math.abs(appliedAt - Date.now())).toBeLessThan(60_000);
@@ -456,33 +437,380 @@ describe("Applications core", () => {
     // Create an application.
     const createRes = await app.inject({
       method: "POST",
-      url: "/api/v1/applications",
+      url:    "/api/v1/applications",
       headers: authHeader(token),
       payload: { company: "Acme", position: "Dev" },
     });
-
-    // Get the id of the created application.
     const appId = (createRes.json() as any).application.id as string;
 
-    // Request the DELETE /applications/:id route with the application id.
+    // Delete it.
     const delRes = await app.inject({
       method: "DELETE",
-      url: `/api/v1/applications/${appId}`,
+      url:    `/api/v1/applications/${appId}`,
       headers: authHeader(token),
     });
-
-    // Expect the response to be successful 200 + body has the message "Application deleted".
     expect(delRes.statusCode).toBe(200);
     expect(delRes.json()).toMatchObject({ ok: true });
 
-    // Request the GET /applications/:id route with the application id.
+    // Subsequent GET should return 404.
     const getRes = await app.inject({
       method: "GET",
-      url: `/api/v1/applications/${appId}`,
+      url:    `/api/v1/applications/${appId}`,
       headers: authHeader(token),
     });
-
-    // Expect the response to be unsuccessful 404 + body has the message "Application not found". (application has been deleted)
     expect(getRes.statusCode).toBe(404);
+  });
+});
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Advanced filtering
+//
+// Uses the same app instance and createVerifiedUser per test — each test
+// creates its own isolated user so data never bleeds between tests.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("Applications > Advanced filtering", () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    app = buildApp();
+    await app.ready();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  // Creates a fresh verified user and returns their userId + token.
+  // Each test that needs to write data calls this to stay isolated.
+  async function freshUser() {
+    const email = `filter-${Date.now()}-${Math.random().toString(16).slice(2)}@test.com`;
+    const { user, token } = await createVerifiedUser(email, "Passw0rd!");
+    return { userId: user.id, token };
+  }
+
+  // Helper: POST an application through the API for a given token.
+  async function postApp(
+    token: string,
+    overrides: {
+      status?:   ApplicationStatus;
+      jobType?:  string;
+      workMode?: string;
+      location?: string;
+      tagsText?: string;
+      isFavorite?: boolean;
+    } = {}
+  ) {
+    const res = await app.inject({
+      method:  "POST",
+      url:     "/api/v1/applications",
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        company:    "Test Co",
+        position:   "Engineer",
+        status:     overrides.status   ?? ApplicationStatus.APPLIED,
+        jobType:    overrides.jobType  ?? "FULL_TIME",
+        workMode:   overrides.workMode ?? "REMOTE",
+        location:   overrides.location  ?? undefined,
+        tagsText:   overrides.tagsText  ?? undefined,
+        isFavorite: overrides.isFavorite ?? false,
+      },
+    });
+    return (res.json() as any).application as { id: string };
+  }
+
+
+  // ── Multi-select filters ──────────────────────────────────────────────────
+
+  it("statuses CSV filter returns only matching statuses", async () => {
+    const { token } = await freshUser();
+    await postApp(token, { status: ApplicationStatus.APPLIED });
+    await postApp(token, { status: ApplicationStatus.INTERVIEW });
+    await postApp(token, { status: ApplicationStatus.REJECTED });
+
+    const res = await app.inject({
+      method:  "GET",
+      url:     "/api/v1/applications?statuses=APPLIED,INTERVIEW",
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as any;
+    expect(body.items.every((a: any) =>
+      ["APPLIED", "INTERVIEW"].includes(a.status)
+    )).toBe(true);
+    expect(body.items.some((a: any) => a.status === "REJECTED")).toBe(false);
+  });
+
+  it("jobTypes CSV filter returns only matching job types", async () => {
+    const { userId, token } = await freshUser();
+
+    // Set jobType via direct DB insert since the API defaults to FULL_TIME
+    await prisma.jobApplication.createMany({
+      data: [
+        { userId, company: "Co", position: "P", jobType: "FULL_TIME" },
+        { userId, company: "Co", position: "P", jobType: "CONTRACT"  },
+        { userId, company: "Co", position: "P", jobType: "INTERNSHIP" },
+      ],
+    });
+
+    const res = await app.inject({
+      method:  "GET",
+      url:     "/api/v1/applications?jobTypes=FULL_TIME,CONTRACT",
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as any;
+    expect(body.items.every((a: any) =>
+      ["FULL_TIME", "CONTRACT"].includes(a.jobType)
+    )).toBe(true);
+    expect(body.items.some((a: any) => a.jobType === "INTERNSHIP")).toBe(false);
+  });
+
+  it("workModes CSV filter returns only matching work modes", async () => {
+    const { userId, token } = await freshUser();
+
+    await prisma.jobApplication.createMany({
+      data: [
+        { userId, company: "Co", position: "P", workMode: "REMOTE" },
+        { userId, company: "Co", position: "P", workMode: "HYBRID" },
+        { userId, company: "Co", position: "P", workMode: "ONSITE" },
+      ],
+    });
+
+    const res = await app.inject({
+      method:  "GET",
+      url:     "/api/v1/applications?workModes=REMOTE,HYBRID",
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as any;
+    expect(body.items.every((a: any) =>
+      ["REMOTE", "HYBRID"].includes(a.workMode)
+    )).toBe(true);
+    expect(body.items.some((a: any) => a.workMode === "ONSITE")).toBe(false);
+  });
+
+  it("plural filter takes precedence over singular when both are present", async () => {
+    const { token } = await freshUser();
+    await postApp(token, { status: ApplicationStatus.APPLIED });
+    await postApp(token, { status: ApplicationStatus.OFFER   });
+
+    // Singular says WISHLIST, plural says APPLIED,OFFER — plural wins.
+    const res = await app.inject({
+      method:  "GET",
+      url:     "/api/v1/applications?status=WISHLIST&statuses=APPLIED,OFFER",
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as any;
+    expect(body.items.every((a: any) =>
+      ["APPLIED", "OFFER"].includes(a.status)
+    )).toBe(true);
+    expect(body.items.some((a: any) => a.status === "WISHLIST")).toBe(false);
+  });
+
+
+  // ── Date range filters ────────────────────────────────────────────────────
+
+  it("dateAppliedFrom filters out applications applied before the boundary", async () => {
+    const { userId, token } = await freshUser();
+
+    // Insert applications with specific dateApplied values directly.
+    await prisma.jobApplication.createMany({
+      data: [
+        { userId, company: "Early", position: "P", dateApplied: new Date("2024-01-15T12:00:00.000Z") },
+        { userId, company: "Late",  position: "P", dateApplied: new Date("2024-06-15T12:00:00.000Z") },
+      ],
+    });
+
+    const boundary = "2024-03-01T00:00:00.000Z";
+    const res = await app.inject({
+      method:  "GET",
+      url:     `/api/v1/applications?dateAppliedFrom=${encodeURIComponent(boundary)}`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as any;
+
+    // All results must have dateApplied on or after the boundary (or null — excluded by filter).
+    expect(body.items.every((a: any) =>
+      a.dateApplied !== null && new Date(a.dateApplied) >= new Date(boundary)
+    )).toBe(true);
+    expect(body.items.some((a: any) => a.company === "Early")).toBe(false);
+    expect(body.items.some((a: any) => a.company === "Late" )).toBe(true);
+  });
+
+  it("dateAppliedTo filters out applications applied after the boundary", async () => {
+    const { userId, token } = await freshUser();
+
+    await prisma.jobApplication.createMany({
+      data: [
+        { userId, company: "Early", position: "P", dateApplied: new Date("2024-01-15T12:00:00.000Z") },
+        { userId, company: "Late",  position: "P", dateApplied: new Date("2024-09-15T12:00:00.000Z") },
+      ],
+    });
+
+    const boundary = "2024-06-01T23:59:59.999Z";
+    const res = await app.inject({
+      method:  "GET",
+      url:     `/api/v1/applications?dateAppliedTo=${encodeURIComponent(boundary)}`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as any;
+    expect(body.items.every((a: any) =>
+      a.dateApplied !== null && new Date(a.dateApplied) <= new Date(boundary)
+    )).toBe(true);
+    expect(body.items.some((a: any) => a.company === "Late" )).toBe(false);
+    expect(body.items.some((a: any) => a.company === "Early")).toBe(true);
+  });
+
+  it("updatedFrom/updatedTo filters by updatedAt range", async () => {
+    const { token } = await freshUser();
+
+    // Capture window around creation.
+    const before = new Date(Date.now() - 2000).toISOString();
+    await postApp(token);
+    const after = new Date(Date.now() + 2000).toISOString();
+
+    const res = await app.inject({
+      method:  "GET",
+      url:     `/api/v1/applications?updatedFrom=${encodeURIComponent(before)}&updatedTo=${encodeURIComponent(after)}`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().items.length).toBeGreaterThan(0);
+  });
+
+
+  // ── Expanded text search ──────────────────────────────────────────────────
+
+  it("search hits location field", async () => {
+    const { userId, token } = await freshUser();
+    const unique = `loc-${Date.now()}`;
+
+    await prisma.jobApplication.create({
+      data:   { userId, company: "Somewhere Inc", position: "Dev", location: unique },
+      select: { id: true },
+    });
+
+    const res = await app.inject({
+      method:  "GET",
+      url:     `/api/v1/applications?q=${encodeURIComponent(unique)}`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as any;
+    expect(body.items.length).toBeGreaterThan(0);
+    expect(body.items.some((a: any) => a.location === unique)).toBe(true);
+  });
+
+  it("search hits tagsText field", async () => {
+    const { userId, token } = await freshUser();
+    const unique = `tag-${Date.now()}`;
+
+    await prisma.jobApplication.create({
+      data:   { userId, company: "Tagged Co", position: "Dev", tagsText: unique },
+      select: { id: true },
+    });
+
+    const res = await app.inject({
+      method:  "GET",
+      url:     `/api/v1/applications?q=${encodeURIComponent(unique)}`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().items.length).toBeGreaterThan(0);
+  });
+
+
+  // ── Validation errors — auth token required to reach filter logic ─────────
+
+  it("invalid enum value in statuses CSV returns 400", async () => {
+    const { token } = await freshUser();
+
+    const res = await app.inject({
+      method:  "GET",
+      url:     "/api/v1/applications?statuses=APPLIED,NOT_A_STATUS",
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({ code: "INVALID_FILTER_VALUE" });
+  });
+
+  it("invalid enum value in jobTypes CSV returns 400", async () => {
+    const { token } = await freshUser();
+
+    const res = await app.inject({
+      method:  "GET",
+      url:     "/api/v1/applications?jobTypes=FULL_TIME,BANANA",
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({ code: "INVALID_FILTER_VALUE" });
+  });
+
+  it("invalid enum value in workModes CSV returns 400", async () => {
+    const { token } = await freshUser();
+
+    const res = await app.inject({
+      method:  "GET",
+      url:     "/api/v1/applications?workModes=REMOTE,UNDERWATER",
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({ code: "INVALID_FILTER_VALUE" });
+  });
+
+  it("dateApplied range with from > to returns 400", async () => {
+    const { token } = await freshUser();
+
+    const res = await app.inject({
+      method:  "GET",
+      url:     "/api/v1/applications?dateAppliedFrom=2024-12-01T00:00:00.000Z&dateAppliedTo=2024-01-01T00:00:00.000Z",
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({ code: "INVALID_DATE_RANGE" });
+  });
+
+  it("updated range with from > to returns 400", async () => {
+    const { token } = await freshUser();
+
+    const res = await app.inject({
+      method:  "GET",
+      url:     "/api/v1/applications?updatedFrom=2024-12-01T00:00:00.000Z&updatedTo=2024-01-01T00:00:00.000Z",
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({ code: "INVALID_DATE_RANGE" });
+  });
+
+  it("fitMin > fitMax returns 400", async () => {
+    const { token } = await freshUser();
+
+    const res = await app.inject({
+      method:  "GET",
+      url:     "/api/v1/applications?fitMin=80&fitMax=20",
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({ code: "INVALID_FIT_RANGE" });
   });
 });

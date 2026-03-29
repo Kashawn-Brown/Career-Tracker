@@ -105,25 +105,27 @@ function MultiSelectDropdown<T extends string>({
       {/* Popover trigger — shows summary of selected values */}
       <Popover>
         <PopoverTrigger asChild>
-          <button
+          <div
             id={id}
-            type="button"
+            role="button"
+            tabIndex={0}
             className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs hover:bg-accent/50 transition-colors"
           >
             <span className={hasSelection ? "text-foreground" : "text-muted-foreground"}>
               {hasSelection ? formatSelectedLabels(selectedLabels) : placeholder}
             </span>
             <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0 ml-2" />
-          </button>
+          </div>
         </PopoverTrigger>
 
         {/* Dropdown checkbox list */}
         <PopoverContent className="p-1 w-52">
           {options.map((option) => (
-            <button
+            <div
               key={option.value}
-              type="button"
-              className="flex w-full items-center gap-2.5 rounded px-2 py-1.5 text-sm hover:bg-accent transition-colors"
+              role="option"
+              aria-selected={selected.includes(option.value)}
+              className="flex w-full items-center gap-2.5 rounded px-2 py-1.5 text-sm hover:bg-accent transition-colors cursor-pointer"
               onClick={() => onToggle(option.value)}
             >
               <Checkbox
@@ -134,7 +136,7 @@ function MultiSelectDropdown<T extends string>({
                 tabIndex={-1}
               />
               <span>{option.label}</span>
-            </button>
+            </div>
           ))}
         </PopoverContent>
       </Popover>
