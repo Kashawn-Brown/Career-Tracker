@@ -1,6 +1,6 @@
 import { UserPlan } from "@prisma/client";
 import { AppError } from "../../errors/app-error.js";
-import { getOpenAIClient, getJdExtractOpenAIModel } from "./openai.js";
+import { getOpenAIClient, AI_MODELS } from "./openai.js";
 import { ApplicationFromJdJsonObject, normalizeApplicationFromJdResponse, FitV1JsonObject, normalizeFitV1Response, getFitPolicyForPlan, FitV1RunResult } from "./ai.dto.js";
 import type { ApplicationFromJdResponse, FitV1Response } from "./ai.dto.js";
 import { AiTier } from "./ai-tier.js";
@@ -36,7 +36,7 @@ export async function buildApplicationDraftFromJd(
   
   // Get the OpenAI client and model.
   const openai = getOpenAIClient();
-  const model = getJdExtractOpenAIModel();
+  const model = AI_MODELS.JD_EXTRACT;
   
     
   // Make the OpenAI request.
@@ -87,16 +87,19 @@ export async function buildFitV1(
   if (!jd) throw new AppError("Job description is missing.", 400, "JOB_DESCRIPTION_MISSING");
   if (!candidate) throw new AppError("Candidate history is missing.", 400, "CANDIDATE_HISTORY_MISSING");
 
-  // Get the fit policy for the user's plan (AI model + settings)
-  const tier: AiTier = opts?.tier ?? UserPlan.REGULAR;
-  const policy = getFitPolicyForPlan(tier);
-
-  throwIfAborted(opts?.signal);
-
-
-  // Get the OpenAI client and model.
+  // Get the OpenAI client.
   const openai = getOpenAIClient();
 
+  // Get the user's plan.
+  const tier: AiTier = opts?.tier ?? UserPlan.REGULAR;
+  
+  // Get the fit policy for the user's plan + model settings.
+  const policy = getFitPolicyForPlan(tier);
+
+  // Throw an error if the request is aborted.
+  throwIfAborted(opts?.signal);
+
+  
   // Make the OpenAI request for the fit evaluation.
   const resp = await openai.responses.create(
     {
@@ -106,7 +109,7 @@ export async function buildFitV1(
         { role: "user", content: buildFitUserPrompt(jd, candidate) },
       ],
       text: {
-        verbosity: policy.verbosity,
+        verbosity: policy.verbosity,             
         format: {
           type: "json_schema",
           name: "fit_v1",
