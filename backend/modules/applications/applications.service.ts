@@ -2,10 +2,11 @@ import { ApplicationStatus, JobType, WorkMode, Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { AppError } from "../../errors/app-error.js";
 import { applicationSelect, applicationConnectionSelect, applicationListSelect } from "./applications.dto.js";
-import type { CreateApplicationInput, UpdateApplicationInput, ListApplicationsParams } from "./applications.dto.js";
+import type { CreateApplicationInput, UpdateApplicationInput, ListApplicationsParams, ExportApplicationsParams } from "./applications.dto.js";
 import type { AiArtifactKindType } from "./applications.schemas.js";
 import { consumeAiFreeUseOnSuccessOrThrow } from "../ai/ai-access.js";
 import { buildApplicationsWhere, buildApplicationsOrderBy } from "./applications.query.js";
+import { buildApplicationsCsv, buildExportFilename, normalizeExportColumns } from "./applications.export.js";
 
 
 /**
@@ -90,6 +91,59 @@ export async function listApplications(params: ListApplicationsParams) {
     total,
     totalPages: Math.ceil(total / pageSize),
   };
+}
+
+
+// Maximum rows allowed in a single export.
+// Prevents unbounded queries without needing streaming/background jobs.
+const EXPORT_MAX_ROWS = 10_000;
+
+/**
+ * Exports all applications matching the current filters and sort as a CSV string.
+ * Not paginated — fetches all matching rows up to EXPORT_MAX_ROWS.
+ */
+export async function exportApplicationsCsv(params: ExportApplicationsParams) {
+  const sortBy  = params.sortBy  ?? "updatedAt";
+  const sortDir = params.sortDir ?? "desc";
+
+  const where   = buildApplicationsWhere(params);
+  const orderBy = buildApplicationsOrderBy(sortBy, sortDir);
+
+  // Check row count before fetching — fail fast if over the cap
+  const total = await prisma.jobApplication.count({ where });
+
+  if (total > EXPORT_MAX_ROWS) {
+    throw new AppError(
+      `Export is limited to ${EXPORT_MAX_ROWS.toLocaleString()} rows. Your current filters match ${total.toLocaleString()} applications. Please narrow your filters and try again.`,
+      400,
+      "EXPORT_TOO_MANY_ROWS"
+    );
+  }
+
+  // Fetch all matching rows (no pagination)
+  const rows = await prisma.jobApplication.findMany({
+    where,
+    orderBy,
+    select: {
+      isFavorite:  true,
+      company:     true,
+      position:    true,
+      location:    true,
+      jobType:     true,
+      salaryText:  true,
+      workMode:    true,
+      status:      true,
+      fitScore:    true,
+      dateApplied: true,
+      updatedAt:   true,
+    },
+  });
+
+  const columns  = normalizeExportColumns(params.columns?.join(","));
+  const csv      = buildApplicationsCsv(rows, columns);
+  const filename = buildExportFilename();
+
+  return { csv, filename };
 }
 
 

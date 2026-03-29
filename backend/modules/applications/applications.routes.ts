@@ -13,6 +13,7 @@ import { DocumentKind } from "@prisma/client";
 import { resolveAiTierForUser } from "../ai/ai-tier.js";
 import { createAbortControllerFromRawRequest, isAbortError, throwIfAborted } from "../../lib/request-abort.js";
 import { parseApplicationFilters } from "./applications.filters.js";
+import { ExportApplicationsQuery, type ExportApplicationsQueryType } from "./applications.schemas.js";
 
 export async function applicationsRoutes(app: FastifyInstance) {
   
@@ -102,6 +103,63 @@ export async function applicationsRoutes(app: FastifyInstance) {
 
       return reply.send(result);
       
+    }
+  );
+
+  /**
+   * Export job applications as CSV.
+   *
+   * Exports ALL rows matching the current filters and sort order —
+   * not limited to the current page. Accepts the same filter/sort
+   * params as the list endpoint plus an optional columns CSV param.
+   */
+  app.get(
+    "/export.csv",
+    {
+      preHandler: [requireAuth, requireVerifiedEmail],
+      schema: { querystring: ExportApplicationsQuery },
+    },
+    async (req, reply) => {
+      const userId = req.user!.id;
+      const query  = req.query as ExportApplicationsQueryType;
+
+      const isFavorite =
+        query.isFavorite === "true"  ? true  :
+        query.isFavorite === "false" ? false :
+        undefined;
+
+      // Parse and validate filters (reuses the same helper as the list route)
+      const filters = parseApplicationFilters({
+        status:   query.status,
+        jobType:  query.jobType,
+        workMode: query.workMode,
+        statuses:  query.statuses,
+        jobTypes:  query.jobTypes,
+        workModes: query.workModes,
+        dateAppliedFrom: query.dateAppliedFrom,
+        dateAppliedTo:   query.dateAppliedTo,
+        updatedFrom:     query.updatedFrom,
+        updatedTo:       query.updatedTo,
+        fitMin: query.fitMin,
+        fitMax: query.fitMax,
+      });
+
+      const { csv, filename } = await ApplicationsService.exportApplicationsCsv({
+        userId,
+        q:       query.q,
+        sortBy:  query.sortBy,
+        sortDir: query.sortDir,
+        isFavorite,
+        columns: query.columns
+          ? query.columns.split(",").map((c) => c.trim()).filter(Boolean) as any
+          : undefined,
+        ...filters,
+      });
+
+      return reply
+        .header("Content-Type", "text/csv; charset=utf-8")
+        .header("Content-Disposition", `attachment; filename="${filename}"`)
+        .send(csv);
     }
   );
 
