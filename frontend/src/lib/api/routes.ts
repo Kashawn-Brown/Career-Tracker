@@ -49,8 +49,12 @@ export const routes = {
   },
   applications: {
     list: () => "/applications",
+
+    exportCsv: () => "/applications/export.csv",
+    
     create: () => "/applications",
     byId: (id: string) => `/applications/${id}`,
+
 
     documents: {
       list: (applicationId: string) => `/applications/${applicationId}/documents`,

@@ -122,7 +122,7 @@ export const EXPORT_COLUMN_DEFS: ColumnDef[] = [
   {
     id:     "updatedAt",
     header: "Last Updated",
-    value:  (r) => r.updatedAt.toISOString(),
+    value:  (r) => r.updatedAt ? formatDateYmd(r.updatedAt) : "",
   },
 ];
 
@@ -244,7 +244,7 @@ export function normalizeExportColumns(
  * Format: applications-YYYY-MM-DD.csv
  */
 export function buildExportFilename(now: Date = new Date()): string {
-  return `applications-${formatDateYmd(now)}.csv`;
+  return `CT_Applications_${formatDateYmd(now)}.csv`;
 }
 
 

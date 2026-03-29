@@ -26,6 +26,7 @@ import {
   DEFAULT_FILTERS,
 } from "@/lib/applications/filters";
 import { dateInputToStartIso, dateInputToEndIso } from "@/lib/applications/dates";
+import { ApplicationsExportButton } from "@/components/applications/ApplicationsExportButton";
 
 // ApplicationsPage: fetches and displays the user's applications (GET /applications) with pagination.
 export default function ApplicationsPage() {
@@ -512,6 +513,16 @@ export default function ApplicationsPage() {
             
             
             <div className="flex items-center justify-end gap-3">
+            
+            {/* Export button */}
+            <ApplicationsExportButton
+              filters={filters}
+              query={query}
+              sortBy={sortBy}
+              sortDir={sortDir}
+              visibleColumns={visibleColumns}
+              total={total}
+            />
               
               {/* Column controls button */}
               <Button variant="outline" onClick={() => setShowColumns((v) => !v)}>
