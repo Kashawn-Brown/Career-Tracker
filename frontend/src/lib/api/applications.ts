@@ -27,32 +27,36 @@ export const applicationsApi = {
    * Fetch paginated applications with optional filters and sorting.
    */
   list(params: ListApplicationsParams) {
-    
-    const searchParams = new URLSearchParams({
-      page: String(params.page),
+    const search = new URLSearchParams({
+      page:     String(params.page),
       pageSize: String(params.pageSize),
     });
-
-    if (params.q?.trim()) searchParams.set("q", params.q.trim());
-    if (params.status && params.status !== "ALL") searchParams.set("status", params.status);
-
-    if (params.sortBy) searchParams.set("sortBy", params.sortBy);
-    if (params.sortDir) searchParams.set("sortDir", params.sortDir);
-
-    if (params.jobType && params.jobType !== "ALL") searchParams.set("jobType", params.jobType);
-    if (params.workMode && params.workMode !== "ALL") searchParams.set("workMode", params.workMode);
-
-    // backend expects isFavorite=true/false strings
-    if (params.favoritesOnly) searchParams.set("isFavorite", "true");
-
-    if (typeof params.fitMin === "number") searchParams.set("fitMin", String(params.fitMin));
-    if (typeof params.fitMax === "number") searchParams.set("fitMax", String(params.fitMax));
-
-
-    // Call the backend API to get the paginated applications. (with search params in the URL).
-    return apiFetch<ApplicationsListResponse>(`${routes.applications.list()}?${searchParams.toString()}`, {
-      method: "GET",
-    });
+  
+    if (params.q?.trim())       search.set("q", params.q.trim());
+  
+    // Multi-value filters serialized as CSV
+    if (params.statuses?.length)  search.set("statuses",  params.statuses.join(","));
+    if (params.jobTypes?.length)  search.set("jobTypes",  params.jobTypes.join(","));
+    if (params.workModes?.length) search.set("workModes", params.workModes.join(","));
+  
+    if (params.sortBy)  search.set("sortBy",  params.sortBy);
+    if (params.sortDir) search.set("sortDir", params.sortDir);
+  
+    if (params.favoritesOnly) search.set("isFavorite", "true");
+  
+    if (typeof params.fitMin === "number") search.set("fitMin", String(params.fitMin));
+    if (typeof params.fitMax === "number") search.set("fitMax", String(params.fitMax));
+  
+    // Date range filters
+    if (params.dateAppliedFrom) search.set("dateAppliedFrom", params.dateAppliedFrom);
+    if (params.dateAppliedTo)   search.set("dateAppliedTo",   params.dateAppliedTo);
+    if (params.updatedFrom)     search.set("updatedFrom",     params.updatedFrom);
+    if (params.updatedTo)       search.set("updatedTo",       params.updatedTo);
+  
+    return apiFetch<ApplicationsListResponse>(
+      `${routes.applications.list()}?${search.toString()}`,
+      { method: "GET" }
+    );
   },
 
   /**

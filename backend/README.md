@@ -197,12 +197,32 @@ Email verification + password reset:
 
 List query params (see `modules/applications/applications.schemas.ts`):
 
-* Filters: `q`, `status`, `jobType`, `workMode`, `isFavorite=true|false`
-* Fit filter: `fitMin`, `fitMax` (when provided; excludes null)
-* Pagination: `page`, `pageSize`
-* Sorting: `sortBy`, `sortDir=asc|desc`
+| Parameter         | Type    | Description                                                        |
+|-------------------|---------|--------------------------------------------------------------------|
+| `q`               | string  | Text search across company, position, location, and tags           |
+| `statuses`        | string  | CSV of status values e.g. `APPLIED,INTERVIEW`                      |
+| `jobTypes`        | string  | CSV of job type values e.g. `FULL_TIME,CONTRACT`                   |
+| `workModes`       | string  | CSV of work mode values e.g. `REMOTE,HYBRID`                       |
+| `isFavorite`      | boolean | `true` to show starred only                                        |
+| `fitMin`          | integer | Minimum fit score (0–100)                                          |
+| `fitMax`          | integer | Maximum fit score (0–100)                                          |
+| `dateAppliedFrom` | ISO     | Filter applications applied on or after this date-time             |
+| `dateAppliedTo`   | ISO     | Filter applications applied on or before this date-time            |
+| `updatedFrom`     | ISO     | Filter applications last updated on or after this date-time        |
+| `updatedTo`       | ISO     | Filter applications last updated on or before this date-time       |
+| `sortBy`          | string  | Field to sort by (default: `updatedAt`)                            |
+| `sortDir`         | string  | `asc` or `desc` (default: `desc`)                                  |
+| `page`            | integer | Page number (default: 1)                                           |
+| `pageSize`        | integer | Results per page (default: 20, max: 500)                           |
 
-  * Nullable sortable fields force **nulls last** (asc + desc)
+**Legacy compatibility:** singular `status`, `jobType`, `workMode` params are still accepted.
+When plural (CSV) versions are present, they take precedence.
+
+**Validation errors (400):**
+- Invalid enum value in CSV → `INVALID_FILTER_VALUE`
+- `dateAppliedFrom` > `dateAppliedTo` → `INVALID_DATE_RANGE`
+- `updatedFrom` > `updatedTo` → `INVALID_DATE_RANGE`
+- `fitMin` > `fitMax` → `INVALID_FIT_RANGE`
 
 ### Application documents
 

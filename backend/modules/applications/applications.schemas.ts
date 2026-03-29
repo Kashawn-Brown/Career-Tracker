@@ -59,53 +59,68 @@ export const CreateApplicationBody = Type.Object(
 );
 
 
-
 /**
  * Query params for listing applications.
- * Pagination and Sorting for listing applications.
- * Basic filtering only (status + text search)
+ * Supports both legacy single-value filters and new multi-value (CSV) filters.
+ * If plural (multi-value) filters are present, they take precedence.
  */
 export const ListApplicationsQuery = Type.Object(
   {
-    status: Type.Optional(ApplicationStatusSchema),  // status filter
-    q: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),  // text search filter (company or position)
+    // Text search
+    q: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
 
-    jobType: Type.Optional(JobTypeSchema),  // job type filter
-    workMode: Type.Optional(WorkModeSchema),  // work mode filter
+    // Legacy single-value filters (kept for backward compatibility)
+    status:   Type.Optional(ApplicationStatusSchema),
+    jobType:  Type.Optional(JobTypeSchema),
+    workMode: Type.Optional(WorkModeSchema),
 
-    // Querystrings arrive as strings, so accept "true"/"false" and parse to boolean in the route.
-    isFavorite: Type.Optional(Type.Union([Type.Literal("true"), Type.Literal("false")])),  // starred filter
+    // Multi-value filters (CSV strings, e.g. "APPLIED,INTERVIEW")
+    // These take precedence over the singular filters above when present.
+    statuses:  Type.Optional(Type.String({ maxLength: 200 })),
+    jobTypes:  Type.Optional(Type.String({ maxLength: 200 })),
+    workModes: Type.Optional(Type.String({ maxLength: 200 })),
 
-    // Fit score filters
-    fitMin: Type.Optional(Type.Integer({ minimum: 0, maximum: 100 })), // minimum fit score
-    fitMax: Type.Optional(Type.Integer({ minimum: 0, maximum: 100 })), // maximum fit score
+    // Favorites filter
+    isFavorite: Type.Optional(
+      Type.Union([Type.Literal("true"), Type.Literal("false")])
+    ),
+
+    // Fit score range
+    fitMin: Type.Optional(Type.Integer({ minimum: 0, maximum: 100 })),
+    fitMax: Type.Optional(Type.Integer({ minimum: 0, maximum: 100 })),
+
+    // Date range filters (ISO date-time strings)
+    dateAppliedFrom: Type.Optional(Type.String({ format: "date-time" })),
+    dateAppliedTo:   Type.Optional(Type.String({ format: "date-time" })),
+    updatedFrom:     Type.Optional(Type.String({ format: "date-time" })),
+    updatedTo:       Type.Optional(Type.String({ format: "date-time" })),
 
     // Pagination
-    page: Type.Optional(Type.Integer({ minimum: 1 })),          // default in route/service
-    pageSize: Type.Optional(Type.Integer({ minimum: 1, maximum: 500 })), // cap to prevent abuse
-    
+    page:     Type.Optional(Type.Integer({ minimum: 1 })),
+    pageSize: Type.Optional(Type.Integer({ minimum: 1, maximum: 500 })),
+
     // Sorting
     sortBy: Type.Optional(
       Type.Union([
-        Type.Literal("updatedAt"), 
-        Type.Literal("createdAt"), 
-        Type.Literal("company"), 
-        Type.Literal("position"), 
-        Type.Literal("location"), 
-        Type.Literal("status"), 
-        Type.Literal("dateApplied"), 
-        Type.Literal("jobType"), 
-        Type.Literal("workMode"), 
-        Type.Literal("salaryText"), 
+        Type.Literal("updatedAt"),
+        Type.Literal("createdAt"),
+        Type.Literal("company"),
+        Type.Literal("position"),
+        Type.Literal("location"),
+        Type.Literal("status"),
+        Type.Literal("dateApplied"),
+        Type.Literal("jobType"),
+        Type.Literal("workMode"),
+        Type.Literal("salaryText"),
         Type.Literal("isFavorite"),
         Type.Literal("fitScore"),
-
       ])
     ),
-    sortDir: Type.Optional(Type.Union([Type.Literal("asc"), Type.Literal("desc")])),
-
+    sortDir: Type.Optional(
+      Type.Union([Type.Literal("asc"), Type.Literal("desc")])
+    ),
   },
-  { additionalProperties: false }  // stops random extra fields from sneaking in
+  { additionalProperties: false }
 );
 
 

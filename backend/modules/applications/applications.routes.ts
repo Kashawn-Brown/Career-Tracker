@@ -12,7 +12,7 @@ import * as AiService from "../ai/ai.service.js";
 import { DocumentKind } from "@prisma/client";
 import { resolveAiTierForUser } from "../ai/ai-tier.js";
 import { createAbortControllerFromRawRequest, isAbortError, throwIfAborted } from "../../lib/request-abort.js";
-
+import { parseApplicationFilters } from "./applications.filters.js";
 
 export async function applicationsRoutes(app: FastifyInstance) {
   
@@ -65,9 +65,39 @@ export async function applicationsRoutes(app: FastifyInstance) {
       const query = req.query as ListApplicationsQueryType;
 
       // Normalize querystring boolean safely ("true"/"false" -> boolean)
-      const isFavorite = query.isFavorite === "true" ? true : query.isFavorite === "false" ? false : undefined;
+      const isFavorite = query.isFavorite === "true" ? true
+        : query.isFavorite === "false" ? false
+        : undefined;
 
-      const result = await ApplicationsService.listApplications({ userId, ...query, isFavorite });
+      // Parse and validate advanced filters (multi-select enums + date ranges)
+      // This also validates fit range for consistency.
+      const filters = parseApplicationFilters({
+        status:   query.status,
+        jobType:  query.jobType,
+        workMode: query.workMode,
+        statuses:  query.statuses,
+        jobTypes:  query.jobTypes,
+        workModes: query.workModes,
+        dateAppliedFrom: query.dateAppliedFrom,
+        dateAppliedTo:   query.dateAppliedTo,
+        updatedFrom:     query.updatedFrom,
+        updatedTo:       query.updatedTo,
+        fitMin: query.fitMin,
+        fitMax: query.fitMax,
+      });
+
+      const result = await ApplicationsService.listApplications({
+        userId,
+        page:     query.page,
+        pageSize: query.pageSize,
+        q:        query.q,
+        sortBy:   query.sortBy,
+        sortDir:  query.sortDir,
+        isFavorite,
+        fitMin:   query.fitMin,
+        fitMax:   query.fitMax,
+        ...filters,
+      });
 
       return reply.send(result);
       
