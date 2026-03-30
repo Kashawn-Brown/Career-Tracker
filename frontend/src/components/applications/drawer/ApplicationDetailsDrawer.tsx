@@ -316,6 +316,7 @@ export function ApplicationDetailsDrawer({
   const [previewError, setPreviewError] = useState<string | null>(null);
 
   const closeFitReportRef = useRef<(() => void) | null>(null);
+  const closeConnectionsRef = useRef<(() => void) | null>(null);
 
   // Base resume document
   const [baseResume, setBaseResume] = useState<Document | null>(null);
@@ -573,6 +574,7 @@ export function ApplicationDetailsDrawer({
     if (!Number.isFinite(id)) return;
 
     closeFitReportRef.current?.();  // close fit report if open
+    closeConnectionsRef.current?.();  // close connections if open
   
     setPreviewDocId(docIdStr);
     setPreviewTitle(doc.originalName ?? "Document");
@@ -1087,7 +1089,11 @@ export function ApplicationDetailsDrawer({
                 open={open}
                 isEditing={isEditing}
                 onConnectionsChanged={onConnectionsChanged}
-                closeDocPreview={clearPreview}
+                onCloseOthers={() => {
+                  clearPreview();
+                  closeFitReportRef.current?.();
+                }}
+                onRegisterClose={(fn) => { closeConnectionsRef.current = fn; }}
               />
             </Section>
 
@@ -1122,8 +1128,11 @@ export function ApplicationDetailsDrawer({
                   setDocsReloadKey((k) => k + 1);      // refresh drawer docs list
                   onDocumentsChanged?.(applicationId); // refresh main table
                 }}
-                onRequestClosePreview={clearPreview}
-                onRequestCloseFitReport={(fn) => { closeFitReportRef.current = fn; }}
+                onCloseOthers={() => {
+                  clearPreview();
+                  closeConnectionsRef.current?.();
+                }}
+                onRegisterClose={(fn) => { closeFitReportRef.current = fn; }}
                 onApplicationChanged={onApplicationChanged}
                 autoOpenLatestFit={autoOpenFitForAppId === application.id}
                 onAutoOpenLatestFitConsumed={onAutoOpenFitConsumed}

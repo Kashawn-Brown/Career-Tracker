@@ -258,7 +258,10 @@ export function ApplicationDocumentsSection({
               <div
                 key={String(doc.id)}
                 className="px-3 py-2 flex items-center gap-3 hover:bg-muted/40 cursor-pointer"
-                onClick={() => onOpenInline(doc)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onPreviewRequested?.(doc);
+                }}
               >
                 <FileText className="h-4 w-4 text-muted-foreground" />
 

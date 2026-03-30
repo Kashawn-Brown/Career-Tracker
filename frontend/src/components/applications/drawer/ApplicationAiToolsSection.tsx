@@ -33,9 +33,9 @@ type Props = {
 
   onDocumentsChanged?: (applicationId: string) => void;
 
-  onRequestClosePreview?: () => void;
+  onCloseOthers?: () => void;
 
-  onRequestCloseFitReport?: (fn: () => void) => void;
+  onRegisterClose?: (fn: () => void) => void;
 
   onApplicationChanged?: (applicationId: string) => void;
 
@@ -54,8 +54,8 @@ export function ApplicationAiToolsSection({
   onToggleOverride,
   onOverrideFile,
   onDocumentsChanged,
-  onRequestClosePreview,
-  onRequestCloseFitReport,
+  onCloseOthers,
+  onRegisterClose,
   onApplicationChanged,
   autoOpenLatestFit,
   onAutoOpenLatestFitConsumed,
@@ -88,9 +88,10 @@ export function ApplicationAiToolsSection({
     errorMessage ?? (run?.status === "error" ? run.errorMessage ?? null : null);
 
 
+  // Close fit report when the drawer is closed
   useEffect(() => {
-    onRequestCloseFitReport?.(() => setIsDetailsOpen(false));
-  }, [onRequestCloseFitReport]);
+    onRegisterClose?.(() => setIsDetailsOpen(false));
+  }, [onRegisterClose]);
 
 
   // Avoid setting state after drawer closes / component unmounts
@@ -117,13 +118,13 @@ export function ApplicationAiToolsSection({
 
     autoOpenedRef.current = true;
     setIsDetailsOpen(true);
-    onRequestClosePreview?.();
+    onCloseOthers?.();
     onAutoOpenLatestFitConsumed?.();
   }, [
     autoOpenLatestFit,
     fitArtifactId,
     isRerunMode,
-    onRequestClosePreview,
+    onCloseOthers,
     onAutoOpenLatestFitConsumed,
   ]);
 
@@ -476,7 +477,7 @@ export function ApplicationAiToolsSection({
                       size="sm"
                       onClick={() => {
                         setIsDetailsOpen(true);
-                        onRequestClosePreview?.();
+                        onCloseOthers?.();
                       }}
                     >
                       See more
