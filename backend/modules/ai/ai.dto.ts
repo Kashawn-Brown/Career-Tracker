@@ -265,20 +265,16 @@ export const FitV1JsonObject = {
   properties: {
     score: { type: "number" },
     confidence: { type: "string", enum: ["low", "medium", "high"] },
-    strengths: { type: "array", items: { type: "string" }, maxItems: 10 },
-    gaps: { type: "array", items: { type: "string" }, maxItems: 10 },
-    keywordGaps: { type: "array", items: { type: "string" }, maxItems: 15 },
-    recommendedEdits: { type: "array", items: { type: "string" }, maxItems: 10 },
+    strengths: { type: "array", items: { type: "string" }, maxItems: 7 },
+    gaps: { type: "array", items: { type: "string" }, maxItems: 7 },
+    keywordGaps: { type: "array", items: { type: "string" }, maxItems: 10 },
+    recommendedEdits: { type: "array", items: { type: "string" }, maxItems: 5 },
     questionsToAsk: { type: "array", items: { type: "string" }, maxItems: 5 },
   },
 } as const;
 
 
 // ------------ FIT_V1 HELPER FUNCTIONS ------------
-
-// Output bounds (cost-control later)
-const JD_EXTRACT_MAX_OUTPUT_TOKENS = 900;
-const FIT_MAX_OUTPUT_TOKENS = 10000;
 
 type FitVerbosity = "low" | "medium" | "high";
 type FitEffort = "low" | "medium" | "high" | "xhigh";
@@ -298,8 +294,8 @@ type FitPolicy = {
  */
 const FIT_MAX_OUTPUT_TOKENS_BY_PLAN: Record<AiTier, number> = {
   [UserPlan.REGULAR]:  10_000,
-  [UserPlan.PRO]:      12_000,
-  [UserPlan.PRO_PLUS]: 15_000,
+  [UserPlan.PRO]:      15_000,
+  [UserPlan.PRO_PLUS]: 20_000,
 };
 
 /**

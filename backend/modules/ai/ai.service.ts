@@ -7,12 +7,6 @@ import { AiTier } from "./ai-tier.js";
 import { throwIfAborted } from "../../lib/request-abort.js";
 
 
-// Output bounds (cost-control later)
-const JD_EXTRACT_MAX_OUTPUT_TOKENS = 900;
-const FIT_MAX_OUTPUT_TOKENS = 10000;
-
-
-
 /**
  * Service layer for the AI module:
  * - Keep OpenAI usage out of the HTTP route handlers
@@ -26,6 +20,8 @@ export async function buildApplicationDraftFromJd(
   jdText: string,
   opts?: { signal?: AbortSignal}
 ): Promise<ApplicationFromJdResponse> {
+
+  const JD_EXTRACT_MAX_OUTPUT_TOKENS = 5000;
 
   const jd = (jdText ?? "").trim();
 
@@ -48,6 +44,7 @@ export async function buildApplicationDraftFromJd(
         { role: "user", content: jd },
       ],
       text: {
+        verbosity: "low",
         format: {
           type: "json_schema",
           name: "application_from_jd_v1",
@@ -55,6 +52,7 @@ export async function buildApplicationDraftFromJd(
           schema: ApplicationFromJdJsonObject,
         },
       },
+      reasoning: { effort: "low" },
       max_output_tokens: JD_EXTRACT_MAX_OUTPUT_TOKENS,
     },
     { signal: opts?.signal }
@@ -296,13 +294,13 @@ function buildFitSystemPrompt(): string {
     "    '<Gap> — You do not show explicit evidence of <requirement>. Fast path: <quick action>.'",
     "  - Only include gaps that come from the JD requirements/constraints.",
     "",
-    "- keywordGaps: max 12 UNIQUE items.",
+    "- keywordGaps: max 10 UNIQUE items.",
     "  - Include missing tools/tech/platforms AND missing architecture/process concepts when relevant to the JD.",
     "  - Prefer (1) tools/tech/platforms, then (2) architecture/process concepts.",
     "  - If you include an inferred item, write it exactly as: 'Inferred (not explicit): <item>'.",
     "  - Do not repeat items already clearly stated in gaps unless the keyword adds specificity.",
     "",
-    "- recommendedEdits: max 7 items.",
+    "- recommendedEdits: max 5 items.",
     "  - Must be grounded in candidate text (rephrase, reorder, clarify, add missing context).",
     "  - Do NOT invent metrics, employers, titles, dates, or tools.",
     "  - Format: '<edit suggestion> — Why: <reason>'.",

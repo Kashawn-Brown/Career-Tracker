@@ -241,7 +241,7 @@ export function normalizeExportColumns(
 
 /**
  * Generates a dated export filename.
- * Format: applications-YYYY-MM-DD.csv
+ * Format: CT_Applications_YYYY-MM-DD.csv
  */
 export function buildExportFilename(now: Date = new Date()): string {
   return `CT_Applications_${formatDateYmd(now)}.csv`;

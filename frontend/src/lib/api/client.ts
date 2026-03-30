@@ -241,47 +241,74 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
 
 /**
  * Fetches a binary/text file response (e.g. CSV download).
- * Uses the same auth, refresh, and error handling as apiFetch.
+ * Mirrors apiFetch auth behavior exactly:
+ *  - attaches Bearer token and CSRF token
+ *  - 401 refresh-and-retry flow
+ *  - onUnauthorized / onEmailNotVerified / onAccountDeactivated handlers
  * Returns the blob and the filename from Content-Disposition if present.
  */
 export async function apiFetchBlob(
   path: string,
-  options: Omit<ApiFetchOptions, "body"> = {}
+  options: { headers?: Record<string, string>; __retry?: boolean } = {}
 ): Promise<{ blob: Blob; filename: string | null }> {
-  const url    = `${getBaseUrl()}${path}`;
-  const token  = getToken();
+  const { headers: extraHeaders = {}, __retry = false } = options;
 
-  const headers: Record<string, string> = {
-    ...(options.headers ?? {}),
-  };
+  const token   = getToken();
+  const baseUrl = getBaseUrl();
+  const fullUrl = `${baseUrl}${path}`;
+
+  const headers: Record<string, string> = { ...extraHeaders };
 
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
   const csrfToken = getCsrfToken();
   if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
 
-  const res = await fetch(url, {
-    method:      options.method ?? "GET",
+  const res = await fetch(fullUrl, {
+    method:      "GET",
     headers,
     credentials: "include",
   });
 
   if (!res.ok) {
-    // Try to parse error body as JSON for a clean error message
-    let message = `Request failed (${res.status})`;
-    try {
-      const body = await res.json();
-      if (typeof body?.message === "string") message = body.message;
-    } catch {
-      // ignore parse failure — use default message
+    // 401 refresh-and-retry — mirrors apiFetch behavior exactly
+    if (res.status === 401 && !__retry) {
+      const newToken = await refreshOnce();
+      if (newToken) {
+        return apiFetchBlob(path, { ...options, __retry: true });
+      }
     }
-    throw new ApiError(message, res.status);
+
+    // Global auth handlers — same as apiFetch
+    if (res.status === 401 && onUnauthorized) {
+      onUnauthorized();
+    }
+
+    // Parse error body for code + message
+    let data: unknown = null;
+    try { data = await res.json(); } catch { /* use null */ }
+
+    const code = getErrorCode(data);
+
+    if (res.status === 403 && code === "EMAIL_NOT_VERIFIED" && onEmailNotVerified) {
+      onEmailNotVerified();
+    }
+
+    if (res.status === 403 && code === "ACCOUNT_DEACTIVATED" && onAccountDeactivated) {
+      onAccountDeactivated();
+    }
+
+    const message =
+      (hasMessage(data) && String(data.message)) ||
+      `Request failed (${res.status})`;
+
+    throw new ApiError(message, res.status, data);
   }
 
   const blob = await res.blob();
 
   // Extract filename from Content-Disposition header if present
-  // e.g. attachment; filename="applications-2026-03-29.csv"
+  // e.g. attachment; filename="CT_Applications_2026-03-29.csv"
   const disposition = res.headers.get("Content-Disposition") ?? "";
   const match       = disposition.match(/filename="([^"]+)"/);
   const filename    = match ? match[1] : null;

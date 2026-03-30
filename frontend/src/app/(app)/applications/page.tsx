@@ -19,7 +19,7 @@ import { Select } from "@/components/ui/select";
 import { Alert } from "@/components/ui/alert";
 import {  Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Portal } from "@/components/ui/portal";
-import { ChevronDown, ChevronRight, Plus, X, CheckCircle2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, CheckCircle2, AlertCircle } from "lucide-react";
 import { ApplicationsFiltersPanel } from "@/components/applications/ApplicationsFiltersPanel";
 import {
   type ApplicationFilters,
@@ -27,6 +27,7 @@ import {
 } from "@/lib/applications/filters";
 import { dateInputToStartIso, dateInputToEndIso } from "@/lib/applications/dates";
 import { ApplicationsExportButton } from "@/components/applications/ApplicationsExportButton";
+import { useAuth } from "@/hooks/useAuth";
 
 // ApplicationsPage: fetches and displays the user's applications (GET /applications) with pagination.
 export default function ApplicationsPage() {
@@ -82,16 +83,23 @@ export default function ApplicationsPage() {
 
   // Tracks in-flight FIT runs so they survive drawer close / navigation.
   const fitRuns = useFitRuns();
+  const { refreshMe } = useAuth();
 
-  // Global completion notifications (simple in-page “toast” style).
-  type FitCompletionNotice = {
-    id: string;
+  // Label hints for apps that were just created — list may not have refreshed yet
+  // when the fit run completes, so we store the label here to avoid "this application" fallback.
+  const pendingFitLabelsRef = useRef<Record<string, string>>({});
+
+  // Global fit-run notices — success and error both surface here.
+  type FitRunNotice = {
+    id:            string;
     applicationId: string;
-    label: string;
-    createdAt: number;
+    label:         string;
+    kind:          "success" | "error";
+    message?:      string;
+    createdAt:     number;
   };
 
-  const [fitNotices, setFitNotices] = useState<FitCompletionNotice[]>([]);
+  const [fitNotices, setFitNotices] = useState<FitRunNotice[]>([]);
   const prevFitRunStatusRef = useRef<Record<string, string>>({});
 
 
@@ -222,13 +230,16 @@ export default function ApplicationsPage() {
     return updated;
   }
 
+  const selectedApplicationRef = useRef<Application | null>(null);
+  useEffect(() => {
+    selectedApplicationRef.current = selectedApplication;
+  }, [selectedApplication]);
+
   // Handle application changes: refetch list and refresh drawer.
-  async function handleApplicationChange(applicationId: string) {
-    // Refetch list so the table + sorting (updatedAt) updates immediately
+  const handleApplicationChange = useCallback(async (applicationId: string) => {
     setReloadKey((k) => k + 1);
   
-    // Optional: refresh the drawer's application so fitScore/updatedAt matches too
-    if (selectedApplication?.id === applicationId) {
+    if (selectedApplicationRef.current?.id === applicationId) {
       try {
         const latest = await applicationsApi.get(applicationId);
         setSelectedApplication(latest);
@@ -236,7 +247,7 @@ export default function ApplicationsPage() {
         // non-blocking
       }
     }
-  }
+  }, []); // stable — reads via ref, no stale closure
 
   // openDrawerForApplication: opens the drawer for the application.
   async function openDrawerForApplication(applicationId: string, opts?: { autoOpenFit?: boolean }) {
@@ -378,17 +389,30 @@ export default function ApplicationsPage() {
   
 
   const addFitNotice = useCallback(
-    (applicationId: string, labelOverride?: string) => {
+    (
+      applicationId: string,
+      kind: "success" | "error",
+      opts?: { message?: string }
+    ) => {
       setFitNotices((prev) => {
         if (prev.some((n) => n.applicationId === applicationId)) return prev;
-  
-        const label = labelOverride?.trim() || getApplicationLabel(applicationId);
+
+        // Prefer stored label hint (for newly created apps before list refresh)
+        const label =
+          pendingFitLabelsRef.current[applicationId]?.trim() ||
+          getApplicationLabel(applicationId);
+
+        // Clear the hint once consumed
+        delete pendingFitLabelsRef.current[applicationId];
+
         return [
           {
-            id: `${applicationId}-${Date.now()}`,
+            id:            `${applicationId}-${Date.now()}`,
             applicationId,
             label,
-            createdAt: Date.now(),
+            kind,
+            message:       opts?.message,
+            createdAt:     Date.now(),
           },
           ...prev,
         ];
@@ -402,100 +426,129 @@ export default function ApplicationsPage() {
     setFitNotices((prev) => prev.filter((n) => n.id !== noticeId));
   }
 
-    // Debounce query input to prevent excessive API calls
-    useEffect(() => {
-      const normalized = queryInput.trim();
-    
-      // If cleared, apply immediately (snappy UX)
-      if (normalized.length === 0) {
-        if (query !== "") {
-          setQuery("");
-          resetToFirstPage();
-        }
-        return;
+  // Debounce query input to prevent excessive API calls
+  useEffect(() => {
+    const normalized = queryInput.trim();
+  
+    // If cleared, apply immediately (snappy UX)
+    if (normalized.length === 0) {
+      if (query !== "") {
+        setQuery("");
+        resetToFirstPage();
       }
-    
-      const handle = window.setTimeout(() => {
-        if (normalized !== query) {
-          setQuery(normalized);
-          resetToFirstPage();
-        }
-      }, DEBOUNCE_MS);
-    
-      return () => window.clearTimeout(handle);
-    }, [queryInput, query]);
+      return;
+    }
   
-    // When a drawer-run FIT completes, show a global notification (unless the user is already viewing that application).
-    useEffect(() => {
-      const prev = prevFitRunStatusRef.current;
-      const current = fitRuns.runsByAppId;
-  
-      for (const [applicationId, run] of Object.entries(current)) {
-        const prevStatus = prev[applicationId];
-  
-        if (prevStatus !== "success" && run.status === "success") {
-          const isViewingThatApp = detailsOpen && selectedApplication?.id === applicationId;
-  
-          if (!isViewingThatApp) {
-            addFitNotice(applicationId);
-          }
-  
-          // Once we’ve reacted to success, clear the run entry to avoid stale state.
-          fitRuns.clearRun(applicationId);
-        }
-  
-        prev[applicationId] = run.status;
+    const handle = window.setTimeout(() => {
+      if (normalized !== query) {
+        setQuery(normalized);
+        resetToFirstPage();
       }
+    }, DEBOUNCE_MS);
   
-      // Clean up statuses for runs that no longer exist
-      for (const applicationId of Object.keys(prev)) {
-        if (!current[applicationId]) delete prev[applicationId];
+    return () => window.clearTimeout(handle);
+  }, [queryInput, query]);
+  
+
+  // When a background FIT run completes, surface the result.
+  // - If drawer is open for that app on success: refresh the drawer in place (no notice needed)
+  // - If drawer is closed on success: show a notice so the user can navigate to it
+  // - On error: always show a notice regardless of drawer state
+  useEffect(() => {
+    const prev    = prevFitRunStatusRef.current;
+    const current = fitRuns.runsByAppId;
+
+    for (const [applicationId, run] of Object.entries(current)) {
+      const prevStatus       = prev[applicationId];
+      const isViewingThatApp = detailsOpen && selectedApplication?.id === applicationId;
+
+      if (prevStatus !== "success" && run.status === "success") {
+        if (isViewingThatApp) {
+          // Drawer is open for this app — refresh it in place so the fit
+          // result appears without the user having to close and reopen.
+          void handleApplicationChange(applicationId);
+        } else {
+          addFitNotice(applicationId, "success");
+        }
+        fitRuns.clearRun(applicationId);
       }
-    }, [fitRuns.runsByAppId, fitRuns, detailsOpen, selectedApplication?.id, addFitNotice]);
+
+      if (prevStatus !== "error" && run.status === "error") {
+        // Always show error notice — the drawer doesn't display run errors on its own.
+        addFitNotice(applicationId, "error", { message: run.errorMessage ?? undefined });
+        fitRuns.clearRun(applicationId);
+      }
+
+      prev[applicationId] = run.status;
+    }
+
+    for (const applicationId of Object.keys(prev)) {
+      if (!current[applicationId]) delete prev[applicationId];
+    }
+  }, [fitRuns.runsByAppId, fitRuns, detailsOpen, selectedApplication?.id, addFitNotice, handleApplicationChange]);
 
   return (
     <div className="space-y-6">     
     
-      {/* Global completion notifications */}
+      {/* Global fit-run notices — success and error */}
       {fitNotices.length ? (
         <Portal>
-          <div className="fixed bottom-4 right-4 z-[9999] w-[360px] space-y-2">
+          <div data-fit-notices className="fixed bottom-4 left-4 z-[9999] w-[360px] space-y-2">
             {fitNotices.map((n) => (
               <div
                 key={n.id}
-                role="button"
-                tabIndex={0}
-                className="pointer-events-auto rounded-lg border bg-background p-3 shadow-lg cursor-pointer hover:bg-muted/40"
-                onClick={async () => {
-                  dismissFitNotice(n.id);
-                  await openDrawerForApplication(n.applicationId, { autoOpenFit: true });
-                }}
-                onKeyDown={async (e) => {
-                  if (e.key !== "Enter" && e.key !== " ") return;
-                  e.preventDefault();
-                  dismissFitNotice(n.id);
-                  await openDrawerForApplication(n.applicationId, { autoOpenFit: true });
-                }}
+                className="pointer-events-auto rounded-lg border bg-background shadow-lg overflow-hidden"
               >
-                <div className="flex items-start gap-3">
-                  <CheckCircle2 className="mt-0.5 h-5 w-5" />
+                {/* Clickable body — opens drawer */}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  className="flex items-start gap-3 p-3 cursor-pointer hover:bg-muted/40 transition-colors"
+                  onClick={async () => {
+                    dismissFitNotice(n.id);
+                    await openDrawerForApplication(n.applicationId, {
+                      autoOpenFit: n.kind === "success",
+                    });
+                  }}
+                  onKeyDown={async (e) => {
+                    if (e.key !== "Enter" && e.key !== " ") return;
+                    e.preventDefault();
+                    dismissFitNotice(n.id);
+                    await openDrawerForApplication(n.applicationId, {
+                      autoOpenFit: n.kind === "success",
+                    });
+                  }}
+                >
+                  {n.kind === "success" ? (
+                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
+                  ) : (
+                    <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+                  )}
 
-                  <div className="flex-1">
-                    <div className="text-sm font-medium">Compatibility report generated</div>
-                    <div className="text-xs text-muted-foreground">{n.label}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium">
+                      {n.kind === "success"
+                        ? "Compatibility report ready"
+                        : "Compatibility check failed"}
+                    </div>
+                    <div className="text-xs text-muted-foreground truncate">{n.label}</div>
+                    {n.kind === "error" && n.message && (
+                      <div className="text-xs text-destructive mt-0.5 line-clamp-2">{n.message}</div>
+                    )}
                   </div>
+                </div>
 
+                {/* Dismiss strip — separate from the clickable body so it never accidentally triggers drawer open */}
+                <div className="border-t px-3 py-1.5 flex justify-end bg-muted/20">
                   <button
                     type="button"
-                    className="rounded-md p-1 opacity-70 hover:bg-black/5 hover:opacity-100"
-                    title="Dismiss"
-                    aria-label="Dismiss"
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                     onClick={(e) => {
                       e.stopPropagation();
                       dismissFitNotice(n.id);
                     }}
                   >
-                    <X className="h-4 w-4" />
+                    Dismiss
                   </button>
                 </div>
               </div>
@@ -588,20 +641,31 @@ export default function ApplicationsPage() {
                   />
                 ) : (
                   <CreateApplicationFromJdForm
-                    onCreated={async (args) => {
+                    onCreated={(args) => {
                       setPage(1);
                       refreshList();
 
-                      // If FIT completed during the create flow, show a global completion notice.
-                      if (args?.applicationId && args.openFitReport) {
-                        addFitNotice(args.applicationId, args.label);
+                      if (args.backgroundFit) {
+                        // Store label hint before list refreshes so the
+                        // notice can show the right label even if fit
+                        // completes before the refetch lands.
+                        pendingFitLabelsRef.current[args.applicationId] = args.label;
+
+                        // Start background fit run — non-blocking
+                        fitRuns.startFitRun({
+                          applicationId:      args.applicationId,
+                          overrideFile:       args.backgroundFit.overrideFile ?? null,
+                          onApplicationChanged: handleApplicationChange,
+                          onDocumentsChanged: (appId) => {
+                            if (selectedApplication?.id === appId) {
+                              void handleApplicationChange(appId);
+                            }
+                          },
+                          onRefreshMe: () => void refreshMe(),
+                        }).catch(() => {
+                          // Error is captured in run state and surfaced via the notice effect
+                        });
                       }
-                
-                      // if (args?.applicationId && args.openDrawer) {
-                      //   await openDrawerForApplication(args.applicationId, {
-                      //     autoOpenFit: !!args.openFitReport,
-                      //   });
-                      // }
                     }}
                   />
                 )}

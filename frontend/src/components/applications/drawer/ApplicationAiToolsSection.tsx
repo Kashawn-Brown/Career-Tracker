@@ -10,11 +10,11 @@ import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api/client";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
-import { FitReportDialog} from "@/components/applications/drawer/FitReportDialog";
+import { FitReport} from "@/components/applications/drawer/FitReport";
 import { getFitBand } from "@/lib/fit/presentation";
 import { ProAccessBanner } from "@/components/pro/ProAccessBanner";
 import { RequestProDialog } from "@/components/pro/RequestProDialog";
-import { Loader2, CheckCircle2, Circle } from "lucide-react";
+import { Loader2, CheckCircle2, Circle, AlertTriangle } from "lucide-react";
 import { canUseAi, getRemainingAiCredits, hasProPlan, getEffectivePlan } from "@/lib/plans";
 
 // Props for the ApplicationAiToolsSection component
@@ -33,7 +33,9 @@ type Props = {
 
   onDocumentsChanged?: (applicationId: string) => void;
 
-  onRequestClosePreview?: () => void;
+  onCloseOthers?: () => void;
+
+  onRegisterClose?: (fn: () => void) => void;
 
   onApplicationChanged?: (applicationId: string) => void;
 
@@ -52,7 +54,8 @@ export function ApplicationAiToolsSection({
   onToggleOverride,
   onOverrideFile,
   onDocumentsChanged,
-  onRequestClosePreview,
+  onCloseOthers,
+  onRegisterClose,
   onApplicationChanged,
   autoOpenLatestFit,
   onAutoOpenLatestFitConsumed,
@@ -85,6 +88,12 @@ export function ApplicationAiToolsSection({
     errorMessage ?? (run?.status === "error" ? run.errorMessage ?? null : null);
 
 
+  // Close fit report when the drawer is closed
+  useEffect(() => {
+    onRegisterClose?.(() => setIsDetailsOpen(false));
+  }, [onRegisterClose]);
+
+
   // Avoid setting state after drawer closes / component unmounts
   const mountedRef = useRef(true);
   useEffect(() => {
@@ -109,13 +118,13 @@ export function ApplicationAiToolsSection({
 
     autoOpenedRef.current = true;
     setIsDetailsOpen(true);
-    onRequestClosePreview?.();
+    onCloseOthers?.();
     onAutoOpenLatestFitConsumed?.();
   }, [
     autoOpenLatestFit,
     fitArtifactId,
     isRerunMode,
-    onRequestClosePreview,
+    onCloseOthers,
     onAutoOpenLatestFitConsumed,
   ]);
 
@@ -205,9 +214,11 @@ export function ApplicationAiToolsSection({
         onApplicationChanged,
         onRefreshMe: () => void refreshMe(),
       });
-
-      // If the drawer stayed open, update the local summary immediately.
-      if (created && mountedRef.current) {
+      
+      // Only update local artifact if the drawer is still showing the same
+      // application the run was started for — guards against a different
+      // app being opened while the run was in flight.
+      if (created && mountedRef.current && created.jobApplicationId === application.id) {
         setFitArtifact(created as AiArtifact<FitV1Payload>);
       }
 
@@ -326,6 +337,12 @@ export function ApplicationAiToolsSection({
               className="h-2 rounded bg-primary transition-all"
               style={{ width: progressWidth }}
             />
+          </div>
+
+          {/* Warning message */}
+          <div className="mt-1.5 flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            Do not refresh page, this will cancel the compatibility check.
           </div>
 
           {/* Steps list (same icon language as CreateApplicationFromJdForm) */}
@@ -460,7 +477,7 @@ export function ApplicationAiToolsSection({
                       size="sm"
                       onClick={() => {
                         setIsDetailsOpen(true);
-                        onRequestClosePreview?.();
+                        onCloseOthers?.();
                       }}
                     >
                       See more
@@ -477,7 +494,7 @@ export function ApplicationAiToolsSection({
                     </Button>
                   </div>
 
-                  <FitReportDialog
+                  <FitReport
                     open={isDetailsOpen}
                     onOpenChange={setIsDetailsOpen}
                     artifact={fitArtifact}
