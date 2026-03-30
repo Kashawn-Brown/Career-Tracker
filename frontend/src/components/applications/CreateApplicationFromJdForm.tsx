@@ -38,17 +38,25 @@ import { createPortal } from "react-dom";
 import { canUseAi, getRemainingAiCredits, hasProPlan, getEffectivePlan } from "@/lib/plans";
 
 
-// Arguments for the onCreated callback
+// ─── Callback contract ────────────────────────────────────────────────────────
+
+/**
+ * Called once immediately after the application record is created.
+ * If the user opted into a background fit run, backgroundFit is included
+ * so the page can start it through the existing useFitRuns() system.
+ */
 type OnCreatedArgs = {
   applicationId: string;
-  label?: string;
-  openDrawer?: boolean;
-  openFitReport?: boolean;
+  label:         string;
+  backgroundFit?: {
+    overrideFile?: File | null;
+  };
 };
 
 
+// ─── Component ────────────────────────────────────────────────────────────────
 
-export function CreateApplicationFromJdForm({ onCreated }: { onCreated: (args?: OnCreatedArgs) => void }) {
+export function CreateApplicationFromJdForm({ onCreated }: { onCreated: (args: OnCreatedArgs) => void }) {
   // Job description input + draft
   const [jdText, setJdText] = useState("");
   const [draft, setDraft] = useState<ApplicationDraftResponse | null>(null);
@@ -58,196 +66,120 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: (args?: 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Submit progress — covers only create-flow work (no fit steps)
   type SubmitStepKey =
     | "CREATE_APPLICATION"
-    | "UPLOAD_OVERRIDE"
-    | "RUN_COMPATIBILITY"
     | "UPLOAD_DOCUMENTS"
     | "ATTACH_CONNECTIONS"
     | "FINALIZE";
 
   type SubmitStep = { key: SubmitStepKey; label: string };
 
-  /**
-   * submitProgress:
-   * - steps: the plan (dynamic, based on what the user selected)
-   * - activeIndex: which step we’re currently on
-   */
   const [submitProgress, setSubmitProgress] = useState<{
-    steps: SubmitStep[];
+    steps:       SubmitStep[];
     activeIndex: number;
-    hint?: string;
+    hint?:       string;
   } | null>(null);
 
-
   const [showSummary, setShowSummary] = useState(false);
-  
+
   // Editable fields (prefilled after generate)
-  const [company, setCompany] = useState("");
-  const [position, setPosition] = useState("");
-
+  const [company, setCompany]                   = useState("");
+  const [position, setPosition]                 = useState("");
   const [applicationStatus, setApplicationStatus] = useState<ApplicationStatus>("WISHLIST");
-
-  const [jobType, setJobType] = useState<JobType>("UNKNOWN");
-  const [jobTypeDetails, setJobTypeDetails] = useState("");
-
-  const [workMode, setWorkMode] = useState<WorkMode>("UNKNOWN");
-  const [workModeDetails, setWorkModeDetails] = useState("");
-
-  const [location, setLocation] = useState("");
-  const [locationDetails, setLocationDetails] = useState("");
-
-  const [salaryText, setSalaryText] = useState("");
-  const [salaryDetails, setSalaryDetails] = useState("");
-
-  const [jobLink, setJobLink] = useState("");
-  const [tagsText, setTagsText] = useState("");
-
-  const [notes, setNotes] = useState("");
-
-  const [isFavorite, setIsFavorite] = useState(false);
+  const [jobType, setJobType]                   = useState<JobType>("UNKNOWN");
+  const [jobTypeDetails, setJobTypeDetails]     = useState("");
+  const [workMode, setWorkMode]                 = useState<WorkMode>("UNKNOWN");
+  const [workModeDetails, setWorkModeDetails]   = useState("");
+  const [location, setLocation]                 = useState("");
+  const [locationDetails, setLocationDetails]   = useState("");
+  const [salaryText, setSalaryText]             = useState("");
+  const [salaryDetails, setSalaryDetails]       = useState("");
+  const [jobLink, setJobLink]                   = useState("");
+  const [tagsText, setTagsText]                 = useState("");
+  const [notes, setNotes]                       = useState("");
+  const [isFavorite, setIsFavorite]             = useState(false);
 
   // "More" section (attachments + connections to attach on create)
   const [showMore, setShowMore] = useState(false);
 
   // Run compatibility after create (optional)
-  const [runFitOnCreate, setRunFitOnCreate] = useState(false);
+  const [runFitOnCreate, setRunFitOnCreate]       = useState(false);
   const [isRunFitDialogOpen, setIsRunFitDialogOpen] = useState(false);
 
   // Fit source selection (default = Base Resume)
-  const [fitUseOverride, setFitUseOverride] = useState(false);
+  const [fitUseOverride, setFitUseOverride]   = useState(false);
   const [fitOverrideFile, setFitOverrideFile] = useState<File | null>(null);
-
-  // Cancel support for the "Run compatibility after create" pipeline
-  const fitAbortRef = useRef<AbortController | null>(null);
-  const [isFitCancelling, setIsFitCancelling] = useState(false);
-
-  // Tracks cancel intent + override doc for this submit-run (so Cancel can clean it up)
-  const fitCancelRequestedRef = useRef(false);
-  const fitUploadedOverrideDocIdRef = useRef<number | null>(null);
-
-
-  const isAbortError = (err: unknown) => {
-    if (err instanceof DOMException) return err.name === "AbortError";
-    if (err instanceof Error) return err.name === "AbortError";
-    return false;
-  };
-
-  const handleCancelFit = () => {
-    const ok = window.confirm(
-      "Cancel compatibility check?\n\n Are you sure?"
-    );
-    if (!ok) return;
-
-    fitCancelRequestedRef.current = true;
-    setIsFitCancelling(true);
-  
-    // Abort any in-flight request (upload or FIT generation)
-    fitAbortRef.current?.abort();
-  
-    // Best-effort cleanup if override upload already completed
-    const docId = fitUploadedOverrideDocIdRef.current;
-    if (docId) {
-      void (async () => {
-        try {
-          await documentsApi.deleteById(docId);
-        } catch {
-          // best-effort cleanup
-        }
-      })();
-    }
-  };
-  
-  
-
 
   // Document types
   type UploadableDocKind = Exclude<DocumentKind, "BASE_RESUME">;
-  type StagedDocument = { id: string; kind: UploadableDocKind; file: File };
+  type StagedDocument    = { id: string; kind: UploadableDocKind; file: File };
 
   const DOC_KIND_OPTIONS: Array<{ value: UploadableDocKind; label: string }> = [
-    { value: "RESUME", label: "Resume" },
+    { value: "RESUME",       label: "Resume"       },
     { value: "COVER_LETTER", label: "Cover Letter" },
-    { value: "OTHER", label: "Other" },
+    { value: "OTHER",        label: "Other"        },
   ];
 
-  // Attachment draft row
-  const [docKind, setDocKind] = useState<UploadableDocKind>("OTHER");
-  const [docFile, setDocFile] = useState<File | null>(null);
-  const [documents, setDocuments] = useState<StagedDocument[]>([]);
+  const [docKind, setDocKind]         = useState<UploadableDocKind>("OTHER");
+  const [docFile, setDocFile]         = useState<File | null>(null);
+  const [documents, setDocuments]     = useState<StagedDocument[]>([]);
 
   // Connections to attach
-  const [connectionQuery, setConnectionQuery] = useState("");
+  const [connectionQuery, setConnectionQuery]       = useState("");
   const [selectedConnections, setSelectedConnections] = useState<Connection[]>([]);
 
-  // ---- Create new connection (from this flow) ----
-type NewConnectionDraft = {
-  name: string;
-  company: string;
-  title: string;
-  email: string;
-  linkedInUrl: string;
-};
+  // ── Create new connection (from this flow) ──────────────────────────────
 
-function emptyNewConnectionDraft(name = ""): NewConnectionDraft {
-  return { name, company: "", title: "", email: "", linkedInUrl: "" };
-}
+  type NewConnectionDraft = {
+    name: string; company: string; title: string; email: string; linkedInUrl: string;
+  };
 
-const [isCreateConnOpen, setIsCreateConnOpen] = useState(false);
-const [newConnDraft, setNewConnDraft] = useState<NewConnectionDraft>(emptyNewConnectionDraft());
-const [isCreateConnSaving, setIsCreateConnSaving] = useState(false);
-const [createConnError, setCreateConnError] = useState<string | null>(null);
-
-function openCreateConn() {
-  setCreateConnError(null);
-  setNewConnDraft(emptyNewConnectionDraft(connectionQuery.trim()));
-  setIsCreateConnOpen(true);
-}
-
-function closeCreateConn() {
-  setIsCreateConnOpen(false);
-  setCreateConnError(null);
-  setNewConnDraft(emptyNewConnectionDraft());
-}
-
-async function createConnAndSelect() {
-  const name = newConnDraft.name.trim();
-  if (!name) {
-    setCreateConnError("Name is required.");
-    return;
+  function emptyNewConnectionDraft(name = ""): NewConnectionDraft {
+    return { name, company: "", title: "", email: "", linkedInUrl: "" };
   }
 
-  setIsCreateConnSaving(true);
-  setCreateConnError(null);
+  const [isCreateConnOpen, setIsCreateConnOpen]   = useState(false);
+  const [newConnDraft, setNewConnDraft]           = useState<NewConnectionDraft>(emptyNewConnectionDraft());
+  const [isCreateConnSaving, setIsCreateConnSaving] = useState(false);
+  const [createConnError, setCreateConnError]     = useState<string | null>(null);
 
-  try {
-    const payload: CreateConnectionRequest = { name };
-
-    const company = newConnDraft.company.trim();
-    if (company) payload.company = company;
-
-    const title = newConnDraft.title.trim();
-    if (title) payload.title = title;
-
-    const email = newConnDraft.email.trim();
-    if (email) payload.email = email;
-
-    const linkedInUrl = newConnDraft.linkedInUrl.trim();
-    if (linkedInUrl) payload.linkedInUrl = linkedInUrl;
-
-    const created = await connectionsApi.createConnection(payload);
-
-    // Immediately select it for this application-create flow
-    addConnection(created.connection);
-
-    closeCreateConn();
-  } catch (err) {
-    if (err instanceof ApiError) setCreateConnError(err.message);
-    else setCreateConnError("Failed to create connection.");
-  } finally {
-    setIsCreateConnSaving(false);
+  function openCreateConn() {
+    setCreateConnError(null);
+    setNewConnDraft(emptyNewConnectionDraft(connectionQuery.trim()));
+    setIsCreateConnOpen(true);
   }
-}
+
+  function closeCreateConn() {
+    setIsCreateConnOpen(false);
+    setCreateConnError(null);
+    setNewConnDraft(emptyNewConnectionDraft());
+  }
+
+  async function createConnAndSelect() {
+    const name = newConnDraft.name.trim();
+    if (!name) { setCreateConnError("Name is required."); return; }
+
+    setIsCreateConnSaving(true);
+    setCreateConnError(null);
+
+    try {
+      const payload: CreateConnectionRequest = { name };
+      const company = newConnDraft.company.trim(); if (company) payload.company = company;
+      const title   = newConnDraft.title.trim();   if (title)   payload.title   = title;
+      const email   = newConnDraft.email.trim();   if (email)   payload.email   = email;
+      const linkedInUrl = newConnDraft.linkedInUrl.trim(); if (linkedInUrl) payload.linkedInUrl = linkedInUrl;
+
+      const created = await connectionsApi.createConnection(payload);
+      addConnection(created.connection);
+      closeCreateConn();
+    } catch (err) {
+      if (err instanceof ApiError) setCreateConnError(err.message);
+      else setCreateConnError("Failed to create connection.");
+    } finally {
+      setIsCreateConnSaving(false);
+    }
+  }
 
   const selectedConnectionIds = useMemo(
     () => new Set(selectedConnections.map((c) => c.id)),
@@ -259,13 +191,7 @@ async function createConnAndSelect() {
 
   function addDocument() {
     if (!docFile) return;
-
-    setDocuments((prev) => [
-      ...prev,
-      { id: `${Date.now()}-${Math.random()}`, kind: docKind, file: docFile },
-    ]);
-
-    // reset row for next add
+    setDocuments((prev) => [...prev, { id: `${Date.now()}-${Math.random()}`, kind: docKind, file: docFile }]);
     setDocKind("OTHER");
     setDocFile(null);
   }
@@ -284,12 +210,12 @@ async function createConnAndSelect() {
     setSelectedConnections((prev) => prev.filter((c) => c.id !== id));
   }
 
+  // ── Pro access state ──────────────────────────────────────────────────────
 
-  // Pro access state
   const { user, aiProRequest, refreshMe } = useAuth();
-  const canUse   = user ? canUseAi(user) : false;
+  const canUse             = user ? canUseAi(user) : false;
   const remainingAiCredits = user ? getRemainingAiCredits(user) : 0;
-  const isPro    = user ? hasProPlan(getEffectivePlan(user)) : false;
+  const isPro              = user ? hasProPlan(getEffectivePlan(user)) : false;
 
   const [isProDialogOpen, setIsProDialogOpen] = useState(false);
 
@@ -307,7 +233,6 @@ async function createConnAndSelect() {
     if (!user?.id) return;
 
     let cancelled = false;
-
     (async () => {
       try {
         const res = await documentsApi.getBaseResume();
@@ -319,116 +244,59 @@ async function createConnAndSelect() {
       }
     })();
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [isRunFitDialogOpen, user?.id]);
 
+  // ── Reset ─────────────────────────────────────────────────────────────────
 
-  
-
-  // Reset to initial state
   function resetToInitial() {
     setErrorMessage(null);
-  
-    setJdText("");
-    setDraft(null);
-  
-    setCompany("");
-    setPosition("");
+    setJdText(""); setDraft(null);
+    setCompany(""); setPosition("");
     setApplicationStatus("WISHLIST");
-  
-    setJobType("UNKNOWN");
-    setJobTypeDetails("");
-  
-    setWorkMode("UNKNOWN");
-    setWorkModeDetails("");
-  
-    setLocation("");
-    setLocationDetails("");
-  
-    setSalaryText("");
-    setSalaryDetails("");
-
-    setJobLink("");
-    setTagsText("");
-  
-    setNotes("");
-
-    setIsFavorite(false);
-    setShowSummary(false);
-
-    setShowMore(false);
-
-    setDocKind("OTHER");
-    setDocFile(null);
-    setDocuments([]);
-
-    setConnectionQuery("");
-    setSelectedConnections([]);
-
-    setRunFitOnCreate(false);
-    setIsRunFitDialogOpen(false);
-
-    setFitUseOverride(false);
-    setFitOverrideFile(null);
-
-    setIsCreateConnOpen(false);
-    setCreateConnError(null);
-    setIsCreateConnSaving(false);
-    setNewConnDraft(emptyNewConnectionDraft());
-
-
+    setJobType("UNKNOWN"); setJobTypeDetails("");
+    setWorkMode("UNKNOWN"); setWorkModeDetails("");
+    setLocation(""); setLocationDetails("");
+    setSalaryText(""); setSalaryDetails("");
+    setJobLink(""); setTagsText("");
+    setNotes(""); setIsFavorite(false);
+    setShowSummary(false); setShowMore(false);
+    setDocKind("OTHER"); setDocFile(null); setDocuments([]);
+    setConnectionQuery(""); setSelectedConnections([]);
+    setRunFitOnCreate(false); setIsRunFitDialogOpen(false);
+    setFitUseOverride(false); setFitOverrideFile(null);
+    setIsCreateConnOpen(false); setCreateConnError(null);
+    setIsCreateConnSaving(false); setNewConnDraft(emptyNewConnectionDraft());
   }
-  
-  // Reset to initial state
-  function handleReset() {
-    resetToInitial();
-  }
-  
 
-  // Generate draft from job description
+  function handleReset() { resetToInitial(); }
+
+  // ── Generate draft ────────────────────────────────────────────────────────
+
   async function handleGenerate() {
     setErrorMessage(null);
-
     const text = jdText.trim();
-    if (!text) {
-      setErrorMessage("Paste a job description first.");
-      return;
-    }
+    if (!text) { setErrorMessage("Paste a job description first."); return; }
 
     try {
       setIsGenerating(true);
-
       const res = await aiApi.applicationFromJd(text);
       setDraft(res);
-
-      // Refresh user so credits/pro state updates immediately after successful AI use.
       void refreshMe();
 
-      // Prefill editable fields
       setCompany(res.extracted.company ?? "");
       setPosition(res.extracted.position ?? "");
-
       setLocation(res.extracted.location ?? "");
       setLocationDetails(res.extracted.locationDetails ?? "");
-
       setWorkMode(res.extracted.workMode ?? "UNKNOWN");
       setWorkModeDetails(res.extracted.workModeDetails ?? "");
-
       setJobType(res.extracted.jobType ?? "UNKNOWN");
       setJobTypeDetails(res.extracted.jobTypeDetails ?? "");
-
       setSalaryText(res.extracted.salaryText ?? "");
       setSalaryDetails(res.extracted.salaryDetails ?? "");
-
       setJobLink(res.extracted.jobLink ?? "");
       setTagsText(res.extracted.tagsText ?? "");
-
-      // Notes: extracted.notes -> textarea (user can edit)
       setNotes(res.extracted.notes ? res.extracted.notes.map((s) => `- ${s}`).join("\n") : "");
-
-      // Keep status default as Interested
       setApplicationStatus("WISHLIST");
     } catch (err) {
       if (err instanceof ApiError) setErrorMessage(err.message);
@@ -438,255 +306,143 @@ async function createConnAndSelect() {
     }
   }
 
-  // Build the steps for the submit progress
+  // ── Submit progress helpers ───────────────────────────────────────────────
+
   function buildSubmitSteps(args: {
-    runFit: boolean;
-    uploadOverride: boolean;
-    stagedDocumentsCount: number;
+    stagedDocumentsCount:  number;
     stagedConnectionsCount: number;
   }) {
-    const steps: { key: SubmitStepKey; label: string }[] = [
+    const steps: SubmitStep[] = [
       { key: "CREATE_APPLICATION", label: "Creating application" },
     ];
-  
-    if (args.runFit && args.uploadOverride) {
-      steps.push({ key: "UPLOAD_OVERRIDE", label: "Uploading override resume" });
-    }
-  
-    if (args.runFit) {
-      steps.push({ key: "RUN_COMPATIBILITY", label: "Running compatibility (FIT)" });
-    }
-  
-    if (args.stagedDocumentsCount > 0) {
+    if (args.stagedDocumentsCount > 0)
       steps.push({ key: "UPLOAD_DOCUMENTS", label: "Uploading staged documents" });
-    }
-  
-    if (args.stagedConnectionsCount > 0) {
+    if (args.stagedConnectionsCount > 0)
       steps.push({ key: "ATTACH_CONNECTIONS", label: "Attaching staged connections" });
-    }
-  
     steps.push({ key: "FINALIZE", label: "Finalizing" });
-  
     return steps;
   }
-  
-  // Start the submit progress
-  function startSubmitProgress(steps: { key: SubmitStepKey; label: string }[]) {
-    setSubmitProgress({
-      steps,
-      activeIndex: 0,
-      hint: "Please keep this tab open while we finish the workflow.",
-    });
+
+  function startSubmitProgress(steps: SubmitStep[]) {
+    setSubmitProgress({ steps, activeIndex: 0 });
   }
-  
-  // Go to a specific step
-  function goToStep(stepKey: SubmitStepKey, hint?: string) {
+
+  function goToStep(stepKey: SubmitStepKey) {
     setSubmitProgress((prev) => {
       if (!prev) return prev;
       const idx = prev.steps.findIndex((s) => s.key === stepKey);
       if (idx === -1) return prev;
-      return { ...prev, activeIndex: idx, hint: hint ?? prev.hint };
+      return { ...prev, activeIndex: idx };
     });
   }
-  
-  // End the submit progress
-  function endSubmitProgress() {
-    setSubmitProgress(null);
-  }
 
-  
-  // Create application after draft (possibly run compatibility)
+  function endSubmitProgress() { setSubmitProgress(null); }
+
+  // ── Create application ────────────────────────────────────────────────────
+
+  /**
+   * Core create flow. Fit is NOT run here — if the user opted in, we hand
+   * it off to the page via onCreated so it runs through useFitRuns().
+   */
   async function createApplicationAfterDraft(opts: { runFit: boolean }) {
     setErrorMessage(null);
-  
-    // Snapshot staged “More” items so reset doesn’t break async work.
-    const stagedDocuments = [...documents];
+
+    // Snapshot staged items so reset doesn't race with async work
+    const stagedDocuments   = [...documents];
     const stagedConnections = [...selectedConnections];
-  
-    // Snapshot fit inputs too (dialog state)
-    const stagedFitUseOverride = fitUseOverride;
+    const stagedFitUseOverride  = fitUseOverride;
     const stagedFitOverrideFile = fitOverrideFile;
-  
+
     if (!company.trim() || !position.trim()) {
       setErrorMessage("Company and position are required.");
       return;
     }
-  
-    // If running fit, validate requirements up front.
+
+    // Validate fit requirements before creating so we fail fast
     if (opts.runFit) {
       if (!canUse) {
         setErrorMessage("No free AI credits remaining. Request Pro to run compatibility.");
         return;
       }
-  
       if (stagedFitUseOverride && !stagedFitOverrideFile) {
         setErrorMessage("Select a file for compatibility (or turn off override).");
         return;
       }
-  
       if (!stagedFitUseOverride && !baseResumeExists) {
         setErrorMessage("Upload a Base Resume in Profile (or use an override file).");
         return;
       }
     }
-  
-    const payload: CreateApplicationRequest = {
-      company: company.trim(),
-      position: position.trim(),
-      status: applicationStatus,
-      description: jdText.trim(),
-      notes: toOptionalTrimmed(notes),
-  
-      location: toOptionalTrimmed(location),
-      locationDetails: toOptionalTrimmed(locationDetails),
-  
-      jobType: jobType === "UNKNOWN" ? undefined : jobType,
-      jobTypeDetails: toOptionalTrimmed(jobTypeDetails),
-  
-      workMode: workMode === "UNKNOWN" ? undefined : workMode,
-      workModeDetails: toOptionalTrimmed(workModeDetails),
-  
-      salaryText: toOptionalTrimmed(salaryText),
-      salaryDetails: toOptionalTrimmed(salaryDetails),
 
-      jobLink: toOptionalTrimmed(jobLink),
-      tagsText: toOptionalTrimmed(tagsText),
-  
+    const payload: CreateApplicationRequest = {
+      company:        company.trim(),
+      position:       position.trim(),
+      status:         applicationStatus,
+      description:    jdText.trim(),
+      notes:          toOptionalTrimmed(notes),
+      location:       toOptionalTrimmed(location),
+      locationDetails: toOptionalTrimmed(locationDetails),
+      jobType:        jobType === "UNKNOWN" ? undefined : jobType,
+      jobTypeDetails: toOptionalTrimmed(jobTypeDetails),
+      workMode:       workMode === "UNKNOWN" ? undefined : workMode,
+      workModeDetails: toOptionalTrimmed(workModeDetails),
+      salaryText:     toOptionalTrimmed(salaryText),
+      salaryDetails:  toOptionalTrimmed(salaryDetails),
+      jobLink:        toOptionalTrimmed(jobLink),
+      tagsText:       toOptionalTrimmed(tagsText),
       isFavorite,
-  
-      dateApplied: applicationStatus === "APPLIED" ? new Date().toISOString() : undefined,
+      dateApplied:    applicationStatus === "APPLIED" ? new Date().toISOString() : undefined,
     };
-  
+
     try {
       setIsSubmitting(true);
 
-      // Build the steps for the submit progress
       const steps = buildSubmitSteps({
-        runFit: opts.runFit,
-        uploadOverride: opts.runFit && stagedFitUseOverride && !!stagedFitOverrideFile,
-        stagedDocumentsCount: stagedDocuments.length,
+        stagedDocumentsCount:  stagedDocuments.length,
         stagedConnectionsCount: stagedConnections.length,
       });
-    
+
       startSubmitProgress(steps);
-    
       goToStep("CREATE_APPLICATION");
-  
+
       const created = await applicationsApi.create(payload);
-  
-      let fitFailed = false;
-      let fitSucceeded = false;
-  
-      if (opts.runFit) {
+      const label   = `${position.trim()} @ ${company.trim()}`;
 
-        // Create a controller for the create+fit pipeline run
-        const controller = new AbortController();
-        fitAbortRef.current = controller;
-        setIsFitCancelling(false);
+      // ── Hand off to page immediately after create ──────────────────────
+      // The page starts the background fit run via useFitRuns() if requested.
+      // We do NOT wait for fit here — the form continues with docs/connections.
+      onCreated({
+        applicationId: created.id,
+        label,
+        ...(opts.runFit && {
+          backgroundFit: {
+            overrideFile: stagedFitUseOverride ? stagedFitOverrideFile : null,
+          },
+        }),
+      });
 
-        fitCancelRequestedRef.current = false;
-        fitUploadedOverrideDocIdRef.current = null;
-
-
-        try {
-          let sourceDocumentId: number | undefined = undefined;
-  
-          if (stagedFitUseOverride && stagedFitOverrideFile) {
-            // Go to the upload override step
-            goToStep("UPLOAD_OVERRIDE", "Uploading your selected override file for this run.");
-
-            // Upload the override file (abortable)
-            const uploadRes = await applicationDocumentsApi.upload(
-              {
-                applicationId: created.id,
-                kind: "CAREER_HISTORY",
-                file: stagedFitOverrideFile,
-              },
-              { signal: controller.signal }
-            );
-  
-            const docId = Number(uploadRes.document.id);
-            sourceDocumentId = docId;
-            fitUploadedOverrideDocIdRef.current = docId;
-
-            // Upload finished quickly; if user already hit Cancel, cleanup and stop the FIT run.
-            if (fitCancelRequestedRef.current || controller.signal.aborted) {
-              try {
-                await documentsApi.deleteById(docId);
-              } catch {
-                // best-effort cleanup
-              }
-
-              const abortErr = new Error("Cancelled");
-              abortErr.name = "AbortError";
-              throw abortErr;
-            }
-
-          }
-  
-          goToStep("RUN_COMPATIBILITY", "This can take a few seconds — generating your compatibility report.");
-          
-          // Generate FIT (abortable)
-          await applicationsApi.generateAiArtifact(
-            created.id,
-            {
-              kind: "FIT_V1",
-              sourceDocumentId,
-            },
-            { signal: controller.signal }
-          );
-
-          fitSucceeded = true;
-  
-          // Credits + table refresh
-          void refreshMe();
-          onCreated();
-
-        } catch (err) {
-          // If user cancelled, do NOT mark as failed
-          if (isAbortError(err)) {
-            const docId = fitUploadedOverrideDocIdRef.current;
-            if (docId) {
-              try {
-                await documentsApi.deleteById(docId);
-              } catch {
-                // best-effort cleanup
-              }
-            }
-          } else {
-            fitFailed = true;
-          }
-        } finally {
-          fitAbortRef.current = null;
-          setIsFitCancelling(false);
-
-          fitCancelRequestedRef.current = false;
-          fitUploadedOverrideDocIdRef.current = null;
-
-        }
-      }
-
+      // ── Staged documents ───────────────────────────────────────────────
       if (stagedDocuments.length) {
-        goToStep("UPLOAD_DOCUMENTS", "Uploading your staged documents to the application.");
+        goToStep("UPLOAD_DOCUMENTS");
       }
-  
-      // Apply staged documents + connections after create (best-effort)
+
       const docResults = stagedDocuments.length
         ? await Promise.allSettled(
             stagedDocuments.map((d) =>
               applicationDocumentsApi.upload({
                 applicationId: created.id,
-                kind: d.kind,
-                file: d.file,
+                kind:          d.kind,
+                file:          d.file,
               })
             )
           )
         : [];
 
-
+      // ── Staged connections ─────────────────────────────────────────────
       if (stagedConnections.length) {
-        goToStep("ATTACH_CONNECTIONS", "Attaching your staged connections to the application.");
+        goToStep("ATTACH_CONNECTIONS");
       }
+
       const connResults = stagedConnections.length
         ? await Promise.allSettled(
             stagedConnections.map((c) =>
@@ -694,31 +450,18 @@ async function createConnAndSelect() {
             )
           )
         : [];
-  
-      const failedDocs = docResults.filter((r) => r.status === "rejected").length;
+
+      const failedDocs  = docResults.filter((r) => r.status === "rejected").length;
       const failedConns = connResults.filter((r) => r.status === "rejected").length;
-  
-      goToStep("FINALIZE", "Finalizing the application creation.");
 
-      // Reset the form and refresh the list.
+      goToStep("FINALIZE");
       resetToInitial();
-      onCreated();
 
-      if (opts.runFit && fitSucceeded) {
-        onCreated({
-          applicationId: created.id,
-          label: `${position} @ ${company}`,
-          openDrawer: true,
-          openFitReport: true,
-        });
-      }
-  
-      if (fitFailed || failedDocs || failedConns) {
+      // Show partial-failure message for docs/connections (fit is no longer in this pipeline)
+      if (failedDocs || failedConns) {
         const parts: string[] = [];
-        if (fitFailed) parts.push("compatibility check failed");
-        if (failedDocs) parts.push(`${failedDocs} document(s) failed to attach`);
+        if (failedDocs)  parts.push(`${failedDocs} document(s) failed to attach`);
         if (failedConns) parts.push(`${failedConns} connection(s) failed to attach`);
-  
         setErrorMessage(`Application created, but ${parts.join(" and ")}.`);
       }
     } catch (err) {
@@ -730,38 +473,35 @@ async function createConnAndSelect() {
     }
   }
 
-  // Create application from draft
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setErrorMessage(null);
-  
+
     if (runFitOnCreate) {
       setIsRunFitDialogOpen(true);
       return;
     }
-  
+
     await createApplicationAfterDraft({ runFit: false });
   }
 
+  // Warn before unload while submitting
   useEffect(() => {
     if (!isSubmitting) return;
-  
     const prev = window.onbeforeunload;
-  
     window.onbeforeunload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
-      return ""; // triggers the native confirmation prompt in supported browsers
+      return "";
     };
-  
-    return () => {
-      window.onbeforeunload = prev;
-    };
+    return () => { window.onbeforeunload = prev; };
   }, [isSubmitting]);
-  
- 
+
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="space-y-4">
+      {/* Submit progress portal — covers only create-flow steps */}
       {isSubmitting ? (
         typeof document !== "undefined"
         ? createPortal(
@@ -777,7 +517,6 @@ async function createConnAndSelect() {
                   <div className="text-base font-medium">
                     {submitProgress?.steps?.[submitProgress.activeIndex]?.label ?? "Working..."}
                   </div>
-
                   {submitProgress?.steps?.length ? (
                     <div className="mt-1 text-xs text-muted-foreground">
                       Step {submitProgress.activeIndex + 1} of {submitProgress.steps.length}
@@ -806,19 +545,13 @@ async function createConnAndSelect() {
               {submitProgress?.steps?.length ? (
                 <div className="mt-4 space-y-2 text-sm">
                   {submitProgress.steps.map((s, idx) => {
-                    const isDone = idx < submitProgress.activeIndex;
+                    const isDone   = idx < submitProgress.activeIndex;
                     const isActive = idx === submitProgress.activeIndex;
-
                     return (
                       <div key={s.key} className="flex items-center gap-2">
-                        {isDone ? (
-                          <CheckCircle2 className="h-4 w-4" />
-                        ) : isActive ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Circle className="h-4 w-4 opacity-60" />
-                        )}
-
+                        {isDone   ? <CheckCircle2 className="h-4 w-4" />
+                        : isActive ? <Loader2 className="h-4 w-4 animate-spin" />
+                                   : <Circle className="h-4 w-4 opacity-60" />}
                         <span className={isActive ? "font-medium" : "text-muted-foreground"}>
                           {s.label}
                         </span>
@@ -827,43 +560,13 @@ async function createConnAndSelect() {
                   })}
                 </div>
               ) : null}
-
-              {/* Cancel (only during FIT-related steps) */}
-              {(() => {
-                const activeKey = submitProgress?.steps?.[submitProgress.activeIndex]?.key;
-
-                const canCancel =
-                  !!fitAbortRef.current &&
-                  (activeKey === "UPLOAD_OVERRIDE" || activeKey === "RUN_COMPATIBILITY");
-
-                if (!canCancel) return null;
-
-                return (
-                  <div className="mt-5 flex justify-end">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={handleCancelFit}
-                      disabled={isFitCancelling}
-                    >
-                      {isFitCancelling ? "Cancelling..." : "Cancel compatibility"}
-                    </Button>
-                  </div>
-                );
-              })()}
-
-              {/* Hint (optional, short) */}
-              {submitProgress?.hint ? (
-                <div className="mt-4 text-xs text-muted-foreground">{submitProgress.hint}</div>
-              ) : null}
             </div>
           </div>,
           document.body
-        ) :null
+        ) : null
       ) : null}
 
       {errorMessage ? <div className="text-sm text-red-600">{errorMessage}</div> : null}
-
 
       {/* Pro/credits state + request modal */}
       <ProAccessBanner
@@ -880,14 +583,12 @@ async function createConnAndSelect() {
         onRequested={() => refreshMe()}
       />
 
-
       <div className="space-y-2">
         <Label htmlFor="jd">Job description</Label>
         <Textarea
           id="jd"
           value={jdText}
           onChange={(e) => setJdText(e.target.value)}
-          // readOnly={draft !== null}
           disabled={draft !== null}
           placeholder={`Paste the full job description here...  We'll extract the relevant information for you!`}
           className="min-h-[140px]"
@@ -898,7 +599,6 @@ async function createConnAndSelect() {
               Reset
             </Button>
           ) : null}
-
           <Button type="button" onClick={handleGenerate} disabled={!canGenerate || draft !== null}>
             {isGenerating ? "Generating..." : "Generate draft"}
           </Button>
@@ -913,9 +613,7 @@ async function createConnAndSelect() {
             <Alert variant="warning">
               <div className="font-medium mb-1">Warnings</div>
               <ul className="list-disc pl-5 space-y-1">
-                {draft.ai.warnings.map((w) => (
-                  <li key={w}>{w}</li>
-                ))}
+                {draft.ai.warnings.map((w) => <li key={w}>{w}</li>)}
               </ul>
             </Alert>
           ) : null}
@@ -952,9 +650,7 @@ async function createConnAndSelect() {
                   id="isFavorite"
                   type="checkbox"
                   checked={isFavorite}
-                  onChange={(e) => {
-                    setIsFavorite(e.target.checked);
-                  }}
+                  onChange={(e) => setIsFavorite(e.target.checked)}
                   className="h-4 w-4"
                 />
                 <span className="flex items-center gap-1">
@@ -966,37 +662,21 @@ async function createConnAndSelect() {
             <div className="space-y-2 md:col-span-4">
               <Label htmlFor="jobType">Job type</Label>
               <Select id="jobType" value={jobType} onChange={(e) => setJobType(e.target.value as JobType)}>
-                {JOB_TYPE_OPTIONS.map((j) => (
-                  <option key={j.value} value={j.value}>
-                    {j.label}
-                  </option>
-                ))}
+                {JOB_TYPE_OPTIONS.map((j) => <option key={j.value} value={j.value}>{j.label}</option>)}
               </Select>
             </div>
 
             <div className="space-y-2 md:col-span-4">
               <Label htmlFor="workMode">Work Arrangement</Label>
               <Select id="workMode" value={workMode} onChange={(e) => setWorkMode(e.target.value as WorkMode)}>
-                {WORK_MODE_OPTIONS.map((w) => (
-                  <option key={w.value} value={w.value}>
-                    {w.label}
-                  </option>
-                ))}
+                {WORK_MODE_OPTIONS.map((w) => <option key={w.value} value={w.value}>{w.label}</option>)}
               </Select>
             </div>
 
             <div className="space-y-2 md:col-span-4">
               <Label htmlFor="status">Application Status</Label>
-              <Select
-                id="status"
-                value={applicationStatus}
-                onChange={(e) => setApplicationStatus(e.target.value as ApplicationStatus)}
-              >
-                {STATUS_OPTIONS.map((s) => (
-                  <option key={s.value} value={s.value}>
-                    {s.label}
-                  </option>
-                ))}
+              <Select id="status" value={applicationStatus} onChange={(e) => setApplicationStatus(e.target.value as ApplicationStatus)}>
+                {STATUS_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
               </Select>
             </div>
 
@@ -1009,13 +689,9 @@ async function createConnAndSelect() {
               <Label htmlFor="salaryText">Salary</Label>
               <Input id="salaryText" value={salaryText} onChange={(e) => setSalaryText(e.target.value)} />
             </div>
-            
 
-            {/* Extra Details */}
-            <div className="text-sm font-medium block mt-5 md:col-span-12">
-              Extra Details:
-            </div>
-            
+            <div className="text-sm font-medium block mt-5 md:col-span-12">Extra Details:</div>
+
             <div className="space-y-2 md:col-span-6">
               <Label htmlFor="jobLink">Job Link</Label>
               <Input id="jobLink" value={jobLink} onChange={(e) => setJobLink(e.target.value)} />
@@ -1028,38 +704,22 @@ async function createConnAndSelect() {
 
             <div className="space-y-2 md:col-span-3">
               <Label htmlFor="jobTypeDetails">Job Type Details</Label>
-              <Input 
-              id="jobTypeDetails" 
-              value={jobTypeDetails} 
-              onChange={(e) => setJobTypeDetails(e.target.value)} 
-              />
+              <Input id="jobTypeDetails" value={jobTypeDetails} onChange={(e) => setJobTypeDetails(e.target.value)} />
             </div>
 
             <div className="space-y-2 md:col-span-3">
               <Label htmlFor="workModeDetails">Work Arrangement Details</Label>
-              <Input
-                id="workModeDetails"
-                value={workModeDetails}
-                onChange={(e) => setWorkModeDetails(e.target.value)}
-              />
+              <Input id="workModeDetails" value={workModeDetails} onChange={(e) => setWorkModeDetails(e.target.value)} />
             </div>
 
             <div className="space-y-2 md:col-span-3">
               <Label htmlFor="locationDetails">Location Details</Label>
-              <Input
-                id="locationDetails"
-                value={locationDetails}
-                onChange={(e) => setLocationDetails(e.target.value)}
-              />
+              <Input id="locationDetails" value={locationDetails} onChange={(e) => setLocationDetails(e.target.value)} />
             </div>
 
             <div className="space-y-2 md:col-span-3">
               <Label htmlFor="salaryDetails">Salary Details</Label>
-              <Input
-                id="salaryDetails"
-                value={salaryDetails}
-                onChange={(e) => setSalaryDetails(e.target.value)}
-              />
+              <Input id="salaryDetails" value={salaryDetails} onChange={(e) => setSalaryDetails(e.target.value)} />
             </div>
 
             <div className="space-y-2 md:col-span-12">
@@ -1071,36 +731,21 @@ async function createConnAndSelect() {
                 className="min-h-[120px]"
               />
 
-              <Button
-                type="button"
-                variant="link"
-                className="px-0"
-                onClick={() => setShowMore((v) => !v)}
-              >
+              <Button type="button" variant="link" className="px-0" onClick={() => setShowMore((v) => !v)}>
                 {showMore ? "Hide extra fields" : "More fields"}
               </Button>
 
               {showMore ? (
                 <div className="grid gap-x-6 gap-y-6 md:grid-cols-14">
-                  {/* Documents: left = add controls */}
+                  {/* Documents: add controls */}
                   <div className="space-y-3 rounded-md border p-3 md:col-span-4">
                     <div className="text-sm font-medium">Documents</div>
-                
                     <div className="space-y-2">
                       <Label htmlFor="docKind">Document type</Label>
-                      <Select
-                        id="docKind"
-                        value={docKind}
-                        onChange={(e) => setDocKind(e.target.value as UploadableDocKind)}
-                      >
-                        {DOC_KIND_OPTIONS.map((o) => (
-                          <option key={o.value} value={o.value}>
-                            {o.label}
-                          </option>
-                        ))}
+                      <Select id="docKind" value={docKind} onChange={(e) => setDocKind(e.target.value as UploadableDocKind)}>
+                        {DOC_KIND_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                       </Select>
                     </div>
-                
                     <div className="space-y-2">
                       <Label htmlFor="docFile">File</Label>
                       <Input
@@ -1109,20 +754,16 @@ async function createConnAndSelect() {
                         accept=".pdf,.txt,application/pdf,text/plain"
                         onChange={(e) => setDocFile(e.target.files?.[0] ?? null)}
                       />
-                      {docFile ? (
-                        <div className="text-xs text-muted-foreground truncate">Selected: {docFile.name}</div>
-                      ) : null}
+                      {docFile ? <div className="text-xs text-muted-foreground truncate">Selected: {docFile.name}</div> : null}
                     </div>
-                
                     <Button type="button" onClick={addDocument} disabled={!docFile} className="w-full">
                       Add document
                     </Button>
                   </div>
-                
-                  {/* Documents: right = staged list */}
+
+                  {/* Documents: staged list */}
                   <div className="space-y-3 rounded-md border p-3 md:col-span-3">
                     <div className="text-sm font-medium">Staged documents</div>
-                
                     {documents.length ? (
                       <div className="space-y-2">
                         {documents.map((d) => (
@@ -1141,11 +782,10 @@ async function createConnAndSelect() {
                       <div className="text-xs text-muted-foreground">No documents staged.</div>
                     )}
                   </div>
-                
-                  {/* Connections: left = search + suggestions */}
+
+                  {/* Connections: search + suggestions */}
                   <div className="space-y-3 rounded-md border p-3 md:col-span-4">
                     <div className="text-sm font-medium">Connections</div>
-                
                     <div className="space-y-2">
                       <Label htmlFor="connectionSearch">Search</Label>
                       <Input
@@ -1154,17 +794,11 @@ async function createConnAndSelect() {
                         onChange={(e) => setConnectionQuery(e.target.value)}
                         placeholder="Type a name..."
                       />
-                      {isConnectionSuggestLoading ? (
-                        <div className="text-xs text-muted-foreground">Searching...</div>
-                      ) : null}
+                      {isConnectionSuggestLoading ? <div className="text-xs text-muted-foreground">Searching...</div> : null}
                     </div>
-                    
                     <div className="flex justify-end">
-                      <Button type="button" variant="outline" size="sm" onClick={openCreateConn}>
-                        Create new
-                      </Button>
+                      <Button type="button" variant="outline" size="sm" onClick={openCreateConn}>Create new</Button>
                     </div>
-                
                     {connectionSuggestions.length ? (
                       <div className="rounded-md border p-2 space-y-1">
                         {connectionSuggestions.map((c) => (
@@ -1186,11 +820,10 @@ async function createConnAndSelect() {
                       <div className="text-xs text-muted-foreground">No results.</div>
                     )}
                   </div>
-                
-                  {/* Connections: right = selected list */}
+
+                  {/* Connections: selected list */}
                   <div className="space-y-3 rounded-md border p-3 md:col-span-3">
                     <div className="text-sm font-medium">Selected connections</div>
-                
                     {selectedConnections.length ? (
                       <div className="space-y-2">
                         {selectedConnections.map((c) => (
@@ -1212,11 +845,11 @@ async function createConnAndSelect() {
                     )}
                   </div>
                 </div>
-              
               ) : null}
             </div>
-          </div>          
+          </div>
 
+          {/* Bottom row: run-fit checkbox + submit */}
           <div className="flex items-center justify-between pt-2">
             <label className="flex items-center gap-2 text-sm">
               <input
@@ -1234,12 +867,17 @@ async function createConnAndSelect() {
             </Button>
           </div>
 
+          {/* ── Run-fit confirmation dialog ── */}
           <Dialog open={isRunFitDialogOpen} onOpenChange={setIsRunFitDialogOpen}>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle className="text-2xl font-medium">Create and Run Compatibility?</DialogTitle>
+                <DialogTitle className="text-2xl font-medium">
+                  Create and Run Compatibility?
+                </DialogTitle>
                 <DialogDescription>
-                  We’ll create the application and run a compatibility check using your Base Resume (or an override file).
+                  The application will be created and the compatibility check will run in the
+                  background — you can keep using the app while it runs. You'll get a
+                  notification when the report is ready.
                   {!canUseAi ? (
                     <span className="block mt-2 text-xs text-muted-foreground">
                       Running compatibility uses <span className="font-medium text-foreground">1</span> AI credit.
@@ -1326,12 +964,13 @@ async function createConnAndSelect() {
                     void createApplicationAfterDraft({ runFit: true });
                   }}
                 >
-                  Create + run compatibility
+                  Create + run in background
                 </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
 
+          {/* ── Create connection dialog ── */}
           <Dialog open={isCreateConnOpen} onOpenChange={(open) => (open ? setIsCreateConnOpen(true) : closeCreateConn())}>
             <DialogContent className="sm:max-w-[640px]">
               <DialogHeader>
@@ -1356,36 +995,22 @@ async function createConnAndSelect() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Company</Label>
-                    <Input
-                      value={newConnDraft.company}
-                      onChange={(e) => setNewConnDraft((p) => ({ ...p, company: e.target.value }))}
-                    />
+                    <Input value={newConnDraft.company} onChange={(e) => setNewConnDraft((p) => ({ ...p, company: e.target.value }))} />
                   </div>
-
                   <div className="space-y-2">
                     <Label>Title</Label>
-                    <Input
-                      value={newConnDraft.title}
-                      onChange={(e) => setNewConnDraft((p) => ({ ...p, title: e.target.value }))}
-                    />
+                    <Input value={newConnDraft.title} onChange={(e) => setNewConnDraft((p) => ({ ...p, title: e.target.value }))} />
                   </div>
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Email</Label>
-                    <Input
-                      value={newConnDraft.email}
-                      onChange={(e) => setNewConnDraft((p) => ({ ...p, email: e.target.value }))}
-                    />
+                    <Input value={newConnDraft.email} onChange={(e) => setNewConnDraft((p) => ({ ...p, email: e.target.value }))} />
                   </div>
-
                   <div className="space-y-2">
                     <Label>LinkedIn URL</Label>
-                    <Input
-                      value={newConnDraft.linkedInUrl}
-                      onChange={(e) => setNewConnDraft((p) => ({ ...p, linkedInUrl: e.target.value }))}
-                    />
+                    <Input value={newConnDraft.linkedInUrl} onChange={(e) => setNewConnDraft((p) => ({ ...p, linkedInUrl: e.target.value }))} />
                   </div>
                 </div>
               </div>

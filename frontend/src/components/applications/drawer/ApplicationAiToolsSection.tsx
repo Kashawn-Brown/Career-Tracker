@@ -14,7 +14,7 @@ import { FitReportDialog} from "@/components/applications/drawer/FitReportDialog
 import { getFitBand } from "@/lib/fit/presentation";
 import { ProAccessBanner } from "@/components/pro/ProAccessBanner";
 import { RequestProDialog } from "@/components/pro/RequestProDialog";
-import { Loader2, CheckCircle2, Circle } from "lucide-react";
+import { Loader2, CheckCircle2, Circle, AlertTriangle } from "lucide-react";
 import { canUseAi, getRemainingAiCredits, hasProPlan, getEffectivePlan } from "@/lib/plans";
 
 // Props for the ApplicationAiToolsSection component
@@ -205,9 +205,11 @@ export function ApplicationAiToolsSection({
         onApplicationChanged,
         onRefreshMe: () => void refreshMe(),
       });
-
-      // If the drawer stayed open, update the local summary immediately.
-      if (created && mountedRef.current) {
+      
+      // Only update local artifact if the drawer is still showing the same
+      // application the run was started for — guards against a different
+      // app being opened while the run was in flight.
+      if (created && mountedRef.current && created.jobApplicationId === application.id) {
         setFitArtifact(created as AiArtifact<FitV1Payload>);
       }
 
@@ -326,6 +328,12 @@ export function ApplicationAiToolsSection({
               className="h-2 rounded bg-primary transition-all"
               style={{ width: progressWidth }}
             />
+          </div>
+
+          {/* Warning message */}
+          <div className="mt-1.5 flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            Do not refresh page, this will cancel the compatibility check.
           </div>
 
           {/* Steps list (same icon language as CreateApplicationFromJdForm) */}

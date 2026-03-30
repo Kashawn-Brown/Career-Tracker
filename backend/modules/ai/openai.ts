@@ -47,12 +47,12 @@ export const AI_MODELS = {
   // FIT_V1: compatibility analysis between a candidate and a job description.
   // Higher plans get stronger models with more deliberate reasoning.
   FIT_REGULAR:  process.env.OPENAI_MODEL_FIT_REGULAR  ?? "gpt-5-mini",
-  FIT_PRO:      process.env.OPENAI_MODEL_FIT_PRO      ?? "gpt-5",
-  FIT_PRO_PLUS: process.env.OPENAI_MODEL_FIT_PRO_PLUS ?? "o4-mini",
+  FIT_PRO:      process.env.OPENAI_MODEL_FIT_PRO      ?? "gpt-5-mini", // was gpt-5
+  FIT_PRO_PLUS: process.env.OPENAI_MODEL_FIT_PRO_PLUS ?? "gpt-5-mini", // was gpt-5
 
 
   // Interview question generation: generate interview questions based on a job description and the user's resume.
-  INTERVIEW_QUESTION_GENERATION: process.env.OPENAI_MODEL_INTERVIEW_QUESTION_GENERATION ?? "gpt-5",
+  INTERVIEW_QUESTION_GENERATION: process.env.OPENAI_MODEL_INTERVIEW_QUESTION_GENERATION ?? "gpt-5-mini", // was gpt-5
 
 } as const;
 
