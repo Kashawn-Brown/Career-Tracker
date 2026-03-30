@@ -141,24 +141,24 @@ export function ApplicationDocumentsSection({
     }
   }
 
-  // Opens a document in a new tab.
-  async function onOpenInline(doc: Document) {
-    const id = safeDocId(doc);
-    if (id < 0) return;
+  // // Opens a document in a new tab.
+  // async function onOpenInline(doc: Document) {
+  //   const id = safeDocId(doc);
+  //   if (id < 0) return;
 
-    try {
-      setErrorMessage(null);
+  //   try {
+  //     setErrorMessage(null);
 
-      const res = await documentsApi.getDownloadUrl(id, { disposition: "inline" });
-      // This acts as “preview” for now (new tab). Simple + not over-engineered.
-      window.open(res.downloadUrl, "_blank", "noopener,noreferrer");
+  //     const res = await documentsApi.getDownloadUrl(id, { disposition: "inline" });
+  //     // This acts as “preview” for now (new tab). Simple + not over-engineered.
+  //     window.open(res.downloadUrl, "_blank", "noopener,noreferrer");
 
-    } catch (err) {
+  //   } catch (err) {
       
-      if (err instanceof ApiError) setErrorMessage(err.message);
-      else setErrorMessage("Failed to open document.");
-    }
-  }
+  //     if (err instanceof ApiError) setErrorMessage(err.message);
+  //     else setErrorMessage("Failed to open document.");
+  //   }
+  // }
 
   // Downloads a document.
   async function onDownload(doc: Document) {

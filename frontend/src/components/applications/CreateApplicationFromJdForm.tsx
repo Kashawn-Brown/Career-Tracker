@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { aiApi } from "@/lib/api/ai";
 import { applicationsApi } from "@/lib/api/applications";
@@ -875,9 +875,9 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: (args: O
                   Create and Run Compatibility?
                 </DialogTitle>
                 <DialogDescription>
-                  The application will be created and the compatibility check will run in the
+                  {`The application will be created and the compatibility check will run in the
                   background — you can keep using the app while it runs. You'll get a
-                  notification when the report is ready.
+                  notification when the report is ready.`}
                   {!canUseAi ? (
                     <span className="block mt-2 text-xs text-muted-foreground">
                       Running compatibility uses <span className="font-medium text-foreground">1</span> AI credit.

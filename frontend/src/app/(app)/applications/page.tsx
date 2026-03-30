@@ -19,7 +19,7 @@ import { Select } from "@/components/ui/select";
 import { Alert } from "@/components/ui/alert";
 import {  Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Portal } from "@/components/ui/portal";
-import { ChevronDown, ChevronRight, Plus, X, CheckCircle2, AlertCircle } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, CheckCircle2, AlertCircle } from "lucide-react";
 import { ApplicationsFiltersPanel } from "@/components/applications/ApplicationsFiltersPanel";
 import {
   type ApplicationFilters,
