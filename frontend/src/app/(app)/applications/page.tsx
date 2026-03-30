@@ -493,7 +493,7 @@ export default function ApplicationsPage() {
       {/* Global fit-run notices — success and error */}
       {fitNotices.length ? (
         <Portal>
-          <div className="fixed bottom-4 left-4 z-[9999] w-[360px] space-y-2">
+          <div data-fit-notices className="fixed bottom-4 left-4 z-[9999] w-[360px] space-y-2">
             {fitNotices.map((n) => (
               <div
                 key={n.id}

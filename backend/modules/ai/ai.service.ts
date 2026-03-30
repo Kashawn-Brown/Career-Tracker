@@ -44,6 +44,7 @@ export async function buildApplicationDraftFromJd(
         { role: "user", content: jd },
       ],
       text: {
+        verbosity: "low",
         format: {
           type: "json_schema",
           name: "application_from_jd_v1",
@@ -51,6 +52,7 @@ export async function buildApplicationDraftFromJd(
           schema: ApplicationFromJdJsonObject,
         },
       },
+      reasoning: { effort: "low" },
       max_output_tokens: JD_EXTRACT_MAX_OUTPUT_TOKENS,
     },
     { signal: opts?.signal }

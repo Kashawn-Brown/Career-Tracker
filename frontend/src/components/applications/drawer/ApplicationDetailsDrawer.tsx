@@ -640,7 +640,17 @@ export function ApplicationDetailsDrawer({
     <Sheet open={open} onOpenChange={onOpenChange}>
       
       {/* Application details */}
-      <SheetContent side="right" className="space-y-5 overflow-y-auto" data-app-drawer="application-details">
+      <SheetContent
+        side="right"
+        className="space-y-5 overflow-y-auto"
+        data-app-drawer="application-details"
+        onInteractOutside={(e) => {
+          // Allow clicking notice dismiss without closing the drawer
+          if ((e.target as HTMLElement)?.closest("[data-fit-notices]")) {
+            e.preventDefault();
+          }
+        }}
+      >
         <SheetHeader>
           <SheetTitle>{title}</SheetTitle>
           <SheetDescription>
