@@ -315,6 +315,8 @@ export function ApplicationDetailsDrawer({
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
 
+  const closeFitReportRef = useRef<(() => void) | null>(null);
+
   // Base resume document
   const [baseResume, setBaseResume] = useState<Document | null>(null);
   const baseResumeExists = Boolean(baseResume);
@@ -326,6 +328,8 @@ export function ApplicationDetailsDrawer({
 
   // Docking style for the document preview
   const [previewDockedStyle, setPreviewDockedStyle] = useState<CSSProperties | null>(null);
+
+  const [previewBackdropStyle, setPreviewBackdropStyle] = useState<React.CSSProperties | null>(null);
 
   // A key to force a reload of the documents list
   const [docsReloadKey, setDocsReloadKey] = useState(0);
@@ -529,6 +533,7 @@ export function ApplicationDetailsDrawer({
 
   // Clears the document preview.
   function clearPreview() {
+    setPreviewBackdropStyle(null);
     setPreviewDocId(null);
     setPreviewTitle(null);
     setPreviewUrl(null);
@@ -566,6 +571,8 @@ export function ApplicationDetailsDrawer({
   
     const id = Number(doc.id);
     if (!Number.isFinite(id)) return;
+
+    closeFitReportRef.current?.();  // close fit report if open
   
     setPreviewDocId(docIdStr);
     setPreviewTitle(doc.originalName ?? "Document");
@@ -608,6 +615,7 @@ export function ApplicationDetailsDrawer({
         left: `${centerX}px`,
         width: `${width}px`,
       });
+      setPreviewBackdropStyle({ right: `${window.innerWidth - availableWidth}px` });
     };
   
     compute();
@@ -1115,6 +1123,7 @@ export function ApplicationDetailsDrawer({
                   onDocumentsChanged?.(applicationId); // refresh main table
                 }}
                 onRequestClosePreview={clearPreview}
+                onRequestCloseFitReport={(fn) => { closeFitReportRef.current = fn; }}
                 onApplicationChanged={onApplicationChanged}
                 autoOpenLatestFit={autoOpenFitForAppId === application.id}
                 onAutoOpenLatestFitConsumed={onAutoOpenFitConsumed}
@@ -1124,45 +1133,53 @@ export function ApplicationDetailsDrawer({
         )}
 
         {previewDocId ? (
-          <div
-            className="hidden lg:block fixed inset-y-6 z-[60] -translate-x-1/2"
-            style={previewDockedStyle ?? undefined}
-          >
-            <div className="h-full rounded-xl border bg-background shadow-xl overflow-hidden flex flex-col">
-              <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
-                <div className="min-w-0">
-                  <div className="text-sm font-medium truncate">
-                    {previewTitle ?? "Preview"}
+          <>
+            {/* Blur backdrop — limited to non-drawer area so drawer stays interactive */}
+            <div
+              className="hidden lg:block fixed inset-y-0 left-0 z-[55] bg-black/50 backdrop-blur-sm mb-0"
+              style={previewBackdropStyle ?? undefined}
+            />
+      
+            <div
+              className="hidden lg:block fixed inset-y-6 z-[60] -translate-x-1/2"
+              style={previewDockedStyle ?? undefined}
+            >
+              <div className="h-full rounded-xl border bg-background shadow-xl overflow-hidden flex flex-col">
+                <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium truncate">
+                      {previewTitle ?? "Preview"}
+                    </div>
+                    <div className="text-xs text-muted-foreground">PDF preview</div>
                   </div>
-                  <div className="text-xs text-muted-foreground">PDF preview</div>
+
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={clearPreview}
+                    title="Close preview"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
                 </div>
 
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={clearPreview}
-                  title="Close preview"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-
-              <div className="flex-1">
-                {isPreviewLoading ? (
-                  <div className="p-4 text-sm text-muted-foreground">Loading preview...</div>
-                ) : previewError ? (
-                  <div className="p-4 text-sm text-destructive">{previewError}</div>
-                ) : previewUrl ? (
-                  <iframe
-                    src={previewUrl}
-                    title={previewTitle ?? "PDF preview"}
-                    className="h-full w-full bg-white"
-                    referrerPolicy="no-referrer"
-                  />
-                ) : null}
+                <div className="flex-1">
+                  {isPreviewLoading ? (
+                    <div className="p-4 text-sm text-muted-foreground">Loading preview...</div>
+                  ) : previewError ? (
+                    <div className="p-4 text-sm text-destructive">{previewError}</div>
+                  ) : previewUrl ? (
+                    <iframe
+                      src={previewUrl}
+                      title={previewTitle ?? "PDF preview"}
+                      className="h-full w-full bg-white"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : null}
+                </div>
               </div>
             </div>
-          </div>
+          </>
         ) : null}
 
       </SheetContent>

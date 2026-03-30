@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api/client";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
-import { FitReportDialog} from "@/components/applications/drawer/FitReportDialog";
+import { FitReport} from "@/components/applications/drawer/FitReport";
 import { getFitBand } from "@/lib/fit/presentation";
 import { ProAccessBanner } from "@/components/pro/ProAccessBanner";
 import { RequestProDialog } from "@/components/pro/RequestProDialog";
@@ -35,6 +35,8 @@ type Props = {
 
   onRequestClosePreview?: () => void;
 
+  onRequestCloseFitReport?: (fn: () => void) => void;
+
   onApplicationChanged?: (applicationId: string) => void;
 
   autoOpenLatestFit?: boolean;
@@ -53,6 +55,7 @@ export function ApplicationAiToolsSection({
   onOverrideFile,
   onDocumentsChanged,
   onRequestClosePreview,
+  onRequestCloseFitReport,
   onApplicationChanged,
   autoOpenLatestFit,
   onAutoOpenLatestFitConsumed,
@@ -83,6 +86,11 @@ export function ApplicationAiToolsSection({
   // Prefer local errors, but fall back to background-run errors if the drawer was closed.
   const displayedError =
     errorMessage ?? (run?.status === "error" ? run.errorMessage ?? null : null);
+
+
+  useEffect(() => {
+    onRequestCloseFitReport?.(() => setIsDetailsOpen(false));
+  }, [onRequestCloseFitReport]);
 
 
   // Avoid setting state after drawer closes / component unmounts
@@ -485,7 +493,7 @@ export function ApplicationAiToolsSection({
                     </Button>
                   </div>
 
-                  <FitReportDialog
+                  <FitReport
                     open={isDetailsOpen}
                     onOpenChange={setIsDetailsOpen}
                     artifact={fitArtifact}
