@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button }   from "@/components/ui/button";
+import { generateCoverLetterDocx, downloadDocx } from "@/lib/cover-letter-docx";
 import type { CoverLetterPayload } from "@/types/api";
 
 interface Props {
@@ -9,13 +10,24 @@ interface Props {
 }
 
 export function CoverLetterResult({ payload }: Props) {
-  const [copied, setCopied] = useState(false);
+  const [copied,      setCopied]      = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   function handleCopy() {
     void navigator.clipboard.writeText(payload.draft).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
+  }
+
+  async function handleDownload() {
+    setDownloading(true);
+    try {
+      const blob = await generateCoverLetterDocx(payload);
+      downloadDocx(blob, "cover-letter.docx");
+    } finally {
+      setDownloading(false);
+    }
   }
 
   return (
@@ -29,6 +41,9 @@ export function CoverLetterResult({ payload }: Props) {
           <h4 className="font-medium text-foreground">Draft</h4>
           <Button variant="outline" size="sm" onClick={handleCopy}>
             {copied ? "Copied!" : "Copy"}
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleDownload} disabled={downloading}>
+            {downloading ? "Generating…" : "Download .docx"}
           </Button>
         </div>
         <div className="rounded-md border bg-muted/40 p-4">
