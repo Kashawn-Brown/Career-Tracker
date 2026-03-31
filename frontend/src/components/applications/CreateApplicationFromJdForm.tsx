@@ -274,7 +274,7 @@ export function CreateApplicationFromJdForm({
 
   function resetToInitial() {
     setErrorMessage(null);
-    setSourceMode("TEXT"); setJobPostingUrl(""); setSourceDescriptionText("");
+    setSourceMode(initialSourceMode); setJobPostingUrl(""); setSourceDescriptionText("");
     setJdText(""); setDraft(null);
     setCompany(""); setPosition("");
     setApplicationStatus("WISHLIST");

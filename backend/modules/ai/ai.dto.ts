@@ -366,7 +366,18 @@ function normalizeSalaryText(v: unknown): string | undefined {
   working = working.replace(/\s*(?:–|—|-{1,2}|to)\s*/gi, " – ");
 
   // Add "$" in front of each number group that doesn't already have it
-  working = working.replace(/(?<!\$)\b(\d[\d,]*(?:\.\d+)?)\b/g, (_, n) => `$${n}`);
+  // Add "$" at the start of each salary segment, not inside comma-separated numbers
+  working = working
+    .split(" – ")
+    .map((part) => {
+      const trimmed = part.trim();
+      if (!trimmed) return trimmed;
+      if (trimmed.includes("$")) return trimmed;
+
+      // Add $ to the first numeric amount in this segment only
+      return trimmed.replace(/(\d[\d,]*(?:\.\d+)?)/, "$$$1");
+    })
+    .join(" – ");
 
   // Reassemble
   const parts: string[] = [working.trim()];

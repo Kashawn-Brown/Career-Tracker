@@ -14,7 +14,7 @@ import { APPLICATION_COLUMNS_STORAGE_KEY, DEFAULT_VISIBLE_APPLICATION_COLUMNS, n
 import { useFitRuns } from "@/hooks/useFitRuns";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { Alert } from "@/components/ui/alert";
 import {  Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -604,33 +604,38 @@ export default function ApplicationsPage() {
           </div>
 
           {/* Add application section */}
-          <CollapsibleContent className="mt-4">           
+          <CollapsibleContent className="mt-4">     
+            
             <Card>
-              {/* Tab bar — replaces the old CardHeader + separate mode buttons */}
-              <div className="flex border-b">
-                {(
-                  [
-                    { key: "jd-link",  label: "Via Link"    },
-                    { key: "jd-text",  label: "Via JD Text" },
-                    { key: "manual",   label: "Manual"      },
-                  ] as const
-                ).map((tab) => (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    onClick={() => setAddMode(tab.key)}
-                    className={[
-                      "px-5 py-3 text-sm font-medium transition-colors border-b-2 -mb-px",
-                      addMode === tab.key
-                        ? "border-primary text-foreground"
-                        : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground",
-                    ].join(" ")}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-
+              <CardHeader className="border-b !pb-0">
+                <CardTitle>Add application</CardTitle>
+                <CardDescription>Create a new job application record.</CardDescription>
+                
+                {/* Tab bar - separate mode buttons */}
+                <div className="flex">
+                  {(
+                    [
+                      { key: "jd-link",  label: "Via Link"    },
+                      { key: "jd-text",  label: "Via JD Text" },
+                      { key: "manual",   label: "Manual"      },
+                    ] as const
+                  ).map((tab) => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setAddMode(tab.key)}
+                      className={[
+                        "px-5 py-3 text-sm font-medium transition-colors border-b-2 -mb-px",
+                        addMode === tab.key
+                          ? "border-primary text-foreground"
+                          : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground",
+                      ].join(" ")}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              </CardHeader>  
               <CardContent className="space-y-4 pt-4">
                 {addMode === "manual" ? (
                   <CreateApplicationForm
