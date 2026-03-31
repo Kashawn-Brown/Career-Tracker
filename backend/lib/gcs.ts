@@ -18,7 +18,14 @@ export type GcsConfig = {
 // Default values for GCS configuration
 const DEFAULT_MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10 MB
 const DEFAULT_SIGNED_URL_TTL_SECONDS = 10 * 60; // 10 minutes
-const DEFAULT_ALLOWED_MIME_TYPES = ["application/pdf", "text/plain"];
+// Default allowed MIME types for document uploads.
+// .docx is supported via mammoth text extraction.
+// .doc (old binary format) is intentionally excluded — needs a separate parser.
+const DEFAULT_ALLOWED_MIME_TYPES = [
+  "application/pdf",
+  "text/plain",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+];
 
 /**
  * Parses environment variable lists. Supports both "a|b|c" and "a,b,c" formats.

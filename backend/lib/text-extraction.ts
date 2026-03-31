@@ -1,6 +1,10 @@
 // backend/lib/text-extraction.ts
 import { PDFParse } from "pdf-parse";
+import mammoth from "mammoth";
 import { AppError } from "../errors/app-error.js";
+
+// MIME type constant for .docx — long string, defined once to avoid typos
+const MIME_DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
 const DEFAULT_MAX_CHARS = 60_000;
 
@@ -33,6 +37,10 @@ export async function extractTextFromBuffer(opts: {
       // v2 docs recommend always calling destroy() to free memory
       await parser.destroy();
     }
+  } else if (mimeType === MIME_DOCX) {
+    // mammoth converts .docx → plain text; result.value is the extracted text
+    const result = await mammoth.extractRawText({ buffer });
+    raw = result.value ?? "";
   } else {
     throw new AppError(`Unsupported file type for text extraction: ${mimeType}`, 400);
   }

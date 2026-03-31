@@ -64,7 +64,7 @@ export function Header() {
         {/* Right: Greeting + badges + Logout */}
         <div className="flex items-center justify-end gap-3 sm:gap-4">
           <div className="hidden sm:flex items-center gap-2">
-            <span className="text-sm text-muted-foreground"><Link href="/profile">Hey, {displayName}</Link></span>
+            <span className="text-sm text-muted-foreground"><Link href="/profile">Hey, <span className="underline underline-offset-1.5">{displayName}</span></Link></span>
 
             {user && hasProPlan(getEffectivePlan(user)) && !isAdminUser(user) ? (
               <span className="rounded border px-2 py-0.5 text-[10px] font-semibold tracking-wide">
