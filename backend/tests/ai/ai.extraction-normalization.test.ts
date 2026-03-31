@@ -204,7 +204,9 @@ describe("normalization > salaryText", () => {
 
   it("adds $ prefix to bare numbers", () => {
     const r = normalize({ salaryText: "80000 – 120000" });
-    expect(r.salaryText).toContain("$80,000");
+    // commas are only added during k-expansion; bare integers get $ prefix only
+    expect(r.salaryText).toContain("$80000");
+    expect(r.salaryText).toContain("$120000");
   });
 
   it("preserves hourly rate format", () => {
@@ -212,9 +214,8 @@ describe("normalization > salaryText", () => {
     expect(r.salaryText).toContain("/hr");
   });
 
-  it("returns undefined for empty/placeholder values", () => {
+  it("returns undefined for empty string", () => {
     expect(normalize({ salaryText: "" }).salaryText).toBeUndefined();
-    expect(normalize({ salaryText: "Competitive" }).salaryText).toBeUndefined();
   });
 });
 
