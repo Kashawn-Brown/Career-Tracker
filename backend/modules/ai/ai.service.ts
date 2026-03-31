@@ -1,10 +1,11 @@
 import { UserPlan } from "@prisma/client";
 import { AppError } from "../../errors/app-error.js";
 import { getOpenAIClient, AI_MODELS } from "./openai.js";
-import { ApplicationFromJdJsonObject, normalizeApplicationFromJdResponse, FitV1JsonObject, normalizeFitV1Response, getFitPolicyForPlan, FitV1RunResult } from "./ai.dto.js";
-import type { ApplicationFromJdResponse, FitV1Response } from "./ai.dto.js";
+import { ApplicationFromJdJsonObject, normalizeApplicationFromJdResponse, cleanJdText, FitV1JsonObject, normalizeFitV1Response, getFitPolicyForPlan, FitV1RunResult } from "./ai.dto.js";
+import type { ApplicationFromJdResponse, DraftSource, FitV1Response } from "./ai.dto.js";
 import { AiTier } from "./ai-tier.js";
 import { throwIfAborted } from "../../lib/request-abort.js";
+import { extractJobPostingFromUrl } from "./job-link-extraction.js";
 
 
 /**
@@ -15,15 +16,17 @@ import { throwIfAborted } from "../../lib/request-abort.js";
 
 /**
  * JD_EXTRACT_V1: Turns pasted JD text into an application draft response.
+ * `sourceMode` defaults to "TEXT" for pasted input; pass "LINK" when the text
+ * was fetched from a job-posting URL so the prompt gets a link-appropriate hint.
  */
 export async function buildApplicationDraftFromJd(
-  jdText: string,
-  opts?: { signal?: AbortSignal}
+  jdText:  string,
+  opts?: { signal?: AbortSignal; sourceMode?: "TEXT" | "LINK"; sourceUrl?: string }
 ): Promise<ApplicationFromJdResponse> {
 
   const JD_EXTRACT_MAX_OUTPUT_TOKENS = 5000;
 
-  const jd = (jdText ?? "").trim();
+  const jd = cleanJdText((jdText ?? "").trim());
 
   // Validate inputs
   if (!jd) throw new AppError("Job description is missing.", 400, "JOB_DESCRIPTION_MISSING");
@@ -32,27 +35,26 @@ export async function buildApplicationDraftFromJd(
   
   // Get the OpenAI client and model.
   const openai = getOpenAIClient();
-  const model = AI_MODELS.JD_EXTRACT;
+  const model  = AI_MODELS.JD_EXTRACT;
   
-    
   // Make the OpenAI request.
   const resp = await openai.responses.create(
     {
       model,
       input: [
-        { role: "system", content: buildExtractJdSystemPrompt() },
-        { role: "user", content: jd },
+        { role: "system", content: buildExtractJdSystemPrompt({ sourceMode: opts?.sourceMode }) },
+        { role: "user",   content: jd },
       ],
       text: {
         verbosity: "low",
         format: {
-          type: "json_schema",
-          name: "application_from_jd_v1",
+          type:   "json_schema",
+          name:   "application_from_jd_v1",
           strict: true,
           schema: ApplicationFromJdJsonObject,
         },
       },
-      reasoning: { effort: "low" },
+      reasoning:         { effort: "low" },
       max_output_tokens: JD_EXTRACT_MAX_OUTPUT_TOKENS,
     },
     { signal: opts?.signal }
@@ -60,18 +62,70 @@ export async function buildApplicationDraftFromJd(
 
   // Parse the output text into a JSON object
   const parsed = parseJsonSchemaOutputOrThrow<ApplicationFromJdResponse>(resp, {
-    tag: "jd_extract_v1",
+    tag:  "jd_extract_v1",
     meta: { jdLen: jd.length },
   });
 
-  // Return the normalized response
-  return normalizeApplicationFromJdResponse(parsed);
+  // Build the canonical source metadata
+  const source: DraftSource = {
+    mode:            opts?.sourceMode ?? "TEXT",
+    canonicalJdText: jd,
+    ...(opts?.sourceUrl ? { sourceUrl: opts.sourceUrl } : {}),
+  };
 
+  // Return the normalized response with source attached
+  return normalizeApplicationFromJdResponse(parsed, source);
 }
 
 
 /**
- *  FIT_V1: Generates a fit of compatibility between the candidate and the job description using the canonical JD text + extracted candidate-history text.
+ * JD_EXTRACT_V1 via URL: Fetches a job-posting page, extracts canonical text,
+ * then runs it through the same extraction pipeline as pasted JD text.
+ *
+ * The returned draft is identical in shape to buildApplicationDraftFromJd —
+ * the frontend form handles both the same way.
+ * `source.jobLink` defaults to the normalized URL if the AI extracts no link.
+ */
+export async function buildApplicationDraftFromJobLink(
+  rawUrl: string,
+  opts?: { signal?: AbortSignal }
+): Promise<ApplicationFromJdResponse> {
+  throwIfAborted(opts?.signal);
+
+  // Step 1 — fetch + extract canonical text (throws AppError on failure)
+  const { normalizedUrl, canonicalJdText } = await extractJobPostingFromUrl(rawUrl, opts);
+
+  throwIfAborted(opts?.signal);
+
+  // Step 2 — run through the same AI extraction pipeline, with LINK hint
+  const draft = await buildApplicationDraftFromJd(canonicalJdText, {
+    signal:     opts?.signal,
+    sourceMode: "LINK",
+    sourceUrl:  normalizedUrl,
+  });
+
+  // Step 3 — Use the source URL as the job link.
+  // The user explicitly provided this URL, so it's definitively the posting link.
+  draft.extracted.jobLink = normalizedUrl;
+
+  // Step 4 — use model-cleaned JD text as canonicalJdText.
+  // The model was asked to strip site chrome and return only the real job
+  // posting content. If it returned something useful, use that instead of
+  // the raw scraped text so the stored description is clean.
+  if (draft.ai?.cleanedJdText) {
+    draft.source = {
+      ...draft.source,
+      canonicalJdText: draft.ai.cleanedJdText,
+    };
+  }
+
+  return draft;
+}
+
+
+
+/**
+ * FIT_V1: Generates a fit of compatibility between the candidate and the job description using the canonical JD text + extracted candidate-history text.
  */
 export async function buildFitV1(
   jdText: string, 
@@ -142,37 +196,100 @@ export async function buildFitV1(
 /**
  * JdExtractV1: Build the system prompt for the AI request to extract the job description.
  */
-function buildExtractJdSystemPrompt(): string {
-  return [
-    "You extract structured fields from a pasted job description.",
+/**
+ * JdExtractV1: Build the system prompt for JD extraction.
+ * `sourceMode: "LINK"` adds extra instructions telling the model to ignore
+ * page chrome/noise (nav, footer, legal, share buttons, etc.) that is common
+ * when text is scraped from a job-posting web page.
+ */
+function buildExtractJdSystemPrompt(opts?: { sourceMode?: "TEXT" | "LINK" }): string {
+  const lines = [
+    "You extract structured fields from a job description.",
     "Return ONLY JSON matching the provided schema.",
     "",
+  ];
+
+  if (opts?.sourceMode === "LINK") {
+    lines.push(
+      "Input note: this text was scraped from a web page and may contain site chrome",
+      "(navigation menus, footers, cookie banners, share buttons, legal boilerplate).",
+      "Ignore all non-job content. Extract only details that describe the actual role.",
+      "",
+      "For LINK mode — also populate cleanedJdText:",
+      "- cleanedJdText: copy only the actual job posting text. Start with the job title,",
+      "  company name, and location if present, then include overview, responsibilities,",
+      "  qualifications, and compensation + other sections related specifically to the role.", 
+      "  Strip ALL site chrome, login prompts, similar-job",
+      "  listings, footer links, and anything unrelated to this specific role.",
+      "  Preserve the original wording — do NOT summarize or rewrite.",
+      "  Format: keep section headers (Responsibilities, Qualifications, etc.) on their own",
+      "  lines. Put each bullet point or list item on its own line. Separate sections with",
+      "  a blank line. This makes the stored description readable.",
+      "  If the input is already clean and well-formatted, copy it as-is.",
+      "",
+    );
+  } else {
+    lines.push(
+      "- cleanedJdText: set to null (only used for LINK mode).",
+      "",
+    );
+  }
+
+  lines.push(
     "Rules:",
     "- If a field is not clearly present, omit it (do NOT guess).",
     "- Prefer omitting workMode/jobType rather than using UNKNOWN.",
     "- Do NOT invent details (e.g., hybrid days, contract length) unless explicitly stated.",
     "- jdSummary: 2–4 sentences in your own words. Must cover: (1) what the role does (key responsibilities), (2) key stack/tools if present, (3) must-have requirements if present, (4) location/work arrangement if present. Do NOT just copy sentences from the JD.",
-    "- notes: 5–10 short bullets spanning responsibilities, stack/tools, requirements, and any constraints (visa, schedule, on-call, etc.). Avoid repeating jdSummary.",
+    "",
     "Field semantics (do NOT mix these):",
-    "- jobLink = the job posting URL ONLY (https://...). USE ONLY: the direct link to the job posting (if included) OR the link of the company website (if included). If neither of these links exist in the job description OMIT. If multiple links exist, choose the link for the posting. DO NOT INCLUDE THE LINK IF IT IS NOT FOR THE JOB POSTING OR THE COMPANY PAGE. Omit if no link is present or related to the company or job description. CHOOSE A LINK TO THE DIRECT JOB POSTING OVER A LINK TO THE COMPANY HOMEPAGE. IF NEITHER IS PRESENT, OMIT.",
-    "- location = a geographic place ONLY (country/city/region). NO CODES. Use the FIRST listed location as the primary. If multiple locations are listed, set location to '<primary> +<N>' where N is the count of additional locations. Never use 'Remote/Hybrid/Onsite' as location.",
-    "- workMode = ENUMS: workMode must be exactly 'REMOTE' | 'HYBRID' | 'ONSITE' (uppercase) or omitted. (ONLY if explicitly stated; must be EXACT uppercase enum).",
-    "- locationDetails = geographic constraints/alternatives/specifics ONLY (e.g. '1235 Main St.', 'Open to 5 locations within Canada', 'Toronto or Montreal', 'Must reside in Ontario', time zone). OR If location includes '+N', list the OTHER locations here (excluding the primary), e.g. 'Other locations: Waterloo, ON; Buffalo, NY' (separated by semicolon, keep it brief, NO 'In-Office' NO 'also in' etc.). Do NOT put days/week or schedule here (e.g. DO NOT put 'Hybrid — 2 days/week in office'). Omit and leave blank if no LOCATION info (DO NOT PUT INFO ABOUT HYBRID WORK, ETC. INTO LOCATIONDETAILS).",
-    "- workModeDetails = schedule/cadence expectations: days onsite, cadence, flexibility, etc. (e.g. 'Hybrid: 3 days/week in office', 'Remote-first with quarterly onsite'). If not stated, omit.",
-    "- jobTypeDetails = extra job type constraints ONLY if stated (contract length, hours, shift, on-call, travel). If not stated, omit.",
-    "- salaryText = must be only the base pay numeric amount/range with currency (e.g., CAD $80k-$120k); exclude any extra words and exclude bonus/equity/benefits/commission/signing bonus (put non-base comp in salaryDetails).",
-    "- salaryDetails = Capture extra compensation details beyond base pay ONLY if explicitly stated (e.g. 'annual/target/expected bonus, stock/equity/RSUs/options, signing bonus, relocation assistance, commission/OTE, profit sharing, RRSP/401k matching, on-call/overtime/shift premiums, any conditions (e.g. 'bonus up to 15%', 'equity grant', 'performance-based' etc.)'). Keep it short. Do NOT repeat base salary numbers. Omit if not stated.",
+    "- jobLink = the job posting URL ONLY (https://...). USE ONLY: the direct link to the job posting (if included) OR the company website link. If neither exists OMIT. DO NOT INCLUDE LINKS UNRELATED TO THE JOB OR COMPANY.",
+    "",
+    "- location format rules (IMPORTANT — follow exactly):",
+    "  * Use 'City, Province/State' for North American locations (e.g. 'Toronto, ON', 'San Francisco, CA').",
+    "  * Use province/state ABBREVIATIONS — never spell them out (Ontario → ON, California → CA).",
+    "  * Use 'City, Country' for international locations (e.g. 'London, UK', 'Berlin, Germany').",
+    "  * If only a country is given, use just the country name (e.g. 'Canada', 'United States').",
+    "  * If multiple locations, set location to '<primary> +<N>' where N = count of additional locations (e.g. 'Toronto, ON +2').",
+    "  * Never use 'Remote', 'Hybrid', or 'Onsite' as a location — those belong in workMode/workModeDetails.",
+    "",
+    "- locationDetails = geographic constraints/alternatives ONLY — e.g. additional office cities, address, must-reside region ('Other locations: Waterloo, ON; Buffalo, NY'). NEVER put province, state, or country names here if they are already part of the primary location field. Omit if nothing beyond the primary location.",
+    "- workMode = ENUMS: exactly 'REMOTE' | 'HYBRID' | 'ONSITE' (uppercase) or omitted.",
+    "- workModeDetails = schedule/cadence expectations only (e.g. 'Hybrid: 3 days/week in office'). Omit if not stated.",
+    "- jobTypeDetails = extra job type constraints only if stated (contract length, hours, shift). Omit if not stated.",
+    "",
+    "- salaryText format rules (IMPORTANT — follow exactly):",
+    "  * Format: '$X – $Y CURRENCY' for ranges (em-dash, currency code at end).",
+    "  * Format: '$X CURRENCY' for single values.",
+    "  * Format: '$X/hr CURRENCY' for hourly rates.",
+    "  * Always expand shorthand: 80k → $80,000  |  80.5k → $80,500.",
+    "  * Always add '$' prefix if missing.",
+    "  * Currency code (CAD, USD, GBP, etc.) goes at the END.",
+    "  * Examples: '$80,000 – $120,000 CAD'  |  '$25/hr USD'  |  '$150,000 USD'.",
+    "  * Exclude bonus/equity/benefits (put those in salaryDetails).",
+    "",
+    "- salaryDetails = extra compensation only if explicitly stated (bonus, equity, RSUs, signing bonus, etc.). Keep short. Do NOT repeat base salary. Omit if not stated.",
     "",
     "Tags:",
-    "- tagsText: 5–10 short keyword tags inferred ONLY from explicit JD text (stack, domain, constraints). Examples: 'Node.js, TypeScript, Fastify, PostgreSQL, Prisma, JWT, CI/CD, GCP, Remote, Redis, Observability'.",
-    "- Do not invent tags for tools/tech not mentioned.",
+    "- tagsText: 5–10 short keyword tags inferred ONLY from explicit JD text (stack, domain, constraints).",
+    "  Return as comma-separated values (e.g. 'Node.js, TypeScript, PostgreSQL, Remote, CI/CD').",
+    "  Do not invent tags for tools/tech not mentioned.",
+    "",
+    "Notes:",
+    "- notes: 5–10 short bullets spanning responsibilities, stack/tools, requirements, and constraints.",
+    "- IMPORTANT: If the job description contains a specific Job ID, Job Number, Requisition ID, or Reference Number,",
+    "  include it as the VERY FIRST bullet in this exact format: 'Job ID: <value>'",
+    "  (e.g. 'Job ID: R260003457', 'Job ID: P71181'). Use the exact identifier as shown.",
+    "- Avoid repeating jdSummary content.",
     "",
     "Warnings:",
-    "- return [] unless (a) critical info is missing/unclear OR (b) the JD states an explicit constraint/disqualifier (no visa sponsorship, must be enrolled, must graduate after X, citizenship/clearance required, location eligibility constraints, etc.).",
-    "- If a constraint/disqualifier is present, add it as a warning string (e.g., 'No visa sponsorship').",
-    "- If a constraint/disqualifier is present, include add the end of notes too as a bullet starting with 'Constraint: Requires/Restrictions/Disqualifiers etc. ...'.",
+    "- return [] unless (a) critical info is missing/unclear OR (b) the JD states an explicit constraint/disqualifier",
+    "  (no visa sponsorship, must be enrolled, citizenship/clearance required, location eligibility, etc.).",
+    "- If a constraint is present, add it as a warning string (e.g., 'No visa sponsorship').",
+    "- If a constraint is present, also include it at the END of notes as a bullet starting with 'Constraint: ...'.",
+  );
 
-  ].join("\n");
+  return lines.join("\n");
 }
 
 
@@ -535,5 +652,3 @@ function getTokenUsage(resp: any) {
   const total = u.total_tokens ?? (input + output);
   return { input, output, total, raw: u };
 }
-
-

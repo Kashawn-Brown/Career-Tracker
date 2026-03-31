@@ -56,10 +56,30 @@ type OnCreatedArgs = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function CreateApplicationFromJdForm({ onCreated }: { onCreated: (args: OnCreatedArgs) => void }) {
+export function CreateApplicationFromJdForm({
+  onCreated,
+  initialSourceMode = "TEXT",
+}: {
+  onCreated: (args: OnCreatedArgs) => void;
+  initialSourceMode?: "TEXT" | "LINK";
+}) {
+  // Source mode: driven by the tab selected in the parent (initialSourceMode).
+  // Can still switch within the form if the user changes their mind mid-draft.
+  const [sourceMode, setSourceMode] = useState<"TEXT" | "LINK">(initialSourceMode);
+  const [jobPostingUrl, setJobPostingUrl] = useState("");
+
   // Job description input + draft
   const [jdText, setJdText] = useState("");
   const [draft, setDraft] = useState<ApplicationDraftResponse | null>(null);
+
+  // Canonical JD text to store as application description.
+  // For TEXT mode: the pasted JD. For LINK mode: the fetched+cleaned page text.
+  // Always comes from res.source.canonicalJdText after a successful generate.
+  const [sourceDescriptionText, setSourceDescriptionText] = useState("");
+
+  // Generate progress — step label shown while isGenerating is true.
+  // Advances on a timer to reflect what the backend is likely doing.
+  const [generateStepLabel, setGenerateStepLabel] = useState<string | null>(null);
 
   // UI state
   const [isGenerating, setIsGenerating] = useState(false);
@@ -224,7 +244,10 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: (args: O
     return trimmed.length === 0 ? undefined : trimmed;
   }
 
-  const canGenerate = jdText.trim().length > 0 && !isGenerating && !isSubmitting;
+  const canGenerate =
+    (sourceMode === "TEXT" ? jdText.trim().length > 0 : jobPostingUrl.trim().length > 0) &&
+    !isGenerating &&
+    !isSubmitting;
 
   const [baseResumeExists, setBaseResumeExists] = useState(false);
 
@@ -251,6 +274,7 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: (args: O
 
   function resetToInitial() {
     setErrorMessage(null);
+    setSourceMode(initialSourceMode); setJobPostingUrl(""); setSourceDescriptionText("");
     setJdText(""); setDraft(null);
     setCompany(""); setPosition("");
     setApplicationStatus("WISHLIST");
@@ -271,18 +295,47 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: (args: O
 
   function handleReset() { resetToInitial(); }
 
+  // Advance the generate step label on a timer to reflect backend progress.
+  // Link mode has 3 stages (connect → fetch → extract); text mode just shows "Extracting".
+  useEffect(() => {
+    if (!isGenerating) { setGenerateStepLabel(null); return; }
+
+    if (sourceMode === "LINK") {
+      setGenerateStepLabel("Connecting to job posting…");
+      const t1 = setTimeout(() => setGenerateStepLabel("Fetching page content…"), 2500);
+      const t2 = setTimeout(() => setGenerateStepLabel("Extracting job details…"), 6000);
+      return () => { clearTimeout(t1); clearTimeout(t2); };
+    } else {
+      setGenerateStepLabel("Extracting job details…");
+    }
+  }, [isGenerating, sourceMode]);
+
   // ── Generate draft ────────────────────────────────────────────────────────
 
   async function handleGenerate() {
     setErrorMessage(null);
-    const text = jdText.trim();
-    if (!text) { setErrorMessage("Paste a job description first."); return; }
 
     try {
       setIsGenerating(true);
-      const res = await aiApi.applicationFromJd(text);
+
+      let res: ApplicationDraftResponse;
+
+      if (sourceMode === "LINK") {
+        const url = jobPostingUrl.trim();
+        if (!url) { setErrorMessage("Enter a job posting URL first."); return; }
+        res = await aiApi.applicationFromLink(url);
+      } else {
+        const text = jdText.trim();
+        if (!text) { setErrorMessage("Paste a job description first."); return; }
+        res = await aiApi.applicationFromJd(text);
+      }
+
       setDraft(res);
       void refreshMe();
+
+      // Store canonical JD text for the create payload — this is what gets
+      // saved as the application description and used for future fit runs.
+      setSourceDescriptionText(res.source.canonicalJdText);
 
       setCompany(res.extracted.company ?? "");
       setPosition(res.extracted.position ?? "");
@@ -300,7 +353,7 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: (args: O
       setApplicationStatus("WISHLIST");
     } catch (err) {
       if (err instanceof ApiError) setErrorMessage(err.message);
-      else setErrorMessage("Failed to generate draft from job description.");
+      else setErrorMessage("Failed to generate draft. Check the URL or paste the job description manually.");
     } finally {
       setIsGenerating(false);
     }
@@ -378,7 +431,7 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: (args: O
       company:        company.trim(),
       position:       position.trim(),
       status:         applicationStatus,
-      description:    jdText.trim(),
+      description:    sourceDescriptionText || jdText.trim(), // canonicalJdText from source, fallback to pasted text
       notes:          toOptionalTrimmed(notes),
       location:       toOptionalTrimmed(location),
       locationDetails: toOptionalTrimmed(locationDetails),
@@ -583,16 +636,60 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: (args: O
         onRequested={() => refreshMe()}
       />
 
+      {/* Source input — textarea for TEXT mode, URL input for LINK mode */}
       <div className="space-y-2">
-        <Label htmlFor="jd">Job description</Label>
-        <Textarea
-          id="jd"
-          value={jdText}
-          onChange={(e) => setJdText(e.target.value)}
-          disabled={draft !== null}
-          placeholder={`Paste the full job description here...  We'll extract the relevant information for you!`}
-          className="min-h-[140px]"
-        />
+        {sourceMode === "TEXT" ? (
+          <>
+            <Label htmlFor="jd">Job description</Label>
+            <Textarea
+              id="jd"
+              value={jdText}
+              onChange={(e) => setJdText(e.target.value)}
+              disabled={draft !== null || isGenerating}
+              placeholder="Paste the full job description here... We'll extract the relevant information for you!"
+              className="min-h-[140px]"
+            />
+          </>
+        ) : (
+          <>
+            <Label htmlFor="jobPostingUrl">Job posting URL</Label>
+            <Input
+              id="jobPostingUrl"
+              type="url"
+              value={jobPostingUrl}
+              onChange={(e) => setJobPostingUrl(e.target.value)}
+              disabled={draft !== null || isGenerating}
+              placeholder="https://jobs.example.com/posting/12345"
+            />
+            <div className="text-xs text-muted-foreground">
+              {`We'll fetch the page and extract the job details for you. Paste the JD instead if the link requires login.`}
+            </div>
+          </>
+        )}
+
+        {/* Generate progress — shown while isGenerating */}
+        {isGenerating && generateStepLabel ? (
+          <div className="space-y-1.5 pt-1">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+              {generateStepLabel}
+            </div>
+            <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full rounded-full bg-primary transition-all duration-[2000ms] ease-out"
+                style={{
+                  width:
+                    sourceMode === "LINK"
+                      ? generateStepLabel.includes("Connecting") ? "20%"
+                        : generateStepLabel.includes("Fetching")  ? "55%"
+                        : "80%"
+                      : "70%",
+                }}
+              />
+            </div>
+          </div>
+        ) : null}
+
         <div className="flex justify-end mt-4 gap-2">
           {draft ? (
             <Button type="button" variant="outline" onClick={handleReset} disabled={isGenerating || isSubmitting}>
@@ -600,7 +697,11 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: (args: O
             </Button>
           ) : null}
           <Button type="button" onClick={handleGenerate} disabled={!canGenerate || draft !== null}>
-            {isGenerating ? "Generating..." : "Generate draft"}
+            {isGenerating
+              ? "Generating…"
+              : sourceMode === "LINK"
+              ? "Generate draft from link"
+              : "Generate draft"}
           </Button>
         </div>
       </div>

@@ -66,6 +66,7 @@ describe("AI > application-from-jd", () => {
 
     // Mock the AI service to return a deterministic response
     vi.mocked(AiService.buildApplicationDraftFromJd).mockResolvedValue({
+      source: { mode: "TEXT", canonicalJdText: "Some JD text" },
       extracted: { company: "Acme", position: "Software Engineer" },
       ai: { jdSummary: "summary", warnings: [] },
     });
@@ -116,6 +117,7 @@ describe("AI > application-from-jd", () => {
 
     // Mock the AI service to return a deterministic response
     vi.mocked(AiService.buildApplicationDraftFromJd).mockResolvedValue({
+      source: { mode: "TEXT", canonicalJdText: "Some JD text" },
       extracted: {
         company: "Acme",
         position: "Software Engineer",
@@ -158,6 +160,7 @@ describe("AI > application-from-jd", () => {
 
     // Mock the AI service to return a deterministic response
     vi.mocked(AiService.buildApplicationDraftFromJd).mockResolvedValue({
+      source: { mode: "TEXT", canonicalJdText: "Some JD text" },
       extracted: { company: "Acme", position: "Software Engineer" },
       ai: { jdSummary: "summary", warnings: [] },
     });
@@ -218,6 +221,7 @@ describe("AI > application-from-jd", () => {
 
     // Mock the AI service to return a deterministic response
     vi.mocked(AiService.buildApplicationDraftFromJd).mockResolvedValue({
+      source: { mode: "TEXT", canonicalJdText: "Some JD text" },
       extracted: { company: "Acme", position: "Software Engineer" },
       ai: { jdSummary: "summary", warnings: [] },
     });

@@ -529,9 +529,22 @@ export type ApplicationDraftAi = {
   warnings?: string[];
 };
 
+/**
+ * Canonical source metadata returned with every draft response.
+ * Carries the cleaned job-posting text so the frontend can store it
+ * as the application description regardless of whether the user pasted
+ * text or extracted from a URL.
+ */
+export type DraftSource = {
+  mode:            "TEXT" | "LINK";
+  canonicalJdText: string;
+  sourceUrl?:      string;
+};
+
 export type ApplicationDraftResponse = {
   extracted: ApplicationDraftExtracted;
-  ai: ApplicationDraftAi;
+  ai:        ApplicationDraftAi;
+  source:    DraftSource;
 };
 
 
@@ -562,4 +575,3 @@ export type AiArtifact<TPayload = unknown> = {
 
   createdAt: string;
 };
-

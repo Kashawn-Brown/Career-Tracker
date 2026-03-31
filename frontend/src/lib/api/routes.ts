@@ -108,7 +108,8 @@ export const routes = {
     delete: (id: string) => `/connections/${id}`,
   },
   ai: {
-    applicationFromJd: () => "/ai/application-from-jd",
+    applicationFromJd:   () => "/ai/application-from-jd",
+    applicationFromLink: () => "/ai/application-from-link",
   },
 
 } as const;
