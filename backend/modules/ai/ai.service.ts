@@ -5,6 +5,7 @@ import { ApplicationFromJdJsonObject, normalizeApplicationFromJdResponse, cleanJ
 import type { ApplicationFromJdResponse, DraftSource, FitV1Response } from "./ai.dto.js";
 import { AiTier } from "./ai-tier.js";
 import { throwIfAborted } from "../../lib/request-abort.js";
+import { extractJobPostingFromUrl } from "./job-link-extraction.js";
 
 
 /**
@@ -78,8 +79,45 @@ export async function buildApplicationDraftFromJd(
 
 
 /**
- *  FIT_V1: Generates a fit of compatibility between the candidate and the job description using the canonical JD text + extracted candidate-history text.
+ * JD_EXTRACT_V1 via URL: Fetches a job-posting page, extracts canonical text,
+ * then runs it through the same extraction pipeline as pasted JD text.
+ *
+ * The returned draft is identical in shape to buildApplicationDraftFromJd —
+ * the frontend form handles both the same way.
+ * `source.jobLink` defaults to the normalized URL if the AI extracts no link.
  */
+export async function buildApplicationDraftFromJobLink(
+  rawUrl: string,
+  opts?: { signal?: AbortSignal }
+): Promise<ApplicationFromJdResponse> {
+  throwIfAborted(opts?.signal);
+
+  // Step 1 — fetch + extract canonical text (throws AppError on failure)
+  const { normalizedUrl, canonicalJdText } = await extractJobPostingFromUrl(rawUrl, opts);
+
+  throwIfAborted(opts?.signal);
+
+  // Step 2 — run through the same AI extraction pipeline, with LINK hint
+  const draft = await buildApplicationDraftFromJd(canonicalJdText, {
+    signal:     opts?.signal,
+    sourceMode: "LINK",
+    sourceUrl:  normalizedUrl,
+  });
+
+  // Step 3 — ensure jobLink is populated.
+  // If the AI didn't find a link in the page text, fall back to the source URL.
+  if (!draft.extracted.jobLink) {
+    draft.extracted.jobLink = normalizedUrl;
+  }
+
+  return draft;
+}
+
+
+
+ /**
+  * FIT_V1: Generates a fit of compatibility between the candidate and the job description using the canonical JD text + extracted candidate-history text.
+  */
 export async function buildFitV1(
   jdText: string, 
   candidateText: string, 
