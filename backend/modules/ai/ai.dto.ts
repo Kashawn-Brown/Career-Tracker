@@ -45,8 +45,9 @@ export type ApplicationFromJdResponse = {
     notes?:           string[];
   };
   ai: {
-    jdSummary:  string;
-    warnings?:  string[];
+    jdSummary:    string;
+    cleanedJdText?: string; // LINK mode only: raw JD text stripped of page chrome
+    warnings?:    string[];
   };
   source: DraftSource;
 };
@@ -125,9 +126,10 @@ export const ApplicationFromJdJsonObject = {
       type: "object",
       additionalProperties: false,
       // strict mode expects required to include every property key
-      required: ["jdSummary", "warnings"],
+      required: ["jdSummary", "cleanedJdText", "warnings"],
       properties: {
-        jdSummary: { type: ["string", "null"] },
+        jdSummary:    { type: ["string", "null"] },
+        cleanedJdText: { type: ["string", "null"] },
         warnings: {
           anyOf: [
             { type: "array", items: { type: "string" } },
@@ -370,7 +372,6 @@ function normalizeSalaryText(v: unknown): string | undefined {
   // Standardize range separator: -, —, –, " to " → " – "
   working = working.replace(/\s*(?:–|—|-{1,2}|to)\s*/gi, " – ");
 
-  // Add "$" in front of each number group that doesn't already have it
   // Add "$" at the start of each salary segment, not inside comma-separated numbers
   working = working
     .split(" – ")
@@ -475,8 +476,9 @@ export function normalizeApplicationFromJdResponse(
       notes: normalizeNotes(extracted.notes),
     },
     ai: {
-      jdSummary: cleanString(raw.ai?.jdSummary) ?? "(No summary provided)",
-      warnings:  cleanStringArray(raw.ai?.warnings, 10) || undefined,
+      jdSummary:     cleanString(raw.ai?.jdSummary) ?? "(No summary provided)",
+      cleanedJdText: cleanString(raw.ai?.cleanedJdText) || undefined,
+      warnings:      cleanStringArray(raw.ai?.warnings, 10) || undefined,
     },
     source,
   };

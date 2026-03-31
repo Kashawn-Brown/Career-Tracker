@@ -104,10 +104,19 @@ export async function buildApplicationDraftFromJobLink(
     sourceUrl:  normalizedUrl,
   });
 
-  // Step 3 — ensure jobLink is populated.
-  // If the AI didn't find a link in the page text, fall back to the source URL.
-  if (!draft.extracted.jobLink) {
-    draft.extracted.jobLink = normalizedUrl;
+  // Step 3 — Use the source URL as the job link.
+  // The user explicitly provided this URL, so it's definitively the posting link.
+  draft.extracted.jobLink = normalizedUrl;
+
+  // Step 4 — use model-cleaned JD text as canonicalJdText.
+  // The model was asked to strip site chrome and return only the real job
+  // posting content. If it returned something useful, use that instead of
+  // the raw scraped text so the stored description is clean.
+  if (draft.ai?.cleanedJdText) {
+    draft.source = {
+      ...draft.source,
+      canonicalJdText: draft.ai.cleanedJdText,
+    };
   }
 
   return draft;
@@ -115,9 +124,9 @@ export async function buildApplicationDraftFromJobLink(
 
 
 
- /**
-  * FIT_V1: Generates a fit of compatibility between the candidate and the job description using the canonical JD text + extracted candidate-history text.
-  */
+/**
+ * FIT_V1: Generates a fit of compatibility between the candidate and the job description using the canonical JD text + extracted candidate-history text.
+ */
 export async function buildFitV1(
   jdText: string, 
   candidateText: string, 
@@ -206,6 +215,23 @@ function buildExtractJdSystemPrompt(opts?: { sourceMode?: "TEXT" | "LINK" }): st
       "(navigation menus, footers, cookie banners, share buttons, legal boilerplate).",
       "Ignore all non-job content. Extract only details that describe the actual role.",
       "",
+      "For LINK mode — also populate cleanedJdText:",
+      "- cleanedJdText: copy only the actual job posting text. Start with the job title,",
+      "  company name, and location if present, then include overview, responsibilities,",
+      "  qualifications, and compensation + other sections related specifically to the role.", 
+      "  Strip ALL site chrome, login prompts, similar-job",
+      "  listings, footer links, and anything unrelated to this specific role.",
+      "  Preserve the original wording — do NOT summarize or rewrite.",
+      "  Format: keep section headers (Responsibilities, Qualifications, etc.) on their own",
+      "  lines. Put each bullet point or list item on its own line. Separate sections with",
+      "  a blank line. This makes the stored description readable.",
+      "  If the input is already clean and well-formatted, copy it as-is.",
+      "",
+    );
+  } else {
+    lines.push(
+      "- cleanedJdText: set to null (only used for LINK mode).",
+      "",
     );
   }
 
@@ -227,7 +253,7 @@ function buildExtractJdSystemPrompt(opts?: { sourceMode?: "TEXT" | "LINK" }): st
     "  * If multiple locations, set location to '<primary> +<N>' where N = count of additional locations (e.g. 'Toronto, ON +2').",
     "  * Never use 'Remote', 'Hybrid', or 'Onsite' as a location — those belong in workMode/workModeDetails.",
     "",
-    "- locationDetails = geographic constraints/alternatives only (e.g. 'Other locations: Waterloo, ON; Buffalo, NY' — semicolon-separated, brief). Omit if no extra location info.",
+    "- locationDetails = geographic constraints/alternatives ONLY — e.g. additional office cities, address, must-reside region ('Other locations: Waterloo, ON; Buffalo, NY'). NEVER put province, state, or country names here if they are already part of the primary location field. Omit if nothing beyond the primary location.",
     "- workMode = ENUMS: exactly 'REMOTE' | 'HYBRID' | 'ONSITE' (uppercase) or omitted.",
     "- workModeDetails = schedule/cadence expectations only (e.g. 'Hybrid: 3 days/week in office'). Omit if not stated.",
     "- jobTypeDetails = extra job type constraints only if stated (contract length, hours, shift). Omit if not stated.",

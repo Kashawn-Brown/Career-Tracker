@@ -254,30 +254,50 @@ function extractJsonLd(html: string): string | null {
 // ─── Fallback text extraction ─────────────────────────────────────────────────
 
 /**
- * Strips all HTML tags and collapses whitespace to produce plain text.
- * Cap at 50k characters — enough for any job posting, avoids passing huge
- * blog pages into the extraction prompt.
+ * Strips HTML to produce clean plain text for the extraction prompt.
+ *
+ * Strategy:
+ * 1. Remove all script/style/nav/header/footer/aside blocks (pure noise)
+ * 2. Try to isolate the main content block (main, article, or a div/section
+ *    whose class/id suggests job description content)
+ * 3. Fall back to the full page if no main block found
+ * 4. Strip remaining tags, decode entities, normalize whitespace
+ * 5. Cap at 15k characters — generous for any job posting, prevents passing
+ *    entire social network pages (similar jobs, footers, etc.) to the model
  */
 function extractPlainText(html: string): string {
-  const MAX_CHARS = 50_000;
+  const MAX_CHARS = 15_000;
 
-  return html
-    // Remove script and style blocks entirely (content is not readable text)
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi,  " ")
-    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
-    // Replace block-level tags with newlines to preserve paragraph structure
+  // Step 1: remove known noise blocks entirely
+  let working = html
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, "")
+    .replace(/<nav[\s\S]*?<\/nav>/gi, "")
+    .replace(/<header[\s\S]*?<\/header>/gi, "")
+    .replace(/<footer[\s\S]*?<\/footer>/gi, "")
+    .replace(/<aside[\s\S]*?<\/aside>/gi, "");
+
+  // Step 2: try to find the main content block.
+  // Prefer <main> or <article>, then look for a container whose class/id
+  // contains common job-description keywords.
+  const mainMatch =
+    working.match(/<main[^>]*>([\s\S]*?)<\/main>/i) ??
+    working.match(/<article[^>]*>([\s\S]*?)<\/article>/i) ??
+    working.match(/<[^>]+(?:class|id)="[^"]*(?:job-description|jobDescription|job_description|description|job-detail|jobDetail|job-content|jobContent|posting-description)[^"]*"[^>]*>([\s\S]*?)<\/(?:div|section|article)>/i);
+
+  const source = mainMatch ? mainMatch[1] : working;
+
+  // Step 3: strip remaining tags and clean up
+  return source
     .replace(/<\/(p|div|section|article|li|h[1-6]|tr|br)>/gi, "\n")
-    // Strip remaining tags
     .replace(/<[^>]+>/g, " ")
-    // Decode common HTML entities
     .replace(/&amp;/g,  "&")
     .replace(/&lt;/g,   "<")
     .replace(/&gt;/g,   ">")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g,  "'")
     .replace(/&nbsp;/g, " ")
-    // Normalize whitespace
     .replace(/[ \t]+/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim()
