@@ -313,12 +313,17 @@ function normalizeLocation(v: unknown): string | undefined {
   const plusSuffix = plusMatch ? plusMatch[0].trim() : "";
   const base = plusSuffix ? raw.slice(0, raw.length - plusMatch![0].length).trim() : raw;
 
-  // Split on commas, normalize each part
-  const parts = base.split(",").map((p) => {
+  // Split on commas, normalize each part.
+  // Only abbreviate province/state when a city is also present —
+  // a standalone "Ontario" or "Canada" should remain unabbreviated.
+  const rawParts = base.split(",");
+  const parts = rawParts.map((p) => {
     const trimmed = p.trim();
     const lower   = trimmed.toLowerCase();
-    // Expand to abbreviation if found in lookup
-    return PROVINCE_STATE_ABBR[lower] ?? trimmed;
+    if (rawParts.length > 1 && PROVINCE_STATE_ABBR[lower]) {
+      return PROVINCE_STATE_ABBR[lower];
+    }
+    return trimmed;
   });
 
   // Rejoin with consistent ", " spacing

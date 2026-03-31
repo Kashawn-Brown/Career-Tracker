@@ -160,6 +160,11 @@ describe("normalization > location", () => {
     expect(normalize({ location: "United States" }).location).toBe("United States");
   });
 
+  it("does not abbreviate standalone province with no city", () => {
+    expect(normalize({ location: "Ontario" }).location).toBe("Ontario");
+    expect(normalize({ location: "California" }).location).toBe("California");
+  });
+
   it("preserves international city/country locations", () => {
     expect(normalize({ location: "London, UK" }).location).toBe("London, UK");
   });
