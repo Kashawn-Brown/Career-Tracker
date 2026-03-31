@@ -294,12 +294,30 @@ export function ApplicationAiToolsSection({
         onRequested={() => refreshMe()}
       />
 
-      {/* Job compatibility check section */}
+      {/* ── Shared readiness bar ───────────────────────────────────────────
+           Shows JD and base resume status once for all tools below,
+           so each card doesn't need to repeat the same indicators.        */}
+      <div className="flex items-center gap-4 rounded-md border bg-muted/30 px-3 py-2 text-xs">
+        <div className="flex items-center gap-1.5">
+          <span className={hasJd ? "text-green-600 dark:text-green-400" : "text-destructive"}>●</span>
+          <span className="text-muted-foreground">
+            Job description: <span className={hasJd ? "text-foreground" : "text-destructive font-medium"}>{hasJd ? "Ready" : "Missing"}</span>
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className={baseResumeExists ? "text-green-600 dark:text-green-400" : "text-destructive"}>●</span>
+          <span className="text-muted-foreground">
+            Base resume: <span className={baseResumeExists ? "text-foreground" : "text-destructive font-medium"}>{baseResumeExists ? "Saved" : "Not uploaded"}</span>
+          </span>
+        </div>
+      </div>
+
+      {/* ── AI Job Compatibility Check ─────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-sm font-medium">AI Job Compatibility Check</div>
+          <div className="text-sm font-medium">Compatibility Check</div>
           <div className="text-xs text-muted-foreground">
-            Requires Job Description + Resume (Base Resume by default).
+            See how well you line up with this role as a candidate (using your resume).
           </div>
         </div>
       </div>

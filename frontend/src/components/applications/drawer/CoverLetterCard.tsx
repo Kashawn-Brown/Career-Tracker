@@ -1,12 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Button }           from "@/components/ui/button";
-import { Card }             from "@/components/ui/card";
-import { ApiError }         from "@/lib/api/client";
-import { applicationsApi }  from "@/lib/api/applications";
+import { Button }            from "@/components/ui/button";
+import { Card }              from "@/components/ui/card";
+import { ApiError }          from "@/lib/api/client";
+import { applicationsApi }   from "@/lib/api/applications";
 import { CoverLetterResult } from "@/components/tools/CoverLetterResult";
 import type { Application, AiArtifact, CoverLetterPayload } from "@/types/api";
+
+// Resumes accept PDF, TXT, and DOCX (backend extracts text from all three)
+const RESUME_ACCEPT   = ".pdf,.txt,.docx";
+// Template files: TXT only — client-side text reading via FileReader.
+// DOCX template support requires a browser-side DOCX parser (future improvement).
+const TEMPLATE_ACCEPT = ".txt";
 
 interface Props {
   application:      Application;
@@ -25,14 +31,28 @@ export function CoverLetterCard({
   onRegisterClose,
   onRefreshMe,
 }: Props) {
+  // Latest persisted artifact
   const [artifact,      setArtifact]      = useState<AiArtifact<CoverLetterPayload> | null>(null);
-  const [loading,       setLoading]       = useState(false);
   const [loadingLatest, setLoadingLatest] = useState(false);
-  const [error,         setError]         = useState<string | null>(null);
-  const [isOpen,        setIsOpen]        = useState(false);
-  const [templateText,  setTemplateText]  = useState("");
-  const [showTemplate,  setShowTemplate]  = useState(false);
 
+  // Generation state
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState<string | null>(null);
+
+  // Result panel
+  const [isOpen, setIsOpen] = useState(false);
+
+  // Per-tool resume override
+  const [overrideFile, setOverrideFile] = useState<File | null>(null);
+  const overrideInputRef                = useRef<HTMLInputElement>(null);
+
+  // Template: user can upload their existing cover letter as a .txt file
+  // so the AI builds on or follows its structure/tone.
+  const [templateFile, setTemplateFile] = useState<File | null>(null);
+  const [templateText, setTemplateText] = useState<string>("");
+  const templateInputRef                = useRef<HTMLInputElement>(null);
+
+  // Guards against stale setState after unmount or app switch
   const mountedRef = useRef(true);
   useEffect(() => {
     mountedRef.current = true;
@@ -43,6 +63,7 @@ export function CoverLetterCard({
     onRegisterClose?.(() => setIsOpen(false));
   }, [onRegisterClose]);
 
+  // Load the latest COVER_LETTER artifact when the application changes
   useEffect(() => {
     let cancelled = false;
     setArtifact(null);
@@ -60,8 +81,24 @@ export function CoverLetterCard({
     return () => { cancelled = true; };
   }, [application.id]);
 
-  const hasJd  = Boolean(application.description?.trim());
-  const canRun = hasJd && baseResumeExists && canUseAi && !loading;
+  // When the user selects a template file, read it as text client-side.
+  // The extracted text is then sent as a string to the existing JSON endpoint.
+  function handleTemplateFile(file: File | null) {
+    setTemplateFile(file);
+    setTemplateText("");
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = typeof e.target?.result === "string" ? e.target.result : "";
+      setTemplateText(text);
+    };
+    reader.readAsText(file);
+  }
+
+  const hasJd       = Boolean(application.description?.trim());
+  const resumeReady = overrideFile ? true : baseResumeExists;
+  const canRun      = hasJd && resumeReady && canUseAi && !loading;
 
   async function handleGenerate() {
     if (!canRun) return;
@@ -71,6 +108,7 @@ export function CoverLetterCard({
     try {
       const result = await applicationsApi.generateAiArtifact(application.id, {
         kind:         "COVER_LETTER",
+        // Only send templateText if a template was actually provided
         templateText: templateText.trim() || undefined,
       });
 
@@ -91,77 +129,106 @@ export function CoverLetterCard({
 
   return (
     <Card className="p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <div>
+      {/* ── Card header — always visible ───────────────────────────────── */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
           <div className="text-sm font-medium">Cover Letter</div>
-          <div className="text-xs text-muted-foreground">
-            Draft tailored to this job description and your resume.
+          <div className="text-xs text-muted-foreground mt-0.5">
+            Generate a tailored draft cover letter for this role.
           </div>
         </div>
         {loadingLatest && (
-          <span className="text-xs text-muted-foreground">Loading…</span>
+          <span className="shrink-0 text-xs text-muted-foreground">Loading…</span>
         )}
       </div>
 
-      {/* Readiness */}
-      {(!hasJd || !baseResumeExists) && (
-        <div className="space-y-1 text-xs">
-          {!hasJd && (
-            <div className="flex justify-between">
-              <span>Job description</span>
-              <span className="text-destructive">Missing</span>
-            </div>
-          )}
-          {!baseResumeExists && (
-            <div className="flex justify-between">
-              <span>Base resume</span>
-              <span className="text-destructive">Not uploaded</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Optional template */}
-      <div>
+      {/* ── Resume override ─────────────────────────────────────────────── */}
+      <div className="flex items-center gap-2">
         <button
           type="button"
           className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
-          onClick={() => setShowTemplate((v) => !v)}
+          onClick={() => overrideInputRef.current?.click()}
         >
-          {showTemplate ? "Hide template" : "Paste a template (optional)"}
+          {overrideFile ? `Resume: ${overrideFile.name}` : "Use a different resume (optional)"}
         </button>
-        {showTemplate && (
-          <textarea
-            className="mt-2 w-full rounded-md border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-            rows={4}
-            placeholder="Paste a cover letter template or structure for the AI to follow…"
-            value={templateText}
-            onChange={(e) => setTemplateText(e.target.value)}
-          />
+        {overrideFile && (
+          <button
+            type="button"
+            className="text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => {
+              setOverrideFile(null);
+              if (overrideInputRef.current) overrideInputRef.current.value = "";
+            }}
+          >
+            ✕
+          </button>
         )}
+        <input
+          ref={overrideInputRef}
+          type="file"
+          accept={RESUME_ACCEPT}
+          className="hidden"
+          onChange={(e) => setOverrideFile(e.target.files?.[0] ?? null)}
+        />
+      </div>
+
+      {/* ── Template upload ────────────────────────────────────────────────
+           User can upload an existing cover letter (.txt) as a template.
+           The AI will follow its structure/tone when generating the draft.   */}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+          onClick={() => templateInputRef.current?.click()}
+        >
+          {templateFile
+            ? `Template: ${templateFile.name}`
+            : "Upload a template to build from (optional, .txt)"}
+        </button>
+        {templateFile && (
+          <button
+            type="button"
+            className="text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => {
+              handleTemplateFile(null);
+              if (templateInputRef.current) templateInputRef.current.value = "";
+            }}
+          >
+            ✕
+          </button>
+        )}
+        <input
+          ref={templateInputRef}
+          type="file"
+          accept={TEMPLATE_ACCEPT}
+          className="hidden"
+          onChange={(e) => handleTemplateFile(e.target.files?.[0] ?? null)}
+        />
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
-      {/* Result summary */}
+      {/* ── Artifact summary preview ─────────────────────────────────────── */}
       {artifact && !isOpen && (
         <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground line-clamp-2">
           {artifact.payload.summary}
         </div>
       )}
 
-      <div className="flex items-center gap-2">
+      {/* ── Action buttons ───────────────────────────────────────────────── */}
+      <div className="flex items-center gap-2 pt-2 border-t space-y-2">
         {artifact && (
           <Button
             variant="outline"
-            size="sm"
-            onClick={() => { setIsOpen((v) => !v); onCloseOthers?.(); }}
+            onClick={() => {
+              setIsOpen((v) => !v);
+              if (!isOpen) onCloseOthers?.();
+            }}
           >
             {isOpen ? "Hide" : "View draft"}
           </Button>
         )}
         <Button
-          size="sm"
           variant={artifact ? "outline" : "default"}
           disabled={!canRun}
           onClick={handleGenerate}
@@ -171,7 +238,7 @@ export function CoverLetterCard({
         </Button>
       </div>
 
-      {/* Inline result */}
+      {/* ── Expanded result ──────────────────────────────────────────────── */}
       {isOpen && artifact && (
         <div className="border-t pt-3">
           <CoverLetterResult payload={artifact.payload} />
