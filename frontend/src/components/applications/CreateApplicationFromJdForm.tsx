@@ -662,7 +662,7 @@ export function CreateApplicationFromJdForm({
               placeholder="https://jobs.example.com/posting/12345"
             />
             <div className="text-xs text-muted-foreground">
-              We'll fetch the page and extract the job details for you. Paste the JD instead if the link requires login.
+              {`We'll fetch the page and extract the job details for you. Paste the JD instead if the link requires login.`}
             </div>
           </>
         )}
