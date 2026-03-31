@@ -56,9 +56,16 @@ type OnCreatedArgs = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function CreateApplicationFromJdForm({ onCreated }: { onCreated: (args: OnCreatedArgs) => void }) {
-  // Source mode: "TEXT" = user pastes JD, "LINK" = user provides a job posting URL
-  const [sourceMode, setSourceMode] = useState<"TEXT" | "LINK">("TEXT");
+export function CreateApplicationFromJdForm({
+  onCreated,
+  initialSourceMode = "TEXT",
+}: {
+  onCreated: (args: OnCreatedArgs) => void;
+  initialSourceMode?: "TEXT" | "LINK";
+}) {
+  // Source mode: driven by the tab selected in the parent (initialSourceMode).
+  // Can still switch within the form if the user changes their mind mid-draft.
+  const [sourceMode, setSourceMode] = useState<"TEXT" | "LINK">(initialSourceMode);
   const [jobPostingUrl, setJobPostingUrl] = useState("");
 
   // Job description input + draft
@@ -628,28 +635,6 @@ export function CreateApplicationFromJdForm({ onCreated }: { onCreated: (args: O
         onOpenChange={setIsProDialogOpen}
         onRequested={() => refreshMe()}
       />
-
-      {/* Source mode toggle */}
-      <div className="flex items-center gap-2">
-        <Button
-          type="button"
-          size="sm"
-          variant={sourceMode === "TEXT" ? "secondary" : "outline"}
-          onClick={() => { setSourceMode("TEXT"); setJobPostingUrl(""); }}
-          disabled={draft !== null || isGenerating}
-        >
-          Paste Job Description
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant={sourceMode === "LINK" ? "secondary" : "outline"}
-          onClick={() => { setSourceMode("LINK"); setJdText(""); }}
-          disabled={draft !== null || isGenerating}
-        >
-          Use Job Posting Link
-        </Button>
-      </div>
 
       {/* Source input — textarea for TEXT mode, URL input for LINK mode */}
       <div className="space-y-2">

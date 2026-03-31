@@ -14,7 +14,7 @@ import { APPLICATION_COLUMNS_STORAGE_KEY, DEFAULT_VISIBLE_APPLICATION_COLUMNS, n
 import { useFitRuns } from "@/hooks/useFitRuns";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { Alert } from "@/components/ui/alert";
 import {  Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -114,8 +114,8 @@ export default function ApplicationsPage() {
   // State to force re-fetch
   const [reloadKey, setReloadKey] = useState(0);
 
-  // Add mode: "manual" for manual application creation, "jd" for JD-based application creation (using AI)
-  const [addMode, setAddMode] = useState<"manual" | "jd">("jd");
+  // Add mode: three tabs — link extraction, pasted JD, or fully manual
+  const [addMode, setAddMode] = useState<"jd-link" | "jd-text" | "manual">("jd-link");
 
 
   // Fetching applications when the page first mounts (& again whenever page or pageSize changes or reloadKey is changed)
@@ -606,32 +606,32 @@ export default function ApplicationsPage() {
           {/* Add application section */}
           <CollapsibleContent className="mt-4">           
             <Card>
-              <CardHeader className="border-b">
-                <CardTitle>Add application</CardTitle>
-                <CardDescription>Create a new job application record.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Add mode selector */}
-                <div className="flex items-center gap-2">
-                  <Button
+              {/* Tab bar — replaces the old CardHeader + separate mode buttons */}
+              <div className="flex border-b">
+                {(
+                  [
+                    { key: "jd-link",  label: "Via Link"    },
+                    { key: "jd-text",  label: "Via JD Text" },
+                    { key: "manual",   label: "Manual"      },
+                  ] as const
+                ).map((tab) => (
+                  <button
+                    key={tab.key}
                     type="button"
-                    size="sm"
-                    variant={addMode === "jd" ? "secondary" : "outline"}
-                    onClick={() => setAddMode("jd")}
+                    onClick={() => setAddMode(tab.key)}
+                    className={[
+                      "px-5 py-3 text-sm font-medium transition-colors border-b-2 -mb-px",
+                      addMode === tab.key
+                        ? "border-primary text-foreground"
+                        : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground",
+                    ].join(" ")}
                   >
-                    Via Job Description
-                  </Button>
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
 
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={addMode === "manual" ? "secondary" : "outline"}
-                    onClick={() => setAddMode("manual")}
-                  >
-                    Manual
-                  </Button>
-                </div>
-                
+              <CardContent className="space-y-4 pt-4">
                 {addMode === "manual" ? (
                   <CreateApplicationForm
                     onCreated={() => {
@@ -641,6 +641,8 @@ export default function ApplicationsPage() {
                   />
                 ) : (
                   <CreateApplicationFromJdForm
+                    key={addMode}   // ← remounts when switching between jd-link and jd-text
+                    initialSourceMode={addMode === "jd-link" ? "LINK" : "TEXT"}
                     onCreated={(args) => {
                       setPage(1);
                       refreshList();
