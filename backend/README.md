@@ -266,11 +266,18 @@ Not limited to the current page — fetches all matching rows up to the export c
 * `POST   /api/v1/applications/:id/connections/:connectionId`
 * `DELETE /api/v1/applications/:id/connections/:connectionId`
 
-### AI (JD extraction + AI artifacts)
+### AI (JD extraction + link extraction + AI artifacts)
 
-Standalone JD extraction:
+Standalone extraction routes — both require verified email + AI access:
 
-* `POST /api/v1/ai/application-from-jd` (requires verified email + AI access)
+* `POST /api/v1/ai/application-from-jd`
+  Extracts structured job fields from pasted job description text.
+
+* `POST /api/v1/ai/application-from-link`
+  Fetches a job-posting URL server-side, extracts canonical JD text, and runs
+  it through the same extraction pipeline. Includes full SSRF protection:
+  private IPs, loopback, and cloud-metadata ranges are blocked, and each
+  redirect hop is re-validated before following.
 
 Per-application AI artifacts:
 
@@ -283,6 +290,8 @@ AI gating rules:
 
 * `requireVerifiedEmail` blocks unverified users
 * `requireAiAccess` blocks users without free quota or Pro
+* Quota is consumed **only after successful AI completion** — failed or
+  invalid requests do not consume free uses
 
 ### Pro
 
