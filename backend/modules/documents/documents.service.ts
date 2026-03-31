@@ -425,6 +425,119 @@ export async function getCandidateTextOrThrow(args: {
 // ------------------ HELPER FUNCTIONS ------------------
 
 
+// ─── Generic tool helpers ─────────────────────────────────────────────────────
+
+/**
+ * Fetches and extracts text from the user's base resume.
+ * Used by generic document tools not tied to a specific application.
+ */
+export async function getBaseResumeTextOrThrow(userId: string): Promise<string> {
+  const doc = await getBaseResume(userId);
+
+  if (!doc) {
+    throw new AppError(
+      "No base resume found. Upload one in your Profile first.",
+      404,
+      "BASE_RESUME_NOT_FOUND"
+    );
+  }
+
+  const buffer = await downloadGcsObjectToBuffer({ storageKey: doc.storageKey });
+
+  const text = await extractTextFromBuffer({
+    buffer,
+    mimeType: doc.mimeType,
+    maxChars:  MAX_CANDIDATE_TEXT_CHARS,
+  });
+
+  if (doc.mimeType === "application/pdf" && text.length < MIN_PDF_EXTRACT_CHARS) {
+    throw new AppError(
+      "Could not extract meaningful text from your base resume PDF. Try a text-based PDF or upload a TXT file.",
+      400,
+      "BASE_RESUME_UNREADABLE"
+    );
+  }
+
+  return text;
+}
+
+/**
+ * Collects a readable stream into a Buffer.
+ * Used to buffer uploaded resume files before text extraction.
+ */
+export async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    stream.on("data",  (chunk: Buffer) => chunks.push(chunk));
+    stream.on("end",   () => resolve(Buffer.concat(chunks)));
+    stream.on("error", reject);
+  });
+}
+
+/**
+ * Uploads a one-off resume file for a generic tool run and stores it as a
+ * user-scoped Document (kind=RESUME, no jobApplicationId).
+ *
+ * The returned Document.id is stored in UserAiArtifact.sourceDocumentId so
+ * the user can see which resume version a result was based on.
+ */
+export async function uploadUserToolResume(args: {
+  userId:      string;
+  stream:      NodeJS.ReadableStream;
+  filename:    string;
+  mimeType:    string;
+  isTruncated: boolean;
+  signal?:     AbortSignal;
+}) {
+  const { userId, stream, filename, mimeType, isTruncated, signal } = args;
+
+  if (!isAllowedMimeType(mimeType)) {
+    throw new AppError(`Unsupported file type: ${mimeType}`, 400, "UNSUPPORTED_MIME_TYPE");
+  }
+
+  // Store under a dedicated path so it's clearly not a base resume or application doc
+  const id         = crypto.randomUUID();
+  const dot        = filename.lastIndexOf(".");
+  const ext        = dot !== -1 ? filename.slice(dot).toLowerCase() : "";
+  const safeExt    = ext.length > 0 && ext.length <= 10 ? ext : "";
+  const prefix     = (process.env.GCS_KEY_PREFIX ?? "").trim();
+  const base       = `users/${userId}/tool-resumes/${id}${safeExt}`;
+  const storageKey = prefix ? `${prefix}/${base}` : base;
+
+  const { sizeBytes } = await uploadStreamToGcs({
+    storageKey,
+    stream,
+    contentType: mimeType,
+    isTruncated,
+    signal,
+  });
+
+  if (signal?.aborted) {
+    await deleteGcsObject(storageKey);
+    throwIfAborted(signal);
+  }
+
+  try {
+    return await prisma.document.create({
+      data: {
+        userId,
+        jobApplicationId: null,   // user-scoped, not attached to an application
+        kind:             "RESUME",
+        storageKey,
+        originalName:     filename,
+        mimeType,
+        size:             sizeBytes,
+        url:              null,
+      },
+      select: documentSelect,
+    });
+  } catch (err) {
+    // DB failed after upload → clean up blob
+    await deleteGcsObject(storageKey);
+    throw err;
+  }
+}
+
 // Helper function to build a storage key for the base resume
 function buildBaseResumeStorageKey(userId: string, mimeType: string) {
   const ext = mimeType === "application/pdf" ? ".pdf" : mimeType === "text/plain" ? ".txt" : "";

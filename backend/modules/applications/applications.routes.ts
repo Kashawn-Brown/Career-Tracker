@@ -9,6 +9,8 @@ import { requireAiAccess } from "../../middleware/require-ai-access.js";
 import { AppError } from "../../errors/app-error.js";
 import * as DocumentsService from "../documents/documents.service.js";
 import * as AiService from "../ai/ai.service.js";
+import * as DocumentToolsService from "../ai/document-tools.service.js";
+import { AI_MODELS } from "../ai/openai.js";
 import { DocumentKind } from "@prisma/client";
 import { resolveAiTierForUser } from "../ai/ai-tier.js";
 import { createAbortControllerFromRawRequest, isAbortError, throwIfAborted } from "../../lib/request-abort.js";
@@ -379,6 +381,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
     
         const application = await ApplicationsService.getApplicationById(userId, id);
     
+        // JD_EXTRACT_V1: Extract the job description from the application.
         if (kind === "JD_EXTRACT_V1") {
           if (!application.description || application.description.trim().length === 0) {
             throw new AppError("Application is missing a job description.", 400);
@@ -400,6 +403,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
           return reply.status(201).send(artifact);
         }
     
+        // FIT_V1: Generate a fit of compatibility between the candidate and the job description.
         if (kind === "FIT_V1") {
           if (!application.description || application.description.trim().length === 0) {
             throw new AppError("Application is missing a job description.", 400);
@@ -434,6 +438,73 @@ export async function applicationsRoutes(app: FastifyInstance) {
           return reply.status(201).send(artifact);
         }
     
+        // RESUME_ADVICE: Generate resume advice for the candidate based on the job description and the candidate's resume.
+        if (kind === "RESUME_ADVICE") {
+          if (!application.description || application.description.trim().length === 0) {
+            throw new AppError("Application is missing a job description.", 400, "JOB_DESCRIPTION_MISSING");
+          }
+
+          const candidate = await DocumentsService.getCandidateTextOrThrow({
+            userId,
+            jobApplicationId: id,
+            sourceDocumentId,
+          });
+
+          const payload = await DocumentToolsService.buildTargetedResumeAdvice({
+            candidateText: candidate.text,
+            jdText:        application.description,
+            signal,
+          });
+
+          throwIfAborted(signal);
+
+          const artifact = await ApplicationsService.createAiArtifact({
+            userId,
+            jobApplicationId: id,
+            kind,
+            payload,
+            model:            AI_MODELS.RESUME_ADVICE,
+            sourceDocumentId: candidate.documentIdUsed,
+          });
+
+          return reply.status(201).send(artifact);
+        }
+
+        // COVER_LETTER: Generate a cover letter for the candidate based on the job description and the candidate's resume.
+        if (kind === "COVER_LETTER") {
+          if (!application.description || application.description.trim().length === 0) {
+            throw new AppError("Application is missing a job description.", 400, "JOB_DESCRIPTION_MISSING");
+          }
+
+          const candidate = await DocumentsService.getCandidateTextOrThrow({
+            userId,
+            jobApplicationId: id,
+            sourceDocumentId,
+          });
+
+          const { templateText } = req.body as GenerateAiArtifactBodyType;
+
+          const payload = await DocumentToolsService.buildTargetedCoverLetter({
+            candidateText: candidate.text,
+            jdText:        application.description,
+            templateText:  templateText ?? undefined,
+            signal,
+          });
+
+          throwIfAborted(signal);
+
+          const artifact = await ApplicationsService.createAiArtifact({
+            userId,
+            jobApplicationId: id,
+            kind,
+            payload,
+            model:            AI_MODELS.COVER_LETTER,
+            sourceDocumentId: candidate.documentIdUsed,
+          });
+
+          return reply.status(201).send(artifact);
+        }
+
         throw new AppError(`Unsupported AI artifact kind: ${kind}`, 400);
     
       } catch (err) {

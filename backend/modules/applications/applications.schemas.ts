@@ -276,14 +276,19 @@ export const ApplicationConnectionParams = Type.Object(
 export const AiArtifactKindSchema = Type.Union([
   Type.Literal("JD_EXTRACT_V1"),
   Type.Literal("FIT_V1"),
+  Type.Literal("RESUME_ADVICE"),
+  Type.Literal("COVER_LETTER"),
 ]);
 
 export const GenerateAiArtifactBody = Type.Object(
   {
     kind: AiArtifactKindSchema,
 
-    // Optional override document id for Phase E AI artifacts
+    // Optional override document id
     sourceDocumentId: Type.Optional(Type.Integer({ minimum: 1 })),
+
+    // Optional template text — used for COVER_LETTER targeted generation
+    templateText: Type.Optional(Type.String({ maxLength: 5000 })),
   },
   { additionalProperties: false }
 );

@@ -11,6 +11,8 @@ export const JobTypeSchema  = Type.Enum(JobType);
 export const AiArtifactKindSchema = Type.Union([
   Type.Literal("JD_EXTRACT_V1"),
   Type.Literal("FIT_V1"),
+  Type.Literal("RESUME_ADVICE"),
+  Type.Literal("COVER_LETTER"),
 ]);
 
 
@@ -101,6 +103,6 @@ export const ApplicationDraftResponse = Type.Object(
 );
 
 
-export type JdBodyType       = Static<typeof JdBody>;
-export type JobLinkBodyType  = Static<typeof JobLinkBody>;
+export type JdBodyType                   = Static<typeof JdBody>;
+export type JobLinkBodyType              = Static<typeof JobLinkBody>;
 export type ApplicationDraftResponseType = Static<typeof ApplicationDraftResponse>;
