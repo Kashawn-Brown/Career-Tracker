@@ -52,6 +52,7 @@ model User {
   connections    Connection[]
   documents       Document[]
   aiArtifacts     AiArtifact[]
+  userAiArtifacts UserAiArtifact[]
 
   authSessions    AuthSession[]
 
@@ -340,4 +341,36 @@ model AiArtifact {
   @@index([jobApplicationId])
   @@index([jobApplicationId, kind])
   @@map("ai_artifacts")
+}
+
+/**
+ * User-scoped AI artifact — for generic tools (resume advice, cover letter)
+ * that are not tied to a specific job application.
+ *
+ * resumeSource: "BASE_RESUME" | "UPLOAD"
+ * sourceDocumentId: Document.id of the uploaded resume (null for base resume runs)
+ *
+ * Capped at MAX_USER_ARTIFACTS_PER_KIND (3) per user per kind.
+ * Oldest is auto-deleted when the cap is exceeded.
+ */
+model UserAiArtifact {
+  id               String   @id @default(cuid())
+  userId           String
+
+  kind             String   // "RESUME_ADVICE" | "COVER_LETTER"
+  payload          Json
+  model            String
+
+  // Which resume was used for this run
+  resumeSource     String   // "BASE_RESUME" | "UPLOAD"
+  sourceDocumentId Int?     // Document.id if an uploaded resume was used
+
+  createdAt        DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, kind])
+  @@index([userId, kind, createdAt])
+  @@map("user_ai_artifacts")
 }
