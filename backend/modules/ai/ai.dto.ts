@@ -7,43 +7,59 @@ import { AI_MODELS } from "./openai.js";
 // ------------------- EXTRACT JOB DESCRIPTION -------------------
 
 /**
+ * Canonical source metadata attached to every draft response.
+ * Tells the frontend where the text came from and preserves the
+ * cleaned job-posting text for the created application's description.
+ */
+export type DraftSource = {
+  mode:            "TEXT" | "LINK";
+  canonicalJdText: string;
+  sourceUrl?:      string;
+};
+
+/**
  * Type for the application draft from a job description.
+ * Extended with `source` so the frontend always has canonical JD text
+ * regardless of whether the user pasted text or extracted from a URL.
  */
 export type ApplicationFromJdResponse = {
   extracted: {
-    company?: string;
-    position?: string;
+    company?:        string;
+    position?:       string;
 
-    location?: string;
+    location?:       string;
     locationDetails?: string;
 
-    workMode?: WorkMode;
+    workMode?:        WorkMode;
     workModeDetails?: string;
 
-    jobType?: JobType;
-    jobTypeDetails?: string;
+    jobType?:         JobType;
+    jobTypeDetails?:  string;
 
-    salaryText?: string;
-    salaryDetails?: string;
+    salaryText?:      string;
+    salaryDetails?:   string;
     
-    jobLink?: string;
-    tagsText?: string;
+    jobLink?:         string;
+    tagsText?:        string;
 
-    notes?: string[];
+    notes?:           string[];
   };
   ai: {
-    jdSummary: string;
-    warnings?: string[];
+    jdSummary:  string;
+    warnings?:  string[];
   };
+  source: DraftSource;
 };
 
 // Allow enums the backend actually supports.
 // We *prefer* omitting UNKNOWN, but we allow it in schema and normalize it out.
 const WORK_MODE_VALUES = Object.values(WorkMode);
-const JOB_TYPE_VALUES = Object.values(JobType);
+const JOB_TYPE_VALUES  = Object.values(JobType);
 
 /**
  * JSON object for the response of the POST /api/v1/ai/application-from-jd request.
+ * Note: `source` is NOT included here — it is attached by the service layer after
+ * AI extraction, not produced by the model itself.
  */
 export const ApplicationFromJdJsonObject = {
   type: "object",
@@ -70,32 +86,32 @@ export const ApplicationFromJdJsonObject = {
         "notes",
       ],
       properties: {
-        company: { type: ["string", "null"] },
+        company:  { type: ["string", "null"] },
         position: { type: ["string", "null"] },
 
-        location: { type: ["string", "null"] },
+        location:        { type: ["string", "null"] },
         locationDetails: { type: ["string", "null"] },
 
         workMode: {
-            anyOf: [
-                { type: "string", enum: WORK_MODE_VALUES },
-                { type: "null" },
-            ],
+          anyOf: [
+            { type: "string", enum: WORK_MODE_VALUES },
+            { type: "null" },
+          ],
         },
         workModeDetails: { type: ["string", "null"] },
 
         jobType: {
-        anyOf: [
+          anyOf: [
             { type: "string", enum: JOB_TYPE_VALUES },
             { type: "null" },
-        ],
+          ],
         },
         jobTypeDetails: { type: ["string", "null"] },
 
-        salaryText: { type: ["string", "null"] },
+        salaryText:    { type: ["string", "null"] },
         salaryDetails: { type: ["string", "null"] },
-        jobLink: { type: ["string", "null"] },
-        tagsText: { type: ["string", "null"] },
+        jobLink:       { type: ["string", "null"] },
+        tagsText:      { type: ["string", "null"] },
 
         notes: {
           anyOf: [
@@ -123,34 +139,79 @@ export const ApplicationFromJdJsonObject = {
   },
 } as const;
 
-// ------------ EXTRACT JOB DESCRIPTION HELPER FUNCTIONS ------------
 
-// Helper function to clean a string. (trim and remove empty strings)
+// ─── NORMALIZATION HELPERS ─────────────────────────────────────────────────────
+
+// Province/state full-name → abbreviation lookup.
+// Used to normalize model output like "Ontario" → "ON", "California" → "CA".
+const PROVINCE_STATE_ABBR: Record<string, string> = {
+  // Canadian provinces & territories
+  "alberta":                  "AB",
+  "british columbia":         "BC",
+  "manitoba":                 "MB",
+  "new brunswick":            "NB",
+  "newfoundland and labrador":"NL",
+  "newfoundland":             "NL",
+  "northwest territories":    "NT",
+  "nova scotia":              "NS",
+  "nunavut":                  "NU",
+  "ontario":                  "ON",
+  "prince edward island":     "PE",
+  "quebec":                   "QC",
+  "québec":                   "QC",
+  "saskatchewan":             "SK",
+  "yukon":                    "YT",
+  // US states
+  "alabama": "AL", "alaska": "AK", "arizona": "AZ", "arkansas": "AR",
+  "california": "CA", "colorado": "CO", "connecticut": "CT", "delaware": "DE",
+  "florida": "FL", "georgia": "GA", "hawaii": "HI", "idaho": "ID",
+  "illinois": "IL", "indiana": "IN", "iowa": "IA", "kansas": "KS",
+  "kentucky": "KY", "louisiana": "LA", "maine": "ME", "maryland": "MD",
+  "massachusetts": "MA", "michigan": "MI", "minnesota": "MN", "mississippi": "MS",
+  "missouri": "MO", "montana": "MT", "nebraska": "NE", "nevada": "NV",
+  "new hampshire": "NH", "new jersey": "NJ", "new mexico": "NM", "new york": "NY",
+  "north carolina": "NC", "north dakota": "ND", "ohio": "OH", "oklahoma": "OK",
+  "oregon": "OR", "pennsylvania": "PA", "rhode island": "RI", "south carolina": "SC",
+  "south dakota": "SD", "tennessee": "TN", "texas": "TX", "utah": "UT",
+  "vermont": "VT", "virginia": "VA", "washington": "WA", "west virginia": "WV",
+  "wisconsin": "WI", "wyoming": "WY",
+  "district of columbia": "DC",
+};
+
+// Tracking query params to strip from job links.
+const TRACKING_PARAMS = new Set([
+  "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
+  "fbclid", "gclid", "msclkid", "dclid", "ttclid",
+]);
+
+// Patterns that indicate a Job ID bullet (case-insensitive).
+// e.g. "Job ID: R260003457", "Req #: 71181", "Reference: P-1234"
+const JOB_ID_PATTERN = /^(?:job\s*(?:id|#|number|no\.?)|req(?:uisition)?\s*(?:id|#|number|no\.?)|reference\s*(?:id|#|number)?|posting\s*(?:id|#|number)?|job\s*code)\s*[:\-–]?\s*(.+)$/i;
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Trims, removes empty strings, and strips known placeholder values.
+ */
 function cleanString(v: unknown): string | undefined {
   if (typeof v !== "string") return undefined;
   const trimmed = v.trim();
   if (!trimmed.length) return undefined;
 
-  // Never allow placeholder strings into UI
   const lower = trimmed.toLowerCase();
   const banned = new Set([
-    "none",
-    "n/a",
-    "na",
-    "unknown",
-    "null",
-    "undefined",
+    "none", "n/a", "na", "unknown", "null", "undefined",
     "none indicated",
-    "other locations: none",
-    "other locations: n/a",
-    "other locations: null",
+    "other locations: none", "other locations: n/a", "other locations: null",
   ]);
   if (banned.has(lower)) return undefined;
 
   return trimmed;
 }
 
-// Helper function to clean an array of strings. (trim and remove empty strings)
+/**
+ * Cleans an array of strings — trims, removes empties, caps length.
+ */
 function cleanStringArray(v: unknown, max: number): string[] {
   if (!Array.isArray(v)) return [];
   return v
@@ -159,70 +220,249 @@ function cleanStringArray(v: unknown, max: number): string[] {
     .slice(0, max);
 }
 
-// Helper function to clean an enum. (trim and remove if not in allowed values)
+/**
+ * Cleans an enum value — trims and rejects if not in the allowed set.
+ */
 function cleanEnum<T extends string>(v: unknown, allowed: readonly T[]): T | undefined {
-    if (typeof v !== "string") return undefined;
-    const trimmed = v.trim() as T;
-    return allowed.includes(trimmed) ? trimmed : undefined;
-  }
+  if (typeof v !== "string") return undefined;
+  const trimmed = v.trim() as T;
+  return allowed.includes(trimmed) ? trimmed : undefined;
+}
 
+/**
+ * Normalizes tags text:
+ * - splits on comma / semicolon / newline
+ * - trims each token
+ * - deduplicates case-insensitively (keeps first occurrence's casing)
+ * - rejoins as ", "
+ */
 function normalizeTagsText(v: unknown): string | undefined {
   const raw = cleanString(v);
   if (!raw) return undefined;
 
-  const hasSemicolon = raw.includes(";");
+  const parts = raw
+    .split(/[;,\n]/g)
+    .map((x) => x.trim())
+    .filter(Boolean);
 
-  if (hasSemicolon) {
-    // Split on comma or semicolon, preserve original casing for each token
-    const parts = raw
-      .split(/[;,]/g)
-      .map((x) => x.trim())
-      .filter(Boolean);
+  if (!parts.length) return undefined;
 
-    if (!parts.length) return undefined;
-
-    return parts.join(", ");
+  // Dedupe case-insensitively, keep first-seen casing
+  const seen  = new Set<string>();
+  const deduped: string[] = [];
+  for (const p of parts) {
+    const key = p.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(p);
   }
 
-  return  raw;
+  return deduped.join(", ");
 }
-  
-  
+
+/**
+ * Normalizes a job link:
+ * - must start with http:// or https://
+ * - lowercases the host
+ * - strips fragment (#...)
+ * - strips known tracking query params (utm_*, fbclid, gclid, etc.)
+ * Returns undefined if the value is not a valid http/https URL.
+ */
+function normalizeJobLink(v: unknown): string | undefined {
+  const raw = cleanString(v);
+  if (!raw) return undefined;
+
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return undefined; // not a valid URL
+  }
+
+  if (url.protocol !== "http:" && url.protocol !== "https:") return undefined;
+
+  // Lowercase host
+  url.hostname = url.hostname.toLowerCase();
+
+  // Strip fragment
+  url.hash = "";
+
+  // Strip tracking params
+  for (const key of [...url.searchParams.keys()]) {
+    if (TRACKING_PARAMS.has(key.toLowerCase())) {
+      url.searchParams.delete(key);
+    }
+  }
+
+  return url.toString();
+}
+
+/**
+ * Normalizes a location string:
+ * - normalizes whitespace and comma spacing
+ * - expands province/state full names to abbreviations (Ontario → ON)
+ * - preserves "+N" patterns (e.g. "Toronto, ON +3")
+ * - does NOT guess or infer cities from abbreviations
+ */
+function normalizeLocation(v: unknown): string | undefined {
+  const raw = cleanString(v);
+  if (!raw) return undefined;
+
+  // Preserve "+N" suffix if present (e.g. "Toronto, Ontario +2")
+  const plusMatch = raw.match(/(\s*\+\d+\s*)$/);
+  const plusSuffix = plusMatch ? plusMatch[0].trim() : "";
+  const base = plusSuffix ? raw.slice(0, raw.length - plusMatch![0].length).trim() : raw;
+
+  // Split on commas, normalize each part
+  const parts = base.split(",").map((p) => {
+    const trimmed = p.trim();
+    const lower   = trimmed.toLowerCase();
+    // Expand to abbreviation if found in lookup
+    return PROVINCE_STATE_ABBR[lower] ?? trimmed;
+  });
+
+  // Rejoin with consistent ", " spacing
+  const normalized = parts.join(", ");
+
+  return plusSuffix ? `${normalized} ${plusSuffix}` : normalized;
+}
+
+/**
+ * Normalizes salary text:
+ * - expands "k" shorthand (80k → 80,000)
+ * - adds "$" prefix if missing
+ * - standardizes range separator to em-dash " – "
+ * - moves currency code to the end (e.g. "CAD $80,000" → "$80,000 CAD")
+ * - preserves "/hr" or "/hour" for hourly rates
+ * Conservative: if the value doesn't look like a salary, returns it cleaned but unchanged.
+ */
+function normalizeSalaryText(v: unknown): string | undefined {
+  const raw = cleanString(v);
+  if (!raw) return undefined;
+
+  // Detect hourly marker
+  const isHourly = /\/\s*h(?:ou?r?)?/i.test(raw);
+
+  // Extract currency code if present (3-letter code like CAD, USD, GBP)
+  const currencyMatch = raw.match(/\b([A-Z]{3})\b/);
+  const currency = currencyMatch ? currencyMatch[1] : null;
+
+  // Remove currency code from the string for processing
+  let working = currency ? raw.replace(new RegExp(`\\b${currency}\\b`, "g"), "").trim() : raw;
+
+  // Remove hourly suffix temporarily for processing
+  working = working.replace(/\/\s*h(?:ou?r?)?/i, "").trim();
+
+  // Remove stray leading/trailing symbols that are not part of numbers
+  working = working.replace(/^[$\s]+|[$\s]+$/g, "").trim();
+
+  // Expand "k" → "000" (e.g. "80k" → "80,000", "80.5k" → "80,500")
+  working = working.replace(/(\d+(?:\.\d+)?)\s*[kK]\b/g, (_, n) => {
+    const expanded = Math.round(parseFloat(n) * 1000);
+    return expanded.toLocaleString("en-US");
+  });
+
+  // Standardize range separator: -, —, –, " to " → " – "
+  working = working.replace(/\s*(?:–|—|-{1,2}|to)\s*/gi, " – ");
+
+  // Add "$" in front of each number group that doesn't already have it
+  working = working.replace(/(?<!\$)\b(\d[\d,]*(?:\.\d+)?)\b/g, (_, n) => `$${n}`);
+
+  // Reassemble
+  const parts: string[] = [working.trim()];
+  if (isHourly)          parts[0] += "/hr";
+  if (currency)          parts.push(currency);
+
+  return parts.join(" ").trim() || raw;
+}
+
+/**
+ * Normalizes the notes array:
+ * - deduplicates identical bullets (case-insensitive)
+ * - hoists any Job ID bullet to the front
+ * - caps at 20 items
+ */
+function normalizeNotes(v: unknown): string[] {
+  const raw = cleanStringArray(v, 40); // over-fetch before dedup/cap
+  if (!raw.length) return [];
+
+  // Dedup case-insensitively, keep first occurrence
+  const seen  = new Set<string>();
+  const deduped: string[] = [];
+  for (const note of raw) {
+    const key = note.toLowerCase().trim();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(note);
+  }
+
+  // Hoist Job ID bullet to the front if present
+  const jobIdIndex = deduped.findIndex((n) => JOB_ID_PATTERN.test(n));
+  if (jobIdIndex > 0) {
+    const [jobIdBullet] = deduped.splice(jobIdIndex, 1);
+    deduped.unshift(jobIdBullet);
+  }
+
+  return deduped.slice(0, 20);
+}
+
+/**
+ * Cleans raw JD text before using it as canonicalJdText:
+ * - strips non-breaking spaces and zero-width chars
+ * - collapses runs of 3+ blank lines down to a single blank line
+ * - trims leading/trailing whitespace
+ */
+export function cleanJdText(text: string): string {
+  return text
+    .replace(/[\u00A0\u200B\u200C\u200D\uFEFF]/g, " ") // non-breaking / zero-width → space
+    .replace(/\r\n/g, "\n")                              // normalize CRLF
+    .replace(/\r/g, "\n")                                // normalize CR
+    .replace(/\n{3,}/g, "\n\n")                          // collapse 3+ newlines → 2
+    .trim();
+}
+
 /**
  * Normalize the AI response so the UI doesn't get noisy values.
  * - trims strings
  * - strips UNKNOWN enums (we prefer "omit if unclear")
- * - caps array sizes
+ * - tightens tags, jobLink, location, salary, notes
  * - removes undefined keys
+ *
+ * `source` is attached by the service layer and passed through unchanged.
  */
-export function normalizeApplicationFromJdResponse(raw: ApplicationFromJdResponse): ApplicationFromJdResponse {
+export function normalizeApplicationFromJdResponse(
+  raw:    ApplicationFromJdResponse,
+  source: DraftSource,
+): ApplicationFromJdResponse {
   const extracted = raw.extracted ?? ({} as ApplicationFromJdResponse["extracted"]);
 
   const normalized: ApplicationFromJdResponse = {
     extracted: {
-      company: cleanString(extracted.company),
+      company:  cleanString(extracted.company),
       position: cleanString(extracted.position),
 
-      location: cleanString(extracted.location),
+      location:        normalizeLocation(extracted.location),
       locationDetails: cleanString(extracted.locationDetails),
 
-      workMode: cleanEnum(extracted.workMode, WORK_MODE_VALUES),
+      workMode:        cleanEnum(extracted.workMode, WORK_MODE_VALUES),
       workModeDetails: cleanString(extracted.workModeDetails),
 
-      jobType: cleanEnum(extracted.jobType, JOB_TYPE_VALUES),
+      jobType:        cleanEnum(extracted.jobType, JOB_TYPE_VALUES),
       jobTypeDetails: cleanString(extracted.jobTypeDetails),
 
-      salaryText: cleanString(extracted.salaryText),
+      salaryText:    normalizeSalaryText(extracted.salaryText),
       salaryDetails: cleanString(extracted.salaryDetails),
-      jobLink: cleanString(extracted.jobLink),
+
+      jobLink:  normalizeJobLink(extracted.jobLink),
       tagsText: normalizeTagsText(extracted.tagsText),
 
-      notes: cleanStringArray(extracted.notes, 20),
+      notes: normalizeNotes(extracted.notes),
     },
     ai: {
       jdSummary: cleanString(raw.ai?.jdSummary) ?? "(No summary provided)",
-      warnings: cleanStringArray(raw.ai?.warnings, 10) || undefined,
+      warnings:  cleanStringArray(raw.ai?.warnings, 10) || undefined,
     },
+    source,
   };
 
   // Remove undefined keys to keep the payload clean.
@@ -235,19 +475,18 @@ export function normalizeApplicationFromJdResponse(raw: ApplicationFromJdRespons
 }
 
 
-
-// ---------------- FIT_V1 ----------------
+// ─── FIT_V1 ────────────────────────────────────────────────────────────────────
 
 export type FitConfidence = "low" | "medium" | "high";
 
 export type FitV1Response = {
-  score: number; // 0–100
-  confidence: FitConfidence;
-  strengths: string[];
-  gaps: string[];
-  keywordGaps: string[];
+  score:            number; // 0–100
+  confidence:       FitConfidence;
+  strengths:        string[];
+  gaps:             string[];
+  keywordGaps:      string[];
   recommendedEdits: string[];
-  questionsToAsk: string[];
+  questionsToAsk:   string[];
 };
 
 export const FitV1JsonObject = {
@@ -263,30 +502,29 @@ export const FitV1JsonObject = {
     "questionsToAsk",
   ],
   properties: {
-    score: { type: "number" },
-    confidence: { type: "string", enum: ["low", "medium", "high"] },
-    strengths: { type: "array", items: { type: "string" }, maxItems: 7 },
-    gaps: { type: "array", items: { type: "string" }, maxItems: 7 },
-    keywordGaps: { type: "array", items: { type: "string" }, maxItems: 10 },
+    score:            { type: "number" },
+    confidence:       { type: "string", enum: ["low", "medium", "high"] },
+    strengths:        { type: "array", items: { type: "string" }, maxItems: 7 },
+    gaps:             { type: "array", items: { type: "string" }, maxItems: 7 },
+    keywordGaps:      { type: "array", items: { type: "string" }, maxItems: 10 },
     recommendedEdits: { type: "array", items: { type: "string" }, maxItems: 5 },
-    questionsToAsk: { type: "array", items: { type: "string" }, maxItems: 5 },
+    questionsToAsk:   { type: "array", items: { type: "string" }, maxItems: 5 },
   },
 } as const;
 
 
-// ------------ FIT_V1 HELPER FUNCTIONS ------------
+// ─── FIT_V1 HELPERS ────────────────────────────────────────────────────────────
 
 type FitVerbosity = "low" | "medium" | "high";
-type FitEffort = "low" | "medium" | "high" | "xhigh";
+type FitEffort    = "low" | "medium" | "high" | "xhigh";
 
 type FitPolicy = {
-  tier: AiTier;
-  model: string;
-  verbosity: FitVerbosity;
-  effort: FitEffort;
+  tier:            AiTier;
+  model:           string;
+  verbosity:       FitVerbosity;
+  effort:          FitEffort;
   maxOutputTokens: number;
 };
-
 
 /**
  * Output token budgets by plan.
@@ -301,64 +539,43 @@ const FIT_MAX_OUTPUT_TOKENS_BY_PLAN: Record<AiTier, number> = {
 /**
  * Returns the model/effort/verbosity config for a FIT_V1 run
  * based on the user's plan.
- *
- * Models are defined in openai.ts AI_MODELS.
  */
 export function getFitPolicyForPlan(plan: AiTier): FitPolicy {
   const maxOutputTokens = FIT_MAX_OUTPUT_TOKENS_BY_PLAN[plan] ?? 10_000;
 
   switch (plan) {
     case UserPlan.PRO_PLUS:
-      return {
-        tier:             plan,
-        model:            AI_MODELS.FIT_PRO_PLUS,
-        effort:           "high",
-        verbosity:        "high",
-        maxOutputTokens,
-      };
+      return { tier: plan, model: AI_MODELS.FIT_PRO_PLUS, effort: "high",   verbosity: "high",   maxOutputTokens };
     case UserPlan.PRO:
-      return {
-        tier:             plan,
-        model:            AI_MODELS.FIT_PRO,
-        effort:           "medium",
-        verbosity:        "medium",
-        maxOutputTokens,
-      };
+      return { tier: plan, model: AI_MODELS.FIT_PRO,      effort: "medium", verbosity: "medium", maxOutputTokens };
     case UserPlan.REGULAR:
     default:
-      return {
-        tier:             plan,
-        model:            AI_MODELS.FIT_REGULAR,
-        effort:           "low",
-        verbosity:        "low",
-        maxOutputTokens,
-      };
+      return { tier: plan, model: AI_MODELS.FIT_REGULAR,  effort: "low",    verbosity: "low",    maxOutputTokens };
   }
 }
 
 export type FitV1RunResult = {
   payload: FitV1Response;
-  model: string; // the model we actually requested
-  tier: AiTier;
+  model:   string;
+  tier:    AiTier;
 };
 
-// Helper: clamp score into 0–100 (and round)
+// Clamp score to 0–100
 function clampFitScore(v: unknown): number {
   const n = typeof v === "number" && Number.isFinite(v) ? v : 0;
   return Math.max(0, Math.min(100, Math.round(n)));
 }
 
-// Helper: normalize confidence with safe fallback
+// Normalize confidence with safe fallback
 function cleanFitConfidence(v: unknown): FitConfidence {
   if (v === "low" || v === "medium" || v === "high") return v;
   return "medium";
 }
 
-// Helper: dedupe (case-insensitive) while keeping order + cap
+// Dedupe case-insensitively while keeping order + cap
 function dedupeAndCap(items: string[], max: number): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
-
   for (const item of items) {
     const key = item.toLowerCase();
     if (seen.has(key)) continue;
@@ -366,30 +583,20 @@ function dedupeAndCap(items: string[], max: number): string[] {
     out.push(item);
     if (out.length >= max) break;
   }
-
   return out;
 }
 
 /**
- * Normalizes FIT_V1 output to be stable and UI-friendly:
- * - clamps score 0–100
- * - trims and removes empty strings
- * - dedupes obvious duplicates
- * - caps list sizes
+ * Normalizes FIT_V1 output — clamps score, dedupes, caps arrays.
  */
 export function normalizeFitV1Response(raw: FitV1Response): FitV1Response {
   return {
-    score: clampFitScore(raw.score),
-    confidence: cleanFitConfidence(raw.confidence),
-    strengths: dedupeAndCap(cleanStringArray(raw.strengths, 20), 7),
-    gaps: dedupeAndCap(cleanStringArray(raw.gaps, 20), 7),
-    keywordGaps: dedupeAndCap(cleanStringArray(raw.keywordGaps, 30), 12),
+    score:            clampFitScore(raw.score),
+    confidence:       cleanFitConfidence(raw.confidence),
+    strengths:        dedupeAndCap(cleanStringArray(raw.strengths,        20), 7),
+    gaps:             dedupeAndCap(cleanStringArray(raw.gaps,             20), 7),
+    keywordGaps:      dedupeAndCap(cleanStringArray(raw.keywordGaps,      30), 12),
     recommendedEdits: dedupeAndCap(cleanStringArray(raw.recommendedEdits, 20), 7),
-    questionsToAsk: dedupeAndCap(cleanStringArray(raw.questionsToAsk, 20), 5),
+    questionsToAsk:   dedupeAndCap(cleanStringArray(raw.questionsToAsk,   20), 5),
   };
 }
-
-
-
-
-
