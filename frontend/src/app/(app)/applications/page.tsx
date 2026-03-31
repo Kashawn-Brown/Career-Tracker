@@ -115,7 +115,7 @@ export default function ApplicationsPage() {
   const [reloadKey, setReloadKey] = useState(0);
 
   // Add mode: "manual" for manual application creation, "jd" for JD-based application creation (using AI)
-  const [addMode, setAddMode] = useState<"manual" | "jd">("manual");
+  const [addMode, setAddMode] = useState<"manual" | "jd">("jd");
 
 
   // Fetching applications when the page first mounts (& again whenever page or pageSize changes or reloadKey is changed)
@@ -616,19 +616,19 @@ export default function ApplicationsPage() {
                   <Button
                     type="button"
                     size="sm"
-                    variant={addMode === "manual" ? "secondary" : "outline"}
-                    onClick={() => setAddMode("manual")}
+                    variant={addMode === "jd" ? "secondary" : "outline"}
+                    onClick={() => setAddMode("jd")}
                   >
-                    Manual
+                    Via Job Description
                   </Button>
 
                   <Button
                     type="button"
                     size="sm"
-                    variant={addMode === "jd" ? "secondary" : "outline"}
-                    onClick={() => setAddMode("jd")}
+                    variant={addMode === "manual" ? "secondary" : "outline"}
+                    onClick={() => setAddMode("manual")}
                   >
-                    Via Job Description
+                    Manual
                   </Button>
                 </div>
                 
@@ -868,4 +868,3 @@ export default function ApplicationsPage() {
     </div>
   );
 }
-
