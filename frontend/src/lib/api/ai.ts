@@ -29,4 +29,56 @@ export const aiApi = {
       body: { url },
     });
   },
+
+  /**
+   * Generic resume advice. Sends multipart/form-data.
+   * resumeFile is optional — falls back to stored base resume if omitted.
+   */
+  resumeHelp(fields: {
+    targetField?:       string;
+    targetRolesText?:   string;
+    targetKeywords?:    string;
+    additionalContext?: string;
+    resumeFile?:        File | null;
+  }) {
+    const form = new FormData();
+    if (fields.targetField)       form.append("targetField",       fields.targetField);
+    if (fields.targetRolesText)   form.append("targetRolesText",   fields.targetRolesText);
+    if (fields.targetKeywords)    form.append("targetKeywords",    fields.targetKeywords);
+    if (fields.additionalContext) form.append("additionalContext", fields.additionalContext);
+    if (fields.resumeFile)        form.append("resumeFile",        fields.resumeFile);
+
+    return apiFetch<import("@/types/api").UserAiArtifact<import("@/types/api").ResumeAdvicePayload>>(
+      routes.ai.resumeHelp(),
+      { method: "POST", body: form }
+    );
+  },
+
+  /**
+   * Generic cover letter generation. Sends multipart/form-data.
+   * resumeFile is optional — falls back to stored base resume if omitted.
+   */
+  coverLetterHelp(fields: {
+    targetField?:       string;
+    targetRolesText?:   string;
+    targetCompany?:     string;
+    whyInterested?:     string;
+    templateText?:      string;
+    additionalContext?: string;
+    resumeFile?:        File | null;
+  }) {
+    const form = new FormData();
+    if (fields.targetField)       form.append("targetField",       fields.targetField);
+    if (fields.targetRolesText)   form.append("targetRolesText",   fields.targetRolesText);
+    if (fields.targetCompany)     form.append("targetCompany",     fields.targetCompany);
+    if (fields.whyInterested)     form.append("whyInterested",     fields.whyInterested);
+    if (fields.templateText)      form.append("templateText",      fields.templateText);
+    if (fields.additionalContext) form.append("additionalContext", fields.additionalContext);
+    if (fields.resumeFile)        form.append("resumeFile",        fields.resumeFile);
+
+    return apiFetch<import("@/types/api").UserAiArtifact<import("@/types/api").CoverLetterPayload>>(
+      routes.ai.coverLetterHelp(),
+      { method: "POST", body: form }
+    );
+  },
 };

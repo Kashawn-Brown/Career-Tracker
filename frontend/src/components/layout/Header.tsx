@@ -22,7 +22,8 @@ export function Header() {
 
   const navItems = [
     { label: "Applications", href: "/applications" },
-    { label: "Profile", href: "/profile" },
+    { label: "Tools",        href: "/tools" },
+    { label: "Profile",      href: "/profile" },
     ...(user && isAdminUser(user) ? [{ label: "Pro Requests", href: "/admin/pro-requests" }] : []),
     ...(user && isAdminUser(user) ? [{ label: "Users", href: "/admin/users" }] : []),
   ];

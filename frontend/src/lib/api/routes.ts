@@ -110,6 +110,16 @@ export const routes = {
   ai: {
     applicationFromJd:   () => "/ai/application-from-jd",
     applicationFromLink: () => "/ai/application-from-link",
+    resumeHelp:          () => "/ai/resume-help",
+    coverLetterHelp:     () => "/ai/cover-letter-help",
+  },
+  userAiArtifacts: {
+    list: (args?: { kind?: string }) => {
+      const base = "/user-ai-artifacts";
+      if (args?.kind) return `${base}?kind=${encodeURIComponent(args.kind)}`;
+      return base;
+    },
+    delete: (id: string) => `/user-ai-artifacts/${id}`,
   },
 
 } as const;

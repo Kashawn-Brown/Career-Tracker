@@ -499,7 +499,7 @@ export type ConnectionResponse = {
 
 // --- AI Artifacts DTOs: matches backend ---
 
-export type AiArtifactKind = "JD_EXTRACT_V1" | "FIT_V1";
+export type AiArtifactKind = "JD_EXTRACT_V1" | "FIT_V1" | "RESUME_ADVICE" | "COVER_LETTER";
 
 export type ApplicationDraftExtracted = {
   company?: string;
@@ -574,4 +574,39 @@ export type AiArtifact<TPayload = unknown> = {
   sourceDocumentName: string | null;
 
   createdAt: string;
+};
+
+// ─── Document tool payloads ───────────────────────────────────────────────────
+
+export type ResumeAdvicePayload = {
+  summary:               string;
+  strengths:             string[];
+  improvements:          string[];
+  tailoring:             string[];
+  rewrites:              string[];
+  keywords:              string[];
+};
+
+export type CoverLetterPayload = {
+  summary:      string;
+  draft:        string;
+  evidence:     string[];
+  notes:        string[];
+  placeholders: string[];
+};
+
+// ─── User-scoped AI artifacts (generic tools) ─────────────────────────────────
+
+export type UserAiArtifactKind = "RESUME_ADVICE" | "COVER_LETTER";
+export type ResumeSource       = "BASE_RESUME" | "UPLOAD";
+
+export type UserAiArtifact<TPayload = unknown> = {
+  id:               string;
+  userId:           string;
+  kind:             UserAiArtifactKind;
+  payload:          TPayload;
+  model:            string;
+  resumeSource:     ResumeSource;
+  sourceDocumentId: number | null;
+  createdAt:        string;
 };
