@@ -11,6 +11,8 @@ import { ApiError } from "@/lib/api/client";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { FitReport} from "@/components/applications/drawer/FitReport";
+import { ResumeAdviceCard } from "@/components/applications/drawer/ResumeAdviceCard";
+import { CoverLetterCard }  from "@/components/applications/drawer/CoverLetterCard";
 import { getFitBand } from "@/lib/fit/presentation";
 import { ProAccessBanner } from "@/components/pro/ProAccessBanner";
 import { RequestProDialog } from "@/components/pro/RequestProDialog";
@@ -250,6 +252,7 @@ export function ApplicationAiToolsSection({
       : "30%";
 
   return (
+    <div className="space-y-3">
     <Card className="p-4 space-y-3">
       {/* Error message */}
       {displayedError ? (
@@ -593,5 +596,24 @@ export function ApplicationAiToolsSection({
         </>
       )}
     </Card>
+
+      <ResumeAdviceCard
+        application={application}
+        baseResumeExists={baseResumeExists}
+        canUseAi={canUse}
+        onCloseOthers={onCloseOthers}
+        onRegisterClose={onRegisterClose}
+        onRefreshMe={() => void refreshMe()}
+      />
+
+      <CoverLetterCard
+        application={application}
+        baseResumeExists={baseResumeExists}
+        canUseAi={canUse}
+        onCloseOthers={onCloseOthers}
+        onRegisterClose={onRegisterClose}
+        onRefreshMe={() => void refreshMe()}
+      />
+    </div>
   );
 }

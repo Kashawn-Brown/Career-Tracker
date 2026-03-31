@@ -23,7 +23,9 @@ export function Header() {
   const navItems = [
     { label: "Applications", href: "/applications" },
     { label: "Tools",        href: "/tools" },
-    { label: "Profile",      href: "/profile" },
+    // { label: "Profile",      href: "/profile" },
+    { label: "About",        href: "/about" },
+    { label: "Docs",         href: "/docs" },
     ...(user && isAdminUser(user) ? [{ label: "Pro Requests", href: "/admin/pro-requests" }] : []),
     ...(user && isAdminUser(user) ? [{ label: "Users", href: "/admin/users" }] : []),
   ];
@@ -62,7 +64,7 @@ export function Header() {
         {/* Right: Greeting + badges + Logout */}
         <div className="flex items-center justify-end gap-3 sm:gap-4">
           <div className="hidden sm:flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Hey, {displayName}</span>
+            <span className="text-sm text-muted-foreground"><Link href="/profile">Hey, {displayName}</Link></span>
 
             {user && hasProPlan(getEffectivePlan(user)) && !isAdminUser(user) ? (
               <span className="rounded border px-2 py-0.5 text-[10px] font-semibold tracking-wide">
