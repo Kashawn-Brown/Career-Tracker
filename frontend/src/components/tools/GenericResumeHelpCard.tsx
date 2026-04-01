@@ -7,6 +7,7 @@ import { aiApi }             from "@/lib/api/ai";
 import { ResumeAdviceResult } from "@/components/tools/ResumeAdviceResult";
 import { ToolInfoPopover }   from "@/components/tools/ToolInfoPopover";
 import { TOOL_INFO }         from "@/lib/tool-info";
+import { PastRunsSection }   from "@/components/tools/PastRunsSection";
 import type { UserAiArtifact, ResumeAdvicePayload } from "@/types/api";
 
 // Accepted resume file types (matches backend allowlist)
@@ -91,6 +92,10 @@ export function GenericResumeHelpCard({ hasBaseResume, onSuccess }: Props) {
         </div>
       </div>
 
+      {/* ── Past runs — shown in collapsed state so users see previous results
+           without needing to open the form first. Up to 3 stored per user. */}
+      <PastRunsSection kind="RESUME_ADVICE" />
+
       {/* ── Expanded form ─────────────────────────────────────────────────*/}
       {expanded && (
         <div className="border-t px-5 pb-5 pt-4 space-y-4">
@@ -110,9 +115,11 @@ export function GenericResumeHelpCard({ hasBaseResume, onSuccess }: Props) {
               Resume
             </label>
             <div className="mt-1.5 space-y-1.5">
-              {hasBaseResume ? (
+              {resumeFile ? (
+                null
+              ) : hasBaseResume ? (
                 <p className="text-sm text-muted-foreground">
-                  Using your saved base resume.{" "}
+                  Will be using your saved base resume. Or you can {" "} 
                   <button
                     type="button"
                     className="text-foreground underline underline-offset-2"
@@ -120,7 +127,7 @@ export function GenericResumeHelpCard({ hasBaseResume, onSuccess }: Props) {
                   >
                     Upload a different one
                   </button>{" "}
-                  for this run.
+                  to use for this run.
                 </p>
               ) : (
                 <p className="text-sm text-amber-600 dark:text-amber-400">
@@ -148,10 +155,10 @@ export function GenericResumeHelpCard({ hasBaseResume, onSuccess }: Props) {
               />
               {resumeFile && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <span className="truncate">{resumeFile.name}</span>
+                  <span className="truncate hover:font-semibold">{resumeFile.name}</span>
                   <button
                     type="button"
-                    className="text-xs hover:text-foreground"
+                    className="text-xs hover:text-foreground hover:font-semibold hover:text-red-600"
                     onClick={() => {
                       setResumeFile(null);
                       if (fileInputRef.current) fileInputRef.current.value = "";

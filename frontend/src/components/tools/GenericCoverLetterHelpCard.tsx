@@ -7,6 +7,7 @@ import { aiApi }             from "@/lib/api/ai";
 import { CoverLetterResult } from "@/components/tools/CoverLetterResult";
 import { ToolInfoPopover }   from "@/components/tools/ToolInfoPopover";
 import { TOOL_INFO }         from "@/lib/tool-info";
+import { PastRunsSection }   from "@/components/tools/PastRunsSection";
 import type { UserAiArtifact, CoverLetterPayload } from "@/types/api";
 
 // Accepted file types — matches backend allowlist
@@ -119,6 +120,10 @@ export function GenericCoverLetterHelpCard({ hasBaseResume, onSuccess }: Props) 
         </div>
       </div>
 
+      {/* ── Past runs — shown in collapsed state so users see previous results
+           without needing to open the form first. Up to 3 stored per user. */}
+      <PastRunsSection kind="COVER_LETTER" />
+
       {/* ── Expanded form ─────────────────────────────────────────────────── */}
       {expanded && (
         <div className="border-t px-5 pb-5 pt-4 space-y-4">
@@ -138,17 +143,19 @@ export function GenericCoverLetterHelpCard({ hasBaseResume, onSuccess }: Props) 
               Resume
             </label>
             <div className="mt-1.5 space-y-1.5">
-              {hasBaseResume ? (
+              {resumeFile ? (
+                null
+              ) : hasBaseResume ? (
                 <p className="text-sm text-muted-foreground">
-                  Using your saved base resume.{" "}
+                  Will be using your saved base resume. Or you can {" "} 
                   <button
                     type="button"
                     className="text-foreground underline underline-offset-2"
                     onClick={() => resumeInputRef.current?.click()}
                   >
-                    Upload a different one
+                    upload a different one
                   </button>{" "}
-                  for this run.
+                  to use for this run.
                 </p>
               ) : (
                 <p className="text-sm text-amber-600 dark:text-amber-400">
@@ -176,10 +183,10 @@ export function GenericCoverLetterHelpCard({ hasBaseResume, onSuccess }: Props) 
               />
               {resumeFile && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <span className="truncate">{resumeFile.name}</span>
+                  <span className="truncate hover:font-semibold">{resumeFile.name}</span>
                   <button
                     type="button"
-                    className="text-xs hover:text-foreground"
+                    className="text-xs hover:text-foreground hover:font-semibold hover:text-red-600"
                     onClick={() => {
                       setResumeFile(null);
                       if (resumeInputRef.current) resumeInputRef.current.value = "";
@@ -192,10 +199,10 @@ export function GenericCoverLetterHelpCard({ hasBaseResume, onSuccess }: Props) 
             </div>
           </div>
 
-          <Field label="Target field / function"      placeholder="e.g. Software Engineering"              value={targetField}       onChange={setTargetField} />
-          <Field label="Target roles"                  placeholder="e.g. Backend Engineer, Full Stack"      value={targetRolesText}   onChange={setTargetRolesText} />
-          <Field label="Target company (optional)"     placeholder="e.g. Shopify"                           value={targetCompany}     onChange={setTargetCompany} />
-          <Field label="Why this type of role? (optional)" placeholder="What draws you to these kinds of roles?" value={whyInterested} onChange={setWhyInterested} />
+          <Field label="Target field / function"           placeholder="e.g. Software Engineering"               value={targetField}       onChange={setTargetField} />
+          <Field label="Target roles"                       placeholder="e.g. Backend Engineer, Full Stack"       value={targetRolesText}   onChange={setTargetRolesText} />
+          <Field label="Target company (optional)"          placeholder="e.g. Shopify"                            value={targetCompany}     onChange={setTargetCompany} />
+          <Field label="Why this type of role? (optional)"  placeholder="What draws you to these kinds of roles?" value={whyInterested}     onChange={setWhyInterested} />
 
           {/* Motivations — gives the AI personal detail beyond the resume */}
           <div>
@@ -211,7 +218,7 @@ export function GenericCoverLetterHelpCard({ hasBaseResume, onSuccess }: Props) 
             />
           </div>
 
-          <Field label="Additional context (optional)" placeholder="Anything else we should know…"          value={additionalContext} onChange={setAdditionalContext} />
+          <Field label="Additional context (optional)" placeholder="Anything else we should know…" value={additionalContext} onChange={setAdditionalContext} />
 
           {/* Template upload — user's existing cover letter or a template to build from */}
           <div>

@@ -189,7 +189,7 @@ export function ResumeAdviceCard({
           <div className="flex items-center gap-2 mt-5">
             <button
               type="button"
-              className={overrideFile ? "text-xs hover:font-semibold" : baseResumeExists ? "text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground" : "text-xs text-red-500 underline underline-offset-2 hover:font-semibold"}
+              className={overrideFile ? "text-xs hover:font-semibold" : baseResumeExists ? "text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground" : "text-xs text-red-600 underline underline-offset-2 hover:font-semibold"}
               onClick={() => overrideInputRef.current?.click()}
             >
               {overrideFile 
@@ -200,7 +200,7 @@ export function ResumeAdviceCard({
             {overrideFile && (
               <button
                 type="button"
-                className="text-xs text-muted-foreground hover:font-semibold hover:text-red-500"
+                className="text-xs text-muted-foreground hover:font-semibold hover:text-red-600"
                 onClick={() => {
                   setOverrideFile(null);
                   if (overrideInputRef.current) overrideInputRef.current.value = "";
