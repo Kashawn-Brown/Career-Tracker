@@ -639,7 +639,7 @@ export function ApplicationDetailsDrawer({
         }}
       >
         <SheetHeader>
-          <SheetTitle>{title}</SheetTitle>
+          <SheetTitle className="mr-4">{title}</SheetTitle>
           <SheetDescription>
             {application && draft
               ? (

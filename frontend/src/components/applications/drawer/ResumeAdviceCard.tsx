@@ -105,10 +105,10 @@ export function ResumeAdviceCard({
   }
 
   return (
-    <Card className="p-4 space-y-3">
+    <Card className="p-4">
       {/* ── Card header — always visible ───────────────────────────────── */}
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+        <div className="min-w-0 mb-2">
           <div className="text-sm font-medium">Resume Advice</div>
           <div className="text-xs text-muted-foreground mt-0.5">
             Evaluate and get advice on improving your resume for this specific role.

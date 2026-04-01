@@ -202,10 +202,10 @@ export function CompatibilityCheckCard({
   }
 
   return (
-    <Card className="p-4 space-y-3">
+    <Card className="p-4">
       {/* ── Card header ────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+        <div className="min-w-0 mb-2">
           <div className="text-sm font-medium">Compatibility Check</div>
           <div className="text-xs text-muted-foreground mt-0.5">
             See how well you line up with this role as a candidate.
@@ -335,19 +335,19 @@ export function CompatibilityCheckCard({
 
                   {p.strengths?.[0] && (
                     <div>
-                      <div className="text-xs font-medium mb-1 text-muted-foreground uppercase tracking-wide">Strengths</div>
+                      <div className="text-xs font-medium mb-1 uppercase tracking-wide">Strengths</div>
                       <div className="text-sm text-muted-foreground">{p.strengths[0]}</div>
                     </div>
                   )}
 
                   {p.gaps?.[0] && (
                     <div>
-                      <div className="text-xs font-medium mb-1 text-muted-foreground uppercase tracking-wide">Gaps</div>
+                      <div className="text-xs font-medium mb-1 uppercase tracking-wide">Gaps</div>
                       <div className="text-sm text-muted-foreground">{p.gaps[0]}</div>
                     </div>
                   )}
 
-                  <div className="flex items-center gap-2 pt-1 border-t">
+                  <div className="flex items-center gap-2 pt-1">
                     <Button variant="outline" size="sm"
                       onClick={() => { setIsDetailsOpen(true); onCloseOthers?.(); }}>
                       See full report
@@ -424,9 +424,9 @@ export function CompatibilityCheckCard({
                 <div className="text-xs text-muted-foreground">
                   {isLoadingLatest
                     ? "Loading latest result…"
-                    : !fitArtifact
-                    ? "No result yet. Run the tool to generate one."
-                    : "A previous result exists — running again replaces it."}
+                    : fitArtifact
+                    ? "A previous result exists — running again replaces it."
+                    : null}
                 </div>
               </div>
             </>
