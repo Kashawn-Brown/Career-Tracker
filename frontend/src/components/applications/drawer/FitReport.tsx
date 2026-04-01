@@ -99,9 +99,12 @@ export function FitReport({
 
   const createdAtLabel = (() => {
     const d = new Date(artifact.createdAt);
+
+    // return the date in the format of "Jan 1, 2025 at 12:00 PM"
     if (Number.isNaN(d.getTime())) return null;
-    return d.toLocaleString();
+    return d.toLocaleString(undefined, { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
   })();
+
 
   return (
     <>

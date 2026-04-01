@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Button }            from "@/components/ui/button";
-import { Card }              from "@/components/ui/card";
-import { ApiError }          from "@/lib/api/client";
-import { applicationsApi }   from "@/lib/api/applications";
-import { ResumeAdviceResult } from "@/components/tools/ResumeAdviceResult";
+import { Button }              from "@/components/ui/button";
+import { Card }                from "@/components/ui/card";
+import { ApiError }            from "@/lib/api/client";
+import { applicationsApi }     from "@/lib/api/applications";
+import { ResumeAdviceReport }  from "@/components/applications/drawer/ResumeAdviceReport";
 import type { Application, AiArtifact, ResumeAdvicePayload } from "@/types/api";
 
-// Accepted file types for resume override — PDF, plain text, and Word docs
+// Accepted file types for resume override
 const RESUME_ACCEPT = ".pdf,.txt,.docx";
 
 interface Props {
@@ -33,34 +33,35 @@ export function ResumeAdviceCard({
   const [loadingLatest, setLoadingLatest] = useState(false);
 
   // Generation state
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState<string | null>(null);
+  const [loading,     setLoading]     = useState(false);
+  const [error,       setError]       = useState<string | null>(null);
+  const [isRerunMode, setIsRerunMode] = useState(false);
 
-  // Result panel open/close
-  const [isOpen, setIsOpen] = useState(false);
+  // Report panel open/close
+  const [isReportOpen, setIsReportOpen] = useState(false);
 
   // Per-tool resume override — independent of the Fit card's override
   const [overrideFile, setOverrideFile] = useState<File | null>(null);
   const overrideInputRef                = useRef<HTMLInputElement>(null);
 
-  // Guards against stale setState after unmount or application switch
+  // Prevent stale setState after unmount or application switch
   const mountedRef = useRef(true);
   useEffect(() => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
   }, [application.id]);
 
-  // Register close handler so the parent can collapse this panel
-  // when another panel opens (mutual-close pattern)
+  // Register close handler — collapses the report panel when another panel opens
   useEffect(() => {
-    onRegisterClose?.(() => setIsOpen(false));
+    onRegisterClose?.(() => setIsReportOpen(false));
   }, [onRegisterClose]);
 
   // Load the latest RESUME_ADVICE artifact when the application changes
   useEffect(() => {
     let cancelled = false;
     setArtifact(null);
-    setIsOpen(false);
+    setIsReportOpen(false);
+    setIsRerunMode(false);
     setLoadingLatest(true);
 
     applicationsApi
@@ -74,10 +75,11 @@ export function ResumeAdviceCard({
     return () => { cancelled = true; };
   }, [application.id]);
 
-  const hasJd      = Boolean(application.description?.trim());
-  // Resume is ready if the user has an override file for this run OR a base resume saved
+  const hasJd       = Boolean(application.description?.trim());
   const resumeReady = overrideFile ? true : baseResumeExists;
   const canRun      = hasJd && resumeReady && canUseAi && !loading;
+
+  const jobLabel = [application.position, application.company].filter(Boolean).join(" at ");
 
   async function handleGenerate() {
     if (!canRun) return;
@@ -91,7 +93,9 @@ export function ResumeAdviceCard({
 
       if (mountedRef.current) {
         setArtifact(result as AiArtifact<ResumeAdvicePayload>);
-        setIsOpen(true);
+        setIsRerunMode(false);
+        // Auto-open the report after a successful generation
+        setIsReportOpen(true);
         onCloseOthers?.();
         onRefreshMe();
       }
@@ -108,10 +112,10 @@ export function ResumeAdviceCard({
     <Card className="p-4">
       {/* ── Card header — always visible ───────────────────────────────── */}
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 mb-2">
+        <div className="min-w-0">
           <div className="text-sm font-medium">Resume Advice</div>
           <div className="text-xs text-muted-foreground mt-0.5">
-            Evaluate and get advice on improving your resume for this specific role.
+            Evaluate and improve your resume for this specific role.
           </div>
         </div>
         {loadingLatest && (
@@ -119,77 +123,111 @@ export function ResumeAdviceCard({
         )}
       </div>
 
-      {/* ── Resume override ────────────────────────────────────────────────
-           Each tool manages its own override so the user can use different
-           resume versions for Fit vs Resume Advice independently.           */}
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
-          onClick={() => overrideInputRef.current?.click()}
-        >
-          {overrideFile ? `Resume: ${overrideFile.name}` : "Use a different resume"}
-        </button>
-        {overrideFile && (
-          <button
-            type="button"
-            className="text-xs text-muted-foreground hover:text-foreground"
-            onClick={() => {
-              setOverrideFile(null);
-              if (overrideInputRef.current) overrideInputRef.current.value = "";
-            }}
-          >
-            ✕
-          </button>
-        )}
-        <input
-          ref={overrideInputRef}
-          type="file"
-          accept={RESUME_ACCEPT}
-          className="hidden"
-          onChange={(e) => setOverrideFile(e.target.files?.[0] ?? null)}
-        />
-      </div>
-
       {error && <p className="text-sm text-destructive">{error}</p>}
 
-      {/* ── Artifact summary preview ───────────────────────────────────────
-           Shows the summary of the last run so the user knows a result
-           exists without needing to expand it first.                        */}
-      {artifact && !isOpen && (
-        <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground line-clamp-2">
-          {artifact.payload.summary}
-        </div>
-      )}
+      {/* ── Result-first view — shown when advice exists ─────────────────
+           Mirrors how CompatibilityCheckCard shows the result summary
+           without prompting the user to generate again.                     */}
+      {artifact && !isRerunMode ? (
+        <>
+          {/* Summary — gives a quick sense of what the advice covers */}
+          <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+            <span className="text-foreground/80 font-medium">
+              A resume alignment report has been generated with resume tailoring advice based this role. 
+            </span>
+            
+            <br/><br/>
 
-      {/* ── Action buttons ────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 pt-2 border-t space-y-2">
-        {artifact && (
-          <Button
-            variant="outline"
-            onClick={() => {
-              setIsOpen((v) => !v);
-              if (!isOpen) onCloseOthers?.();
-            }}
-          >
-            {isOpen ? "Hide" : "View advice"}
-          </Button>
-        )}
-        <Button
-          variant={artifact ? "outline" : "default"}
-          disabled={!canRun}
-          onClick={handleGenerate}
-          className={artifact ? "" : "w-full"}
-        >
-          {loading ? "Generating…" : artifact ? "Regenerate" : "Get resume advice"}
-        </Button>
-      </div>
+            {artifact.payload.summary}
 
-      {/* ── Expanded result ───────────────────────────────────────────── */}
-      {isOpen && artifact && (
-        <div className="border-t pt-3">
-          <ResumeAdviceResult payload={artifact.payload} />
-        </div>
+            <div className="flex items-center gap-2 pt-4">
+              <Button
+                size="sm"
+                onClick={() => {
+                  setIsReportOpen(true);
+                  onCloseOthers?.();
+                }}
+              >
+                See full report
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setError(null);
+                  setIsRerunMode(true);
+                }}
+              >
+                Re-evaluate
+              </Button>
+            </div>
+          </div>
+
+          
+
+          {/* Report panel — center panel like FitReport */}
+          <ResumeAdviceReport
+            open={isReportOpen}
+            onOpenChange={setIsReportOpen}
+            artifact={artifact}
+            jobLabel={jobLabel}
+          />
+        </>
+      ) : (
+        /* ── Generate / re-run mode ─────────────────────────────────────── */
+        <>
+          {/* Resume override */}
+          <div className="flex items-center gap-2 mt-5">
+            <button
+              type="button"
+              className={overrideFile ? "text-xs hover:font-semibold" : baseResumeExists ? "text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground" : "text-xs text-red-500 underline underline-offset-2 hover:font-semibold"}
+              onClick={() => overrideInputRef.current?.click()}
+            >
+              {overrideFile 
+              ? `Resume file: ${overrideFile.name}` 
+              : baseResumeExists ? "(Optional) Upload a different resume to use" 
+              : "A resume is needed to evaluate. Click to upload one now."}
+            </button>
+            {overrideFile && (
+              <button
+                type="button"
+                className="text-xs text-muted-foreground hover:font-semibold hover:text-red-500"
+                onClick={() => {
+                  setOverrideFile(null);
+                  if (overrideInputRef.current) overrideInputRef.current.value = "";
+                }}
+              >
+                ✕
+              </button>
+            )}
+            <input
+              ref={overrideInputRef}
+              type="file"
+              accept={RESUME_ACCEPT}
+              className="hidden"
+              onChange={(e) => setOverrideFile(e.target.files?.[0] ?? null)}
+            />
+          </div>
+
+          <div className="flex items-center gap-2 pt-2 border-t">
+            <Button
+              disabled={!canRun}
+              onClick={handleGenerate}
+              className={isRerunMode ? "" : "w-full"}
+            >
+              {loading ? "Generating…" : "Get resume advice"}
+            </Button>
+            {/* Cancel re-run mode */}
+            {isRerunMode && (
+              <Button
+                variant="outline"
+                onClick={() => { setError(null); setIsRerunMode(false); }}
+              >
+                Cancel
+              </Button>
+            )}
+          </div>
+        </>
       )}
     </Card>
   );

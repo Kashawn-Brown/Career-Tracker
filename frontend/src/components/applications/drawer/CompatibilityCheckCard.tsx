@@ -205,7 +205,7 @@ export function CompatibilityCheckCard({
     <Card className="p-4">
       {/* ── Card header ────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 mb-2">
+        <div className="min-w-0">
           <div className="text-sm font-medium">Compatibility Check</div>
           <div className="text-xs text-muted-foreground mt-0.5">
             See how well you line up with this role as a candidate.
@@ -346,9 +346,10 @@ export function CompatibilityCheckCard({
                       <div className="text-sm text-muted-foreground">{p.gaps[0]}</div>
                     </div>
                   )}
+                  {/* Eventually show a summary here instead of strengths and gaps*/}
 
-                  <div className="flex items-center gap-2 pt-1">
-                    <Button variant="outline" size="sm"
+                  <div className="flex items-center gap-2 pt-1 text-muted-foreground">
+                    <Button size="sm"
                       onClick={() => { setIsDetailsOpen(true); onCloseOthers?.(); }}>
                       See full report
                     </Button>
@@ -372,21 +373,22 @@ export function CompatibilityCheckCard({
           ) : (
             /* ── Run mode (no result yet, or user hit Re-run) ─────────── */
             <>
-              {/* Resume override — uniform style matching other tool cards */}
-              <div className="flex items-center gap-2">
+              {/* Resume override */}
+              <div className="flex items-center gap-2 mt-5">
                 <button
                   type="button"
-                  className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                  className={overrideFile ? "text-xs hover:font-semibold" : baseResumeExists ? "text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground" : "text-xs text-red-500 underline underline-offset-2 hover:font-semibold"}
                   onClick={() => overrideInputRef.current?.click()}
                 >
                   {overrideFile
-                    ? `Resume: ${overrideFile.name}`
-                    : "Use a different resume"}
+                    ? `Resume file: ${overrideFile.name}`
+                    : baseResumeExists ? "(Optional) Upload a different resume to use"
+                    : "A resume is needed to run a compatibility check. Click to upload one now."}
                 </button>
                 {overrideFile && (
                   <button
                     type="button"
-                    className="text-xs text-muted-foreground hover:text-foreground"
+                    className="text-xs text-muted-foreground hover:font-semibold hover:text-red-500"
                     onClick={() => {
                       setOverrideFile(null);
                       if (overrideInputRef.current) overrideInputRef.current.value = "";
