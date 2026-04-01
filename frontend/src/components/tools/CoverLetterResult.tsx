@@ -39,12 +39,14 @@ export function CoverLetterResult({ payload }: Props) {
       <div>
         <div className="mb-2 flex items-center justify-between">
           <h4 className="font-medium text-foreground">Draft</h4>
-          <Button variant="outline" size="sm" onClick={handleCopy}>
-            {copied ? "Copied!" : "Copy"}
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleDownload} disabled={downloading}>
-            {downloading ? "Generating…" : "Download .docx"}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" onClick={handleDownload} disabled={downloading}>
+              {downloading ? "Generating…" : "Download .docx"}
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleCopy}>
+              {copied ? "Copied!" : "Copy"}
+            </Button>
+          </div>
         </div>
         <div className="rounded-md border bg-muted/40 p-4">
           <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground">

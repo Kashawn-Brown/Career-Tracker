@@ -126,7 +126,7 @@ export function CoverLetterReport({ open, onOpenChange, artifact, jobLabel }: Pr
             {/* Primary actions — Download is the main CTA */}
             <div className="flex items-center gap-2 justify-end">
               <Button onClick={handleDownload} disabled={downloading}>
-                {downloading ? "Generating…" : "Download"}
+                {downloading ? "Generating…" : "Download .docx"}
               </Button>
               <Button variant="outline" onClick={handleCopy}>
                 {copying ? "Copied!" : "Copy text"}
