@@ -1,5 +1,8 @@
 "use client";
 
+import { ToolInfoPopover } from "@/components/tools/ToolInfoPopover";
+import { TOOL_INFO }       from "@/lib/tool-info";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { applicationsApi } from "@/lib/api/applications";
 import type { Application, AiArtifact, FitV1Payload } from "@/types/api";
@@ -211,6 +214,12 @@ export function CompatibilityCheckCard({
             See how well you line up with this role as a candidate.
           </div>
         </div>
+        {/* ? button — explains what the tool does and what inputs it needs */}
+        <ToolInfoPopover
+          title={TOOL_INFO.COMPATIBILITY_CHECK.title}
+          content={TOOL_INFO.COMPATIBILITY_CHECK.content}
+          popoverContentClassName="w-80 p-4 text-sm space-y-1.5"
+        />
       </div>
 
       {/* ── Error message ─────────────────────────────────────────────── */}

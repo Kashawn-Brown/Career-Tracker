@@ -14,26 +14,28 @@ export const TOOL_INFO = {
       title: "Compatibility Check",
       content:
         "This tool analyses how well your profile lines up with the job based on " +
-        "the application's job description and your resume.\n\n" +
+        "the application's job description and your resume / CV.\n\n" +
         "It produces a match score (0–100), a fit label, and a breakdown of your " +
         "strengths and gaps relative to what the role requires.\n\n" +
         "By default it uses your saved base resume. You can optionally upload a " +
-        "different resume file for this specific run — that file will be attached " +
-        "to the application so you can reference it later.\n\n" +
-        "A job description must be present on this application for the tool to run.",
+        "different resume file for this specific run. That file will be attached " +
+        "to the application so you can reference it later. \n\n" +
+        "For best results you can consider using a full CV covering all of your skills, experience, projects and achievements.\n\n" +
+        "A job description must be present on this application for the tool to run. The tool will only use the job description and your resume / CV to generate the report.",
     },
   
     RESUME_ADVICE: {
       title: "Resume Advice",
       content:
         "This tool reviews your resume in the context of this specific job and " +
-        "gives you targeted, actionable advice to improve it for the role.\n\n" +
+        "gives you targeted, actionable advice to improve and tailor it for the role.\n\n" +
         "It covers what you should emphasise, what gaps exist, what keywords are " +
         "worth covering, and specific directional rewrites — without inventing " +
-        "experience you don't have.\n\n" +
+        "experiences you don't have.\n\n" +
         "By default it uses your saved base resume. You can upload a different " +
         "resume for this run and it will be attached to the application.\n\n" +
-        "A job description must be present on this application for the tool to run.",
+        "A job description must be present on this application for the tool to run.\n\n" + 
+        "For generic resume advice targetted to your field, use the resume help tool on the Tools page.",
     },
   
     COVER_LETTER: {
@@ -43,9 +45,9 @@ export const TOOL_INFO = {
         "using your resume and the job description.\n\n" +
         "The draft is grounded only in facts from your resume — it will never " +
         "invent experience or company details that aren't there. Placeholders " +
-        "like [Hiring Manager Name] mark spots you'll need to fill in personally.\n\n" +
+        "mark spots you'll need to fill in personally.\n\n" +
         "You can optionally upload an existing cover letter or template (.txt or .docx) " +
-        "and the AI will build on its structure and tone instead of starting from scratch.\n\n" +
+        "and we will build on its structure and tone instead of starting from scratch.\n\n" +
         "By default it uses your saved base resume. You can upload a different " +
         "resume for this run and it will be attached to the application.\n\n" +
         "A job description must be present on this application for the tool to run.",

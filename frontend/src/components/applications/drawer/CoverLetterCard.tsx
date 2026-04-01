@@ -1,5 +1,8 @@
 "use client";
 
+import { ToolInfoPopover } from "@/components/tools/ToolInfoPopover";
+import { TOOL_INFO }       from "@/lib/tool-info";
+
 import { useEffect, useRef, useState } from "react";
 import { Button }              from "@/components/ui/button";
 import { Card }                from "@/components/ui/card";
@@ -149,9 +152,15 @@ export function CoverLetterCard({
             Generate a tailored draft cover letter for this role.
           </div>
         </div>
-        {loadingLatest && (
-          <span className="shrink-0 text-xs text-muted-foreground">Loading…</span>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          {loadingLatest && <span className="text-xs text-muted-foreground">Loading…</span>}
+          {/* ? button — explains what the tool does and what inputs it needs */}
+          <ToolInfoPopover
+            title={TOOL_INFO.COVER_LETTER.title}
+            content={TOOL_INFO.COVER_LETTER.content}
+            popoverContentClassName="w-80 p-4 text-sm space-y-1.5"
+          />
+        </div>
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}

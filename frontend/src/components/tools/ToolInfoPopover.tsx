@@ -8,8 +8,9 @@ import {
 } from "@/components/ui/popover";
 
 interface Props {
-  title:   string;
+  title: string;
   content: string; // plain-text explanation shown in the popover
+  popoverContentClassName?: string; // allow override of PopoverContent className, e.g. w-80
 }
 
 /**
@@ -18,8 +19,11 @@ interface Props {
  *
  * Used in every tool card header (Tools page + drawer) so users can
  * learn more without cluttering the card UI itself.
+ *
+ * Pass `popoverContentClassName` prop to override the default className
+ * on <PopoverContent />, for example: "w-80 p-4 text-sm space-y-1.5"
  */
-export function ToolInfoPopover({ title, content }: Props) {
+export function ToolInfoPopover({ title, content, popoverContentClassName }: Props) {
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -32,7 +36,14 @@ export function ToolInfoPopover({ title, content }: Props) {
         </button>
       </PopoverTrigger>
 
-      <PopoverContent className="w-96 p-4 text-sm space-y-1.5" align="end">
+      <PopoverContent
+        className={
+          popoverContentClassName
+            ? popoverContentClassName
+            : "w-96 p-4 text-sm space-y-1.5"
+        }
+        align="end"
+      >
         <div className="font-medium text-foreground">{title}</div>
         {/* Render each newline-separated paragraph as its own block */}
         {content.split("\n\n").map((para, i) => (
