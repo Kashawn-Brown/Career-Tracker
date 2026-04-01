@@ -128,7 +128,7 @@ export function ResumeAdviceCard({
           className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
           onClick={() => overrideInputRef.current?.click()}
         >
-          {overrideFile ? `Resume: ${overrideFile.name}` : "Use a different resume (optional)"}
+          {overrideFile ? `Resume: ${overrideFile.name}` : "Use a different resume"}
         </button>
         {overrideFile && (
           <button

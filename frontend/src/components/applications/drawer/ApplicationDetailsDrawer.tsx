@@ -324,8 +324,7 @@ export function ApplicationDetailsDrawer({
   const baseResumeId = baseResume ? Number(baseResume.id) : null;
 
 
-  const [useAiOverride, setUseAiOverride] = useState(false);
-  const [aiOverrideFile, setAiOverrideFile] = useState<File | null>(null);
+
 
   // Docking style for the document preview
   const [previewDockedStyle, setPreviewDockedStyle] = useState<CSSProperties | null>(null);
@@ -398,19 +397,7 @@ export function ApplicationDetailsDrawer({
   }, [open]);
   
 
-  // Resets the AI override state when the application changes
-  useEffect(() => {
-    setUseAiOverride(false);
-    setAiOverrideFile(null);
-  }, [application?.id]);
 
-  // Reset the AI override state when the drawer is closed
-  useEffect(() => {
-    if (!open) {
-      setUseAiOverride(false);
-      setAiOverrideFile(null);
-    }
-  }, [open]);
 
   // Starts the edit mode.
   function startEdit() {
@@ -1127,13 +1114,7 @@ export function ApplicationDetailsDrawer({
                 fitRuns={fitRuns}
                 baseResumeExists={baseResumeExists} 
                 baseResumeId={baseResumeId}
-                useOverride={useAiOverride}
-                overrideFile={aiOverrideFile}
-                onToggleOverride={(checked) => {
-                  setUseAiOverride(checked);
-                  if (!checked) setAiOverrideFile(null);
-                }}
-                onOverrideFile={setAiOverrideFile}
+
                 onDocumentsChanged={(applicationId) => {
                   setDocsReloadKey((k) => k + 1);      // refresh drawer docs list
                   onDocumentsChanged?.(applicationId); // refresh main table

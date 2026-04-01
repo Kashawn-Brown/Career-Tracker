@@ -10,9 +10,10 @@ import type { Application, AiArtifact, CoverLetterPayload } from "@/types/api";
 
 // Resumes accept PDF, TXT, and DOCX (backend extracts text from all three)
 const RESUME_ACCEPT   = ".pdf,.txt,.docx";
-// Template files: TXT only — client-side text reading via FileReader.
-// DOCX template support requires a browser-side DOCX parser (future improvement).
-const TEMPLATE_ACCEPT = ".txt";
+// Template files: TXT and DOCX — both editable cover letter formats.
+// PDF is intentionally excluded (it's a final-output format, not a working document).
+// TXT is read via FileReader; DOCX is extracted via mammoth (browser build).
+const TEMPLATE_ACCEPT = ".txt,.docx";
 
 interface Props {
   application:      Application;
@@ -81,19 +82,30 @@ export function CoverLetterCard({
     return () => { cancelled = true; };
   }, [application.id]);
 
-  // When the user selects a template file, read it as text client-side.
-  // The extracted text is then sent as a string to the existing JSON endpoint.
-  function handleTemplateFile(file: File | null) {
+  // When the user selects a template file, extract its text client-side.
+  // TXT files use the native FileReader API.
+  // DOCX files use mammoth's browser build to extract plain text.
+  // The extracted string is sent to the backend as the templateText field.
+  async function handleTemplateFile(file: File | null) {
     setTemplateFile(file);
     setTemplateText("");
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = typeof e.target?.result === "string" ? e.target.result : "";
-      setTemplateText(text);
-    };
-    reader.readAsText(file);
+    if (file.name.toLowerCase().endsWith(".docx")) {
+      // mammoth.extractRawText works in the browser when passed an ArrayBuffer
+      const mammoth  = await import("mammoth");
+      const buffer   = await file.arrayBuffer();
+      const result   = await mammoth.extractRawText({ arrayBuffer: buffer });
+      setTemplateText(result.value ?? "");
+    } else {
+      // Plain text — read directly
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = typeof e.target?.result === "string" ? e.target.result : "";
+        setTemplateText(text);
+      };
+      reader.readAsText(file);
+    }
   }
 
   const hasJd       = Boolean(application.description?.trim());
@@ -183,7 +195,7 @@ export function CoverLetterCard({
         >
           {templateFile
             ? `Template: ${templateFile.name}`
-            : "Upload a template to build from (optional, .txt)"}
+            : "Upload your existing cover letter or a templateto build from (.txt or .docx)"}
         </button>
         {templateFile && (
           <button
