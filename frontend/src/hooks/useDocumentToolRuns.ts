@@ -1,36 +1,44 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { ApiError }         from "@/lib/api/client";
-import { applicationsApi }  from "@/lib/api/applications";
+import { ApiError }                from "@/lib/api/client";
+import { applicationsApi }         from "@/lib/api/applications";
+import { applicationDocumentsApi } from "@/lib/api/application-documents";
+import { documentsApi }            from "@/lib/api/documents";
 import type { AiArtifact } from "@/types/api";
 
-// The two tool kinds this hook manages
-export type DocumentToolKind = "RESUME_ADVICE" | "COVER_LETTER";
-
+export type DocumentToolKind   = "RESUME_ADVICE" | "COVER_LETTER";
 export type DocumentToolRunStatus = "idle" | "running" | "success" | "error" | "cancelled";
 
 export type DocumentToolRunState = {
   applicationId: string;
   kind:          DocumentToolKind;
   status:        DocumentToolRunStatus;
-  // Single-step progress (no upload step — that's handled synchronously before the run starts)
+  // Step label shown in the progress UI
   label:         string;
   startedAt:     number;
   errorMessage?: string | null;
 };
 
 export type StartDocumentToolRunArgs = {
-  applicationId:   string;
-  kind:            DocumentToolKind;
-  templateText?:   string;  // cover letter only
-  sourceDocumentId?: number; // override resume doc already attached to application
+  applicationId: string;
+  kind:          DocumentToolKind;
 
+  // Optional override resume file — uploaded as CAREER_HISTORY, attached to application,
+  // cleaned up on cancel (mirrors useFitRuns override behaviour exactly).
+  overrideFile?: File | null;
+
+  // Alternative to uploading: pick a doc already attached to the application
+  sourceDocumentId?: number;
+
+  templateText?:               string;   // cover letter: per-run template override
+  skipBaseCoverLetterTemplate?: boolean; // cover letter: skip stored base template
+
+  onDocumentsChanged?:  (applicationId: string) => void;
   onApplicationChanged?: (applicationId: string) => void;
   onRefreshMe?:          () => void;
 };
 
-// Return type — one controller for both tool kinds
 export type DocumentToolRunsController = {
   runsByAppId: Record<string, DocumentToolRunState>;
   getRun:      (applicationId: string, kind: DocumentToolKind) => DocumentToolRunState | null;
@@ -39,7 +47,7 @@ export type DocumentToolRunsController = {
   cancelRun:   (applicationId: string, kind: DocumentToolKind) => void;
 };
 
-// Composite key so Resume Advice and Cover Letter runs for the same app don't collide
+// Composite key — prevents Resume Advice and Cover Letter runs for the same app colliding
 function runKey(applicationId: string, kind: DocumentToolKind) {
   return `${applicationId}::${kind}`;
 }
@@ -47,17 +55,23 @@ function runKey(applicationId: string, kind: DocumentToolKind) {
 /**
  * useDocumentToolRuns — manages background runs for Resume Advice and Cover Letter.
  *
- * Mirrors useFitRuns in structure:
- *   - Survives drawer close (state lives on the page, not in the drawer)
- *   - Supports cancel via AbortController
- *   - Exposes run status for progress UI in the drawer cards
- *   - Page-level effect watches for completion and fires notifications
+ * Fully mirrors useFitRuns:
+ *   - Survives drawer close (page-level state)
+ *   - Optional override file upload as CAREER_HISTORY, attached to the application
+ *   - Upload is cleaned up (deleted) on cancel or error — same as useFitRuns
+ *   - AbortController-based cancellation
  */
 export function useDocumentToolRuns(): DocumentToolRunsController {
   const [runsByAppId, setRunsByAppId] = useState<Record<string, DocumentToolRunState>>({});
 
-  // AbortController per run key — allows cancellation
+  // AbortController per run key
   const abortControllersRef = useRef<Record<string, AbortController>>({});
+
+  // Tracks uploaded override doc IDs so they can be deleted on cancel/error
+  const uploadedOverrideDocIdRef = useRef<Record<string, number>>({});
+
+  // Keeps the onDocumentsChanged callback so cancel can refresh the docs list
+  const onDocumentsChangedRef = useRef<Record<string, ((id: string) => void) | undefined>>({});
 
   const getRun = useCallback(
     (applicationId: string, kind: DocumentToolKind) =>
@@ -75,6 +89,23 @@ export function useDocumentToolRuns(): DocumentToolRunsController {
     });
   }, []);
 
+  // Deletes the override doc from GCS + DB, then refreshes the docs UI.
+  // Called on cancel and on error — mirrors cleanupOverrideDoc in useFitRuns.
+  async function cleanupOverrideDoc(key: string, applicationId: string) {
+    const docId = uploadedOverrideDocIdRef.current[key];
+    if (!docId) return;
+
+    // Clear tracking first to prevent double-delete
+    delete uploadedOverrideDocIdRef.current[key];
+
+    try {
+      await documentsApi.deleteById(docId);
+      onDocumentsChangedRef.current[key]?.(applicationId);
+    } catch (err) {
+      console.warn("Failed to cleanup override doc after cancel:", err);
+    }
+  }
+
   const cancelRun = useCallback((applicationId: string, kind: DocumentToolKind) => {
     const key        = runKey(applicationId, kind);
     const controller = abortControllersRef.current[key];
@@ -87,37 +118,56 @@ export function useDocumentToolRuns(): DocumentToolRunsController {
     });
 
     delete abortControllersRef.current[key];
+
+    // Best-effort cleanup of any uploaded override
+    void cleanupOverrideDoc(key, applicationId);
   }, []);
 
   const startRun = useCallback(
     async (args: StartDocumentToolRunArgs): Promise<AiArtifact | null> => {
-      const { applicationId, kind, templateText, sourceDocumentId, onApplicationChanged, onRefreshMe } = args;
+      const {
+        applicationId,
+        kind,
+        overrideFile,
+        sourceDocumentId: passedSourceDocumentId,
+        templateText,
+        skipBaseCoverLetterTemplate,
+        onDocumentsChanged,
+        onApplicationChanged,
+        onRefreshMe,
+      } = args;
+
       const key = runKey(applicationId, kind);
 
       // Prevent double-start
       if (runsByAppId[key]?.status === "running") return null;
 
-      const label = kind === "RESUME_ADVICE"
+      onDocumentsChangedRef.current[key] = onDocumentsChanged;
+
+      // Two steps when uploading an override; one step otherwise
+      const hasUpload  = Boolean(overrideFile);
+      const uploadLabel = kind === "RESUME_ADVICE"
+        ? "Uploading resume…"
+        : "Uploading resume…";
+      const generateLabel = kind === "RESUME_ADVICE"
         ? "Generating resume advice…"
         : "Generating cover letter…";
 
       const controller = new AbortController();
       abortControllersRef.current[key] = controller;
 
-      // Set initial running state
       setRunsByAppId((prev) => ({
         ...prev,
         [key]: {
           applicationId,
           kind,
           status:    "running",
-          label,
+          label:     hasUpload ? uploadLabel : generateLabel,
           startedAt: Date.now(),
           errorMessage: null,
         },
       }));
 
-      // Helper: safely update this run's state without touching others
       const safeUpdate = (updater: (s: DocumentToolRunState) => DocumentToolRunState) => {
         setRunsByAppId((prev) => {
           const current = prev[key];
@@ -126,13 +176,38 @@ export function useDocumentToolRuns(): DocumentToolRunsController {
         });
       };
 
+      let resolvedSourceDocumentId = passedSourceDocumentId;
+
       try {
+        // Step 1 (optional): upload override resume → attach to application as CAREER_HISTORY
+        if (overrideFile) {
+          const uploadRes = await applicationDocumentsApi.upload(
+            { applicationId, kind: "CAREER_HISTORY", file: overrideFile },
+            { signal: controller.signal }
+          );
+
+          const docId = Number(uploadRes.document.id);
+          if (!Number.isFinite(docId)) throw new Error("Override upload returned an invalid document id.");
+
+          // Track so we can clean up on cancel/error
+          uploadedOverrideDocIdRef.current[key] = docId;
+          resolvedSourceDocumentId = docId;
+
+          // Refresh the application's document list in the UI
+          onDocumentsChanged?.(applicationId);
+
+          // Advance label to the generate step
+          safeUpdate((s) => ({ ...s, label: generateLabel }));
+        }
+
+        // Step 2: generate the artifact
         const artifact = await applicationsApi.generateAiArtifact(
           applicationId,
           {
             kind,
             templateText,
-            sourceDocumentId,
+            sourceDocumentId:            resolvedSourceDocumentId,
+            skipBaseCoverLetterTemplate,
           },
           { signal: controller.signal }
         );
@@ -140,10 +215,14 @@ export function useDocumentToolRuns(): DocumentToolRunsController {
         safeUpdate((s) => ({ ...s, status: "success", errorMessage: null }));
 
         // Non-blocking post-success refreshes
-        try { onRefreshMe?.(); }          catch { /* non-blocking */ }
-        try { onApplicationChanged?.(applicationId); } catch { /* non-blocking */ }
+        try { onRefreshMe?.(); }                        catch { /* non-blocking */ }
+        try { onApplicationChanged?.(applicationId); }  catch { /* non-blocking */ }
 
+        // Clean up refs (doc stays — it was successfully used)
         delete abortControllersRef.current[key];
+        delete onDocumentsChangedRef.current[key];
+        delete uploadedOverrideDocIdRef.current[key]; // only clears tracking, NOT the doc
+
         return artifact;
 
       } catch (err) {
@@ -157,6 +236,7 @@ export function useDocumentToolRuns(): DocumentToolRunsController {
         if (isAbort) {
           safeUpdate((s) => ({ ...s, status: "cancelled", errorMessage: null }));
           delete abortControllersRef.current[key];
+          await cleanupOverrideDoc(key, applicationId);
           return null;
         }
 
@@ -168,7 +248,12 @@ export function useDocumentToolRuns(): DocumentToolRunsController {
               : `Failed to generate ${kind === "RESUME_ADVICE" ? "resume advice" : "cover letter"}.`;
 
         safeUpdate((s) => ({ ...s, status: "error", errorMessage: message }));
+
         delete abortControllersRef.current[key];
+        delete onDocumentsChangedRef.current[key];
+        // Delete the uploaded doc on error — it's an orphan if generation failed
+        await cleanupOverrideDoc(key, applicationId);
+
         throw err;
       }
     },

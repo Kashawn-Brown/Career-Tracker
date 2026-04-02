@@ -289,6 +289,10 @@ export const GenerateAiArtifactBody = Type.Object(
 
     // Optional template text — used for COVER_LETTER targeted generation
     templateText: Type.Optional(Type.String({ maxLength: 5000 })),
+
+    // When true, skip the stored base cover letter template even if one exists.
+    // Lets the user explicitly opt out for a specific run.
+    skipBaseCoverLetterTemplate: Type.Optional(Type.Boolean()),
   },
   { additionalProperties: false }
 );

@@ -1,5 +1,7 @@
 "use client";
 
+import { useApplicationDocs } from "@/hooks/useApplicationDocs";
+
 import { useEffect, useRef, useState } from "react";
 import { Button }              from "@/components/ui/button";
 import { Card }                from "@/components/ui/card";
@@ -22,8 +24,9 @@ interface Props {
   documentToolRuns:   DocumentToolRunsController;
   onCloseOthers?:     () => void;
   onRegisterClose?:   (fn: () => void) => void;
+  onDocumentsChanged?:   (applicationId: string) => void;
   onApplicationChanged?: (applicationId: string) => void;
-  onRefreshMe:        () => void;
+  onRefreshMe:           () => void;
 }
 
 export function ResumeAdviceCard({
@@ -33,6 +36,7 @@ export function ResumeAdviceCard({
   documentToolRuns,
   onCloseOthers,
   onRegisterClose,
+  onDocumentsChanged,
   onApplicationChanged,
   onRefreshMe,
 }: Props) {
@@ -48,8 +52,13 @@ export function ResumeAdviceCard({
   const [isReportOpen, setIsReportOpen] = useState(false);
 
   // Per-tool resume override — independent of the Fit card
-  const [overrideFile, setOverrideFile] = useState<File | null>(null);
-  const overrideInputRef                = useRef<HTMLInputElement>(null);
+  const [overrideFile,  setOverrideFile]  = useState<File | null>(null);
+  const overrideInputRef                  = useRef<HTMLInputElement>(null);
+  // User can pick an already-attached application doc instead of uploading again
+  const [selectedDocId, setSelectedDocId] = useState<number | null>(null);
+
+  // Fetch resume-type docs already attached to this application
+  const { resumeDocs } = useApplicationDocs(application.id);
 
   // Prevent stale setState after unmount or application switch
   const mountedRef = useRef(true);
@@ -107,7 +116,7 @@ export function ResumeAdviceCard({
   }, [run?.status, application.id]);
 
   const hasJd       = Boolean(application.description?.trim());
-  const resumeReady = overrideFile ? true : baseResumeExists;
+  const resumeReady = overrideFile || selectedDocId ? true : baseResumeExists;
   const isRunning   = run?.status === "running";
   const canRun      = hasJd && resumeReady && canUseAi && !isRunning;
 
@@ -120,8 +129,11 @@ export function ResumeAdviceCard({
     try {
       // Start the background run — survives drawer close
       await documentToolRuns.startRun({
-        applicationId:      application.id,
-        kind:               "RESUME_ADVICE",
+        applicationId:    application.id,
+        kind:             "RESUME_ADVICE",
+        overrideFile:     overrideFile ?? undefined,
+        sourceDocumentId: overrideFile ? undefined : (selectedDocId ?? undefined),
+        onDocumentsChanged,
         onApplicationChanged,
         onRefreshMe,
       });
@@ -232,18 +244,15 @@ export function ResumeAdviceCard({
           ) : (
             /* ── Generate / re-run mode ─────────────────────────────── */
             <>
-              {/* Resume override */}
-              <div className="flex items-center gap-2 mt-5">
+              {/* Resume override — upload new file, OR pick a doc already attached */}
+              <div className="mt-5 space-y-2">
                 <div className="text-xs">
                   {overrideFile ? (
-                    <button
-                      type="button"
-                      onClick={() => overrideInputRef.current?.click()}
-                    >
+                    <button type="button" onClick={() => overrideInputRef.current?.click()}>
                       <span className="text-muted-foreground">Resume: </span>
                       <span className="text-foreground hover:underline underline-offset-2">{overrideFile.name}</span>
                     </button>
-                  ) : baseResumeExists ? (
+                  ) : selectedDocId ? null : baseResumeExists ? (
                     <>
                       <div className="text-muted-foreground">
                         <span className="text-foreground/80">Using: </span>
@@ -258,33 +267,55 @@ export function ResumeAdviceCard({
                       </button>
                     </>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => overrideInputRef.current?.click()}
-                    >
-                      <span className="text-red-600 font-medium">A resume is needed to use this tool. </span>
+                    <button type="button" onClick={() => overrideInputRef.current?.click()}>
+                      <span className="text-red-600 font-medium">A resume is needed. </span>
                       <span className="text-muted-foreground underline underline-offset-2 hover:text-foreground">Click to upload one now</span>
                     </button>
                   )}
                 </div>
+
                 {overrideFile && (
                   <button
                     type="button"
-                    className="text-xs text-muted-foreground hover:font-semibold hover:text-red-600"
-                    onClick={() => {
-                      setOverrideFile(null);
-                      if (overrideInputRef.current) overrideInputRef.current.value = "";
-                    }}
+                    className="text-xs text-muted-foreground hover:text-red-600"
+                    onClick={() => { setOverrideFile(null); if (overrideInputRef.current) overrideInputRef.current.value = ""; }}
                   >
-                    ✕
+                    ✕ Remove
                   </button>
                 )}
+
+                {/* Existing application docs — only shown when nothing is selected yet */}
+                {resumeDocs.length > 0 && !overrideFile && !selectedDocId && (
+                  <div className="space-y-0.5">
+                    <div className="text-xs text-muted-foreground">Or pick from this application:</div>
+                    {resumeDocs.map((doc) => (
+                      <button
+                        key={doc.id}
+                        type="button"
+                        className="block text-xs underline underline-offset-2 text-muted-foreground hover:text-foreground truncate max-w-full"
+                        onClick={() => { setSelectedDocId(doc.id); setOverrideFile(null); }}
+                      >
+                        {doc.originalName}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {selectedDocId && !overrideFile && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-muted-foreground">
+                      Using: <span className="text-foreground">{resumeDocs.find(d => d.id === selectedDocId)?.originalName}</span>
+                    </span>
+                    <button type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setSelectedDocId(null)}>✕</button>
+                  </div>
+                )}
+
                 <input
                   ref={overrideInputRef}
                   type="file"
                   accept={RESUME_ACCEPT}
                   className="hidden"
-                  onChange={(e) => setOverrideFile(e.target.files?.[0] ?? null)}
+                  onChange={(e) => { setSelectedDocId(null); setOverrideFile(e.target.files?.[0] ?? null); }}
                 />
               </div>
 

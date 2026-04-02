@@ -138,6 +138,7 @@ export function ApplicationAiToolsSection({
         documentToolRuns={documentToolRuns}
         onCloseOthers={onCloseOthers}
         onRegisterClose={onRegisterClose}
+        onDocumentsChanged={onDocumentsChanged}
         onApplicationChanged={onApplicationChanged}
         onRefreshMe={() => void refreshMe()}
       />
@@ -150,6 +151,7 @@ export function ApplicationAiToolsSection({
         documentToolRuns={documentToolRuns}
         onCloseOthers={onCloseOthers}
         onRegisterClose={onRegisterClose}
+        onDocumentsChanged={onDocumentsChanged}
         onApplicationChanged={onApplicationChanged}
         onRefreshMe={() => void refreshMe()}
       />
