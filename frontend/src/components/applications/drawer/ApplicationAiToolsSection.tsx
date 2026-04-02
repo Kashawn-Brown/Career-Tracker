@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import type { Application } from "@/types/api";
 import type { FitRunsController } from "@/hooks/useFitRuns";
+import type { DocumentToolRunsController } from "@/hooks/useDocumentToolRuns";
 import { useAuth } from "@/hooks/useAuth";
 import { ProAccessBanner }  from "@/components/pro/ProAccessBanner";
 import { RequestProDialog } from "@/components/pro/RequestProDialog";
@@ -11,12 +12,14 @@ import { ResumeAdviceCard }       from "@/components/applications/drawer/ResumeA
 import { CoverLetterCard }        from "@/components/applications/drawer/CoverLetterCard";
 import { canUseAi, getRemainingAiCredits, hasProPlan, getEffectivePlan } from "@/lib/plans";
 import { useState } from "react";
+import { AlertTriangle } from "lucide-react";
 
 // Props for the ApplicationAiToolsSection component
 type Props = {
   drawerOpen:  boolean;
   application: Application;
-  fitRuns:     FitRunsController;
+  fitRuns:          FitRunsController;
+  documentToolRuns: DocumentToolRunsController;
 
   baseResumeExists: boolean;
   baseResumeId:     number | null;
@@ -42,6 +45,7 @@ export function ApplicationAiToolsSection({
   drawerOpen,
   application,
   fitRuns,
+  documentToolRuns,
   baseResumeExists,
   baseResumeId,
   onDocumentsChanged,
@@ -129,8 +133,10 @@ export function ApplicationAiToolsSection({
         application={application}
         baseResumeExists={baseResumeExists}
         canUseAi={canUse}
+        documentToolRuns={documentToolRuns}
         onCloseOthers={onCloseOthers}
         onRegisterClose={onRegisterClose}
+        onApplicationChanged={onApplicationChanged}
         onRefreshMe={() => void refreshMe()}
       />
 
@@ -138,10 +144,17 @@ export function ApplicationAiToolsSection({
         application={application}
         baseResumeExists={baseResumeExists}
         canUseAi={canUse}
+        documentToolRuns={documentToolRuns}
         onCloseOthers={onCloseOthers}
         onRegisterClose={onRegisterClose}
+        onApplicationChanged={onApplicationChanged}
         onRefreshMe={() => void refreshMe()}
       />
+
+      <div className="flex items-center justify-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 text-centernotif">
+        <AlertTriangle className="h-3.5 w-3.5" />
+        You can close this drawer — any running tools will continue in the background.
+      </div>
     </div>
   );
 }

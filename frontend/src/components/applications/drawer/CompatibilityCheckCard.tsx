@@ -209,8 +209,8 @@ export function CompatibilityCheckCard({
       {/* ── Card header ────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-sm font-medium">Compatibility Check</div>
-          <div className="text-xs text-muted-foreground mt-0.5">
+          <div className="text-md font-medium">Compatibility Check</div>
+          <div className="text-sm text-muted-foreground mt-0.5">
             See how well you line up with this role as a candidate.
           </div>
         </div>
@@ -256,7 +256,6 @@ export function CompatibilityCheckCard({
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    if (!window.confirm("Cancel compatibility check?")) return;
                     fitRuns.cancelRun(application.id);
                   }}
                 >
@@ -271,10 +270,10 @@ export function CompatibilityCheckCard({
             <div className="h-2 rounded bg-primary transition-all" style={{ width: progressWidth }} />
           </div>
 
-          <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+          {/* <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
             Do not refresh — this will cancel the check.
-          </div>
+          </div> */}
 
           {/* Step-by-step list */}
           {steps.length > 1 && (
@@ -384,16 +383,39 @@ export function CompatibilityCheckCard({
             <>
               {/* Resume override */}
               <div className="flex items-center gap-2 mt-5">
-                <button
-                  type="button"
-                  className={overrideFile ? "text-xs hover:font-semibold" : baseResumeExists ? "text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground" : "text-xs text-red-600 underline underline-offset-2 hover:font-semibold"}
-                  onClick={() => overrideInputRef.current?.click()}
-                >
-                  {overrideFile
-                    ? `Resume file: ${overrideFile.name}`
-                    : baseResumeExists ? "(Optional) Upload a different resume to use"
-                    : "A resume is needed to run a compatibility check. Click to upload one now."}
-                </button>
+              <div className="text-xs">
+                  {overrideFile ? (
+                    <button
+                      type="button"
+                      onClick={() => overrideInputRef.current?.click()}
+                    >
+                      <span className="text-muted-foreground">Resume: </span>
+                      <span className="text-foreground hover:underline underline-offset-2">{overrideFile.name}</span>
+                    </button>
+                  ) : baseResumeExists ? (
+                    <>
+                      <div className="text-muted-foreground">
+                        <span className="text-foreground/80">Using: </span>
+                        <span className="font-medium text-foreground/80">Base resume</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="text-muted-foreground underline underline-offset-2 hover:text-foreground mt-1"
+                        onClick={() => overrideInputRef.current?.click()}
+                      >
+                        Upload a different resume to use
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => overrideInputRef.current?.click()}
+                    >
+                      <span className="text-red-600 font-medium">A resume is needed to use this tool. </span>
+                      <span className="text-muted-foreground underline underline-offset-2 hover:text-foreground">Click to upload one now</span>
+                    </button>
+                  )}
+                </div>
                 {overrideFile && (
                   <button
                     type="button"

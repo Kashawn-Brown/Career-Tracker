@@ -10,6 +10,7 @@ import { ApplicationDocumentsSection } from "@/components/applications/drawer/Ap
 import { ApplicationConnectionsSection } from "@/components/applications/drawer/ApplicationConnectionsSection";
 import { ApplicationAiToolsSection } from "@/components/applications/drawer/ApplicationAiToolsSection";
 import type { FitRunsController } from "@/hooks/useFitRuns";
+import type { DocumentToolRunsController } from "@/hooks/useDocumentToolRuns";
 import { cn } from "@/lib/utils";
 import { PILL_BASE_CLASS, getStatusPillTokens } from "@/lib/applications/pills";
 import { documentsApi } from "@/lib/api/documents";
@@ -45,7 +46,7 @@ function Section({
   if (noParent) {
     return (
       <div className="space-y-2">
-        <div className="text-sm font-medium">{title}</div>
+        <div className="text-md font-medium">{title}</div>
         <div>{children}</div>
       </div>
     );
@@ -53,7 +54,7 @@ function Section({
 
   return (
     <div className="space-y-2">
-      <div className="text-sm font-medium">{title}</div>
+      <div className="text-md font-medium">{title}</div>
       <div className="rounded-md border bg-muted/10 p-3 text-sm">{children}</div>
     </div>
   );
@@ -275,6 +276,7 @@ export function ApplicationDetailsDrawer({
   onConnectionsChanged,
   onApplicationChanged,
   fitRuns,
+  documentToolRuns,
   autoOpenFitForAppId,
   onAutoOpenFitConsumed,
 }: {
@@ -288,7 +290,8 @@ export function ApplicationDetailsDrawer({
   onDocumentsChanged?: (applicationId: string) => void;
   onConnectionsChanged?: (applicationId: string) => void;
   onApplicationChanged?: (applicationId: string) => void;
-  fitRuns: FitRunsController;
+  fitRuns:          FitRunsController;
+  documentToolRuns: DocumentToolRunsController;
   autoOpenFitForAppId?: string | null;
   onAutoOpenFitConsumed?: () => void;
 }) {
@@ -1112,6 +1115,7 @@ export function ApplicationDetailsDrawer({
                 drawerOpen={open}
                 application={application} 
                 fitRuns={fitRuns}
+                documentToolRuns={documentToolRuns}
                 baseResumeExists={baseResumeExists} 
                 baseResumeId={baseResumeId}
 

@@ -1,48 +1,48 @@
 "use client";
 
-import { ToolInfoPopover } from "@/components/tools/ToolInfoPopover";
-import { TOOL_INFO }       from "@/lib/tool-info";
-
 import { useEffect, useRef, useState } from "react";
 import { Button }              from "@/components/ui/button";
 import { Card }                from "@/components/ui/card";
 import { ApiError }            from "@/lib/api/client";
 import { applicationsApi }     from "@/lib/api/applications";
 import { CoverLetterReport }   from "@/components/applications/drawer/CoverLetterReport";
+import { ToolInfoPopover }     from "@/components/tools/ToolInfoPopover";
+import { TOOL_INFO }           from "@/lib/tool-info";
+import { Loader2, AlertTriangle } from "lucide-react";
+import type { DocumentToolRunsController } from "@/hooks/useDocumentToolRuns";
 import type { Application, AiArtifact, CoverLetterPayload } from "@/types/api";
 
-// Accepted file types
 const RESUME_ACCEPT   = ".pdf,.txt,.docx";
-// Template: TXT and DOCX (editable cover letter formats).
-// PDF excluded — it's a final-output format, not a working document.
+// Template: editable cover letter formats — PDF excluded (final-output format)
 const TEMPLATE_ACCEPT = ".txt,.docx";
 
 interface Props {
-  application:      Application;
-  baseResumeExists: boolean;
-  canUseAi:         boolean;
-  onCloseOthers?:   () => void;
-  onRegisterClose?: (fn: () => void) => void;
-  onRefreshMe:      () => void;
+  application:        Application;
+  baseResumeExists:   boolean;
+  canUseAi:           boolean;
+  documentToolRuns:   DocumentToolRunsController;
+  onCloseOthers?:     () => void;
+  onRegisterClose?:   (fn: () => void) => void;
+  onApplicationChanged?: (applicationId: string) => void;
+  onRefreshMe:        () => void;
 }
 
 export function CoverLetterCard({
   application,
   baseResumeExists,
   canUseAi,
+  documentToolRuns,
   onCloseOthers,
   onRegisterClose,
+  onApplicationChanged,
   onRefreshMe,
 }: Props) {
   // Latest persisted artifact
   const [artifact,      setArtifact]      = useState<AiArtifact<CoverLetterPayload> | null>(null);
   const [loadingLatest, setLoadingLatest] = useState(false);
 
-  // Generation state
-  const [loading,     setLoading]     = useState(false);
-  const [error,       setError]       = useState<string | null>(null);
-  const [isRerunMode, setIsRerunMode] = useState(false);
-
+  const [error,         setError]         = useState<string | null>(null);
+  const [isRerunMode,   setIsRerunMode]   = useState(false);
   // Report panel open/close
   const [isReportOpen, setIsReportOpen] = useState(false);
 
@@ -50,8 +50,7 @@ export function CoverLetterCard({
   const [overrideFile, setOverrideFile] = useState<File | null>(null);
   const overrideInputRef                = useRef<HTMLInputElement>(null);
 
-  // Template: user uploads an existing cover letter (.txt or .docx)
-  // The text is extracted client-side and sent to the backend as a string.
+  // Template: user uploads existing cover letter — text extracted client-side
   const [templateFile, setTemplateFile] = useState<File | null>(null);
   const [templateText, setTemplateText] = useState<string>("");
   const templateInputRef                = useRef<HTMLInputElement>(null);
@@ -81,14 +80,31 @@ export function CoverLetterCard({
       .then((res) => {
         if (!cancelled) setArtifact((res?.[0] as AiArtifact<CoverLetterPayload>) ?? null);
       })
-      .catch(() => { /* silent — not a hard failure */ })
+      .catch(() => { /* silent */ })
       .finally(() => { if (!cancelled) setLoadingLatest(false); });
 
     return () => { cancelled = true; };
   }, [application.id]);
 
-  // Extract text from an uploaded template file client-side.
-  // TXT → FileReader; DOCX → mammoth browser build.
+  // Re-fetch artifact when background run completes
+  const run = documentToolRuns.getRun(application.id, "COVER_LETTER");
+  const prevRunStatusRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (prevRunStatusRef.current !== "success" && run?.status === "success") {
+      applicationsApi
+        .listAiArtifacts(application.id, { kind: "COVER_LETTER" })
+        .then((res) => {
+          if (mountedRef.current) {
+            setArtifact((res?.[0] as AiArtifact<CoverLetterPayload>) ?? null);
+            setIsRerunMode(false);
+          }
+        })
+        .catch(() => { /* silent */ });
+    }
+    prevRunStatusRef.current = run?.status ?? null;
+  }, [run?.status, application.id]);
+
+  // Extract text from a template file client-side
   async function handleTemplateFile(file: File | null) {
     setTemplateFile(file);
     setTemplateText("");
@@ -110,45 +126,37 @@ export function CoverLetterCard({
 
   const hasJd       = Boolean(application.description?.trim());
   const resumeReady = overrideFile ? true : baseResumeExists;
-  const canRun      = hasJd && resumeReady && canUseAi && !loading;
+  const isRunning   = run?.status === "running";
+  const canRun      = hasJd && resumeReady && canUseAi && !isRunning;
 
   const jobLabel = [application.position, application.company].filter(Boolean).join(" at ");
 
   async function handleGenerate() {
     if (!canRun) return;
-    setLoading(true);
     setError(null);
 
     try {
-      const result = await applicationsApi.generateAiArtifact(application.id, {
-        kind:         "COVER_LETTER",
-        templateText: templateText.trim() || undefined,
+      await documentToolRuns.startRun({
+        applicationId:      application.id,
+        kind:               "COVER_LETTER",
+        templateText:       templateText.trim() || undefined,
+        onApplicationChanged,
+        onRefreshMe,
       });
-
-      if (mountedRef.current) {
-        setArtifact(result as AiArtifact<CoverLetterPayload>);
-        setIsRerunMode(false);
-        // Auto-open the report after a successful generation
-        setIsReportOpen(true);
-        onCloseOthers?.();
-        onRefreshMe();
-      }
     } catch (err) {
       if (mountedRef.current) {
         setError(err instanceof ApiError ? err.message : "Failed to generate cover letter.");
       }
-    } finally {
-      if (mountedRef.current) setLoading(false);
     }
   }
 
   return (
     <Card className="p-4">
-      {/* ── Card header — always visible ───────────────────────────────── */}
+      {/* ── Card header ────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-sm font-medium">Cover Letter</div>
-          <div className="text-xs text-muted-foreground mt-0.5">
+          <div className="text-md font-medium">Cover Letter</div>
+          <div className="text-sm text-muted-foreground mt-0.5">
             Generate a tailored draft cover letter for this role.
           </div>
         </div>
@@ -163,143 +171,205 @@ export function CoverLetterCard({
         </div>
       </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
-
-      {/* ── Result-first view — shown when a cover letter exists ────────────
-           Mirrors how CompatibilityCheckCard shows the result without
-           requiring the user to expand anything first.                       */}
-      {artifact && !isRerunMode ? (
-        <>
-          {/* Confirmation message — tells the user what was made */}
-          <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground line-clamp-12">
-            <span className="text-foreground/80 font-medium">
-              A cover letter for {jobLabel} has been drafted.
-            </span>
-          
-            <br/><br/>
-
-            {artifact.payload.summary}
-
-            <div className="flex items-center gap-2 pt-4">
-              <Button
-                size="sm"
-                onClick={() => {
-                  setIsReportOpen(true);
-                  onCloseOthers?.();
-                }}
-              >
-                View draft
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setError(null);
-                  setIsRerunMode(true);
-                }}
-              >
-                Regenerate
-              </Button>
-            </div>
-          </div>
-
-          
-          {/* Report panel — center panel */}
-          <CoverLetterReport
-            open={isReportOpen}
-            onOpenChange={(open) => {
-              setIsReportOpen(open);
-            }}
-            artifact={artifact}
-            jobLabel={jobLabel}
-          />
-        </>
-      ) : (
-        /* ── Generate / re-run mode ─────────────────────────────────────── */
-        <>
-          {/* Resume override */}
-          <div className="flex items-center gap-2 mt-5">
-            <button
-              type="button"
-              className={overrideFile ? "text-xs hover:font-semibold" : baseResumeExists ? "text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground" : "text-xs text-red-600 underline underline-offset-2 hover:font-semibold"}
-              onClick={() => overrideInputRef.current?.click()}
-            >
-              {overrideFile 
-              ? `Resume file: ${overrideFile.name}` 
-              : baseResumeExists ? "(Optional) Upload a different resume to use" 
-              : "A resume is needed to generate a cover letter. Click to upload one now."}
-            </button>
-            {overrideFile && (
-              <button
-                type="button"
-                className="text-xs text-muted-foreground hover:font-semibold hover:text-red-600"
-                onClick={() => {
-                  setOverrideFile(null);
-                  if (overrideInputRef.current) overrideInputRef.current.value = "";
-                }}
-              >
-                ✕
-              </button>
-            )}
-            <input
-              ref={overrideInputRef}
-              type="file"
-              accept={RESUME_ACCEPT}
-              className="hidden"
-              onChange={(e) => setOverrideFile(e.target.files?.[0] ?? null)}
-            />
-          </div>
-
-          {/* Template upload — existing cover letter to build from */}
+      {/* ── In-flight progress ─────────────────────────────────────────── */}
+      {isRunning && run ? (
+        <div className="rounded-md border p-3 space-y-2">
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className={templateFile ? "text-xs hover:font-semibold" : "text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"}
-              onClick={() => templateInputRef.current?.click()}
-            >
-              {templateFile
-                ? `Cover letter / template file: ${templateFile.name}`
-                : "(Optional): Upload an existing cover letter / template"}
-            </button>
-            {templateFile && (
-              <button
-                type="button"
-                className="text-xs text-muted-foreground hover:font-semibold hover:text-red-500"
-                onClick={() => {
-                  void handleTemplateFile(null);
-                  if (templateInputRef.current) templateInputRef.current.value = "";
-                }}
-              >
-                ✕
-              </button>
-            )}
-            <input
-              ref={templateInputRef}
-              type="file"
-              accept={TEMPLATE_ACCEPT}
-              className="hidden"
-              onChange={(e) => void handleTemplateFile(e.target.files?.[0] ?? null)}
-            />
+            <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+            <span className="text-sm font-medium">{run.label}</span>
           </div>
-
-          <div className="flex items-center gap-2 pt-2 border-t">
+          <div className="h-1.5 w-full rounded bg-muted">
+            <div className="h-1.5 rounded bg-primary w-1/2 animate-pulse" />
+          </div>
+          {/* <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            You can close this drawer — the run will continue in the background.
+          </div> */}
+          <div className="flex justify-end">
             <Button
-              disabled={!canRun}
-              onClick={handleGenerate}
-              className={isRerunMode ? "" : "w-full"}
+              variant="outline"
+              size="sm"
+              onClick={() => documentToolRuns.cancelRun(application.id, "COVER_LETTER")}
             >
-              {loading ? "Generating…" : "Generate cover letter"}
+              Cancel
             </Button>
-            {/* Cancel re-run mode */}
-            {isRerunMode && (
-              <Button
-                variant="outline"
-                onClick={() => { setError(null); setIsRerunMode(false); }}
-              >
-                Cancel
-              </Button>
-            )}
           </div>
+        </div>
+      ) : (
+        <>
+          {/* ── Error from background run ─────────────────────────────────────── */}
+          {(error || run?.status === "error") && (
+            <div className="text-sm text-destructive">
+              {error ?? run?.errorMessage ?? "Something went wrong."}
+            </div>
+          )}
+
+          {/* ── Result-first view ──────────────────────────────────────── */}
+          {artifact && !isRerunMode ? (
+            <>
+              {/* Confirmation message — tells the user what was made */}
+              <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground line-clamp-12">
+                <span className="text-foreground/80 font-medium">
+                  A cover letter for {jobLabel} has been drafted.
+                </span>
+
+                <br/><br/>
+
+                {artifact.payload.summary}
+
+                <div className="flex items-center gap-2 pt-4">
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setIsReportOpen(true);
+                      onCloseOthers?.();
+                    }}
+                  >
+                    View draft
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setError(null);
+                      setIsRerunMode(true);
+                    }}
+                  >
+                    Regenerate
+                  </Button>
+                </div>
+              </div>
+
+              {/* ── Cover Letter Report panel ─────────────────────────────────────────── */}
+              <CoverLetterReport
+                open={isReportOpen}
+                onOpenChange={setIsReportOpen}
+                artifact={artifact}
+                jobLabel={jobLabel}
+              />
+            </>
+          ) : (
+            /* ── Generate / re-run mode ─────────────────────────────────────── */
+            <>
+              {/* Resume override */}
+              <div className="flex items-center gap-2 mt-5">
+                <div className="text-xs">
+                  {overrideFile ? (
+                    <button
+                      type="button"
+                      onClick={() => overrideInputRef.current?.click()}
+                    >
+                      <span className="text-muted-foreground">Resume: </span>
+                      <span className="text-foreground hover:underline underline-offset-2">{overrideFile.name}</span>
+                    </button>
+                  ) : baseResumeExists ? (
+                    <>
+                      <div className="text-muted-foreground">
+                        <span className="text-foreground/80">Using: </span>
+                        <span className="font-medium text-foreground/80">Base resume</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="text-muted-foreground underline underline-offset-2 hover:text-foreground mt-1"
+                        onClick={() => overrideInputRef.current?.click()}
+                      >
+                        Upload a different resume to use
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => overrideInputRef.current?.click()}
+                    >
+                      <span className="text-red-600 font-medium">A resume is needed to use this tool. </span>
+                      <span className="text-muted-foreground underline underline-offset-2 hover:text-foreground">Click to upload one now</span>
+                    </button>
+                  )}
+                </div>
+                {overrideFile && (
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground hover:font-semibold hover:text-red-600"
+                    onClick={() => {
+                      setOverrideFile(null);
+                      if (overrideInputRef.current) overrideInputRef.current.value = "";
+                    }}
+                  >
+                    ✕
+                  </button>
+                )}
+                <input
+                  ref={overrideInputRef}
+                  type="file"
+                  accept={RESUME_ACCEPT}
+                  className="hidden"
+                  onChange={(e) => setOverrideFile(e.target.files?.[0] ?? null)}
+                />
+              </div>
+
+              {/* Cover letter template upload */}
+              <div className="flex items-center gap-2">
+                <div className="text-xs">
+                  {templateFile ? (
+                    <button
+                      type="button"
+                      className="text-muted-foreground"
+                      onClick={() => templateInputRef.current?.click()}
+                    >
+                      <span className="text-muted-foreground">Cover letter / template: </span>
+                      <span className="text-foreground hover:underline underline-offset-2">{templateFile.name}</span>
+                    </button>
+                  ) : (
+                    <>
+                      {/* For when base cover letter is hooked up */}
+                      {/* <div className="text-muted-foreground">
+                        <span className="text-foreground/80">Using: </span>
+                        <span className="font-medium text-foreground/80">Base resume</span>
+                      </div> */}
+                      <button
+                        type="button"
+                        className="text-muted-foreground"
+                        onClick={() => templateInputRef.current?.click()}
+                      >
+                        <span className="underline underline-offset-2 hover:text-foreground">Upload a cover letter / template to use</span>
+                        <span> (Optional)</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+                {templateFile && (
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground hover:font-semibold hover:text-red-500"
+                    onClick={() => {
+                      void handleTemplateFile(null);
+                      if (templateInputRef.current) templateInputRef.current.value = "";
+                    }}
+                  >
+                    ✕
+                  </button>
+                )}
+                <input
+                  ref={templateInputRef}
+                  type="file"
+                  accept={TEMPLATE_ACCEPT}
+                  className="hidden"
+                  onChange={(e) => void handleTemplateFile(e.target.files?.[0] ?? null)}
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-2 border-t">
+                <Button disabled={!canRun} onClick={handleGenerate} className={isRerunMode ? "" : "w-full"}>
+                  Generate cover letter
+                </Button>
+                {isRerunMode && (
+                  <Button variant="outline" onClick={() => { setError(null); setIsRerunMode(false); }}>
+                    Cancel
+                  </Button>
+                )}
+              </div>
+            </>
+          )}
         </>
       )}
     </Card>

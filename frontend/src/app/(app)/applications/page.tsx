@@ -12,6 +12,8 @@ import { ApplicationDetailsDrawer } from "@/components/applications/drawer/Appli
 import { ColumnsControl } from "@/components/applications/ColumnsControl";
 import { APPLICATION_COLUMNS_STORAGE_KEY, DEFAULT_VISIBLE_APPLICATION_COLUMNS, normalizeVisibleColumns, type ApplicationColumnId} from "@/lib/applications/tableColumns";
 import { useFitRuns } from "@/hooks/useFitRuns";
+import { useDocumentToolRuns } from "@/hooks/useDocumentToolRuns";
+import type { DocumentToolKind } from "@/hooks/useDocumentToolRuns";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -82,7 +84,8 @@ export default function ApplicationsPage() {
   const [autoOpenFitAppId, setAutoOpenFitAppId] = useState<string | null>(null);
 
   // Tracks in-flight FIT runs so they survive drawer close / navigation.
-  const fitRuns = useFitRuns();
+  const fitRuns          = useFitRuns();
+  const documentToolRuns = useDocumentToolRuns();
   const { refreshMe } = useAuth();
 
   // Label hints for apps that were just created — list may not have refreshed yet
@@ -96,11 +99,16 @@ export default function ApplicationsPage() {
     label:         string;
     kind:          "success" | "error";
     message?:      string;
+    // For document tool notices — identifies which tool completed
+    toolLabel?:    string;
     createdAt:     number;
   };
 
   const [fitNotices, setFitNotices] = useState<FitRunNotice[]>([]);
   const prevFitRunStatusRef = useRef<Record<string, string>>({});
+
+  // Tracks previous status for document tool runs (same pattern as fit notices)
+  const prevDocToolRunStatusRef = useRef<Record<string, string>>({});
 
 
   // Prevent overwriting saved settings on first render
@@ -487,6 +495,68 @@ export default function ApplicationsPage() {
     }
   }, [fitRuns.runsByAppId, fitRuns, detailsOpen, selectedApplication?.id, addFitNotice, handleApplicationChange]);
 
+
+  // Watch document tool runs (Resume Advice + Cover Letter) for completion.
+  // On success: refresh table (bumps app to top) + show notice if drawer is closed.
+  // On error: always show a notice.
+  useEffect(() => {
+    const prev    = prevDocToolRunStatusRef.current;
+    const current = documentToolRuns.runsByAppId;
+
+    for (const [key, run] of Object.entries(current)) {
+      const prevStatus       = prev[key];
+      const isViewingThatApp = detailsOpen && selectedApplication?.id === run.applicationId;
+      const toolLabel        = run.kind === "RESUME_ADVICE" ? "Resume advice" : "Cover letter";
+
+      if (prevStatus !== "success" && run.status === "success") {
+        void handleApplicationChange(run.applicationId);
+        if (!isViewingThatApp) {
+          // Show a notice so the user can navigate to the result
+          setFitNotices((prev) => {
+            if (prev.some((n) => n.applicationId === run.applicationId && n.kind === "success")) return prev;
+            const label =
+              pendingFitLabelsRef.current[run.applicationId]?.trim() ||
+              getApplicationLabel(run.applicationId);
+            return [
+              {
+                id:            `${key}-${Date.now()}`,
+                applicationId: run.applicationId,
+                label,
+                kind:          "success" as const,
+                toolLabel,
+                createdAt:     Date.now(),
+              },
+              ...prev,
+            ];
+          });
+        }
+        documentToolRuns.clearRun(run.applicationId, run.kind as DocumentToolKind);
+      }
+
+      if (prevStatus !== "error" && run.status === "error") {
+        setFitNotices((prev) => [
+          {
+            id:            `${key}-${Date.now()}`,
+            applicationId: run.applicationId,
+            label:         getApplicationLabel(run.applicationId),
+            kind:          "error" as const,
+            toolLabel,
+            message:       run.errorMessage ?? undefined,
+            createdAt:     Date.now(),
+          },
+          ...prev,
+        ]);
+        documentToolRuns.clearRun(run.applicationId, run.kind as DocumentToolKind);
+      }
+
+      prev[key] = run.status;
+    }
+
+    for (const key of Object.keys(prev)) {
+      if (!current[key]) delete prev[key];
+    }
+  }, [documentToolRuns.runsByAppId, documentToolRuns, detailsOpen, selectedApplication?.id, handleApplicationChange, getApplicationLabel]);
+
   return (
     <div className="space-y-6">     
     
@@ -528,8 +598,8 @@ export default function ApplicationsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium">
                       {n.kind === "success"
-                        ? "Compatibility report ready"
-                        : "Compatibility check failed"}
+                        ? (n.toolLabel ? `${n.toolLabel} ready` : "Compatibility report ready")
+                        : (n.toolLabel ? `${n.toolLabel} failed` : "Compatibility check failed")}
                     </div>
                     <div className="text-xs text-muted-foreground truncate">{n.label}</div>
                     {n.kind === "error" && n.message && (
@@ -871,6 +941,7 @@ export default function ApplicationsPage() {
         autoOpenFitForAppId={autoOpenFitAppId}
         onAutoOpenFitConsumed={() => setAutoOpenFitAppId(null)}
         fitRuns={fitRuns}
+        documentToolRuns={documentToolRuns}
       />
     </div>
   );
