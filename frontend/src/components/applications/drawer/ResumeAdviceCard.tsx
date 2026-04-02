@@ -10,7 +10,7 @@ import { applicationsApi }     from "@/lib/api/applications";
 import { ResumeAdviceReport }  from "@/components/applications/drawer/ResumeAdviceReport";
 import { ToolInfoPopover }     from "@/components/tools/ToolInfoPopover";
 import { TOOL_INFO }           from "@/lib/tool-info";
-import { Loader2 } from "lucide-react";
+import { Loader2, ChevronDown, ChevronRight } from "lucide-react";
 import type { DocumentToolRunsController } from "@/hooks/useDocumentToolRuns";
 import type { Application, AiArtifact, ResumeAdvicePayload } from "@/types/api";
 
@@ -55,7 +55,9 @@ export function ResumeAdviceCard({
   const [overrideFile,  setOverrideFile]  = useState<File | null>(null);
   const overrideInputRef                  = useRef<HTMLInputElement>(null);
   // User can pick an already-attached application doc instead of uploading again
-  const [selectedDocId, setSelectedDocId] = useState<number | null>(null);
+  const [selectedDocId,  setSelectedDocId]  = useState<number | null>(null);
+  // Controls visibility of the "pick from application" dropdown
+  const [showDocPicker,  setShowDocPicker]  = useState(false);
 
   // Fetch resume-type docs already attached to this application
   const { resumeDocs } = useApplicationDocs(application.id);
@@ -177,7 +179,6 @@ export function ResumeAdviceCard({
             {/* Indeterminate progress — single-step tool */}
             <div className="h-1.5 rounded bg-primary w-1/2 animate-pulse" />
           </div>
-
           <div className="flex justify-end">
             <Button
               variant="outline"
@@ -203,9 +204,9 @@ export function ResumeAdviceCard({
               {/* Summary — gives a quick sense of what the advice covers */}
               <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
                 <span className="text-foreground/80 font-medium">
-                  A resume alignment report has been generated with resume tailoring advice based this role. 
+                  A resume alignment report has been generated with resume tailoring advice based this role.
                 </span>
-                
+
                 <br/><br/>
 
                 {artifact.payload.summary}
@@ -233,7 +234,7 @@ export function ResumeAdviceCard({
                 </div>
               </div>
 
-              {/* ── Full report panel ─────────────────────────────────────────── */}
+              {/* ── Full report panel ─────────────────────────────────── */}
               <ResumeAdviceReport
                 open={isReportOpen}
                 onOpenChange={setIsReportOpen}
@@ -244,9 +245,10 @@ export function ResumeAdviceCard({
           ) : (
             /* ── Generate / re-run mode ─────────────────────────────── */
             <>
-              {/* Resume override — upload new file, OR pick a doc already attached */}
+              {/* ── Resume source ─────────────────────────────────────────
+                   Upload new file, OR pick a doc already attached, OR use base resume */}
               <div className="mt-5 space-y-2">
-                <div className="text-xs">
+                <div className="text-xs mb-0">
                   {overrideFile ? (
                     <button type="button" onClick={() => overrideInputRef.current?.click()}>
                       <span className="text-muted-foreground">Resume: </span>
@@ -274,39 +276,67 @@ export function ResumeAdviceCard({
                   )}
                 </div>
 
+                {/* Clear uploaded file */}
                 {overrideFile && (
                   <button
                     type="button"
-                    className="text-xs text-muted-foreground hover:text-red-600"
+                    className="text-xs text-muted-foreground hover:font-medium hover:text-red-600 mb-0"
                     onClick={() => { setOverrideFile(null); if (overrideInputRef.current) overrideInputRef.current.value = ""; }}
                   >
                     ✕ Remove
                   </button>
                 )}
 
-                {/* Existing application docs — only shown when nothing is selected yet */}
-                {resumeDocs.length > 0 && !overrideFile && !selectedDocId && (
-                  <div className="space-y-0.5">
-                    <div className="text-xs text-muted-foreground">Or pick from this application:</div>
-                    {resumeDocs.map((doc) => (
-                      <button
-                        key={doc.id}
-                        type="button"
-                        className="block text-xs underline underline-offset-2 text-muted-foreground hover:text-foreground truncate max-w-full"
-                        onClick={() => { setSelectedDocId(doc.id); setOverrideFile(null); }}
-                      >
-                        {doc.originalName}
-                      </button>
-                    ))}
+                {/* Picked existing doc — show name + clear */}
+                {selectedDocId && !overrideFile && (
+                  <div className="space-y-1 text-xs">
+                    <div className="text-muted-foreground">
+                      <span className="text-foreground/80">Resume: </span>
+                      <span className="text-foreground">{resumeDocs.find(d => d.id === selectedDocId)?.originalName}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:font-medium hover:text-red-600"
+                      onClick={() => setSelectedDocId(null)}
+                    >
+                      ✕ Remove
+                    </button>
                   </div>
                 )}
 
-                {selectedDocId && !overrideFile && (
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-muted-foreground">
-                      Using: <span className="text-foreground">{resumeDocs.find(d => d.id === selectedDocId)?.originalName}</span>
-                    </span>
-                    <button type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setSelectedDocId(null)}>✕</button>
+                {/* Chevron toggle — only shown when there are attached docs and nothing is selected */}
+                {resumeDocs.length > 0 && !overrideFile && !selectedDocId && (
+                  <div className="mt-1">
+                    <button
+                      type="button"
+                      className={!showDocPicker ? "flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground" : "flex items-center gap-1 text-xs text-foreground"}
+                      onClick={() => setShowDocPicker((v) => !v)}
+                    >
+                      {showDocPicker
+                        ? <ChevronDown className="h-3 w-3" />
+                        : <ChevronRight className="h-3 w-3" />}
+                      Pick from this application's documents
+                    </button>
+
+                    {/* Collapsed list — only rendered when expanded */}
+                    {showDocPicker && (
+                      <div className="mt-1 space-y-0.5 pl-4">
+                        {resumeDocs.map((doc) => (
+                          <button
+                            key={doc.id}
+                            type="button"
+                            className="block text-xs text-muted-foreground truncate max-w-full"
+                            onClick={() => {
+                              setSelectedDocId(doc.id);
+                              setOverrideFile(null);
+                              setShowDocPicker(false);
+                            }}
+                          >
+                            - <span className="underline underline-offset-2 hover:text-foreground">{doc.originalName}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 

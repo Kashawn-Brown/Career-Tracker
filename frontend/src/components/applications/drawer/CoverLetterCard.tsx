@@ -186,6 +186,8 @@ export function CoverLetterCard({
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {loadingLatest && <span className="text-xs text-muted-foreground">Loading…</span>}
+
+          {/* ? button — explains what the tool does and what inputs it needs */}
           <ToolInfoPopover
             title={TOOL_INFO.COVER_LETTER.title}
             content={TOOL_INFO.COVER_LETTER.content}
@@ -268,12 +270,10 @@ export function CoverLetterCard({
           ) : (
             /* ── Generate / re-run mode ─────────────────────────────── */
             <>
-              {/* ── Resume source ───────────────────────────────────────
-                   Priority: uploaded file > picked existing doc > base resume.
-                   The "pick from application" list is collapsed by default
-                   behind a chevron so it doesn't clutter the card.          */}
+              {/* ── Resume source ─────────────────────────────────────── */}
+              {/* upload new file, OR pick a doc already attached, OR use base resume */}
               <div className="mt-5 space-y-2">
-                <div className="text-xs">
+                <div className="text-xs mb-0">
                   {overrideFile ? (
                     <button type="button" onClick={() => overrideInputRef.current?.click()}>
                       <span className="text-muted-foreground">Resume: </span>
@@ -305,7 +305,7 @@ export function CoverLetterCard({
                 {overrideFile && (
                   <button
                     type="button"
-                    className="text-xs text-muted-foreground hover:font-medium hover:text-red-600"
+                    className="text-xs text-muted-foreground hover:font-medium hover:text-red-600 mb-0"
                     onClick={() => { setOverrideFile(null); if (overrideInputRef.current) overrideInputRef.current.value = ""; }}
                   >
                     ✕ Remove
@@ -331,10 +331,10 @@ export function CoverLetterCard({
 
                 {/* Chevron toggle — only shown when there are attached docs and nothing is selected */}
                 {resumeDocs.length > 0 && !overrideFile && !selectedDocId && (
-                  <div>
+                  <div className="mt-1">
                     <button
                       type="button"
-                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                      className={!showDocPicker ? "flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground" : "flex items-center gap-1 text-xs text-foreground"}
                       onClick={() => setShowDocPicker((v) => !v)}
                     >
                       {showDocPicker
@@ -350,14 +350,14 @@ export function CoverLetterCard({
                           <button
                             key={doc.id}
                             type="button"
-                            className="block text-xs text-muted-foreground truncate max-w-full hover:text-foreground underline underline-offset-2"
+                            className="block text-xs text-muted-foreground truncate max-w-full"
                             onClick={() => {
                               setSelectedDocId(doc.id);
                               setOverrideFile(null);
                               setShowDocPicker(false); // collapse after selection
                             }}
                           >
-                            {doc.originalName}
+                            - <span className="underline underline-offset-2 hover:text-foreground">{doc.originalName}</span>
                           </button>
                         ))}
                       </div>
@@ -374,16 +374,15 @@ export function CoverLetterCard({
                 />
               </div>
 
-              {/* ── Cover letter template ──────────────────────────────────
-                   Base template auto-used when saved. User can swap, opt out,
-                   or upload a one-off for this run.                          */}
+              {/* ── Cover letter template ────────────────────────────────── */}
+              {/* Base template auto-used when saved. User can swap, opt out, or upload a one-off for this run. */}
               <div className="space-y-1.5 mt-[-8px]">
-                <div className="text-xs text-muted-foreground">
+                <div className="text-xs text-muted-foreground mb-0">
                   {templateFile ? (
                     <button type="button" onClick={() => templateInputRef.current?.click()}>
                       Template: <span className="text-foreground hover:underline underline-offset-2">{templateFile.name}</span>
                     </button>
-                  ) : baseCoverLetterExists && !skipBaseTemplate ? (
+                  ) : baseCoverLetterExists && !skipBaseTemplate ? (  // Base template active
                     <div>
                       <div>
                         <span className="text-foreground/80">Using: </span>
@@ -399,7 +398,7 @@ export function CoverLetterCard({
                         </button>.
                       </div>
                     </div>
-                  ) : skipBaseTemplate && !templateFile ? (
+                  ) : skipBaseTemplate && !templateFile ? (  // User opted out of using a template
                     <div>
                       <div>
                         <span className="text-foreground/80">Using: </span>
@@ -415,7 +414,7 @@ export function CoverLetterCard({
                         </button>.
                       </div>
                     </div>
-                  ) : (
+                  ) : (  // No base template saved
                     <button type="button" className="hover:text-foreground" onClick={() => templateInputRef.current?.click()}>
                       <span className="underline underline-offset-2">Upload a cover letter / template to build from</span>
                       <span> (optional)</span>
@@ -425,7 +424,7 @@ export function CoverLetterCard({
                 {templateFile && (
                   <button
                     type="button"
-                    className="text-xs text-muted-foreground hover:font-medium hover:text-red-600"
+                    className="text-xs text-muted-foreground hover:font-medium hover:text-red-600 mb-0"
                     onClick={() => {
                       void handleTemplateFile(null);
                       if (templateInputRef.current) templateInputRef.current.value = "";

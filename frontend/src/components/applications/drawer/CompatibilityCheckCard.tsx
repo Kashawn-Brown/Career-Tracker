@@ -15,7 +15,7 @@ import { ApiError }   from "@/lib/api/client";
 import { cn }         from "@/lib/utils";
 import { FitReport }  from "@/components/applications/drawer/FitReport";
 import { getFitBand } from "@/lib/fit/presentation";
-import { Loader2, CheckCircle2, Circle } from "lucide-react";
+import { Loader2, CheckCircle2, Circle, ChevronDown, ChevronRight } from "lucide-react";
 
 // Accepted file types for the per-tool resume override
 const RESUME_ACCEPT = ".pdf,.txt,.docx";
@@ -70,7 +70,9 @@ export function CompatibilityCheckCard({
   const [overrideFile,  setOverrideFile]  = useState<File | null>(null);
   const overrideInputRef                  = useRef<HTMLInputElement>(null);
   // User can pick an already-attached application doc instead of uploading again
-  const [selectedDocId, setSelectedDocId] = useState<number | null>(null);
+  const [selectedDocId,  setSelectedDocId]  = useState<number | null>(null);
+  // Controls visibility of the "pick from application" dropdown
+  const [showDocPicker,  setShowDocPicker]  = useState(false);
 
   // Fetch resume-type docs already attached to this application
   const { resumeDocs } = useApplicationDocs(application.id);
@@ -147,7 +149,7 @@ export function CompatibilityCheckCard({
     return Boolean(application.description?.trim());
   }, [application.description]);
 
-  // Resume is ready when an override file is staged OR base resume is saved
+  // Resume is ready when an override file is staged OR a doc is picked OR base resume is saved
   const resumeReady = overrideFile || selectedDocId ? true : baseResumeExists;
   const isReady     = hasJd && resumeReady && canUseAi;
 
@@ -387,9 +389,10 @@ export function CompatibilityCheckCard({
           ) : (
             /* ── Run mode (no result yet, or user hit Re-run) ─────────── */
             <>
-              {/* Resume override — upload new file, OR pick a doc already attached */}
+              {/* ── Resume source ─────────────────────────────────────────
+                   Upload new file, OR pick a doc already attached, OR use base resume */}
               <div className="mt-5 space-y-2">
-                <div className="text-xs">
+                <div className="text-xs mb-0">
                   {overrideFile ? (
                     <button type="button" onClick={() => overrideInputRef.current?.click()}>
                       <span className="text-muted-foreground">Resume: </span>
@@ -417,41 +420,67 @@ export function CompatibilityCheckCard({
                   )}
                 </div>
 
-                {/* ✕ clear uploaded file */}
+                {/* Clear uploaded file */}
                 {overrideFile && (
                   <button
                     type="button"
-                    className="text-xs text-muted-foreground hover:text-red-600"
+                    className="text-xs text-muted-foreground hover:font-medium hover:text-red-600 mb-0"
                     onClick={() => { setOverrideFile(null); if (overrideInputRef.current) overrideInputRef.current.value = ""; }}
                   >
                     ✕ Remove
                   </button>
                 )}
 
-                {/* Existing application docs — only shown when nothing is selected yet */}
-                {resumeDocs.length > 0 && !overrideFile && !selectedDocId && (
-                  <div className="space-y-0.5">
-                    <div className="text-xs text-muted-foreground">Or pick from this application:</div>
-                    {resumeDocs.map((doc) => (
-                      <button
-                        key={doc.id}
-                        type="button"
-                        className="block text-xs underline underline-offset-2 text-muted-foreground hover:text-foreground truncate max-w-full"
-                        onClick={() => { setSelectedDocId(doc.id); setOverrideFile(null); }}
-                      >
-                        {doc.originalName}
-                      </button>
-                    ))}
+                {/* Picked existing doc — show name + clear */}
+                {selectedDocId && !overrideFile && (
+                  <div className="space-y-1 text-xs">
+                    <div className="text-muted-foreground">
+                      <span className="text-foreground/80">Resume: </span>
+                      <span className="text-foreground">{resumeDocs.find(d => d.id === selectedDocId)?.originalName}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:font-medium hover:text-red-600"
+                      onClick={() => setSelectedDocId(null)}
+                    >
+                      ✕ Remove
+                    </button>
                   </div>
                 )}
 
-                {/* Selected existing doc indicator */}
-                {selectedDocId && !overrideFile && (
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-muted-foreground">
-                      Using: <span className="text-foreground">{resumeDocs.find(d => d.id === selectedDocId)?.originalName}</span>
-                    </span>
-                    <button type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setSelectedDocId(null)}>✕</button>
+                {/* Chevron toggle — only shown when there are attached docs and nothing is selected */}
+                {resumeDocs.length > 0 && !overrideFile && !selectedDocId && (
+                  <div className="mt-1">
+                    <button
+                      type="button"
+                      className={!showDocPicker ? "flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground" : "flex items-center gap-1 text-xs text-foreground"}
+                      onClick={() => setShowDocPicker((v) => !v)}
+                    >
+                      {showDocPicker
+                        ? <ChevronDown className="h-3 w-3" />
+                        : <ChevronRight className="h-3 w-3" />}
+                      Pick from this application's documents
+                    </button>
+
+                    {/* Collapsed list — only rendered when expanded */}
+                    {showDocPicker && (
+                      <div className="mt-1 space-y-0.5 pl-4">
+                        {resumeDocs.map((doc) => (
+                          <button
+                            key={doc.id}
+                            type="button"
+                            className="block text-xs text-muted-foreground truncate max-w-full"
+                            onClick={() => {
+                              setSelectedDocId(doc.id);
+                              setOverrideFile(null);
+                              setShowDocPicker(false);
+                            }}
+                          >
+                            - <span className="underline underline-offset-2 hover:text-foreground">{doc.originalName}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
