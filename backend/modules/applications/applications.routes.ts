@@ -484,10 +484,17 @@ export async function applicationsRoutes(app: FastifyInstance) {
 
           const { templateText } = req.body as GenerateAiArtifactBodyType;
 
+          // Use the per-run template if provided; otherwise fall back to the
+          // user's stored base cover letter template (if one exists).
+          const effectiveTemplate =
+            templateText?.trim() ||
+            (await DocumentsService.getBaseCoverLetterTextOrNull(userId)) ||
+            undefined;
+
           const payload = await DocumentToolsService.buildTargetedCoverLetter({
             candidateText: candidate.text,
             jdText:        application.description,
-            templateText:  templateText ?? undefined,
+            templateText:  effectiveTemplate,
             signal,
           });
 

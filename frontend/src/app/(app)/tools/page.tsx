@@ -9,7 +9,10 @@ import type { Document } from "@/types/api";
 
 export default function ToolsPage() {
   const { refreshMe } = useAuth();
-  const [baseResume, setBaseResume] = useState<Document | null | undefined>(undefined);
+  const [baseResume,       setBaseResume]       = useState<Document | null | undefined>(undefined);
+  // Track whether a base cover letter template exists so the card can show
+  // the "using base template" indicator without fetching the file itself.
+  const [baseCoverLetterExists, setBaseCoverLetterExists] = useState(false);
 
   // Load base resume status on mount so cards know whether to show
   // the "no base resume" warning or the "using saved resume" copy.
@@ -18,6 +21,12 @@ export default function ToolsPage() {
       .getBaseResume()
       .then((res) => setBaseResume(res.baseResume))
       .catch(() => setBaseResume(null));
+
+    // Fetch base cover letter existence independently — non-fatal if it fails
+    documentsApi
+      .getBaseCoverLetter()
+      .then((res) => setBaseCoverLetterExists(Boolean(res.baseCoverLetter)))
+      .catch(() => setBaseCoverLetterExists(false));
   }, []);
 
   const hasBaseResume = !!baseResume;
@@ -52,6 +61,7 @@ export default function ToolsPage() {
           />
           <GenericCoverLetterHelpCard
             hasBaseResume={hasBaseResume}
+            baseCoverLetterExists={baseCoverLetterExists}
             onSuccess={handleToolSuccess}
           />
         </div>

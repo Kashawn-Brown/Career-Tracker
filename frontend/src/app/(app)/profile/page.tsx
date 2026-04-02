@@ -10,7 +10,8 @@ import { ProfileProAccessCard } from "@/components/profile/ProfileProAccessCard"
 import { UserProfileCard } from "@/components/profile/UserProfileCard";
 import { JobSearchPreferencesCard } from "@/components/profile/JobSearchPreferencesCard";
 import { ProfileConnectionsCard } from "@/components/profile/ProfileConnectionsCard";
-import { BaseResumeCard } from "@/components/profile/BaseResumeCard";
+import { BaseResumeCard }        from "@/components/profile/BaseResumeCard";
+import { BaseCoverLetterCard }  from "@/components/profile/BaseCoverLetterCard";
 import { documentsApi } from "@/lib/api/documents";
 import { Alert } from "@/components/ui/alert";
 import type { Document, WorkMode } from "@/types/api";
@@ -67,6 +68,15 @@ export default function ProfilePage() {
 
   const [isJobSearchDialogOpen, setIsJobSearchDialogOpen] = useState(false);
   const [isResumeDialogOpen, setIsResumeDialogOpen] = useState(false);
+
+  // Base cover letter template state — mirrors base resume state block
+  const [baseCoverLetter,         setBaseCoverLetter]         = useState<Document | null>(null);
+  const [coverLetterFile,         setCoverLetterFile]         = useState<File | null>(null);
+  const coverLetterFileInputRef                               = useRef<HTMLInputElement | null>(null);
+  const [isCoverLetterSaving,     setIsCoverLetterSaving]     = useState(false);
+  const [isCoverLetterDeleting,   setIsCoverLetterDeleting]   = useState(false);
+  const [coverLetterErrorMessage, setCoverLetterErrorMessage] = useState<string | null>(null);
+  const [isCoverLetterDialogOpen, setIsCoverLetterDialogOpen] = useState(false);
 
   // Helpers
   function toDisplayString(x: string | null | undefined) {
@@ -133,6 +143,15 @@ export default function ProfilePage() {
 
           if (err instanceof ApiError) setResumeErrorMessage(err.message);
           else setResumeErrorMessage("Failed to load base resume.")
+        }
+
+        // Load base cover letter template metadata independently so a failure
+        // here doesn't block the rest of the profile from loading.
+        try {
+          const clRes = await documentsApi.getBaseCoverLetter();
+          setBaseCoverLetter(clRes.baseCoverLetter);
+        } catch {
+          setBaseCoverLetter(null); // non-fatal — just means no template saved
         }
 
       } catch (err) {
@@ -330,6 +349,71 @@ export default function ProfilePage() {
     }
   }
 
+
+  // ─── Base cover letter handlers — mirror base resume handlers exactly ─────────
+
+  /** Saves or replaces the user's base cover letter template. */
+  async function handleCoverLetterSave(e: React.FormEvent) {
+    e.preventDefault();
+    setCoverLetterErrorMessage(null);
+
+    if (!coverLetterFile) {
+      setCoverLetterErrorMessage("Choose a file to upload.");
+      return;
+    }
+
+    try {
+      setIsCoverLetterSaving(true);
+      const res = await documentsApi.uploadBaseCoverLetter(coverLetterFile);
+      setBaseCoverLetter(res.baseCoverLetter);
+      setCoverLetterFile(null);
+      if (coverLetterFileInputRef.current) coverLetterFileInputRef.current.value = "";
+      setIsCoverLetterDialogOpen(false);
+      setSuccessMessage("Cover letter template saved.");
+    } catch (err) {
+      if (err instanceof ApiError) setCoverLetterErrorMessage(err.message);
+      else setCoverLetterErrorMessage("Failed to save cover letter template.");
+    } finally {
+      setIsCoverLetterSaving(false);
+    }
+  }
+
+  /** Deletes the user's base cover letter template after confirmation. */
+  async function handleCoverLetterDelete() {
+    if (!baseCoverLetter || isCoverLetterSaving) return;
+
+    const confirmed = window.confirm(
+      "Delete your cover letter template?\n\nThis removes the saved template and deletes the stored file."
+    );
+    if (!confirmed) return;
+
+    setCoverLetterErrorMessage(null);
+
+    try {
+      setIsCoverLetterDeleting(true);
+      await documentsApi.deleteBaseCoverLetter();
+      setBaseCoverLetter(null);
+      setCoverLetterFile(null);
+      if (coverLetterFileInputRef.current) coverLetterFileInputRef.current.value = "";
+      setIsCoverLetterDialogOpen(false);
+      setSuccessMessage("Cover letter template deleted.");
+    } catch (err) {
+      if (err instanceof ApiError) setCoverLetterErrorMessage(err.message);
+      else setCoverLetterErrorMessage("Failed to delete cover letter template.");
+    } finally {
+      setIsCoverLetterDeleting(false);
+    }
+  }
+
+  /** Handles dialog open/close — clears unsaved file on close. */
+  function handleCoverLetterDialogOpenChange(nextOpen: boolean) {
+    setIsCoverLetterDialogOpen(nextOpen);
+    if (!nextOpen) {
+      setCoverLetterFile(null);
+      if (coverLetterFileInputRef.current) coverLetterFileInputRef.current.value = "";
+      setCoverLetterErrorMessage(null);
+    }
+  }
 
   // Handles the resume dialog open state changes.
   function handleResumeDialogOpenChange(nextOpen: boolean) {
@@ -590,6 +674,22 @@ export default function ProfilePage() {
                 resumeErrorMessage={resumeErrorMessage}
                 onClearResumeError={() => setResumeErrorMessage(null)}
               />
+
+              {/* Base cover letter template — auto-used in generation, managed here */}
+              <BaseCoverLetterCard
+                isDialogOpen={isCoverLetterDialogOpen}
+                onDialogOpenChange={handleCoverLetterDialogOpenChange}
+                baseCoverLetter={baseCoverLetter}
+                isSaving={isCoverLetterSaving}
+                onSave={handleCoverLetterSave}
+                isDeleting={isCoverLetterDeleting}
+                onDelete={handleCoverLetterDelete}
+                selectedFile={coverLetterFile}
+                onFileChange={setCoverLetterFile}
+                fileInputRef={coverLetterFileInputRef}
+                errorMessage={coverLetterErrorMessage}
+                onClearError={() => setCoverLetterErrorMessage(null)}
+              />
             </div>
           </div>
         </>
@@ -598,4 +698,3 @@ export default function ProfilePage() {
 
   );
 }
-

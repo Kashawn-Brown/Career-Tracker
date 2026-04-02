@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "DocumentKind" ADD VALUE 'BASE_COVER_LETTER';

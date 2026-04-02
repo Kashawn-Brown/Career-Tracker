@@ -17,9 +17,12 @@ const RESUME_ACCEPT   = ".pdf,.txt,.docx";
 const TEMPLATE_ACCEPT = ".txt,.docx";
 
 interface Props {
-  application:        Application;
-  baseResumeExists:   boolean;
-  canUseAi:           boolean;
+  application:          Application;
+  baseResumeExists:     boolean;
+  // Whether the user has a stored base cover letter template — shown as the
+  // default template indicator with an opt-out option in the generate form.
+  baseCoverLetterExists: boolean;
+  canUseAi:             boolean;
   documentToolRuns:   DocumentToolRunsController;
   onCloseOthers?:     () => void;
   onRegisterClose?:   (fn: () => void) => void;
@@ -30,6 +33,7 @@ interface Props {
 export function CoverLetterCard({
   application,
   baseResumeExists,
+  baseCoverLetterExists,
   canUseAi,
   documentToolRuns,
   onCloseOthers,
@@ -308,30 +312,43 @@ export function CoverLetterCard({
               <div className="flex items-center gap-2">
                 <div className="text-xs">
                   {templateFile ? (
+                    // User uploaded a template for this run — show the filename
                     <button
                       type="button"
                       className="text-muted-foreground"
                       onClick={() => templateInputRef.current?.click()}
                     >
-                      <span className="text-muted-foreground">Cover letter / template: </span>
+                      <span className="text-muted-foreground">Cover Letter Template: </span>
                       <span className="text-foreground hover:underline underline-offset-2">{templateFile.name}</span>
                     </button>
-                  ) : (
+                  ) : baseCoverLetterExists ? (
+                    // Base cover letter is saved — it will be used automatically.
+                    // Offer the user an opt-out (upload a different one for this run).
                     <>
-                      {/* For when base cover letter is hooked up */}
-                      {/* <div className="text-muted-foreground">
+                      <div className="text-muted-foreground">
                         <span className="text-foreground/80">Using: </span>
-                        <span className="font-medium text-foreground/80">Base resume</span>
-                      </div> */}
+                        <span className="font-medium text-foreground/80">Base cover letter</span>
+                      </div>  
                       <button
                         type="button"
-                        className="text-muted-foreground"
+                        className="text-muted-foreground underline underline-offset-2 hover:text-foreground mt-1"
                         onClick={() => templateInputRef.current?.click()}
                       >
-                        <span className="underline underline-offset-2 hover:text-foreground">Upload a cover letter / template to use</span>
-                        <span> (Optional)</span>
+                        Use a different cover letter
                       </button>
+                      <span className="text-muted-foreground"> (optional)</span>
+                      
                     </>
+                  ) : (
+                    // No base template saved — offer upload as optional
+                    <button
+                      type="button"
+                      className="text-muted-foreground"
+                      onClick={() => templateInputRef.current?.click()}
+                    >
+                      <span className="underline underline-offset-2 hover:text-foreground">Upload a cover letter / template to build from</span>
+                      <span> (optional)</span>
+                    </button>
                   )}
                 </div>
                 {templateFile && (

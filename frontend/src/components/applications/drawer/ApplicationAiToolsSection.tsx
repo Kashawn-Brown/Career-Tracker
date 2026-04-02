@@ -21,8 +21,9 @@ type Props = {
   fitRuns:          FitRunsController;
   documentToolRuns: DocumentToolRunsController;
 
-  baseResumeExists: boolean;
-  baseResumeId:     number | null;
+  baseResumeExists:      boolean;
+  baseResumeId:          number | null;
+  baseCoverLetterExists: boolean;
 
   onDocumentsChanged?:  (applicationId: string) => void;
   onCloseOthers?:       () => void;
@@ -48,6 +49,7 @@ export function ApplicationAiToolsSection({
   documentToolRuns,
   baseResumeExists,
   baseResumeId,
+  baseCoverLetterExists,
   onDocumentsChanged,
   onCloseOthers,
   onRegisterClose,
@@ -143,6 +145,7 @@ export function ApplicationAiToolsSection({
       <CoverLetterCard
         application={application}
         baseResumeExists={baseResumeExists}
+        baseCoverLetterExists={baseCoverLetterExists}
         canUseAi={canUse}
         documentToolRuns={documentToolRuns}
         onCloseOthers={onCloseOthers}

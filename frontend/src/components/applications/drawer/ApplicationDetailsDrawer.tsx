@@ -324,7 +324,11 @@ export function ApplicationDetailsDrawer({
   // Base resume document
   const [baseResume, setBaseResume] = useState<Document | null>(null);
   const baseResumeExists = Boolean(baseResume);
-  const baseResumeId = baseResume ? Number(baseResume.id) : null;
+  const baseResumeId     = baseResume ? Number(baseResume.id) : null;
+
+  // Whether the user has a stored base cover letter template — passed down to
+  // CoverLetterCard so it can show the "using base template" indicator.
+  const [baseCoverLetterExists, setBaseCoverLetterExists] = useState(false);
 
 
 
@@ -377,26 +381,33 @@ export function ApplicationDetailsDrawer({
 
   }, [open, application, isEditing]);
 
-  // Loads the base resume document for the current user
+  // Loads base resume + base cover letter template metadata for the current user.
+  // Both are user-scoped (not application-specific) so they only need to load once
+  // when the drawer opens, not on every application change.
   useEffect(() => {
     let cancelled = false;
-  
-    async function loadBaseResume() {
+
+    async function loadUserDocuments() {
       if (!open) return;
-  
+
       try {
         const res = await documentsApi.getBaseResume();
         if (!cancelled) setBaseResume(res.baseResume ?? null);
       } catch {
         if (!cancelled) setBaseResume(null);
       }
+
+      try {
+        const clRes = await documentsApi.getBaseCoverLetter();
+        if (!cancelled) setBaseCoverLetterExists(Boolean(clRes.baseCoverLetter));
+      } catch {
+        if (!cancelled) setBaseCoverLetterExists(false);
+      }
     }
-  
-    loadBaseResume();
-  
-    return () => {
-      cancelled = true;
-    };
+
+    void loadUserDocuments();
+
+    return () => { cancelled = true; };
   }, [open]);
   
 
@@ -1116,8 +1127,9 @@ export function ApplicationDetailsDrawer({
                 application={application} 
                 fitRuns={fitRuns}
                 documentToolRuns={documentToolRuns}
-                baseResumeExists={baseResumeExists} 
+                baseResumeExists={baseResumeExists}
                 baseResumeId={baseResumeId}
+                baseCoverLetterExists={baseCoverLetterExists}
 
                 onDocumentsChanged={(applicationId) => {
                   setDocsReloadKey((k) => k + 1);      // refresh drawer docs list

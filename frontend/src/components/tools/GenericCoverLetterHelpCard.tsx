@@ -15,8 +15,11 @@ const RESUME_ACCEPT   = ".pdf,.txt,.docx";
 const TEMPLATE_ACCEPT = ".txt,.docx";
 
 interface Props {
-  hasBaseResume: boolean;
-  onSuccess:     () => void; // called after a successful run to refresh credit count
+  hasBaseResume:         boolean;
+  // Whether the user has a stored base cover letter template — shown as default
+  // with an opt-out option so they don't have to re-upload every time.
+  baseCoverLetterExists: boolean;
+  onSuccess:             () => void; // called after a successful run to refresh credit count
 }
 
 /**
@@ -25,7 +28,7 @@ interface Props {
  * Collapsed by default. "Get started" expands the form inline.
  * Template field accepts file upload (.txt or .docx) — text extracted client-side.
  */
-export function GenericCoverLetterHelpCard({ hasBaseResume, onSuccess }: Props) {
+export function GenericCoverLetterHelpCard({ hasBaseResume, baseCoverLetterExists, onSuccess }: Props) {
   // Whether the form is expanded
   const [expanded, setExpanded] = useState(false);
 
@@ -220,21 +223,45 @@ export function GenericCoverLetterHelpCard({ hasBaseResume, onSuccess }: Props) 
 
           <Field label="Additional context (optional)" placeholder="Anything else we should know…" value={additionalContext} onChange={setAdditionalContext} />
 
-          {/* Template upload — user's existing cover letter or a template to build from */}
+          {/* Template upload — shows base template indicator if one is saved,
+               otherwise offers a plain upload option.                          */}
           <div>
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
               Cover letter template (optional)
             </label>
             <div className="mt-1.5 flex items-center gap-2">
-              <button
-                type="button"
-                className="text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
-                onClick={() => templateInputRef.current?.click()}
-              >
-                {templateFile
-                  ? `Using: ${templateFile.name}`
-                  : "Upload an existing cover letter or template to build from (.txt or .docx)"}
-              </button>
+              {templateFile ? (
+                // User chose a specific template for this run
+                <button
+                  type="button"
+                  className="text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                  onClick={() => templateInputRef.current?.click()}
+                >
+                  Using: {templateFile.name}
+                </button>
+              ) : baseCoverLetterExists ? (
+                // Base cover letter template is saved — auto-used unless overridden
+                <div className="text-sm text-muted-foreground">
+                  Using your base template.{" "}
+                  <button
+                    type="button"
+                    className="underline underline-offset-2 hover:text-foreground"
+                    onClick={() => templateInputRef.current?.click()}
+                  >
+                    Use a different one
+                  </button>{" "}
+                  for this run.
+                </div>
+              ) : (
+                // No base template — offer optional upload
+                <button
+                  type="button"
+                  className="text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                  onClick={() => templateInputRef.current?.click()}
+                >
+                  Upload an existing cover letter or template to build from (.txt or .docx)
+                </button>
+              )}
               {templateFile && (
                 <button
                   type="button"

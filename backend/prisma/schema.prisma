@@ -276,7 +276,10 @@ model Document {
 enum DocumentKind {
   BASE_RESUME
   RESUME
+
+  BASE_COVER_LETTER
   COVER_LETTER
+
   OTHER
   CAREER_HISTORY
 }

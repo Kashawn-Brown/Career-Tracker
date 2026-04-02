@@ -539,6 +539,115 @@ export async function uploadUserToolResume(args: {
 }
 
 // Helper function to build a storage key for the base resume
+// ─── Base cover letter template ──────────────────────────────────────────────
+// Mirrors the BASE_RESUME pattern exactly: one file per user, stored in GCS,
+// metadata in the Document table. Used as the default template for cover
+// letter generation unless overridden on a per-run basis.
+
+/** Builds the GCS storage key for a user's base cover letter template. */
+function buildBaseCoverLetterStorageKey(userId: string, mimeType: string) {
+  const ext    = mimeType === "application/pdf"  ? ".pdf"
+               : mimeType === "text/plain"        ? ".txt"
+               : mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ? ".docx"
+               : "";
+  const prefix = (process.env.GCS_KEY_PREFIX ?? "").trim();
+  const base   = `users/${userId}/base-cover-letter/base-cover-letter${ext}`;
+  return prefix ? `${prefix}/${base}` : base;
+}
+
+/**
+ * Uploads or replaces the user's base cover letter template.
+ * Uploads to GCS first, then commits to DB — same safe ordering as uploadBaseResume.
+ */
+export async function uploadBaseCoverLetter(args: {
+  userId:      string;
+  stream:      NodeJS.ReadableStream;
+  filename:    string;
+  mimeType:    string;
+  isTruncated: boolean;
+  signal?:     AbortSignal;
+}) {
+  const { userId, stream, filename, mimeType, isTruncated, signal } = args;
+
+  if (!isAllowedMimeType(mimeType)) {
+    throw new AppError(`Unsupported file type: ${mimeType}`, 400);
+  }
+
+  const newKey = buildBaseCoverLetterStorageKey(userId, mimeType);
+
+  const { sizeBytes } = await uploadStreamToGcs({
+    storageKey: newKey, stream, contentType: mimeType, isTruncated, signal,
+  });
+
+  // Fetch old key before transaction so we can clean up GCS afterwards
+  const existing = await prisma.document.findFirst({
+    where:  { userId, kind: DocumentKind.BASE_COVER_LETTER },
+    select: { id: true, storageKey: true },
+  });
+
+  if (signal?.aborted) {
+    await deleteGcsObject(newKey);
+    throwIfAborted(signal);
+  }
+
+  try {
+    const created = await prisma.$transaction(async (db) => {
+      // Replace: only one base cover letter per user
+      await db.document.deleteMany({ where: { userId, kind: DocumentKind.BASE_COVER_LETTER } });
+      return db.document.create({
+        data: {
+          userId, kind: DocumentKind.BASE_COVER_LETTER, url: null,
+          storageKey: newKey, originalName: filename, mimeType, size: sizeBytes,
+        },
+        select: documentSelect,
+      });
+    });
+
+    // Best-effort cleanup of the old blob after successful DB commit
+    if (existing?.storageKey && existing.storageKey !== newKey) {
+      await deleteGcsObject(existing.storageKey);
+    }
+
+    return created;
+  } catch (err) {
+    // Compensate: DB write failed after GCS upload — delete the orphaned blob
+    await deleteGcsObject(newKey);
+    throw err;
+  }
+}
+
+/** Returns the user's base cover letter template document, or null if none saved. */
+export async function getBaseCoverLetter(userId: string) {
+  return prisma.document.findFirst({
+    where:   { userId, kind: DocumentKind.BASE_COVER_LETTER },
+    orderBy: { createdAt: "desc" },
+    // Include storageKey so callers can download the file content when needed
+    select:  { ...documentSelect, storageKey: true },
+  });
+}
+
+/** Deletes the user's base cover letter template from GCS and the DB. */
+export async function deleteBaseCoverLetter(userId: string) {
+  const doc = await getBaseCoverLetter(userId);
+  if (!doc) throw new AppError("No base cover letter template found.", 404);
+
+  await prisma.document.deleteMany({ where: { userId, kind: DocumentKind.BASE_COVER_LETTER } });
+  await deleteGcsObject(doc.storageKey);
+}
+
+/**
+ * Extracts and returns the text content of the stored base cover letter template.
+ * Returns null if no template is saved — callers treat null as "start from scratch".
+ */
+export async function getBaseCoverLetterTextOrNull(userId: string): Promise<string | null> {
+  const doc = await getBaseCoverLetter(userId);
+  if (!doc) return null;
+
+  const buffer = await downloadGcsObjectToBuffer({ storageKey: doc.storageKey });
+  const text   = await extractTextFromBuffer({ buffer, mimeType: doc.mimeType, maxChars: 10_000 });
+  return text.trim() || null;
+}
+
 function buildBaseResumeStorageKey(userId: string, mimeType: string) {
   const ext = mimeType === "application/pdf" ? ".pdf" : mimeType === "text/plain" ? ".txt" : "";
   const prefix = (process.env.GCS_KEY_PREFIX ?? "").trim();

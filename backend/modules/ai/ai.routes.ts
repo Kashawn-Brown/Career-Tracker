@@ -286,13 +286,20 @@ export async function aiRoutes(app: FastifyInstance) {
           resumeSource     = "BASE_RESUME";
         }
 
+        // Use the per-run template if provided; otherwise fall back to the
+        // user's stored base cover letter template (if one exists).
+        const effectiveTemplate =
+          templateText?.trim() ||
+          (await DocumentsService.getBaseCoverLetterTextOrNull(userId)) ||
+          undefined;
+
         const payload = await DocumentToolsService.buildGenericCoverLetter({
           candidateText,
           targetField,
           targetRolesText,
           targetCompany,
           whyInterested,
-          templateText,
+          templateText: effectiveTemplate,
           additionalContext,
         });
 

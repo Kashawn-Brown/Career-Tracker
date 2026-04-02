@@ -53,4 +53,30 @@ export const documentsApi = {
     });
   },
 
+
+  // ─── Base cover letter template ────────────────────────────────────────────
+
+  /** Fetches the stored base cover letter template metadata, or null. */
+  getBaseCoverLetter() {
+    return apiFetch<{ baseCoverLetter: import("@/types/api").Document | null }>(
+      routes.documents.baseCoverLetter(),
+      { method: "GET" }
+    );
+  },
+
+  /** Uploads or replaces the stored base cover letter template. */
+  uploadBaseCoverLetter(file: File) {
+    const form = new FormData();
+    form.append("file", file);
+    return apiFetch<{ baseCoverLetter: import("@/types/api").Document }>(
+      routes.documents.baseCoverLetter(),
+      { method: "POST", body: form }
+    );
+  },
+
+  /** Deletes the stored base cover letter template. */
+  deleteBaseCoverLetter() {
+    return apiFetch<OkResponse>(routes.documents.baseCoverLetter(), { method: "DELETE" });
+  },
+
 }
