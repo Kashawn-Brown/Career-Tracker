@@ -12,7 +12,7 @@ import type { UserAiArtifact, CoverLetterPayload } from "@/types/api";
 
 // Accepted file types — matches backend allowlist
 const RESUME_ACCEPT   = ".pdf,.txt,.docx";
-const TEMPLATE_ACCEPT = ".txt,.docx";
+const TEMPLATE_ACCEPT = ".pdf,.txt,.docx";
 
 interface Props {
   hasBaseResume:         boolean;

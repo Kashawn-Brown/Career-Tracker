@@ -197,7 +197,7 @@ export function BaseResumeCard({
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".pdf,.txt"
+                    accept=".pdf,.txt,.docx"
                     className="hidden"
                     onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
                   />
@@ -222,7 +222,7 @@ export function BaseResumeCard({
                   </div>
 
                   <div className="text-xs text-muted-foreground">
-                    Accepted: PDF, TXT • up to 10MB
+                    Accepted: PDF, DOCX, TXT • up to 10MB
                   </div>
                 </div>
 
@@ -298,15 +298,17 @@ export function BaseResumeCard({
         )}
       </CardContent>
 
-      {/* Preview dialog (similar spirit to the drawer preview) */}
+      {/* Preview dialog */}
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <DialogContent className="max-w-5xl p-0">
-          <div className="border-b px-5 py-4 pr-12">
-            <div className="text-sm font-medium truncate">
+          <DialogHeader className="border-b px-5 py-4 pr-12">
+            <DialogTitle>
               {baseResume?.originalName ?? "Preview"}
-            </div>
-            <div className="text-xs text-muted-foreground">Document preview</div>
-          </div>
+            </DialogTitle>
+            <DialogDescription>
+              Document preview
+            </DialogDescription>
+          </DialogHeader>
 
           <div className="h-[75vh]">
             {isPreviewLoading ? (

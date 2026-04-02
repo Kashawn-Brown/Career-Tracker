@@ -14,7 +14,7 @@ import type { Application, AiArtifact, CoverLetterPayload } from "@/types/api";
 
 const RESUME_ACCEPT   = ".pdf,.txt,.docx";
 // Template: editable cover letter formats — PDF excluded (final-output format)
-const TEMPLATE_ACCEPT = ".txt,.docx";
+const TEMPLATE_ACCEPT = ".pdf,.txt,.docx";
 
 interface Props {
   application:          Application;

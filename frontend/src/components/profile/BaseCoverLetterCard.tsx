@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { ApiError }     from "@/lib/api/client";
+import { documentsApi } from "@/lib/api/documents";
 import { Button }       from "@/components/ui/button";
 import {
   Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle,
@@ -10,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import type { Document } from "@/types/api";
 
-// Accepted formats — cover letters are typically .docx or .pdf, .txt also useful
+// All three formats accepted — consistent with base resume
 const ACCEPT = ".pdf,.txt,.docx";
 
 type Props = {
@@ -21,6 +23,7 @@ type Props = {
   onSave:             (e: React.FormEvent) => void;
   isDeleting:         boolean;
   onDelete:           () => void;
+  onDownload:         () => void;
   selectedFile:       File | null;
   onFileChange:       (file: File | null) => void;
   fileInputRef:       React.RefObject<HTMLInputElement | null>;
@@ -34,16 +37,52 @@ type Props = {
  * The stored file is automatically used as the starting point for every cover
  * letter generation unless the user overrides it on a per-run basis.
  *
- * Mirrors BaseResumeCard in structure so the profile page stays consistent.
+ * Mirrors BaseResumeCard in structure — same View (inline preview), Download,
+ * Replace, Delete actions and the same upload dialog pattern.
  */
 export function BaseCoverLetterCard({
   isDialogOpen, onDialogOpenChange,
   baseCoverLetter,
   isSaving, onSave,
-  isDeleting, onDelete,
+  isDeleting, onDelete, onDownload,
   selectedFile, onFileChange, fileInputRef,
   errorMessage, onClearError,
 }: Props) {
+  // Inline preview state — mirrors BaseResumeCard's preview dialog
+  const [isPreviewOpen,    setIsPreviewOpen]    = useState(false);
+  const [previewUrl,       setPreviewUrl]       = useState<string | null>(null);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [previewError,     setPreviewError]     = useState<string | null>(null);
+
+  // Clear signed URL on close so stale URLs don't linger
+  useEffect(() => {
+    if (!isPreviewOpen) {
+      setPreviewUrl(null);
+      setPreviewError(null);
+      setIsPreviewLoading(false);
+    }
+  }, [isPreviewOpen]);
+
+  async function openPreview() {
+    if (!baseCoverLetter) return;
+    const id = typeof baseCoverLetter.id === "string" ? Number(baseCoverLetter.id) : baseCoverLetter.id;
+    if (!Number.isFinite(id)) { setPreviewError("Invalid document id."); setIsPreviewOpen(true); return; }
+
+    setIsPreviewOpen(true);
+    setIsPreviewLoading(true);
+    setPreviewError(null);
+    setPreviewUrl(null);
+
+    try {
+      const res = await documentsApi.getDownloadUrl(id, { disposition: "inline" });
+      setPreviewUrl(res.downloadUrl);
+    } catch (err) {
+      setPreviewError(err instanceof ApiError ? err.message : "Failed to load preview.");
+    } finally {
+      setIsPreviewLoading(false);
+    }
+  }
+
   const updatedText = baseCoverLetter
     ? new Date(baseCoverLetter.updatedAt).toLocaleDateString()
     : null;
@@ -60,22 +99,35 @@ export function BaseCoverLetterCard({
 
         <CardAction>
           {baseCoverLetter && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => onDialogOpenChange(true)}
-              disabled={isSaving || isDeleting}
-            >
-              Replace
-            </Button>
+            <div className="flex items-center gap-2">
+              {/* View opens an inline preview dialog — only works for PDFs (browsers can't render DOCX/TXT inline) */}
+              {baseCoverLetter.mimeType === "application/pdf" && (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={openPreview}
+                  disabled={isSaving || isDeleting}
+                >
+                  View
+                </Button>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => onDialogOpenChange(true)}
+                disabled={isSaving || isDeleting}
+              >
+                Replace
+              </Button>
+            </div>
           )}
 
           {/* Upload / replace dialog */}
           <Dialog open={isDialogOpen} onOpenChange={onDialogOpenChange}>
             <DialogContent className="max-w-xl" onInteractOutside={(e) => e.preventDefault()}>
 
-              {/* Floating error banner — same pattern as BaseResumeCard */}
+              {/* Floating error banner */}
               {errorMessage && (
                 <div className="fixed inset-x-0 top-[-35%] z-[60] flex justify-center px-4">
                   <div className="relative w-full max-w-xl">
@@ -111,7 +163,6 @@ export function BaseCoverLetterCard({
                 <div className="space-y-2">
                   <div className="text-sm font-medium">Template file</div>
 
-                  {/* Hidden file input — triggered by the button below */}
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -170,7 +221,6 @@ export function BaseCoverLetterCard({
         {baseCoverLetter ? (
           <div className="space-y-3">
             <div className="flex items-start gap-3">
-              {/* Green dot — visual indicator that a template is saved */}
               <span className="mt-1 inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
               <div className="min-w-0">
                 <div className="font-medium truncate">{baseCoverLetter.originalName}</div>
@@ -180,15 +230,26 @@ export function BaseCoverLetterCard({
               </div>
             </div>
 
-            <Button
-              type="button"
-              variant="destructive"
-              size="sm"
-              onClick={onDelete}
-              disabled={isSaving || isDeleting}
-            >
-              Delete
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onDownload}
+                disabled={isSaving || isDeleting}
+              >
+                Download
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                onClick={onDelete}
+                disabled={isSaving || isDeleting}
+              >
+                Delete
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="space-y-3">
@@ -199,6 +260,36 @@ export function BaseCoverLetterCard({
           </div>
         )}
       </CardContent>
+
+      {/* Inline preview dialog */}
+      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+        <DialogContent className="max-w-5xl p-0">
+          <DialogHeader className="border-b px-5 py-4 pr-12">
+            <DialogTitle>
+              {baseCoverLetter?.originalName ?? "Preview"}
+            </DialogTitle>
+            <DialogDescription>
+              Document preview
+            </DialogDescription>
+          </DialogHeader>
+          <div className="h-[75vh]">
+            {isPreviewLoading ? (
+              <div className="p-4 text-sm text-muted-foreground">Loading preview…</div>
+            ) : previewError ? (
+              <div className="p-4 text-sm text-destructive">{previewError}</div>
+            ) : previewUrl ? (
+              <iframe
+                src={previewUrl}
+                title={baseCoverLetter?.originalName ?? "Document preview"}
+                className="h-full w-full bg-white"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="p-4 text-sm text-muted-foreground">No preview available.</div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

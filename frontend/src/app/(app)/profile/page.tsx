@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { AccountSecurityDialog } from "@/components/profile/AccountSecurityDialog";
 import { ProfileProAccessCard } from "@/components/profile/ProfileProAccessCard";
 import { UserProfileCard } from "@/components/profile/UserProfileCard";
-import { JobSearchPreferencesCard } from "@/components/profile/JobSearchPreferencesCard";
+// import { JobSearchPreferencesCard } from "@/components/profile/JobSearchPreferencesCard";
 import { ProfileConnectionsCard } from "@/components/profile/ProfileConnectionsCard";
 import { BaseResumeCard }        from "@/components/profile/BaseResumeCard";
 import { BaseCoverLetterCard }  from "@/components/profile/BaseCoverLetterCard";
@@ -405,6 +405,19 @@ export default function ProfilePage() {
     }
   }
 
+  /** Downloads the stored base cover letter template file. */
+  async function handleCoverLetterDownload() {
+    if (!baseCoverLetter) return;
+    const id = typeof baseCoverLetter.id === "string" ? Number(baseCoverLetter.id) : baseCoverLetter.id;
+    try {
+      const res = await documentsApi.getDownloadUrl(id, { disposition: "attachment" });
+      window.open(res.downloadUrl, "_blank");
+    } catch (err) {
+      if (err instanceof ApiError) setCoverLetterErrorMessage(err.message);
+      else setCoverLetterErrorMessage("Failed to download cover letter template.");
+    }
+  }
+
   /** Handles dialog open/close — clears unsaved file on close. */
   function handleCoverLetterDialogOpenChange(nextOpen: boolean) {
     setIsCoverLetterDialogOpen(nextOpen);
@@ -633,7 +646,7 @@ export default function ProfilePage() {
 
 
               {/* Job search preferences section */}
-              <JobSearchPreferencesCard
+              {/* <JobSearchPreferencesCard
                 isDialogOpen={isJobSearchDialogOpen}
                 onDialogOpenChange={handleJobSearchDialogOpenChange}
                 isEditing={isEditingJobSearch}
@@ -651,7 +664,7 @@ export default function ProfilePage() {
                 setSummary={setJobSearchSummary}
                 workMode={jobSearchWorkMode}
                 setWorkMode={setJobSearchWorkMode}
-              />
+              /> */}
 
 
               {/* Connections section */}
@@ -684,6 +697,7 @@ export default function ProfilePage() {
                 onSave={handleCoverLetterSave}
                 isDeleting={isCoverLetterDeleting}
                 onDelete={handleCoverLetterDelete}
+                onDownload={handleCoverLetterDownload}
                 selectedFile={coverLetterFile}
                 onFileChange={setCoverLetterFile}
                 fileInputRef={coverLetterFileInputRef}
