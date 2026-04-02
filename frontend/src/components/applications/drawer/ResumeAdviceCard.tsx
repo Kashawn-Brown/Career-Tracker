@@ -8,7 +8,7 @@ import { applicationsApi }     from "@/lib/api/applications";
 import { ResumeAdviceReport }  from "@/components/applications/drawer/ResumeAdviceReport";
 import { ToolInfoPopover }     from "@/components/tools/ToolInfoPopover";
 import { TOOL_INFO }           from "@/lib/tool-info";
-import { Loader2, AlertTriangle } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import type { DocumentToolRunsController } from "@/hooks/useDocumentToolRuns";
 import type { Application, AiArtifact, ResumeAdvicePayload } from "@/types/api";
 
@@ -66,19 +66,24 @@ export function ResumeAdviceCard({
   // Load latest artifact; reset UI when application changes
   useEffect(() => {
     let cancelled = false;
-    setArtifact(null);
-    setIsReportOpen(false);
-    setIsRerunMode(false);
-    setLoadingLatest(true);
 
-    applicationsApi
-      .listAiArtifacts(application.id, { kind: "RESUME_ADVICE" })
-      .then((res) => {
-        if (!cancelled) setArtifact((res?.[0] as AiArtifact<ResumeAdvicePayload>) ?? null);
-      })
-      .catch(() => { /* silent */ })
-      .finally(() => { if (!cancelled) setLoadingLatest(false); });
+    async function loadLatest() {
+      // Resets inside the async function — avoids react-hooks/set-state-in-effect
+      setArtifact(null);
+      setIsReportOpen(false);
+      setIsRerunMode(false);
+      setLoadingLatest(true);
 
+      applicationsApi
+        .listAiArtifacts(application.id, { kind: "RESUME_ADVICE" })
+        .then((res) => {
+          if (!cancelled) setArtifact((res?.[0] as AiArtifact<ResumeAdvicePayload>) ?? null);
+        })
+        .catch(() => { /* silent */ })
+        .finally(() => { if (!cancelled) setLoadingLatest(false); });
+    }
+
+    void loadLatest();
     return () => { cancelled = true; };
   }, [application.id]);
 
@@ -160,10 +165,7 @@ export function ResumeAdviceCard({
             {/* Indeterminate progress — single-step tool */}
             <div className="h-1.5 rounded bg-primary w-1/2 animate-pulse" />
           </div>
-          {/* <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
-            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-            You can close this drawer — the run will continue in the background.
-          </div> */}
+
           <div className="flex justify-end">
             <Button
               variant="outline"

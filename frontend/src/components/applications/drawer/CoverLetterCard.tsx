@@ -8,7 +8,7 @@ import { applicationsApi }     from "@/lib/api/applications";
 import { CoverLetterReport }   from "@/components/applications/drawer/CoverLetterReport";
 import { ToolInfoPopover }     from "@/components/tools/ToolInfoPopover";
 import { TOOL_INFO }           from "@/lib/tool-info";
-import { Loader2, AlertTriangle } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import type { DocumentToolRunsController } from "@/hooks/useDocumentToolRuns";
 import type { Application, AiArtifact, CoverLetterPayload } from "@/types/api";
 
@@ -181,10 +181,7 @@ export function CoverLetterCard({
           <div className="h-1.5 w-full rounded bg-muted">
             <div className="h-1.5 rounded bg-primary w-1/2 animate-pulse" />
           </div>
-          {/* <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
-            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-            You can close this drawer — the run will continue in the background.
-          </div> */}
+
           <div className="flex justify-end">
             <Button
               variant="outline"

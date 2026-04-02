@@ -150,9 +150,9 @@ export function useFitRuns(): FitRunsController {
 
       const steps: FitRunStep[] = [];
       if (overrideFile) {
-        steps.push({ key: "UPLOAD_OVERRIDE", label: "Uploading override resume" });
+        steps.push({ key: "UPLOAD_OVERRIDE", label: "Uploading override resume…" });
       }
-      steps.push({ key: "RUN_COMPATIBILITY", label: "Generating compatibility report" });
+      steps.push({ key: "RUN_COMPATIBILITY", label: "Generating compatibility report…" });
 
       const runStepIndex = overrideFile ? 1 : 0;
       

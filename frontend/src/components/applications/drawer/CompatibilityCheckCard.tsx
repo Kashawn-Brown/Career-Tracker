@@ -13,7 +13,7 @@ import { ApiError }   from "@/lib/api/client";
 import { cn }         from "@/lib/utils";
 import { FitReport }  from "@/components/applications/drawer/FitReport";
 import { getFitBand } from "@/lib/fit/presentation";
-import { Loader2, CheckCircle2, Circle, AlertTriangle } from "lucide-react";
+import { Loader2, CheckCircle2, Circle } from "lucide-react";
 
 // Accepted file types for the per-tool resume override
 const RESUME_ACCEPT = ".pdf,.txt,.docx";
@@ -267,13 +267,8 @@ export function CompatibilityCheckCard({
 
           {/* Progress bar */}
           <div className="h-2 w-full rounded bg-muted">
-            <div className="h-2 rounded bg-primary transition-all" style={{ width: progressWidth }} />
+            <div className="h-2 rounded bg-primary transition-all animate-pulse" style={{ width: progressWidth }} />
           </div>
-
-          {/* <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
-            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-            Do not refresh — this will cancel the check.
-          </div> */}
 
           {/* Step-by-step list */}
           {steps.length > 1 && (
