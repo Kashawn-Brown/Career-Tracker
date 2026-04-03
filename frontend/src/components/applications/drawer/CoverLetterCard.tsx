@@ -30,6 +30,9 @@ interface Props {
   onDocumentsChanged?:  (applicationId: string) => void;
   onApplicationChanged?: (applicationId: string) => void;
   onRefreshMe:          () => void;
+  // Incremented by the drawer whenever a document is added, so the resume
+  // and template pickers re-fetch without requiring a full drawer close/reopen.
+  docsReloadKey?: number;
 }
 
 export function CoverLetterCard({
@@ -43,6 +46,7 @@ export function CoverLetterCard({
   onDocumentsChanged,
   onApplicationChanged,
   onRefreshMe,
+  docsReloadKey = 0,
 }: Props) {
   // Latest persisted artifact
   const [artifact,      setArtifact]      = useState<AiArtifact<CoverLetterPayload> | null>(null);
@@ -66,8 +70,9 @@ export function CoverLetterCard({
   // When true, skip the base cover letter template for this run
   const [skipBaseTemplate, setSkipBaseTemplate] = useState(false);
 
-  // Fetch resume-type docs already attached to this application
-  const { resumeDocs } = useApplicationDocs(application.id);
+  // Fetch resume-type docs attached to this application.
+  // Re-fetches whenever docsReloadKey changes (doc added in the drawer).
+  const { resumeDocs } = useApplicationDocs(application.id, docsReloadKey);
 
   // Template: user uploads existing cover letter — text extracted client-side
   const [templateFile, setTemplateFile] = useState<File | null>(null);

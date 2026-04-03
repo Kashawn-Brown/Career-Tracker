@@ -48,6 +48,10 @@ export function GenericCoverLetterHelpCard({ hasBaseResume, baseCoverLetterExist
   const [error,    setError]    = useState<string | null>(null);
   const [artifact, setArtifact] = useState<UserAiArtifact<CoverLetterPayload> | null>(null);
 
+  // When true, the user has opted out of using their stored base cover letter
+  // template for this run. Mirrors the same behaviour in CoverLetterCard.
+  const [skipBaseTemplate, setSkipBaseTemplate] = useState(false);
+
   const resumeInputRef   = useRef<HTMLInputElement>(null);
   const templateInputRef = useRef<HTMLInputElement>(null);
 
@@ -81,15 +85,18 @@ export function GenericCoverLetterHelpCard({ hasBaseResume, baseCoverLetterExist
 
     try {
       const result = await aiApi.coverLetterHelp({
-        targetField:       targetField.trim()       || undefined,
-        targetRolesText:   targetRolesText.trim()   || undefined,
-        targetCompany:     targetCompany.trim()      || undefined,
-        whyInterested:     whyInterested.trim()      || undefined,
+        targetField:                 targetField.trim()       || undefined,
+        targetRolesText:             targetRolesText.trim()   || undefined,
+        targetCompany:               targetCompany.trim()      || undefined,
+        whyInterested:               whyInterested.trim()      || undefined,
         // Merge motivations into additionalContext so the backend receives it
         additionalContext: [motivations.trim(), additionalContext.trim()]
           .filter(Boolean).join("\n\n") || undefined,
-        templateText:      templateText.trim()       || undefined,
-        resumeFile:        resumeFile ?? undefined,
+        templateText:                templateText.trim()       || undefined,
+        resumeFile:                  resumeFile ?? undefined,
+        // Only skip the base template when the user opted out AND hasn't
+        // supplied their own template (supplying one already overrides it)
+        skipBaseCoverLetterTemplate: skipBaseTemplate && !templateFile,
       });
       setArtifact(result);
       onSuccess();
@@ -223,55 +230,99 @@ export function GenericCoverLetterHelpCard({ hasBaseResume, baseCoverLetterExist
 
           <Field label="Additional context (optional)" placeholder="Anything else we should know…" value={additionalContext} onChange={setAdditionalContext} />
 
-          {/* Template upload — shows base template indicator if one is saved,
-               otherwise offers a plain upload option.                          */}
+          {/* ── Cover letter template ────────────────────────────────────────
+               Four states, mirroring CoverLetterCard:
+               1. User uploaded a one-off file for this run
+               2. Base template saved + not opted out → auto-used, opt-out offered
+               3. User opted out → "no template" shown, revert offered
+               4. No base template saved → plain upload prompt               */}
           <div>
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
               Cover letter template (optional)
             </label>
-            <div className="mt-1.5 flex items-center gap-2">
+            <div className="mt-1.5 space-y-1.5 text-sm text-muted-foreground">
               {templateFile ? (
-                // User chose a specific template for this run
-                <button
-                  type="button"
-                  className="text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
-                  onClick={() => templateInputRef.current?.click()}
-                >
-                  Using: {templateFile.name}
-                </button>
-              ) : baseCoverLetterExists ? (
-                // Base cover letter template is saved — auto-used unless overridden
-                <div className="text-sm text-muted-foreground">
-                  Using your base template.{" "}
+                // 1. User chose a one-off template for this run
+                <div>
                   <button
                     type="button"
                     className="underline underline-offset-2 hover:text-foreground"
                     onClick={() => templateInputRef.current?.click()}
                   >
-                    Use a different one
-                  </button>{" "}
-                  for this run.
+                    Using: {templateFile.name}
+                  </button>
+                  <button
+                    type="button"
+                    className="ml-2 text-xs hover:text-red-600"
+                    onClick={() => {
+                      void handleTemplateFile(null);
+                      if (templateInputRef.current) templateInputRef.current.value = "";
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : baseCoverLetterExists && !skipBaseTemplate ? (
+                // 2. Base template is saved and active
+                <div>
+                  <div>
+                    <span className="text-foreground/80">Using: </span>
+                    <span className="font-medium text-foreground/80">Base cover letter</span>
+                  </div>
+                  <div className="mt-1">
+                    <button
+                      type="button"
+                      className="underline underline-offset-2 hover:text-foreground"
+                      onClick={() => templateInputRef.current?.click()}
+                    >
+                      Use a different one
+                    </button>
+                    {" or "}
+                    <button
+                      type="button"
+                      className="underline underline-offset-2 hover:text-foreground"
+                      onClick={() => setSkipBaseTemplate(true)}
+                    >
+                      use no template
+                    </button>.
+                  </div>
+                </div>
+              ) : skipBaseTemplate && !templateFile ? (
+                // 3. User opted out of the base template
+                <div>
+                  <div>
+                    <span className="text-foreground/80">Using: </span>
+                    <span className="font-medium text-foreground/80">No template</span>
+                  </div>
+                  <div className="mt-1">
+                    <button
+                      type="button"
+                      className="underline underline-offset-2 hover:text-foreground"
+                      onClick={() => setSkipBaseTemplate(false)}
+                    >
+                      Use base cover letter
+                    </button>
+                    {" or "}
+                    <button
+                      type="button"
+                      className="underline underline-offset-2 hover:text-foreground"
+                      onClick={() => templateInputRef.current?.click()}
+                    >
+                      upload one
+                    </button>.
+                  </div>
                 </div>
               ) : (
-                // No base template — offer optional upload
+                // 4. No base template — plain upload offer
                 <button
                   type="button"
-                  className="text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                  className="hover:text-foreground"
                   onClick={() => templateInputRef.current?.click()}
                 >
-                  Upload an existing cover letter or template to build from (.txt or .docx)
-                </button>
-              )}
-              {templateFile && (
-                <button
-                  type="button"
-                  className="text-xs text-muted-foreground hover:text-foreground"
-                  onClick={() => {
-                    void handleTemplateFile(null);
-                    if (templateInputRef.current) templateInputRef.current.value = "";
-                  }}
-                >
-                  ✕
+                  <span className="underline underline-offset-2">
+                    Upload an existing cover letter or template to build from
+                  </span>
+                  <span> (optional)</span>
                 </button>
               )}
               <input
@@ -279,7 +330,11 @@ export function GenericCoverLetterHelpCard({ hasBaseResume, baseCoverLetterExist
                 type="file"
                 accept={TEMPLATE_ACCEPT}
                 className="hidden"
-                onChange={(e) => void handleTemplateFile(e.target.files?.[0] ?? null)}
+                onChange={(e) => {
+                  // Uploading a file overrides any skip-opt-out choice
+                  setSkipBaseTemplate(false);
+                  void handleTemplateFile(e.target.files?.[0] ?? null);
+                }}
               />
             </div>
           </div>

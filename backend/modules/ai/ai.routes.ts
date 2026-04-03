@@ -241,7 +241,11 @@ export async function aiRoutes(app: FastifyInstance) {
           }
         }
 
-        const { targetField, targetRolesText, targetCompany, whyInterested, templateText, additionalContext } = fields;
+        const {
+          targetField, targetRolesText, targetCompany,
+          whyInterested, templateText, additionalContext,
+          skipBaseCoverLetterTemplate,
+        } = fields;
 
         if (!targetField && !targetRolesText && !targetCompany && !additionalContext) {
           throw new AppError(
@@ -286,12 +290,13 @@ export async function aiRoutes(app: FastifyInstance) {
           resumeSource     = "BASE_RESUME";
         }
 
-        // Use the per-run template if provided; otherwise fall back to the
-        // user's stored base cover letter template (if one exists).
+        // Use the per-run template if provided; fall back to the user's stored
+        // base cover letter template unless they explicitly opted out.
         const effectiveTemplate =
           templateText?.trim() ||
-          (await DocumentsService.getBaseCoverLetterTextOrNull(userId)) ||
-          undefined;
+          (skipBaseCoverLetterTemplate === "true"
+            ? undefined
+            : (await DocumentsService.getBaseCoverLetterTextOrNull(userId)) || undefined);
 
         const payload = await DocumentToolsService.buildGenericCoverLetter({
           candidateText,

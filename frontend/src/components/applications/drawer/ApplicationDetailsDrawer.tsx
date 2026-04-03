@@ -1125,7 +1125,12 @@ export function ApplicationDetailsDrawer({
               <ApplicationDocumentsSection
                 applicationId={application.id}
                 open={open}
-                onDocumentsChanged={onDocumentsChanged}
+                onDocumentsChanged={(applicationId) => {
+                  // Bump the key so AI tool resume pickers re-fetch immediately
+                  // when the user uploads a doc, without needing drawer close/reopen.
+                  setDocsReloadKey((k) => k + 1);
+                  onDocumentsChanged?.(applicationId);
+                }}
                 activePreviewDocId={previewDocId}
                 onPreviewRequested={handlePreviewRequest}
                 docsReloadKey={docsReloadKey}
@@ -1142,6 +1147,7 @@ export function ApplicationDetailsDrawer({
                 baseResumeExists={baseResumeExists}
                 baseResumeId={baseResumeId}
                 baseCoverLetterExists={baseCoverLetterExists}
+                docsReloadKey={docsReloadKey}
 
                 onDocumentsChanged={(applicationId) => {
                   setDocsReloadKey((k) => k + 1);      // refresh drawer docs list

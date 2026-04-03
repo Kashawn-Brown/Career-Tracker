@@ -27,6 +27,9 @@ interface Props {
   onDocumentsChanged?:   (applicationId: string) => void;
   onApplicationChanged?: (applicationId: string) => void;
   onRefreshMe:           () => void;
+  // Incremented by the drawer whenever a document is added, so the resume
+  // picker re-fetches without requiring a full drawer close/reopen.
+  docsReloadKey?: number;
 }
 
 export function ResumeAdviceCard({
@@ -39,6 +42,7 @@ export function ResumeAdviceCard({
   onDocumentsChanged,
   onApplicationChanged,
   onRefreshMe,
+  docsReloadKey = 0,
 }: Props) {
   // Latest persisted artifact for this application
   const [artifact,      setArtifact]      = useState<AiArtifact<ResumeAdvicePayload> | null>(null);
@@ -59,8 +63,9 @@ export function ResumeAdviceCard({
   // Controls visibility of the "pick from application" dropdown
   const [showDocPicker,  setShowDocPicker]  = useState(false);
 
-  // Fetch resume-type docs already attached to this application
-  const { resumeDocs } = useApplicationDocs(application.id);
+  // Fetch resume-type docs already attached to this application.
+  // Re-fetches whenever docsReloadKey changes (doc added in the drawer).
+  const { resumeDocs } = useApplicationDocs(application.id, docsReloadKey);
 
   // Prevent stale setState after unmount or application switch
   const mountedRef = useRef(true);

@@ -32,6 +32,10 @@ type Props = {
 
   autoOpenLatestFit?:          boolean;
   onAutoOpenLatestFitConsumed?: () => void;
+
+  // Incremented by the drawer when a document is uploaded so all AI tool
+  // resume pickers re-fetch without needing a full drawer close/reopen.
+  docsReloadKey?: number;
 };
 
 /**
@@ -56,6 +60,7 @@ export function ApplicationAiToolsSection({
   onApplicationChanged,
   autoOpenLatestFit,
   onAutoOpenLatestFitConsumed,
+  docsReloadKey = 0,
 }: Props) {
   // Auth and plan state live here so they can be shared across all three cards
   const { user, aiProRequest, refreshMe } = useAuth();
@@ -129,6 +134,7 @@ export function ApplicationAiToolsSection({
         onRefreshMe={() => void refreshMe()}
         autoOpenLatestFit={autoOpenLatestFit}
         onAutoOpenLatestFitConsumed={onAutoOpenLatestFitConsumed}
+        docsReloadKey={docsReloadKey}
       />
 
       <ResumeAdviceCard
@@ -141,6 +147,7 @@ export function ApplicationAiToolsSection({
         onDocumentsChanged={onDocumentsChanged}
         onApplicationChanged={onApplicationChanged}
         onRefreshMe={() => void refreshMe()}
+        docsReloadKey={docsReloadKey}
       />
 
       <CoverLetterCard
@@ -154,11 +161,12 @@ export function ApplicationAiToolsSection({
         onDocumentsChanged={onDocumentsChanged}
         onApplicationChanged={onApplicationChanged}
         onRefreshMe={() => void refreshMe()}
+        docsReloadKey={docsReloadKey}
       />
 
       <div className="flex items-center justify-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 text-centernotif">
         <AlertTriangle className="h-3.5 w-3.5" />
-        You can close this drawer — any running tools will continue in the background.
+        You can close this drawer — any running AI tools will continue in the background.
       </div>
     </div>
   );

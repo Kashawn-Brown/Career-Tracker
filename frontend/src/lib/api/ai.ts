@@ -59,13 +59,15 @@ export const aiApi = {
    * resumeFile is optional — falls back to stored base resume if omitted.
    */
   coverLetterHelp(fields: {
-    targetField?:       string;
-    targetRolesText?:   string;
-    targetCompany?:     string;
-    whyInterested?:     string;
-    templateText?:      string;
-    additionalContext?: string;
-    resumeFile?:        File | null;
+    targetField?:                string;
+    targetRolesText?:            string;
+    targetCompany?:              string;
+    whyInterested?:              string;
+    templateText?:               string;
+    additionalContext?:          string;
+    resumeFile?:                 File | null;
+    // When true, skips the user's stored base cover letter template for this run
+    skipBaseCoverLetterTemplate?: boolean;
   }) {
     const form = new FormData();
     if (fields.targetField)       form.append("targetField",       fields.targetField);
@@ -75,6 +77,8 @@ export const aiApi = {
     if (fields.templateText)      form.append("templateText",      fields.templateText);
     if (fields.additionalContext) form.append("additionalContext", fields.additionalContext);
     if (fields.resumeFile)        form.append("resumeFile",        fields.resumeFile);
+    // Only append when true — absence means "use default behaviour" on the backend
+    if (fields.skipBaseCoverLetterTemplate) form.append("skipBaseCoverLetterTemplate", "true");
 
     return apiFetch<import("@/types/api").UserAiArtifact<import("@/types/api").CoverLetterPayload>>(
       routes.ai.coverLetterHelp(),

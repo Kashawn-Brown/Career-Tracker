@@ -17,8 +17,15 @@ export type ApplicationResumeDoc = {
  * Fetches documents attached to an application and filters to resume-type kinds.
  * Used by the drawer AI tool cards so the user can pick an already-attached
  * resume instead of uploading the same file again for each tool.
+ *
+ * `reloadKey` can be incremented by the parent to force a fresh fetch without
+ * unmounting — used when ApplicationDocumentsSection uploads a new file so the
+ * AI tool pickers update immediately without a full drawer close/reopen.
  */
-export function useApplicationDocs(applicationId: string): {
+export function useApplicationDocs(
+  applicationId: string,
+  reloadKey = 0,
+): {
   resumeDocs: ApplicationResumeDoc[];
   loading:    boolean;
 } {
@@ -33,7 +40,7 @@ export function useApplicationDocs(applicationId: string): {
       .list(applicationId)
       .then((res) => {
         if (cancelled) return;
-        // Filter to resume-type kinds only — COVER_LETTER, OTHER etc. aren't useful
+
         const filtered = res.documents
           .filter((d: Document) => RESUME_KINDS.has(d.kind))
           .map((d: Document) => ({
@@ -41,13 +48,16 @@ export function useApplicationDocs(applicationId: string): {
             originalName: d.originalName,
             kind:         d.kind,
           }));
+
         setResumeDocs(filtered);
       })
       .catch(() => { if (!cancelled) setResumeDocs([]); })
       .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
-  }, [applicationId]);
+    // reloadKey is intentionally included — incrementing it forces a re-fetch
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applicationId, reloadKey]);
 
   return { resumeDocs, loading };
 }
