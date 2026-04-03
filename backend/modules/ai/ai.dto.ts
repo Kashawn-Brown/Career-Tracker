@@ -563,7 +563,7 @@ export function getFitPolicyForPlan(plan: AiTier): FitPolicy {
 
   switch (plan) {
     case UserPlan.PRO_PLUS:
-      return { tier: plan, model: AI_MODELS.FIT_PRO_PLUS, effort: "high",   verbosity: "high",   maxOutputTokens };
+      return { tier: plan, model: AI_MODELS.FIT_PRO_PLUS, effort: "medium",   verbosity: "medium",   maxOutputTokens };
     case UserPlan.PRO:
       return { tier: plan, model: AI_MODELS.FIT_PRO,      effort: "medium", verbosity: "medium", maxOutputTokens };
     case UserPlan.REGULAR:

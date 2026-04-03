@@ -380,9 +380,9 @@ export async function getCandidateTextOrThrow(args: {
     throw new AppError(sourceDocumentId ? "Document not found." : "Base resume not found.", 404);
   }
 
-  // Override must be our AI-only kind, and must be attached to this application
-  if (sourceDocumentId && doc.kind !== DocumentKind.CAREER_HISTORY) {
-    throw new AppError("Invalid override document kind. Expected CAREER_HISTORY.", 400);
+  // Override must be an AI-only kind (CAREER_HISTORY) or a RESUME document
+  if (sourceDocumentId && doc.kind !== DocumentKind.CAREER_HISTORY && doc.kind !== DocumentKind.RESUME) {
+    throw new AppError("Invalid override document kind. Expected RESUME or CAREER_HISTORY.", 400);
   }
   
   // Override must be attached to this application
