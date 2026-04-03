@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { aiApi } from "@/lib/api/ai";
 import { applicationsApi } from "@/lib/api/applications";
@@ -27,29 +27,39 @@ import {
   DialogTitle,
   DialogClose,
 } from "@/components/ui/dialog";
-import { documentsApi } from "@/lib/api/documents";
 import { ChevronDown, ChevronRight, Star, Trash2, Loader2, CheckCircle2, Circle } from "lucide-react";
 import { ProAccessBanner } from "@/components/pro/ProAccessBanner";
 import { RequestProDialog } from "@/components/pro/RequestProDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useConnectionAutocomplete } from "@/hooks/useConnectionAutocomplete";
 import { applicationDocumentsApi } from "@/lib/api/application-documents";
+import { documentsApi } from "@/lib/api/documents";
 import { createPortal } from "react-dom";
 import { canUseAi, getRemainingAiCredits, hasProPlan, getEffectivePlan } from "@/lib/plans";
+import { useBaseDocuments } from "@/hooks/useBaseDocuments";
+import { useAiToolsOnCreate } from "@/hooks/useAiToolsOnCreate";
+import { AiToolsAfterCreate } from "@/components/applications/AiToolsAfterCreate";
 
 
 // ─── Callback contract ────────────────────────────────────────────────────────
 
 /**
  * Called once immediately after the application record is created.
- * If the user opted into a background fit run, backgroundFit is included
- * so the page can start it through the existing useFitRuns() system.
+ * backgroundTools is included when the user opted into AI tool runs so the
+ * page can start them through the existing useFitRuns/useDocumentToolRuns systems.
+ * The resume override is uploaded once here and passed as sourceDocumentId to
+ * avoid re-uploading the same file for each tool.
  */
-type OnCreatedArgs = {
+export type OnCreatedArgs = {
   applicationId: string;
   label:         string;
-  backgroundFit?: {
-    overrideFile?: File | null;
+  backgroundTools?: {
+    fit:          boolean;
+    resumeAdvice: boolean;
+    coverLetter:  boolean;
+    // Uploaded once after app creation — all tool runs reference this doc ID
+    sourceDocumentId?: number;
+    templateText?:     string;
   };
 };
 
@@ -123,13 +133,21 @@ export function CreateApplicationFromJdForm({
   // "More" section (attachments + connections to attach on create)
   const [showMore, setShowMore] = useState(false);
 
-  // Run compatibility after create (optional)
-  const [runFitOnCreate, setRunFitOnCreate]       = useState(false);
-  const [isRunFitDialogOpen, setIsRunFitDialogOpen] = useState(false);
-
-  // Fit source selection (default = Base Resume)
-  const [fitUseOverride, setFitUseOverride]   = useState(false);
-  const [fitOverrideFile, setFitOverrideFile] = useState<File | null>(null);
+  // ── AI tools after create ─────────────────────────────────────────────────
+  // Whether the toggle is on — persisted selections come from the hook
+  const [aiEnabled, setAiEnabled] = useState(false);
+  const { selections, updateSelections } = useAiToolsOnCreate();
+  // Base resume/cover letter existence — drives defaults and validation
+  const { baseResumeExists, baseCoverLetterExists } = useBaseDocuments();
+  // Override resume for this run — uploaded once, shared across all selected tools
+  const [overrideFile,   setOverrideFile]   = useState<File | null>(null);
+  // Cover letter template — extracted to text client-side before submission
+  const [templateFile,   setTemplateFile]   = useState<File | null>(null);
+  const [templateText,   setTemplateText]   = useState("");
+  // Validation dialog — shown when tools are enabled but no resume is available
+  const [isResumeValidationOpen, setIsResumeValidationOpen] = useState(false);
+  // "Also save as base resume" checkbox inside the validation dialog
+  const [saveAsBaseResume, setSaveAsBaseResume] = useState(false);
 
   // Document types
   type UploadableDocKind = Exclude<DocumentKind, "BASE_RESUME">;
@@ -249,26 +267,26 @@ export function CreateApplicationFromJdForm({
     !isGenerating &&
     !isSubmitting;
 
-  const [baseResumeExists, setBaseResumeExists] = useState(false);
+  // Extract text from a cover letter template file client-side.
+  // DOCX → mammoth browser build; everything else → FileReader plain text.
+  async function handleTemplateFile(file: File | null) {
+    setTemplateFile(file);
+    setTemplateText("");
+    if (!file) return;
 
-  useEffect(() => {
-    if (!isRunFitDialogOpen) return;
-    if (!user?.id) return;
-
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await documentsApi.getBaseResume();
-        if (cancelled) return;
-        setBaseResumeExists(!!res.baseResume);
-      } catch {
-        if (cancelled) return;
-        setBaseResumeExists(false);
-      }
-    })();
-
-    return () => { cancelled = true; };
-  }, [isRunFitDialogOpen, user?.id]);
+    if (file.name.toLowerCase().endsWith(".docx")) {
+      const mammoth = await import("mammoth");
+      const buffer  = await file.arrayBuffer();
+      const result  = await mammoth.extractRawText({ arrayBuffer: buffer });
+      setTemplateText(result.value ?? "");
+    } else {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setTemplateText(typeof e.target?.result === "string" ? e.target.result : "");
+      };
+      reader.readAsText(file);
+    }
+  }
 
   // ── Reset ─────────────────────────────────────────────────────────────────
 
@@ -287,8 +305,8 @@ export function CreateApplicationFromJdForm({
     setShowSummary(false); setShowMore(false);
     setDocKind("OTHER"); setDocFile(null); setDocuments([]);
     setConnectionQuery(""); setSelectedConnections([]);
-    setRunFitOnCreate(false); setIsRunFitDialogOpen(false);
-    setFitUseOverride(false); setFitOverrideFile(null);
+    setAiEnabled(false); setOverrideFile(null); setTemplateFile(null); setTemplateText("");
+    setSaveAsBaseResume(false);
     setIsCreateConnOpen(false); setCreateConnError(null);
     setIsCreateConnSaving(false); setNewConnDraft(emptyNewConnectionDraft());
   }
@@ -394,35 +412,34 @@ export function CreateApplicationFromJdForm({
   // ── Create application ────────────────────────────────────────────────────
 
   /**
-   * Core create flow. Fit is NOT run here — if the user opted in, we hand
-   * it off to the page via onCreated so it runs through useFitRuns().
+   * Core create flow. AI tool runs are NOT started here — if the user opted in,
+   * we upload the override resume once (if provided), then hand off to the page
+   * via onCreated so runs start through useFitRuns/useDocumentToolRuns.
    */
-  async function createApplicationAfterDraft(opts: { runFit: boolean }) {
+  async function createApplicationAfterDraft() {
     setErrorMessage(null);
 
     // Snapshot staged items so reset doesn't race with async work
     const stagedDocuments   = [...documents];
     const stagedConnections = [...selectedConnections];
-    const stagedFitUseOverride  = fitUseOverride;
-    const stagedFitOverrideFile = fitOverrideFile;
+    const stagedAiEnabled   = aiEnabled && (selections.fit || selections.resumeAdvice || selections.coverLetter);
+    const stagedOverride    = overrideFile;
+    const stagedTemplateText = templateText;
 
     if (!company.trim() || !position.trim()) {
       setErrorMessage("Company and position are required.");
       return;
     }
 
-    // Validate fit requirements before creating so we fail fast
-    if (opts.runFit) {
+    // Validate AI tool requirements before creating so we fail fast
+    if (stagedAiEnabled) {
       if (!canUse) {
-        setErrorMessage("No free AI credits remaining. Request Pro to run compatibility.");
+        setErrorMessage("No free AI credits remaining. Request Pro to run AI tools.");
         return;
       }
-      if (stagedFitUseOverride && !stagedFitOverrideFile) {
-        setErrorMessage("Select a file for compatibility (or turn off override).");
-        return;
-      }
-      if (!stagedFitUseOverride && !baseResumeExists) {
-        setErrorMessage("Upload a Base Resume in Profile (or use an override file).");
+      // Resume is required for every AI tool — validate before proceeding
+      if (!baseResumeExists && !stagedOverride) {
+        setIsResumeValidationOpen(true);
         return;
       }
     }
@@ -461,15 +478,41 @@ export function CreateApplicationFromJdForm({
       const created = await applicationsApi.create(payload);
       const label   = `${position.trim()} @ ${company.trim()}`;
 
+      // ── Upload override resume once (if provided) ────────────────────
+      // Attach it as CAREER_HISTORY so all tool runs reference the same doc
+      // by ID rather than each uploading their own copy.
+      let sourceDocumentId: number | undefined;
+      if (stagedAiEnabled && stagedOverride) {
+        try {
+          const uploadRes = await applicationDocumentsApi.upload({
+            applicationId: created.id,
+            kind:          "CAREER_HISTORY",
+            file:          stagedOverride,
+          });
+          sourceDocumentId = Number(uploadRes.document.id);
+
+          // If user asked to also save this as their base resume, do it now
+          if (saveAsBaseResume) {
+            documentsApi.uploadBaseResume(stagedOverride).catch(() => {/* non-blocking */});
+          }
+        } catch {
+          // Non-fatal — tool runs will fall back to base resume if available
+        }
+      }
+
       // ── Hand off to page immediately after create ──────────────────────
-      // The page starts the background fit run via useFitRuns() if requested.
-      // We do NOT wait for fit here — the form continues with docs/connections.
+      // AI tool runs start on the page through useFitRuns/useDocumentToolRuns.
+      // We do NOT await them here — the form continues with docs/connections.
       onCreated({
         applicationId: created.id,
         label,
-        ...(opts.runFit && {
-          backgroundFit: {
-            overrideFile: stagedFitUseOverride ? stagedFitOverrideFile : null,
+        ...(stagedAiEnabled && {
+          backgroundTools: {
+            fit:          selections.fit,
+            resumeAdvice: selections.resumeAdvice,
+            coverLetter:  selections.coverLetter,
+            sourceDocumentId,
+            templateText: stagedTemplateText.trim() || undefined,
           },
         }),
       });
@@ -528,14 +571,7 @@ export function CreateApplicationFromJdForm({
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    setErrorMessage(null);
-
-    if (runFitOnCreate) {
-      setIsRunFitDialogOpen(true);
-      return;
-    }
-
-    await createApplicationAfterDraft({ runFit: false });
+    await createApplicationAfterDraft();
   }
 
   // Warn before unload while submitting
@@ -950,122 +986,90 @@ export function CreateApplicationFromJdForm({
             </div>
           </div>
 
-          {/* Bottom row: run-fit checkbox + submit */}
-          <div className="flex items-center justify-between pt-2">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={runFitOnCreate}
-                onChange={(e) => setRunFitOnCreate(e.target.checked)}
-                disabled={isSubmitting}
-                className="h-4 w-4"
-              />
-              Run compatibility after create
-            </label>
-
+          {/* Submit */}
+          <div className="flex justify-end pt-2">
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? "Creating..." : "Create application"}
             </Button>
           </div>
 
-          {/* ── Run-fit confirmation dialog ── */}
-          <Dialog open={isRunFitDialogOpen} onOpenChange={setIsRunFitDialogOpen}>
+          {/* ── AI tools after create ── */}
+          <AiToolsAfterCreate
+            enabled={aiEnabled}
+            onEnabledChange={setAiEnabled}
+            selections={selections}
+            onSelectionsChange={updateSelections}
+            baseResumeExists={baseResumeExists}
+            baseCoverLetterExists={baseCoverLetterExists}
+            overrideFile={overrideFile}
+            onOverrideFileChange={setOverrideFile}
+            templateFile={templateFile}
+            onTemplateFileChange={(f) => void handleTemplateFile(f)}
+            disabled={isSubmitting}
+          />
+
+          {/* ── Resume validation dialog ─────────────────────────────────────
+               Shown when AI tools are enabled but no resume is available.
+               Lets the user upload one now or navigate to profile.         */}
+          <Dialog open={isResumeValidationOpen} onOpenChange={setIsResumeValidationOpen}>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle className="text-2xl font-medium">
-                  Create and Run Compatibility?
-                </DialogTitle>
-                <DialogDescription>
-                  {`The application will be created and the compatibility check will run in the
-                  background — you can keep using the app while it runs. You'll get a
-                  notification when the report is ready.`}
-                  {!canUseAi ? (
-                    <span className="block mt-2 text-xs text-muted-foreground">
-                      Running compatibility uses <span className="font-medium text-foreground">1</span> AI credit.
-                      You have <span className="font-medium text-foreground">{remainingAiCredits ?? 0}</span> free uses left.
-                    </span>
-                  ) : null}
+                <DialogTitle>Resume required</DialogTitle>
+                <DialogDescription className="mb-4">
+                  A resume is needed to run AI tools. Upload one now or add a
+                  base resume to your profile so it's always available.
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="space-y-3 mt-8">
-                <div className="text-xs text-muted-foreground mb-1">
-                  Job Description: Ready
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Base Resume:{" "}
-                  <span className={baseResumeExists ? "text-foreground" : "text-destructive"}>
-                    {baseResumeExists ? "Saved" : "Not uploaded"}
-                  </span>
-                </div>
+              <div className="space-y-3 mt-2">
+                <Input
+                  type="file"
+                  accept=".pdf,.txt,.docx"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0] ?? null;
+                    setOverrideFile(f);
+                  }}
+                />
+                {overrideFile && (
+                  <p className="text-xs text-muted-foreground truncate">
+                    Selected: {overrideFile.name}
+                  </p>
+                )}
 
-                <div className="flex items-center gap-2 mt-8">
+                {/* Offer to also save as base resume so this doesn't happen again */}
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
                   <input
-                    id="fit-override"
                     type="checkbox"
-                    checked={fitUseOverride}
-                    onChange={(e) => {
-                      const next = e.target.checked;
-                      setFitUseOverride(next);
-                      if (!next) setFitOverrideFile(null);
-                    }}
+                    checked={saveAsBaseResume}
+                    onChange={(e) => setSaveAsBaseResume(e.target.checked)}
                     className="h-4 w-4"
                   />
-                  <label htmlFor="fit-override" className="text-sm">
-                    Use a different file for compatibility
-                  </label>
-                </div>
-
-                {fitUseOverride ? (
-                  <div className="space-y-2">
-                    <Input
-                      type="file"
-                      accept=".pdf,.txt,application/pdf,text/plain"
-                      onChange={(e) => setFitOverrideFile(e.target.files?.[0] ?? null)}
-                    />
-                    {fitOverrideFile ? (
-                      <div className="text-xs text-muted-foreground truncate">
-                        Selected: {fitOverrideFile.name}
-                      </div>
-                    ) : null}
-                  </div>
-                ) : (
-                  <div className="text-xs text-muted-foreground">Default: Base Resume.</div>
-                )}
+                  Also save as my base resume
+                </label>
               </div>
 
-              <DialogFooter className="gap-2 mt-10">
-                <DialogClose asChild>
-                  <Button type="button" variant="outline" disabled={isSubmitting}>
-                    Cancel
-                  </Button>
-                </DialogClose>
-
+              <DialogFooter className="gap-2 mt-6">
                 <Button
                   type="button"
                   variant="outline"
-                  disabled={isSubmitting}
                   onClick={() => {
-                    setIsRunFitDialogOpen(false);
-                    void createApplicationAfterDraft({ runFit: false });
+                    // Disable AI tools and proceed without them
+                    setAiEnabled(false);
+                    setIsResumeValidationOpen(false);
+                    void createApplicationAfterDraft();
                   }}
                 >
-                  Create only
+                  Create without AI tools
                 </Button>
-
                 <Button
                   type="button"
-                  disabled={
-                    isSubmitting ||
-                    !canUseAi ||
-                    (fitUseOverride ? !fitOverrideFile : !baseResumeExists)
-                  }
+                  disabled={!overrideFile}
                   onClick={() => {
-                    setIsRunFitDialogOpen(false);
-                    void createApplicationAfterDraft({ runFit: true });
+                    setIsResumeValidationOpen(false);
+                    void createApplicationAfterDraft();
                   }}
                 >
-                  Create + run in background
+                  Continue
                 </Button>
               </DialogFooter>
             </DialogContent>

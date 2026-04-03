@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import type { Application, ApplicationsListResponse, UpdateApplicationRequest, ApplicationSortBy, ApplicationSortDir, ListApplicationsParams } from "@/types/api";
 import { ApplicationsTable } from "@/components/applications/ApplicationsTable";
 import { CreateApplicationForm } from "@/components/applications/CreateApplicationForm";
-import { CreateApplicationFromJdForm } from "@/components/applications/CreateApplicationFromJdForm";
+import { CreateApplicationFromJdForm, type OnCreatedArgs } from "@/components/applications/CreateApplicationFromJdForm";
 import { ApplicationDetailsDrawer } from "@/components/applications/drawer/ApplicationDetailsDrawer";
 import { ColumnsControl } from "@/components/applications/ColumnsControl";
 import { APPLICATION_COLUMNS_STORAGE_KEY, DEFAULT_VISIBLE_APPLICATION_COLUMNS, normalizeVisibleColumns, type ApplicationColumnId} from "@/lib/applications/tableColumns";
@@ -91,6 +91,12 @@ export default function ApplicationsPage() {
   // Label hints for apps that were just created — list may not have refreshed yet
   // when the fit run completes, so we store the label here to avoid "this application" fallback.
   const pendingFitLabelsRef = useRef<Record<string, string>>({});
+
+  // Batch tracking — maps applicationId → set of tool kinds still pending when
+  // the user triggered AI runs from the create form. The single "AI tools ready"
+  // notice fires only when the set empties (all requested tools have finished).
+  // Applications not in this map get individual notices per tool (drawer-initiated runs).
+  const pendingBatchRef = useRef<Map<string, Set<string>>>(new Map());
 
   // Global fit-run notices — success and error both surface here.
   type FitRunNotice = {
@@ -458,6 +464,38 @@ export default function ApplicationsPage() {
   }, [queryInput, query]);
   
 
+
+  // Fire a single "AI tools ready" notice when all batch tools complete for an app.
+  // Returns true if the tool was part of a batch (suppresses individual notice).
+  function completeBatchTool(applicationId: string, toolKey: string, failed: boolean): boolean {
+    const batch = pendingBatchRef.current.get(applicationId);
+    if (!batch) return false; // not a batch run — use individual notice
+
+    batch.delete(toolKey);
+
+    if (batch.size === 0) {
+      // All tools finished — fire the one combined notice
+      pendingBatchRef.current.delete(applicationId);
+      const label =
+        pendingFitLabelsRef.current[applicationId]?.trim() ||
+        getApplicationLabel(applicationId);
+      delete pendingFitLabelsRef.current[applicationId];
+
+      setFitNotices((prev) => [
+        {
+          id:            `batch-${applicationId}-${Date.now()}`,
+          applicationId,
+          label,
+          kind:          failed ? "error" as const : "success" as const,
+          message:       failed ? "One or more AI tools encountered an error." : undefined,
+          createdAt:     Date.now(),
+        },
+        ...prev,
+      ]);
+    }
+    return true;
+  }
+
   // When a background FIT run completes, surface the result.
   // - If drawer is open for that app on success: refresh the drawer in place (no notice needed)
   // - If drawer is closed on success: show a notice so the user can navigate to it
@@ -472,18 +510,19 @@ export default function ApplicationsPage() {
 
       if (prevStatus !== "success" && run.status === "success") {
         if (isViewingThatApp) {
-          // Drawer is open for this app — refresh it in place so the fit
-          // result appears without the user having to close and reopen.
           void handleApplicationChange(applicationId);
-        } else {
+        }
+        // If this is a batch run, completeBatchTool handles the notice
+        if (!completeBatchTool(applicationId, "FIT", false) && !isViewingThatApp) {
           addFitNotice(applicationId, "success");
         }
         fitRuns.clearRun(applicationId);
       }
 
       if (prevStatus !== "error" && run.status === "error") {
-        // Always show error notice — the drawer doesn't display run errors on its own.
-        addFitNotice(applicationId, "error", { message: run.errorMessage ?? undefined });
+        if (!completeBatchTool(applicationId, "FIT", true)) {
+          addFitNotice(applicationId, "error", { message: run.errorMessage ?? undefined });
+        }
         fitRuns.clearRun(applicationId);
       }
 
@@ -510,10 +549,12 @@ export default function ApplicationsPage() {
 
       if (prevStatus !== "success" && run.status === "success") {
         void handleApplicationChange(run.applicationId);
-        if (!isViewingThatApp) {
-          // Show a notice so the user can navigate to the result
+        // Batch runs: remove from set and fire combined notice when all done
+        const batchKey = run.kind === "RESUME_ADVICE" ? "RESUME_ADVICE" : "COVER_LETTER";
+        if (!completeBatchTool(run.applicationId, batchKey, false) && !isViewingThatApp) {
+          // Drawer-initiated run — show individual tool notice
           setFitNotices((prev) => {
-            if (prev.some((n) => n.applicationId === run.applicationId && n.kind === "success")) return prev;
+            if (prev.some((n) => n.applicationId === run.applicationId && n.toolLabel === toolLabel)) return prev;
             const label =
               pendingFitLabelsRef.current[run.applicationId]?.trim() ||
               getApplicationLabel(run.applicationId);
@@ -534,18 +575,21 @@ export default function ApplicationsPage() {
       }
 
       if (prevStatus !== "error" && run.status === "error") {
-        setFitNotices((prev) => [
-          {
-            id:            `${key}-${Date.now()}`,
-            applicationId: run.applicationId,
-            label:         getApplicationLabel(run.applicationId),
-            kind:          "error" as const,
-            toolLabel,
-            message:       run.errorMessage ?? undefined,
-            createdAt:     Date.now(),
-          },
-          ...prev,
-        ]);
+        const batchKey = run.kind === "RESUME_ADVICE" ? "RESUME_ADVICE" : "COVER_LETTER";
+        if (!completeBatchTool(run.applicationId, batchKey, true)) {
+          setFitNotices((prev) => [
+            {
+              id:            `${key}-${Date.now()}`,
+              applicationId: run.applicationId,
+              label:         getApplicationLabel(run.applicationId),
+              kind:          "error" as const,
+              toolLabel,
+              message:       run.errorMessage ?? undefined,
+              createdAt:     Date.now(),
+            },
+            ...prev,
+          ]);
+        }
         documentToolRuns.clearRun(run.applicationId, run.kind as DocumentToolKind);
       }
 
@@ -556,6 +600,45 @@ export default function ApplicationsPage() {
       if (!current[key]) delete prev[key];
     }
   }, [documentToolRuns.runsByAppId, documentToolRuns, detailsOpen, selectedApplication?.id, handleApplicationChange, getApplicationLabel]);
+
+  // Start all background AI tool runs requested from the create form.
+  // The resume override was uploaded once in the form — all runs share sourceDocumentId.
+  function startBackgroundTools(args: OnCreatedArgs) {
+    const tools = args.backgroundTools;
+    if (!tools) return;
+
+    const { applicationId, label } = args;
+    const { fit, resumeAdvice, coverLetter, sourceDocumentId, templateText } = tools;
+
+    // Register the batch so the notice effect knows to wait for all tools
+    const batchSet = new Set<string>();
+    if (fit)          batchSet.add("FIT");
+    if (resumeAdvice) batchSet.add("RESUME_ADVICE");
+    if (coverLetter)  batchSet.add("COVER_LETTER");
+    pendingBatchRef.current.set(applicationId, batchSet);
+    pendingFitLabelsRef.current[applicationId] = label;
+
+    const sharedOpts = {
+      applicationId,
+      sourceDocumentId,
+      onApplicationChanged: handleApplicationChange,
+      onDocumentsChanged: (appId: string) => {
+        if (selectedApplication?.id === appId) void handleApplicationChange(appId);
+      },
+      onRefreshMe: () => void refreshMe(),
+    };
+
+    if (fit) {
+      fitRuns.startFitRun({ ...sharedOpts, overrideFile: null }).catch(() => {});
+    }
+    if (resumeAdvice) {
+      documentToolRuns.startRun({ ...sharedOpts, kind: "RESUME_ADVICE" }).catch(() => {});
+    }
+    if (coverLetter) {
+      documentToolRuns.startRun({ ...sharedOpts, kind: "COVER_LETTER", templateText }).catch(() => {});
+    }
+  }
+
 
   return (
     <div className="space-y-6">     
@@ -598,8 +681,12 @@ export default function ApplicationsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium">
                       {n.kind === "success"
-                        ? (n.toolLabel ? `${n.toolLabel} ready` : "Compatibility report ready")
-                        : (n.toolLabel ? `${n.toolLabel} failed` : "Compatibility check failed")}
+                        ? (n.id.startsWith("batch-")
+                            ? "AI tools ready"
+                            : n.toolLabel ? `${n.toolLabel} ready` : "Compatibility report ready")
+                        : (n.id.startsWith("batch-")
+                            ? "AI tools finished"
+                            : n.toolLabel ? `${n.toolLabel} failed` : "Compatibility check failed")}
                     </div>
                     <div className="text-xs text-muted-foreground truncate">{n.label}</div>
                     {n.kind === "error" && n.message && (
@@ -709,9 +796,10 @@ export default function ApplicationsPage() {
               <CardContent className="space-y-4 pt-4">
                 {addMode === "manual" ? (
                   <CreateApplicationForm
-                    onCreated={() => {
+                    onCreated={(args) => {
                       setPage(1);
                       refreshList();
+                      startBackgroundTools(args);
                     }}
                   />
                 ) : (
@@ -721,28 +809,7 @@ export default function ApplicationsPage() {
                     onCreated={(args) => {
                       setPage(1);
                       refreshList();
-
-                      if (args.backgroundFit) {
-                        // Store label hint before list refreshes so the
-                        // notice can show the right label even if fit
-                        // completes before the refetch lands.
-                        pendingFitLabelsRef.current[args.applicationId] = args.label;
-
-                        // Start background fit run — non-blocking
-                        fitRuns.startFitRun({
-                          applicationId:      args.applicationId,
-                          overrideFile:       args.backgroundFit.overrideFile ?? null,
-                          onApplicationChanged: handleApplicationChange,
-                          onDocumentsChanged: (appId) => {
-                            if (selectedApplication?.id === appId) {
-                              void handleApplicationChange(appId);
-                            }
-                          },
-                          onRefreshMe: () => void refreshMe(),
-                        }).catch(() => {
-                          // Error is captured in run state and surfaced via the notice effect
-                        });
-                      }
+                      startBackgroundTools(args);
                     }}
                   />
                 )}
