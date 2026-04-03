@@ -15,7 +15,8 @@ import { ApiError }   from "@/lib/api/client";
 import { cn }         from "@/lib/utils";
 import { FitReport }  from "@/components/applications/drawer/FitReport";
 import { getFitBand } from "@/lib/fit/presentation";
-import { Loader2, CheckCircle2, Circle, ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import { ToolRunProgress } from "@/components/applications/drawer/ToolRunProgress";
 
 // Accepted file types for the per-tool resume override
 const RESUME_ACCEPT = ".pdf,.txt,.docx";
@@ -167,13 +168,9 @@ export function CompatibilityCheckCard({
     errorMessage ?? (run?.status === "error" ? run.errorMessage ?? null : null);
 
   // Progress bar helpers
+  // Steps and active index — passed directly to ToolRunProgress
   const steps       = run?.steps ?? [];
   const activeIndex = run?.activeIndex ?? 0;
-  const activeLabel = steps?.[activeIndex]?.label ?? "Working...";
-  const progressWidth =
-    steps.length > 0
-      ? `${Math.round(((activeIndex + 1) / steps.length) * 100)}%`
-      : "30%";
 
   const jobLabel = [application.position, application.company].filter(Boolean).join(" @ ");
 
@@ -261,53 +258,11 @@ export function CompatibilityCheckCard({
 
       {/* ── In-flight progress (shown while a run is active) ─────────── */}
       {isRunning && run ? (
-        <div className="rounded-md border p-3 space-y-3">
-          <div className="flex items-start gap-3">
-            <Loader2 className="mt-1 h-5 w-5 shrink-0 animate-spin" />
-            <div className="flex-1">
-              <div className="text-sm font-medium">{activeLabel}</div>
-              <div className="text-xs text-muted-foreground">
-                Step {Math.min(activeIndex + 1, steps.length)} of {steps.length}
-              </div>
-              <div className="mt-2 flex justify-end">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    fitRuns.cancelRun(application.id);
-                  }}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {/* Progress bar */}
-          <div className="h-2 w-full rounded bg-muted">
-            <div className="h-2 rounded bg-primary transition-all animate-pulse" style={{ width: progressWidth }} />
-          </div>
-
-          {/* Step-by-step list */}
-          {steps.length > 1 && (
-            <div className="space-y-1.5 text-sm">
-              {steps.map((s, idx) => {
-                const isDone   = idx < activeIndex;
-                const isActive = idx === activeIndex;
-                return (
-                  <div key={s.key} className="flex items-center gap-2">
-                    {isDone   ? <CheckCircle2 className="h-4 w-4" />
-                    : isActive ? <Loader2 className="h-4 w-4 animate-spin" />
-                    :            <Circle className="h-4 w-4 opacity-60" />}
-                    <span className={isActive ? "font-medium" : "text-muted-foreground"}>
-                      {s.label}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        <ToolRunProgress
+          steps={steps}
+          activeIndex={activeIndex}
+          onCancel={() => fitRuns.cancelRun(application.id)}
+        />
       ) : (
         <>
           {/* ── Loading skeleton (while fetching latest artifact) ─────── */}

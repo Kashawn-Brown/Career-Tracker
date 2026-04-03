@@ -10,7 +10,8 @@ import { applicationsApi }     from "@/lib/api/applications";
 import { CoverLetterReport }   from "@/components/applications/drawer/CoverLetterReport";
 import { ToolInfoPopover }     from "@/components/tools/ToolInfoPopover";
 import { TOOL_INFO }           from "@/lib/tool-info";
-import { Loader2, ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import { ToolRunProgress } from "@/components/applications/drawer/ToolRunProgress";
 import type { DocumentToolRunsController } from "@/hooks/useDocumentToolRuns";
 import type { Application, AiArtifact, CoverLetterPayload } from "@/types/api";
 
@@ -203,24 +204,11 @@ export function CoverLetterCard({
 
       {/* ── In-flight progress ─────────────────────────────────────────── */}
       {isRunning && run ? (
-        <div className="rounded-md border p-3 space-y-2">
-          <div className="flex items-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-            <span className="text-sm font-medium">{run.label}</span>
-          </div>
-          <div className="h-1.5 w-full rounded bg-muted">
-            <div className="h-1.5 rounded bg-primary w-1/2 animate-pulse" />
-          </div>
-          <div className="flex justify-end">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => documentToolRuns.cancelRun(application.id, "COVER_LETTER")}
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
+        <ToolRunProgress
+          steps={run.steps}
+          activeIndex={run.activeIndex}
+          onCancel={() => documentToolRuns.cancelRun(application.id, "COVER_LETTER")}
+        />
       ) : (
         <>
           {/* ── Error ─────────────────────────────────────────────────── */}

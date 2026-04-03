@@ -7,16 +7,23 @@ import { applicationDocumentsApi } from "@/lib/api/application-documents";
 import { documentsApi }            from "@/lib/api/documents";
 import type { AiArtifact } from "@/types/api";
 
-export type DocumentToolKind   = "RESUME_ADVICE" | "COVER_LETTER";
+export type DocumentToolKind      = "RESUME_ADVICE" | "COVER_LETTER";
 export type DocumentToolRunStatus = "idle" | "running" | "success" | "error" | "cancelled";
+
+// A single step shown in the progress UI — same shape as FitRunStep
+export type DocumentToolRunStep = {
+  key:   string;
+  label: string;
+};
 
 export type DocumentToolRunState = {
   applicationId: string;
   kind:          DocumentToolKind;
   status:        DocumentToolRunStatus;
-  // Step label shown in the progress UI
-  label:         string;
-  startedAt:     number;
+  // Steps and active index — mirrors FitRunState so ToolRunProgress can consume both
+  steps:        DocumentToolRunStep[];
+  activeIndex:  number;
+  startedAt:    number;
   errorMessage?: string | null;
 };
 
@@ -34,7 +41,7 @@ export type StartDocumentToolRunArgs = {
   templateText?:               string;   // cover letter: per-run template override
   skipBaseCoverLetterTemplate?: boolean; // cover letter: skip stored base template
 
-  onDocumentsChanged?:  (applicationId: string) => void;
+  onDocumentsChanged?:   (applicationId: string) => void;
   onApplicationChanged?: (applicationId: string) => void;
   onRefreshMe?:          () => void;
 };
@@ -60,6 +67,8 @@ function runKey(applicationId: string, kind: DocumentToolKind) {
  *   - Optional override file upload as CAREER_HISTORY, attached to the application
  *   - Upload is cleaned up (deleted) on cancel or error — same as useFitRuns
  *   - AbortController-based cancellation
+ *   - Steps + activeIndex on run state — same shape as FitRunState so the shared
+ *     ToolRunProgress component can render both without branching
  */
 export function useDocumentToolRuns(): DocumentToolRunsController {
   const [runsByAppId, setRunsByAppId] = useState<Record<string, DocumentToolRunState>>({});
@@ -144,14 +153,22 @@ export function useDocumentToolRuns(): DocumentToolRunsController {
 
       onDocumentsChangedRef.current[key] = onDocumentsChanged;
 
-      // Two steps when uploading an override; one step otherwise
-      const hasUpload  = Boolean(overrideFile);
-      const uploadLabel = kind === "RESUME_ADVICE"
-        ? "Uploading resume…"
-        : "Uploading resume…";
-      const generateLabel = kind === "RESUME_ADVICE"
-        ? "Generating resume advice…"
-        : "Generating cover letter…";
+      // Build the steps array for this run.
+      // Upload step only appears when a new file is being sent — picking an
+      // existing doc by ID skips it, matching useFitRuns behaviour exactly.
+      const steps: DocumentToolRunStep[] = [];
+
+      if (overrideFile) {
+        steps.push({
+          key:   "UPLOAD_RESUME",
+          label: "Uploading resume…",
+        });
+      }
+
+      steps.push({
+        key:   "GENERATE",
+        label: kind === "RESUME_ADVICE" ? "Generating resume advice…" : "Generating cover letter…",
+      });
 
       const controller = new AbortController();
       abortControllersRef.current[key] = controller;
@@ -161,9 +178,10 @@ export function useDocumentToolRuns(): DocumentToolRunsController {
         [key]: {
           applicationId,
           kind,
-          status:    "running",
-          label:     hasUpload ? uploadLabel : generateLabel,
-          startedAt: Date.now(),
+          status:       "running",
+          steps,
+          activeIndex:  0,
+          startedAt:    Date.now(),
           errorMessage: null,
         },
       }));
@@ -175,6 +193,9 @@ export function useDocumentToolRuns(): DocumentToolRunsController {
           return { ...prev, [key]: updater(current) };
         });
       };
+
+      // Index of the generate step — 1 if we uploaded first, 0 otherwise
+      const generateStepIndex = overrideFile ? 1 : 0;
 
       let resolvedSourceDocumentId = passedSourceDocumentId;
 
@@ -196,8 +217,8 @@ export function useDocumentToolRuns(): DocumentToolRunsController {
           // Refresh the application's document list in the UI
           onDocumentsChanged?.(applicationId);
 
-          // Advance label to the generate step
-          safeUpdate((s) => ({ ...s, label: generateLabel }));
+          // Advance to the generate step
+          safeUpdate((s) => ({ ...s, activeIndex: generateStepIndex }));
         }
 
         // Step 2: generate the artifact

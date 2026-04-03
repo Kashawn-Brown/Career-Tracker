@@ -117,7 +117,16 @@ export function ApplicationAiToolsSection({
           <span className="text-muted-foreground">
             Base resume:{" "}
             <span className={baseResumeExists ? "text-foreground" : "text-destructive font-medium"}>
-              {baseResumeExists ? "Saved" : "Not uploaded"}
+              {baseResumeExists ? "Saved" : "None"}
+            </span>
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className={baseCoverLetterExists ? "text-green-600 dark:text-green-400" : "text-destructive"}>●</span>
+          <span className="text-muted-foreground">
+            Base cover letter:{" "}
+            <span className={baseCoverLetterExists ? "text-foreground" : "text-destructive font-medium"}>
+              {baseCoverLetterExists ? "Saved" : "None"}
             </span>
           </span>
         </div>
