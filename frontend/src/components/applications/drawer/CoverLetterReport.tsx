@@ -171,6 +171,10 @@ export function CoverLetterReport({ open, onOpenChange, artifact, jobLabel }: Pr
             {p.notes.length > 0 && (
               <SectionList title="Personalization tips" items={p.notes} />
             )}
+            <div className="text-sm font-medium text-foreground/70 text-center ">
+              This is a tailored draft to help you get started. We recommend reviewing it carefully, 
+              adding your own voice and specifics, and using the suggestions above as a guide.
+            </div>
           </div>
 
         </div>

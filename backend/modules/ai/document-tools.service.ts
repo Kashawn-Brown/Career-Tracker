@@ -322,27 +322,36 @@ function buildTargetedResumeUserPrompt(args: {
 
 function buildCoverLetterSystemPrompt(): string {
   return [
-    "You are a professional career coach writing cover letters.",
+    "You are a professional career coach writing cover letters on behalf of candidates.",
     "Return ONLY valid JSON matching the provided schema. No markdown. No commentary.",
     "",
     "TRUTHFULNESS RULES (non-negotiable):",
     "- Do NOT invent experience, metrics, employers, projects, titles, dates, or facts.",
     "- The draft must be grounded in the candidate's actual resume text.",
-    "- Do NOT make up facts about the target company unless they are explicitly stated.",
-    "- Do NOT write fake enthusiasm or invented company knowledge.",
-    "- If specific company details are missing, use tasteful placeholders (e.g. [Company Name]).",
-    "- Evidence bullets must reference real resume content — not invented achievements.",
+    "- Do NOT fabricate company facts. If specific company details (mission, values, products) appear",
+    "  in the job description, use them. Otherwise use tasteful placeholders like [Company Name].",
+    "- Do NOT write hollow enthusiasm ('I am excited to join your innovative team').",
+    "- Evidence must reference real resume content — not invented achievements.",
+    "",
+    "VOICE + TONE:",
+    "- Write in second-person as the candidate: use 'I', 'my', 'me'.",
+    "- Sound like a thoughtful person, not a resume bullet list.",
+    "- Lead with a genuine reason for interest grounded in the candidate's background or stated motivations.",
+    "- Connect specific experience to the role's actual needs — not generic praise.",
+    "- Aim for approximately one page (3–4 paragraphs, ~300–400 words).",
     "",
     "OUTPUT RULES:",
     "- summary: 1–2 sentences describing what was generated and any key assumptions made.",
-    "- draft: the complete cover letter text, professional and readable.",
-    "  * Opening: who you are and why you're interested.",
-    "  * Body: 2–3 paragraphs connecting real experience to the role.",
-    "  * Closing: call to action.",
+    "- draft: the complete cover letter text.",
+    "  * Opening paragraph: who you are, the specific role, and a genuine hook — why this role/company.",
+    "    If the JD mentions the company's mission, product, or values, reference them concretely.",
+    "  * Body (2 paragraphs): connect 2–3 real experiences from the resume to the role's needs.",
+    "    Use specific projects, outcomes, or skills — not vague claims.",
+    "  * Closing paragraph: express interest in a conversation, brief call to action.",
     "  * Use placeholders like [Company Name], [Hiring Manager Name], [Date] where needed.",
     "  * If a template was provided, match its structure and tone.",
     "- evidence: up to 8 items. Key resume points used as evidence in the draft.",
-    "- notes: up to 6 items. Customization tips — what to adjust, personalize, or verify.",
+    "- notes: up to 6 items. Personalisation tips — what to adjust, verify, or add before sending.",
     "- placeholders: list every placeholder used in the draft so the user knows what to fill in.",
   ].join("\n");
 }
@@ -365,7 +374,12 @@ function buildGenericCoverLetterUserPrompt(args: {
   if (args.additionalContext) lines.push(`ADDITIONAL CONTEXT: ${args.additionalContext.trim()}`);
   if (args.templateText)      lines.push("", "TEMPLATE TO FOLLOW:", args.templateText.trim());
 
-  lines.push("", "Generate a professional cover letter draft for this candidate.");
+  lines.push(
+    "",
+    "Generate a professional cover letter draft for this candidate.",
+    "Use any company facts present in TARGET COMPANY or ADDITIONAL CONTEXT.",
+    "If no company facts are available, use placeholders — do not invent them.",
+  );
   return lines.join("\n");
 }
 
@@ -386,7 +400,12 @@ function buildTargetedCoverLetterUserPrompt(args: {
     lines.push("", "TEMPLATE TO FOLLOW:", args.templateText.trim());
   }
 
-  lines.push("", "Generate a targeted cover letter for this specific role.");
+  lines.push(
+    "",
+    "Generate a targeted cover letter for this specific role.",
+    "Extract any company facts (mission, product, values, team details) from the JD and use them",
+    "concretely in the opening — do not invent facts that aren't in the JD.",
+  );
   return lines.join("\n");
 }
 
