@@ -242,7 +242,7 @@ Not limited to the current page — fetches all matching rows up to the export c
 | `columns`  | string | CSV of export column ids to include (default: all standard columns) |
 
 **Exportable column ids:**
-`favorite`, `company`, `position`, `location`, `jobType`, `salaryText`, `workMode`, `status`, `fitScore`, `dateApplied`, `updatedAt`
+`favorite`, `company`, `position`, `location`, `jobType`, `salaryText`, `workMode`, `status`, `fitScore`, `dateApplied`, `createdAt`, `updatedAt`
 
 **CSV output:**
 - UTF-8 BOM prefix for Excel/Sheets compatibility
@@ -283,8 +283,16 @@ Per-application AI artifacts:
 
 * `POST /api/v1/applications/:id/ai-artifacts`
 
-  * Supported `kind`: `JD_EXTRACT_V1`, `FIT_V1`
+  * Supported `kind`: `FIT_V1`, `RESUME_ADVICE`, `COVER_LETTER`
+  * Optional body fields for `COVER_LETTER`: `templateText` (string), `skipBaseCoverLetterTemplate` (boolean)
+  * Optional body field for all kinds: `sourceDocumentId` (number) — use an already-attached resume doc instead of uploading a new file
+
 * `GET  /api/v1/applications/:id/ai-artifacts`
+
+Standalone document tool routes (Tools page — no JD required):
+
+* `POST /api/v1/ai/resume-help` — generic resume advice using base resume + targeting context
+* `POST /api/v1/ai/cover-letter-help` — generic cover letter draft; accepts optional `resumeFile` multipart upload and `templateText`
 
 AI gating rules:
 
@@ -292,6 +300,7 @@ AI gating rules:
 * `requireAiAccess` blocks users without free quota or Pro
 * Quota is consumed **only after successful AI completion** — failed or
   invalid requests do not consume free uses
+* Resume source resolution: `sourceDocumentId` (must be `RESUME` or `CAREER_HISTORY` kind) → uploaded override → base resume
 
 ### Pro
 
