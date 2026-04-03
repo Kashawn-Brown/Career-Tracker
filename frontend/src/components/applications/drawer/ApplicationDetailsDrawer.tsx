@@ -652,64 +652,76 @@ export function ApplicationDetailsDrawer({
           }
         }}
       >
-        <SheetHeader>
+        <SheetHeader className="mb-3">
           <SheetTitle className="mr-4">{title}</SheetTitle>
           <SheetDescription>
             {application && draft
               ? (
                 <>
-                  <span className="block">Updated: {new Date(application.updatedAt).toLocaleString()}</span>
-                  <StatusPill status={application.status} className="mt-2 inline-flex" />
+                  <span className="block">Created: {new Date(application.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric'})}</span>
+                  <span className="block">Last updated: {new Date(application.updatedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric'})}</span>
                 </>
               )
               : "Select an application to view details."}
           </SheetDescription>
 
-          {application ? (
-            <div className="pt-2 flex items-center gap-2">
-              {!isEditing ? (
-                <Button size="sm" variant="outline" onClick={startEdit}>
-                  <Pencil className="mr-2 h-4 w-4" />
-                  Edit
-                </Button>
-              ) : (
-                <>
-                  <Button size="sm" onClick={handleSave} disabled={isSaving}>
-                    <Save className="mr-2 h-4 w-4" />
-                    Save
+          <div className="flex items-start mt-2">
+            {/* Status pill */}
+            {application && 
+              <p className="text-sm text-muted-foreground">
+                <StatusPill status={application.status} className="inline-flex" />
+              </p>
+            }
+            
+            <div className="flex-1" /> {/* Spacer */}
+            
+            {/* Edit/Save/Cancel buttons */}
+            {application ? (
+              <div className=" flex items-center gap-2">
+                {!isEditing ? (
+                  <Button size="sm" variant="outline" onClick={startEdit}>
+                    <Pencil className="h-4 w-4" />
+                    Edit
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={cancelEdit}
-                    disabled={isSaving}
-                  >
-                    <X className="mr-2 h-4 w-4" />
-                    Cancel
-                  </Button>
+                ) : (
+                  <>
+                    <Button size="sm" onClick={handleSave} disabled={isSaving}>
+                      <Save className="h-4 w-4" />
+                      Save
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={cancelEdit}
+                      disabled={isSaving}
+                    >
+                      <X className="h-4 w-4" />
+                      Cancel
+                    </Button>
 
-                  {/* Favorite toggle stays in the header while editing */}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() =>
-                      setDraft((prev) =>
-                        prev ? { ...prev, isFavorite: !prev.isFavorite } : prev
-                      )
-                    }
-                    aria-pressed={draft?.isFavorite}
-                    title="Toggle favorite"
-                  >
-                    <Star
-                      className="mr-2 h-4 w-4"
-                      fill={draft?.isFavorite ? "currentColor" : "none"}
-                    />
-                    Favorite
-                  </Button>
-                </>
-              )}
-            </div>
-          ) : null}
+                    {/* Favorite toggle stays in the header while editing */}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() =>
+                        setDraft((prev) =>
+                          prev ? { ...prev, isFavorite: !prev.isFavorite } : prev
+                        )
+                      }
+                      aria-pressed={draft?.isFavorite}
+                      title="Toggle favorite"
+                    >
+                      <Star
+                        className="h-4 w-4"
+                        fill={draft?.isFavorite ? "currentColor" : "none"}
+                      />
+                      Favorite
+                    </Button>
+                  </>
+                )}
+              </div>
+            ) : null}
+          </div>
 
           {error ? (
             <div className="pt-2 text-sm text-destructive">{error}</div>

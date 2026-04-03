@@ -364,7 +364,7 @@ export function CompatibilityCheckCard({
                   )}
                   {/* Eventually show a summary here instead of strengths and gaps*/}
 
-                  <div className="flex items-center gap-2 pt-1 text-muted-foreground">
+                  <div className="flex items-center gap-2 pt-1 text-muted-foreground mb-0">
                     <Button size="sm"
                       onClick={() => { setIsDetailsOpen(true); onCloseOthers?.(); }}>
                       See full report
