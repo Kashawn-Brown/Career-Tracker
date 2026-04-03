@@ -25,9 +25,7 @@ type Props = {
   baseResumeId:          number | null;
   baseCoverLetterExists: boolean;
 
-  onDocumentsChanged?:  (applicationId: string) => void;
-  onCloseOthers?:       () => void;
-  onRegisterClose?:     (fn: () => void) => void;
+  onDocumentsChanged?:   (applicationId: string) => void;
   onApplicationChanged?: (applicationId: string) => void;
 
   autoOpenLatestFit?:          boolean;
@@ -36,6 +34,12 @@ type Props = {
   // Incremented by the drawer when a document is uploaded so all AI tool
   // resume pickers re-fetch without needing a full drawer close/reopen.
   docsReloadKey?: number;
+
+  // Panel manager callbacks — provided by the drawer via usePanelManager.
+  // Each card is given a curried version with its own unique panel ID so the
+  // registry can close cards individually without them knowing each other.
+  registerPanel: (id: string, closeFn: () => void) => void;
+  closeOthers:   (exceptId: string) => void;
 };
 
 /**
@@ -45,6 +49,7 @@ type Props = {
  *  - Shows a shared status bar (JD + base resume) visible across all tools
  *  - Renders the ProAccessBanner (applies to all tools, not just Fit)
  *  - Delegates tool-specific logic to CompatibilityCheckCard, ResumeAdviceCard, CoverLetterCard
+ *  - Curries panel manager callbacks per card so each registers under its own ID
  */
 export function ApplicationAiToolsSection({
   drawerOpen,
@@ -55,12 +60,12 @@ export function ApplicationAiToolsSection({
   baseResumeId,
   baseCoverLetterExists,
   onDocumentsChanged,
-  onCloseOthers,
-  onRegisterClose,
   onApplicationChanged,
   autoOpenLatestFit,
   onAutoOpenLatestFitConsumed,
   docsReloadKey = 0,
+  registerPanel,
+  closeOthers,
 }: Props) {
   // Auth and plan state live here so they can be shared across all three cards
   const { user, aiProRequest, refreshMe } = useAuth();
@@ -119,6 +124,8 @@ export function ApplicationAiToolsSection({
       </div>
 
       {/* ── Tool cards ──────────────────────────────────────────────────── */}
+      {/* Each card gets its own panel ID curried in so the registry can     */}
+      {/* target it individually without cards needing to know each other.   */}
 
       <CompatibilityCheckCard
         drawerOpen={drawerOpen}
@@ -127,8 +134,8 @@ export function ApplicationAiToolsSection({
         baseResumeExists={baseResumeExists}
         baseResumeId={baseResumeId}
         canUseAi={canUse}
-        onCloseOthers={onCloseOthers}
-        onRegisterClose={onRegisterClose}
+        onRegisterClose={(fn) => registerPanel("compatibility", fn)}
+        onCloseOthers={() => closeOthers("compatibility")}
         onDocumentsChanged={onDocumentsChanged}
         onApplicationChanged={onApplicationChanged}
         onRefreshMe={() => void refreshMe()}
@@ -142,8 +149,8 @@ export function ApplicationAiToolsSection({
         baseResumeExists={baseResumeExists}
         canUseAi={canUse}
         documentToolRuns={documentToolRuns}
-        onCloseOthers={onCloseOthers}
-        onRegisterClose={onRegisterClose}
+        onRegisterClose={(fn) => registerPanel("resume-advice", fn)}
+        onCloseOthers={() => closeOthers("resume-advice")}
         onDocumentsChanged={onDocumentsChanged}
         onApplicationChanged={onApplicationChanged}
         onRefreshMe={() => void refreshMe()}
@@ -156,8 +163,8 @@ export function ApplicationAiToolsSection({
         baseCoverLetterExists={baseCoverLetterExists}
         canUseAi={canUse}
         documentToolRuns={documentToolRuns}
-        onCloseOthers={onCloseOthers}
-        onRegisterClose={onRegisterClose}
+        onRegisterClose={(fn) => registerPanel("cover-letter", fn)}
+        onCloseOthers={() => closeOthers("cover-letter")}
         onDocumentsChanged={onDocumentsChanged}
         onApplicationChanged={onApplicationChanged}
         onRefreshMe={() => void refreshMe()}

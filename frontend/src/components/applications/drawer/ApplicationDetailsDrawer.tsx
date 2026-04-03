@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { usePanelManager } from "@/hooks/usePanelManager";
 import type { Application, UpdateApplicationRequest, ApplicationStatus, JobType, WorkMode, Document } from "@/types/api";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { STATUS_OPTIONS, JOB_TYPE_OPTIONS, WORK_MODE_OPTIONS, statusLabel, jobTypeLabel, workModeLabel } from "@/lib/applications/presentation";
@@ -318,8 +319,10 @@ export function ApplicationDetailsDrawer({
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
 
-  const closeFitReportRef = useRef<(() => void) | null>(null);
-  const closeConnectionsRef = useRef<(() => void) | null>(null);
+  // Centralised panel registry — each open panel registers a close function
+  // under a unique ID. When any panel opens it calls closeOthers(myId) so all
+  // others collapse without needing individual refs for every panel.
+  const { registerPanel, closeOthers, closeAll } = usePanelManager();
 
   // Base resume document
   const [baseResume, setBaseResume] = useState<Document | null>(null);
@@ -574,8 +577,7 @@ export function ApplicationDetailsDrawer({
     const id = Number(doc.id);
     if (!Number.isFinite(id)) return;
 
-    closeFitReportRef.current?.();  // close fit report if open
-    closeConnectionsRef.current?.();  // close connections if open
+    closeAll(); // collapse any open panel before showing the doc preview
   
     setPreviewDocId(docIdStr);
     setPreviewTitle(doc.originalName ?? "Document");
@@ -1114,9 +1116,9 @@ export function ApplicationDetailsDrawer({
                 onConnectionsChanged={onConnectionsChanged}
                 onCloseOthers={() => {
                   clearPreview();
-                  closeFitReportRef.current?.();
+                  closeOthers("connections");
                 }}
-                onRegisterClose={(fn) => { closeConnectionsRef.current = fn; }}
+                onRegisterClose={(fn) => registerPanel("connections", fn)}
               />
             </Section>
 
@@ -1153,14 +1155,14 @@ export function ApplicationDetailsDrawer({
                   setDocsReloadKey((k) => k + 1);      // refresh drawer docs list
                   onDocumentsChanged?.(applicationId); // refresh main table
                 }}
-                onCloseOthers={() => {
-                  clearPreview();
-                  closeConnectionsRef.current?.();
-                }}
-                onRegisterClose={(fn) => { closeFitReportRef.current = fn; }}
                 onApplicationChanged={onApplicationChanged}
                 autoOpenLatestFit={autoOpenFitForAppId === application.id}
                 onAutoOpenLatestFitConsumed={onAutoOpenFitConsumed}
+
+                // Panel manager — section curries a unique ID per card so
+                // opening any report closes all others (including Connections).
+                registerPanel={registerPanel}
+                closeOthers={(exceptId) => { clearPreview(); closeOthers(exceptId); }}
               />
             </Section>
           </div>
