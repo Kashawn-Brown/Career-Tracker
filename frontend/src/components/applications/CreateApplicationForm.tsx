@@ -36,8 +36,7 @@ export function CreateApplicationForm({ onCreated }: { onCreated: (args: OnCreat
   const canUse = user ? canUseAi(user) : false;
 
   // ── AI tools after create ───────────────────────────────────────────────
-  const [aiEnabled, setAiEnabled] = useState(false);
-  const { selections, updateSelections } = useAiToolsOnCreate();
+  const { enabled: aiEnabled, setEnabled: setAiEnabled, selections, updateSelections } = useAiToolsOnCreate();
   const { baseResumeExists, baseCoverLetterExists } = useBaseDocuments();
   const [overrideFile,          setOverrideFile]          = useState<File | null>(null);
   const [templateFile,          setTemplateFile]          = useState<File | null>(null);
@@ -285,7 +284,6 @@ export function CreateApplicationForm({ onCreated }: { onCreated: (args: OnCreat
       setDocuments([]);
       setConnectionQuery("");
       setSelectedConnections([]);
-      setAiEnabled(false);
       setOverrideFile(null);
       setTemplateFile(null);
       setTemplateText("");

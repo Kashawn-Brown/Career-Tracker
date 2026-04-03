@@ -10,45 +10,80 @@ export type AiToolSelections = {
   coverLetter:  boolean;
 };
 
-const DEFAULT_SELECTIONS: AiToolSelections = {
-  fit:          true,
-  resumeAdvice: true,
-  coverLetter:  true,
+type PersistedState = {
+  enabled:  boolean;
+  selections: AiToolSelections;
 };
 
-function readFromStorage(): AiToolSelections {
+const DEFAULTS: PersistedState = {
+  enabled: false,
+  selections: { fit: true, resumeAdvice: true, coverLetter: true },
+};
+
+function readFromStorage(): PersistedState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_SELECTIONS;
-    const parsed = JSON.parse(raw) as Partial<AiToolSelections>;
-    // Merge with defaults so new tools added later don't default to undefined
+    if (!raw) return DEFAULTS;
+    const parsed = JSON.parse(raw) as Partial<PersistedState & AiToolSelections>;
+
+    // Support old format that only stored selections at the top level
+    const sel = parsed.selections ?? parsed;
     return {
-      fit:          parsed.fit          ?? DEFAULT_SELECTIONS.fit,
-      resumeAdvice: parsed.resumeAdvice ?? DEFAULT_SELECTIONS.resumeAdvice,
-      coverLetter:  parsed.coverLetter  ?? DEFAULT_SELECTIONS.coverLetter,
+      enabled: parsed.enabled ?? DEFAULTS.enabled,
+      selections: {
+        fit:          (sel as AiToolSelections).fit          ?? DEFAULTS.selections.fit,
+        resumeAdvice: (sel as AiToolSelections).resumeAdvice ?? DEFAULTS.selections.resumeAdvice,
+        coverLetter:  (sel as AiToolSelections).coverLetter  ?? DEFAULTS.selections.coverLetter,
+      },
     };
   } catch {
-    return DEFAULT_SELECTIONS;
+    return DEFAULTS;
   }
 }
 
 /**
- * Persists which AI tools the user wants to run after creating an application.
- * Reads from localStorage on mount so selections carry over across sessions.
- * Only tool checkbox state is persisted — file selections are never stored.
+ * Persists the "Run AI tools after creation" toggle state and tool selections
+ * to localStorage so they carry over across sessions.
+ * File selections (override resume, template) are never stored.
  */
 export function useAiToolsOnCreate(): {
+  enabled:          boolean;
+  setEnabled:       (v: boolean) => void;
   selections:       AiToolSelections;
   updateSelections: (next: AiToolSelections) => void;
 } {
-  const [selections, setSelections] = useState<AiToolSelections>(readFromStorage);
+  const [state, setState] = useState<PersistedState>(readFromStorage);
 
-  const updateSelections = useCallback((next: AiToolSelections) => {
-    setSelections(next);
+  function persist(next: PersistedState) {
+    setState(next);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     } catch { /* storage unavailable — silently ignore */ }
+  }
+
+  const setEnabled = useCallback((v: boolean) => {
+    setState((prev) => {
+      const next = { ...prev, enabled: v };
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
   }, []);
 
-  return { selections, updateSelections };
+  const updateSelections = useCallback((next: AiToolSelections) => {
+    setState((prev) => {
+      const updated = { ...prev, selections: next };
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+  }, []);
+
+  // suppress unused warning on persist — used for future direct calls if needed
+  void persist;
+
+  return {
+    enabled:          state.enabled,
+    setEnabled,
+    selections:       state.selections,
+    updateSelections,
+  };
 }

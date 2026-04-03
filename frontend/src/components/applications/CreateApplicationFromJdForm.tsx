@@ -134,9 +134,7 @@ export function CreateApplicationFromJdForm({
   const [showMore, setShowMore] = useState(false);
 
   // ── AI tools after create ─────────────────────────────────────────────────
-  // Whether the toggle is on — persisted selections come from the hook
-  const [aiEnabled, setAiEnabled] = useState(false);
-  const { selections, updateSelections } = useAiToolsOnCreate();
+  const { enabled: aiEnabled, setEnabled: setAiEnabled, selections, updateSelections } = useAiToolsOnCreate();
   // Base resume/cover letter existence — drives defaults and validation
   const { baseResumeExists, baseCoverLetterExists } = useBaseDocuments();
   // Override resume for this run — uploaded once, shared across all selected tools
@@ -305,7 +303,7 @@ export function CreateApplicationFromJdForm({
     setShowSummary(false); setShowMore(false);
     setDocKind("OTHER"); setDocFile(null); setDocuments([]);
     setConnectionQuery(""); setSelectedConnections([]);
-    setAiEnabled(false); setOverrideFile(null); setTemplateFile(null); setTemplateText("");
+    setOverrideFile(null); setTemplateFile(null); setTemplateText("");
     setSaveAsBaseResume(false);
     setIsCreateConnOpen(false); setCreateConnError(null);
     setIsCreateConnSaving(false); setNewConnDraft(emptyNewConnectionDraft());
@@ -986,13 +984,6 @@ export function CreateApplicationFromJdForm({
             </div>
           </div>
 
-          {/* Submit */}
-          <div className="flex justify-end pt-2">
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Creating..." : "Create application"}
-            </Button>
-          </div>
-
           {/* ── AI tools after create ── */}
           <AiToolsAfterCreate
             enabled={aiEnabled}
@@ -1008,6 +999,13 @@ export function CreateApplicationFromJdForm({
             disabled={isSubmitting}
           />
 
+          {/* Submit */}
+          <div className="flex justify-end pt-2">
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Creating..." : "Create application"}
+            </Button>
+          </div>
+
           {/* ── Resume validation dialog ─────────────────────────────────────
                Shown when AI tools are enabled but no resume is available.
                Lets the user upload one now or navigate to profile.         */}
@@ -1015,7 +1013,7 @@ export function CreateApplicationFromJdForm({
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Resume required</DialogTitle>
-                <DialogDescription className="mb-4">
+                <DialogDescription>
                   A resume is needed to run AI tools. Upload one now or add a
                   base resume to your profile so it's always available.
                 </DialogDescription>
@@ -1054,8 +1052,7 @@ export function CreateApplicationFromJdForm({
                   variant="outline"
                   onClick={() => {
                     // Disable AI tools and proceed without them
-                    setAiEnabled(false);
-                    setIsResumeValidationOpen(false);
+                                  setIsResumeValidationOpen(false);
                     void createApplicationAfterDraft();
                   }}
                 >

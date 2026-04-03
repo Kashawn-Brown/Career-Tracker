@@ -74,7 +74,7 @@ export function AiToolsAfterCreate({
     <div className="space-y-2">
 
       {/* ── Main toggle row ─────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center">
         <label className="flex items-center gap-2 text-sm select-none cursor-pointer">
           <input
             type="checkbox"
@@ -92,7 +92,7 @@ export function AiToolsAfterCreate({
             type="button"
             disabled={disabled}
             onClick={() => setSettingsOpen((v) => !v)}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+            className="flex items-center text-xs text-muted-foreground hover:text-foreground"
           >
             {settingsOpen
               ? <ChevronDown  className="h-3.5 w-3.5" />
@@ -109,14 +109,14 @@ export function AiToolsAfterCreate({
           {/* ── Tool selection ─────────────────────────────────────────── */}
           <div className="space-y-2">
             <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Tools to run
+              AI tools to run:
             </div>
 
             {(["fit", "resumeAdvice", "coverLetter"] as const).map((key) => {
               const labels: Record<typeof key, string> = {
                 fit:          "Compatibility check",
-                resumeAdvice: "Resume advice",
-                coverLetter:  "Cover letter",
+                resumeAdvice: "Tailored resume advice",
+                coverLetter:  "Cover letter generation (draft)",
               };
               return (
                 <label key={key} className="flex items-center gap-2 cursor-pointer">
