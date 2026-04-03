@@ -10,6 +10,7 @@ import { CreateApplicationForm } from "@/components/applications/CreateApplicati
 import { CreateApplicationFromJdForm, type OnCreatedArgs } from "@/components/applications/CreateApplicationFromJdForm";
 import { ApplicationDetailsDrawer } from "@/components/applications/drawer/ApplicationDetailsDrawer";
 import { ColumnsControl } from "@/components/applications/ColumnsControl";
+import { APPLICATION_SORT_STORAGE_KEY, readDefaultSortPreference, type DefaultSortPreference } from "@/lib/applications/tableColumns";
 import { APPLICATION_COLUMNS_STORAGE_KEY, DEFAULT_VISIBLE_APPLICATION_COLUMNS, normalizeVisibleColumns, type ApplicationColumnId} from "@/lib/applications/tableColumns";
 import { useFitRuns } from "@/hooks/useFitRuns";
 import { useDocumentToolRuns } from "@/hooks/useDocumentToolRuns";
@@ -54,13 +55,26 @@ export default function ApplicationsPage() {
   const endIndex = total === 0 ? 0 : Math.min(page * pageSize, total);
 
   // Filters / sorting.
-  const DEFAULT_SORT_BY: ApplicationSortBy = "updatedAt";
-  const DEFAULT_SORT_DIR: ApplicationSortDir = "desc";
+  // Default sort is read from localStorage so the user's preferred column persists across sessions.
+  const [defaultSort, setDefaultSort] = useState<DefaultSortPreference>(readDefaultSortPreference);
 
-  const [sortBy, setSortBy] = useState<ApplicationSortBy>(DEFAULT_SORT_BY);
-  const [sortDir, setSortDir] = useState<ApplicationSortDir>(DEFAULT_SORT_DIR);
+  const [sortBy, setSortBy] = useState<ApplicationSortBy>(
+    () => readDefaultSortPreference().sortBy as ApplicationSortBy
+  );
+  const [sortDir, setSortDir] = useState<ApplicationSortDir>(
+    () => readDefaultSortPreference().sortDir
+  );
 
-  const isDefaultSort = sortBy === DEFAULT_SORT_BY && sortDir === DEFAULT_SORT_DIR;
+  const isDefaultSort = sortBy === defaultSort.sortBy && sortDir === defaultSort.sortDir;
+
+  // Persist default sort preference and apply it immediately
+  function handleDefaultSortChange(next: DefaultSortPreference) {
+    setDefaultSort(next);
+    setSortBy(next.sortBy as ApplicationSortBy);
+    setSortDir(next.sortDir);
+    resetToFirstPage();
+    try { localStorage.setItem(APPLICATION_SORT_STORAGE_KEY, JSON.stringify(next)); } catch {}
+  }
 
   const DEBOUNCE_MS = 250;    // Debounce time for query input (to prevent excessive API calls)
   const [query, setQuery] = useState("");       // what the user has searched for (committed query used by API)
@@ -354,7 +368,7 @@ export default function ApplicationsPage() {
     setPage(1);
 
     // Special case: if we're on the default sort and clicking the same column, toggle the sort direction.
-    if (isDefaultSort && nextSortBy === DEFAULT_SORT_BY) {
+    if (isDefaultSort && nextSortBy === defaultSort.sortBy) {
       setSortDir("asc");
       return;
     }
@@ -370,9 +384,9 @@ export default function ApplicationsPage() {
       return;
     }
 
-    // Third click resets to the default sort.
-    setSortBy(DEFAULT_SORT_BY);
-    setSortDir(DEFAULT_SORT_DIR);
+    // Third click resets to the user's preferred default sort.
+    setSortBy(defaultSort.sortBy as ApplicationSortBy);
+    setSortDir(defaultSort.sortDir);
   }
 
   // refreshList: forces a refetch without changing filter state.
@@ -841,6 +855,8 @@ export default function ApplicationsPage() {
             <ColumnsControl
               visibleColumns={visibleColumns}
               onChange={setVisibleColumns}
+              defaultSort={defaultSort}
+              onDefaultSortChange={handleDefaultSortChange}
             />
           ) : null}
 

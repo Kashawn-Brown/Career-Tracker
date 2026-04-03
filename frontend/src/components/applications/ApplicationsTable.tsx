@@ -288,6 +288,7 @@ export function ApplicationsTable({
                   case "fitScore":
                   case "dateApplied":
                   case "updatedAt":
+                  case "createdAt":
                     return (
                       <SortableHeader
                         key={col.id}
@@ -431,6 +432,13 @@ export function ApplicationsTable({
                         return (
                           <td key={col.id} className="p-3 text-muted-foreground text-center">
                             {formatTableDate(application.dateApplied)}
+                          </td>
+                        );
+
+                      case "createdAt":
+                        return (
+                          <td key={col.id} className="p-3 text-muted-foreground text-center">
+                            {formatTableDate(application.createdAt)}
                           </td>
                         );
 
