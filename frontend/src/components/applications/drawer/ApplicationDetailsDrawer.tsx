@@ -280,6 +280,8 @@ export function ApplicationDetailsDrawer({
   documentToolRuns,
   autoOpenFitForAppId,
   onAutoOpenFitConsumed,
+  scrollToAiToolsAppId,
+  onScrollToAiToolsConsumed,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -295,6 +297,9 @@ export function ApplicationDetailsDrawer({
   documentToolRuns: DocumentToolRunsController;
   autoOpenFitForAppId?: string | null;
   onAutoOpenFitConsumed?: () => void;
+  // When set to this application's ID, the drawer scrolls to the AI Tools section
+  scrollToAiToolsAppId?: string | null;
+  onScrollToAiToolsConsumed?: () => void;
 }) {
   // UI state
   const [isEditing, setIsEditing] = useState(false);
@@ -343,6 +348,20 @@ export function ApplicationDetailsDrawer({
 
   // A key to force a reload of the documents list
   const [docsReloadKey, setDocsReloadKey] = useState(0);
+
+  // Ref attached to the AI Tools section — used to scroll into view when a
+  // completion notice is clicked (scrollToAiToolsAppId set on the page).
+  const aiToolsSectionRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollToAiToolsAppId !== application?.id) return;
+    // Small delay so the drawer has finished opening/rendering before scroll
+    const t = setTimeout(() => {
+      aiToolsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      onScrollToAiToolsConsumed?.();
+    }, 150);
+    return () => clearTimeout(t);
+  }, [scrollToAiToolsAppId, application?.id, onScrollToAiToolsConsumed]);
 
 
   // keep the drawer’s draft in sync with the selected application.
@@ -1140,31 +1159,33 @@ export function ApplicationDetailsDrawer({
             </Section>
 
             {/* AI Tools section */}
-            <Section title="AI Tools" noParent={true}>
-              <ApplicationAiToolsSection 
-                drawerOpen={open}
-                application={application} 
-                fitRuns={fitRuns}
-                documentToolRuns={documentToolRuns}
-                baseResumeExists={baseResumeExists}
-                baseResumeId={baseResumeId}
-                baseCoverLetterExists={baseCoverLetterExists}
-                docsReloadKey={docsReloadKey}
+            <div ref={aiToolsSectionRef}>
+              <Section title="AI Tools" noParent={true}>
+                <ApplicationAiToolsSection 
+                  drawerOpen={open}
+                  application={application} 
+                  fitRuns={fitRuns}
+                  documentToolRuns={documentToolRuns}
+                  baseResumeExists={baseResumeExists}
+                  baseResumeId={baseResumeId}
+                  baseCoverLetterExists={baseCoverLetterExists}
+                  docsReloadKey={docsReloadKey}
 
-                onDocumentsChanged={(applicationId) => {
-                  setDocsReloadKey((k) => k + 1);      // refresh drawer docs list
-                  onDocumentsChanged?.(applicationId); // refresh main table
-                }}
-                onApplicationChanged={onApplicationChanged}
-                autoOpenLatestFit={autoOpenFitForAppId === application.id}
-                onAutoOpenLatestFitConsumed={onAutoOpenFitConsumed}
+                  onDocumentsChanged={(applicationId) => {
+                    setDocsReloadKey((k) => k + 1);      // refresh drawer docs list
+                    onDocumentsChanged?.(applicationId); // refresh main table
+                  }}
+                  onApplicationChanged={onApplicationChanged}
+                  autoOpenLatestFit={autoOpenFitForAppId === application.id}
+                  onAutoOpenLatestFitConsumed={onAutoOpenFitConsumed}
 
-                // Panel manager — section curries a unique ID per card so
-                // opening any report closes all others (including Connections).
-                registerPanel={registerPanel}
-                closeOthers={(exceptId) => { clearPreview(); closeOthers(exceptId); }}
-              />
-            </Section>
+                  // Panel manager — section curries a unique ID per card so
+                  // opening any report closes all others (including Connections).
+                  registerPanel={registerPanel}
+                  closeOthers={(exceptId) => { clearPreview(); closeOthers(exceptId); }}
+                />
+              </Section>
+            </div>
           </div>
         )}
 

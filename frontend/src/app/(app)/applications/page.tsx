@@ -81,7 +81,9 @@ export default function ApplicationsPage() {
   // Application details drawer state
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
-  const [autoOpenFitAppId, setAutoOpenFitAppId] = useState<string | null>(null);
+  const [autoOpenFitAppId,     setAutoOpenFitAppId]     = useState<string | null>(null);
+  // When set, the drawer scrolls to the AI Tools section on open
+  const [scrollToAiToolsAppId, setScrollToAiToolsAppId] = useState<string | null>(null);
 
   // Tracks in-flight FIT runs so they survive drawer close / navigation.
   const fitRuns          = useFitRuns();
@@ -264,7 +266,12 @@ export default function ApplicationsPage() {
   }, []); // stable — reads via ref, no stale closure
 
   // openDrawerForApplication: opens the drawer for the application.
-  async function openDrawerForApplication(applicationId: string, opts?: { autoOpenFit?: boolean }) {
+  // scrollToAiTools: scrolls the drawer to the AI Tools section instead of
+  // auto-opening a specific report — used by all tool completion notices.
+  async function openDrawerForApplication(
+    applicationId: string,
+    opts?: { autoOpenFit?: boolean; scrollToAiTools?: boolean },
+  ) {
     try {
       setErrorMessage(null);
   
@@ -272,13 +279,20 @@ export default function ApplicationsPage() {
       setSelectedApplication(fullApplication);
       setDetailsOpen(true);
   
-      if (opts?.autoOpenFit) {
+      if (opts?.scrollToAiTools) {
+        // Signal the drawer to scroll to AI Tools — autoOpenFit not needed
+        setAutoOpenFitAppId(null);
+        setScrollToAiToolsAppId(applicationId);
+      } else if (opts?.autoOpenFit) {
         setAutoOpenFitAppId(applicationId);
+        setScrollToAiToolsAppId(null);
       } else {
         setAutoOpenFitAppId(null);
+        setScrollToAiToolsAppId(null);
       }
     } catch (err) {
       setAutoOpenFitAppId(null);
+      setScrollToAiToolsAppId(null);
       if (err instanceof ApiError) setErrorMessage(err.message);
       else setErrorMessage("Failed to load application details. Please try again.");
     }
@@ -660,7 +674,7 @@ export default function ApplicationsPage() {
                   onClick={async () => {
                     dismissFitNotice(n.id);
                     await openDrawerForApplication(n.applicationId, {
-                      autoOpenFit: n.kind === "success",
+                      scrollToAiTools: true,
                     });
                   }}
                   onKeyDown={async (e) => {
@@ -668,7 +682,7 @@ export default function ApplicationsPage() {
                     e.preventDefault();
                     dismissFitNotice(n.id);
                     await openDrawerForApplication(n.applicationId, {
-                      autoOpenFit: n.kind === "success",
+                      scrollToAiTools: true,
                     });
                   }}
                 >
@@ -1007,6 +1021,8 @@ export default function ApplicationsPage() {
         onApplicationChanged={handleApplicationChange}
         autoOpenFitForAppId={autoOpenFitAppId}
         onAutoOpenFitConsumed={() => setAutoOpenFitAppId(null)}
+        scrollToAiToolsAppId={scrollToAiToolsAppId}
+        onScrollToAiToolsConsumed={() => setScrollToAiToolsAppId(null)}
         fitRuns={fitRuns}
         documentToolRuns={documentToolRuns}
       />
