@@ -161,31 +161,21 @@ export function FitReport({
                       {band.label}
                     </div>
                   </div>
-                  <div className="text-sm text-muted-foreground mt-1">
-                    Confidence: <span className="text-foreground">{p.confidence}</span>
-                  </div>
+
                 </div>
               </div>
 
-              <div className="mt-4 grid gap-3">
-                {p.strengths?.[0] ? (
-                  <div>
-                    <div className="text-sm font-medium">Strengths summary</div>
-                    <div className="text-sm text-muted-foreground mt-1">{p.strengths[0]}</div>
-                  </div>
-                ) : null}
-                {p.gaps?.[0] ? (
-                  <div>
-                    <div className="text-sm font-medium">Gaps summary</div>
-                    <div className="text-sm text-muted-foreground mt-1">{p.gaps[0]}</div>
-                  </div>
-                ) : null}
-              </div>
+              {p.fitSummary && (
+                    <div className="mt-4">
+                      <div className="text-xs font-medium mb-1 uppercase tracking-wide">Summary</div>
+                      <div className="text-sm text-muted-foreground">{p.fitSummary}</div>
+                    </div>
+                  )}
             </div>
 
             {/* Full sections */}
-            <SectionList title="Strengths"                     items={p.strengths?.slice(1)} />
-            <SectionList title="Gaps"                          items={p.gaps?.slice(1)} />
+            <SectionList title="Strengths"                     items={p.strengths} />
+            <SectionList title="Gaps"                          items={p.gaps} />
             <SectionList title="Keyword gaps"                  items={p.keywordGaps} />
             <SectionList title="Recommended resume edits"      items={p.recommendedEdits} />
             <SectionList title="Questions to ask the employer" items={p.questionsToAsk} />

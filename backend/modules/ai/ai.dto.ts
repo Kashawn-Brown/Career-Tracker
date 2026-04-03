@@ -495,11 +495,9 @@ export function normalizeApplicationFromJdResponse(
 
 // ─── FIT_V1 ────────────────────────────────────────────────────────────────────
 
-export type FitConfidence = "low" | "medium" | "high";
-
 export type FitV1Response = {
-  score:            number; // 0–100
-  confidence:       FitConfidence;
+  score:            number;   // 0–100
+  fitSummary:       string;   // 2–3 sentence overall narrative shown in the drawer card
   strengths:        string[];
   gaps:             string[];
   keywordGaps:      string[];
@@ -512,7 +510,7 @@ export const FitV1JsonObject = {
   additionalProperties: false,
   required: [
     "score",
-    "confidence",
+    "fitSummary",
     "strengths",
     "gaps",
     "keywordGaps",
@@ -521,7 +519,7 @@ export const FitV1JsonObject = {
   ],
   properties: {
     score:            { type: "number" },
-    confidence:       { type: "string", enum: ["low", "medium", "high"] },
+    fitSummary:       { type: "string" },
     strengths:        { type: "array", items: { type: "string" }, maxItems: 7 },
     gaps:             { type: "array", items: { type: "string" }, maxItems: 7 },
     keywordGaps:      { type: "array", items: { type: "string" }, maxItems: 10 },
@@ -584,12 +582,6 @@ function clampFitScore(v: unknown): number {
   return Math.max(0, Math.min(100, Math.round(n)));
 }
 
-// Normalize confidence with safe fallback
-function cleanFitConfidence(v: unknown): FitConfidence {
-  if (v === "low" || v === "medium" || v === "high") return v;
-  return "medium";
-}
-
 // Dedupe case-insensitively while keeping order + cap
 function dedupeAndCap(items: string[], max: number): string[] {
   const seen = new Set<string>();
@@ -610,7 +602,7 @@ function dedupeAndCap(items: string[], max: number): string[] {
 export function normalizeFitV1Response(raw: FitV1Response): FitV1Response {
   return {
     score:            clampFitScore(raw.score),
-    confidence:       cleanFitConfidence(raw.confidence),
+    fitSummary:       (typeof raw.fitSummary === "string" ? raw.fitSummary.trim() : "") || "(No summary provided)",
     strengths:        dedupeAndCap(cleanStringArray(raw.strengths,        20), 7),
     gaps:             dedupeAndCap(cleanStringArray(raw.gaps,             20), 7),
     keywordGaps:      dedupeAndCap(cleanStringArray(raw.keywordGaps,      30), 12),

@@ -548,17 +548,14 @@ export type ApplicationDraftResponse = {
 };
 
 
-export type FitConfidence = "low" | "medium" | "high";
-
 export type FitV1Payload = {
-  score: number; // 0–100
-  confidence: FitConfidence;
-
-  strengths: string[];
-  gaps: string[];
-  keywordGaps: string[];
+  score:            number;   // 0–100
+  fitSummary:       string;   // 2–3 sentence overall narrative shown in the drawer card
+  strengths:        string[];
+  gaps:             string[];
+  keywordGaps:      string[];
   recommendedEdits: string[];
-  questionsToAsk: string[];
+  questionsToAsk:   string[];
 };
 
 export type AiArtifact<TPayload = unknown> = {

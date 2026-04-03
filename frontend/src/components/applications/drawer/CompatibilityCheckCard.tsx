@@ -297,32 +297,24 @@ export function CompatibilityCheckCard({
                         {p.score}
                         <span className="text-sm font-normal text-muted-foreground"> / 100</span>
                       </div>
-                      <div className={cn(
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                    <div className={cn(
                         "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium",
                         band.badgeClass
                       )}>
                         {band.label}
                       </div>
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      Confidence: <span className="text-foreground">{p.confidence}</span>
-                    </div>
+
                   </div>
 
-                  {p.strengths?.[0] && (
+                  {p.fitSummary && (
                     <div>
-                      <div className="text-xs font-medium mb-1 uppercase tracking-wide">Strengths</div>
-                      <div className="text-sm text-muted-foreground">{p.strengths[0]}</div>
+                      <div className="text-xs font-medium mb-1 uppercase tracking-wide">Summary</div>
+                      <div className="text-sm text-muted-foreground">{p.fitSummary}</div>
                     </div>
                   )}
-
-                  {p.gaps?.[0] && (
-                    <div>
-                      <div className="text-xs font-medium mb-1 uppercase tracking-wide">Gaps</div>
-                      <div className="text-sm text-muted-foreground">{p.gaps[0]}</div>
-                    </div>
-                  )}
-                  {/* Eventually show a summary here instead of strengths and gaps*/}
 
                   <div className="flex items-center gap-2 pt-1 text-muted-foreground mb-0">
                     <Button size="sm"
