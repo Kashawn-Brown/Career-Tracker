@@ -133,4 +133,59 @@ export async function documentsRoutes(app: FastifyInstance) {
     return downloadUrl;
   });
 
+
+  // ─── Base cover letter template routes ───────────────────────────────────────
+  // Same structure as base resume: GET to fetch metadata, POST to upload/replace,
+  // DELETE to remove. One template per user — uploading replaces the existing one.
+
+  /**
+   * GET /documents/base-cover-letter
+   * Returns the stored base cover letter template metadata, or null if none saved.
+   */
+  app.get("/base-cover-letter", { preHandler: [requireAuth, requireVerifiedEmail] }, async (req) => {
+    const userId = req.user!.id;
+    const doc    = await DocumentsService.getBaseCoverLetter(userId);
+
+    if (doc) {
+      // Strip storageKey — it's an internal GCS path, never sent to clients
+      const { storageKey: _sk, ...rest } = doc as typeof doc & { storageKey: string };
+      return { baseCoverLetter: rest };
+    }
+    return { baseCoverLetter: null };
+  });
+
+  /**
+   * POST /documents/base-cover-letter
+   * Uploads or replaces the user's base cover letter template.
+   * Accepts multipart/form-data with a single "file" field (.pdf, .txt, .docx).
+   */
+  app.post("/base-cover-letter", { preHandler: [requireAuth, requireVerifiedEmail] }, async (req, reply) => {
+    const userId = req.user!.id;
+
+    const data = await req.file();
+    if (!data) throw new AppError("No file uploaded.", 400);
+
+    const created = await DocumentsService.uploadBaseCoverLetter({
+      userId,
+      stream:      data.file,
+      filename:    data.filename,
+      mimeType:    data.mimetype,
+      isTruncated: (data as any).truncated === true,
+    });
+
+    // Strip storageKey before sending to client
+    const { storageKey: _sk, ...rest } = created as typeof created & { storageKey: string };
+    return reply.status(201).send({ baseCoverLetter: rest });
+  });
+
+  /**
+   * DELETE /documents/base-cover-letter
+   * Deletes the stored template from GCS and the DB.
+   */
+  app.delete("/base-cover-letter", { preHandler: [requireAuth, requireVerifiedEmail] }, async (req) => {
+    const userId = req.user!.id;
+    await DocumentsService.deleteBaseCoverLetter(userId);
+    return { ok: true };
+  });
+
 }

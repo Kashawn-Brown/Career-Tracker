@@ -8,12 +8,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { AccountSecurityDialog } from "@/components/profile/AccountSecurityDialog";
 import { ProfileProAccessCard } from "@/components/profile/ProfileProAccessCard";
 import { UserProfileCard } from "@/components/profile/UserProfileCard";
-import { JobSearchPreferencesCard } from "@/components/profile/JobSearchPreferencesCard";
 import { ProfileConnectionsCard } from "@/components/profile/ProfileConnectionsCard";
-import { BaseResumeCard } from "@/components/profile/BaseResumeCard";
+import { BaseResumeCard }        from "@/components/profile/BaseResumeCard";
+import { BaseCoverLetterCard }  from "@/components/profile/BaseCoverLetterCard";
 import { documentsApi } from "@/lib/api/documents";
 import { Alert } from "@/components/ui/alert";
-import type { Document, WorkMode } from "@/types/api";
+import type { Document } from "@/types/api";
 
 // ProfilePage: view + edit minimal profile fields via GET/PATCH /users/me.
 export default function ProfilePage() {
@@ -47,16 +47,6 @@ export default function ProfilePage() {
   const [githubUrl, setGithubUrl] = useState(user?.githubUrl ?? "");
   const [portfolioUrl, setPortfolioUrl] = useState(user?.portfolioUrl ?? "");
 
-  // Job search preferences edit mode
-  const [isEditingJobSearch, setIsEditingJobSearch] = useState(false);
-  const [isJobSearchSaving, setIsJobSearchSaving] = useState(false);
-
-  const [jobSearchTitlesText, setJobSearchTitlesText] = useState(user?.jobSearchTitlesText ?? "");
-  const [jobSearchLocationsText, setJobSearchLocationsText] = useState(user?.jobSearchLocationsText ?? "");
-  const [jobSearchKeywordsText, setJobSearchKeywordsText] = useState(user?.jobSearchKeywordsText ?? "");
-  const [jobSearchSummary, setJobSearchSummary] = useState(user?.jobSearchSummary ?? "");
-  const [jobSearchWorkMode, setJobSearchWorkMode] = useState<WorkMode>(user?.jobSearchWorkMode ?? "UNKNOWN");
-
   // UI state
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -65,8 +55,16 @@ export default function ProfilePage() {
   const [resumeErrorMessage, setResumeErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const [isJobSearchDialogOpen, setIsJobSearchDialogOpen] = useState(false);
   const [isResumeDialogOpen, setIsResumeDialogOpen] = useState(false);
+
+  // Base cover letter template state — mirrors base resume state block
+  const [baseCoverLetter,         setBaseCoverLetter]         = useState<Document | null>(null);
+  const [coverLetterFile,         setCoverLetterFile]         = useState<File | null>(null);
+  const coverLetterFileInputRef                               = useRef<HTMLInputElement | null>(null);
+  const [isCoverLetterSaving,     setIsCoverLetterSaving]     = useState(false);
+  const [isCoverLetterDeleting,   setIsCoverLetterDeleting]   = useState(false);
+  const [coverLetterErrorMessage, setCoverLetterErrorMessage] = useState<string | null>(null);
+  const [isCoverLetterDialogOpen, setIsCoverLetterDialogOpen] = useState(false);
 
   // Helpers
   function toDisplayString(x: string | null | undefined) {
@@ -111,13 +109,7 @@ export default function ProfilePage() {
         setLinkedInUrl(toDisplayString(res.user.linkedInUrl));
         setGithubUrl(toDisplayString(res.user.githubUrl));
         setPortfolioUrl(toDisplayString(res.user.portfolioUrl));
-        setJobSearchTitlesText(toDisplayString(res.user.jobSearchTitlesText));
-        setJobSearchLocationsText(toDisplayString(res.user.jobSearchLocationsText));
-        setJobSearchKeywordsText(toDisplayString(res.user.jobSearchKeywordsText));
-        setJobSearchSummary(toDisplayString(res.user.jobSearchSummary));
-        setJobSearchWorkMode(res.user.jobSearchWorkMode ?? "UNKNOWN");
 
-        
         // Load base resume metadata for the logged-in user.
         try { // It's own try/catch block so it does not block profile load even if resume load fails 
           const resumeRes = await documentsApi.getBaseResume();
@@ -133,6 +125,15 @@ export default function ProfilePage() {
 
           if (err instanceof ApiError) setResumeErrorMessage(err.message);
           else setResumeErrorMessage("Failed to load base resume.")
+        }
+
+        // Load base cover letter template metadata independently so a failure
+        // here doesn't block the rest of the profile from loading.
+        try {
+          const clRes = await documentsApi.getBaseCoverLetter();
+          setBaseCoverLetter(clRes.baseCoverLetter);
+        } catch {
+          setBaseCoverLetter(null); // non-fatal — just means no template saved
         }
 
       } catch (err) {
@@ -331,6 +332,84 @@ export default function ProfilePage() {
   }
 
 
+  // ─── Base cover letter handlers — mirror base resume handlers exactly ─────────
+
+  /** Saves or replaces the user's base cover letter template. */
+  async function handleCoverLetterSave(e: React.FormEvent) {
+    e.preventDefault();
+    setCoverLetterErrorMessage(null);
+
+    if (!coverLetterFile) {
+      setCoverLetterErrorMessage("Choose a file to upload.");
+      return;
+    }
+
+    try {
+      setIsCoverLetterSaving(true);
+      const res = await documentsApi.uploadBaseCoverLetter(coverLetterFile);
+      setBaseCoverLetter(res.baseCoverLetter);
+      setCoverLetterFile(null);
+      if (coverLetterFileInputRef.current) coverLetterFileInputRef.current.value = "";
+      setIsCoverLetterDialogOpen(false);
+      setSuccessMessage("Cover letter template saved.");
+    } catch (err) {
+      if (err instanceof ApiError) setCoverLetterErrorMessage(err.message);
+      else setCoverLetterErrorMessage("Failed to save cover letter template.");
+    } finally {
+      setIsCoverLetterSaving(false);
+    }
+  }
+
+  /** Deletes the user's base cover letter template after confirmation. */
+  async function handleCoverLetterDelete() {
+    if (!baseCoverLetter || isCoverLetterSaving) return;
+
+    const confirmed = window.confirm(
+      "Delete your cover letter template?\n\nThis removes the saved template and deletes the stored file."
+    );
+    if (!confirmed) return;
+
+    setCoverLetterErrorMessage(null);
+
+    try {
+      setIsCoverLetterDeleting(true);
+      await documentsApi.deleteBaseCoverLetter();
+      setBaseCoverLetter(null);
+      setCoverLetterFile(null);
+      if (coverLetterFileInputRef.current) coverLetterFileInputRef.current.value = "";
+      setIsCoverLetterDialogOpen(false);
+      setSuccessMessage("Cover letter template deleted.");
+    } catch (err) {
+      if (err instanceof ApiError) setCoverLetterErrorMessage(err.message);
+      else setCoverLetterErrorMessage("Failed to delete cover letter template.");
+    } finally {
+      setIsCoverLetterDeleting(false);
+    }
+  }
+
+  /** Downloads the stored base cover letter template file. */
+  async function handleCoverLetterDownload() {
+    if (!baseCoverLetter) return;
+    const id = typeof baseCoverLetter.id === "string" ? Number(baseCoverLetter.id) : baseCoverLetter.id;
+    try {
+      const res = await documentsApi.getDownloadUrl(id, { disposition: "attachment" });
+      window.open(res.downloadUrl, "_blank");
+    } catch (err) {
+      if (err instanceof ApiError) setCoverLetterErrorMessage(err.message);
+      else setCoverLetterErrorMessage("Failed to download cover letter template.");
+    }
+  }
+
+  /** Handles dialog open/close — clears unsaved file on close. */
+  function handleCoverLetterDialogOpenChange(nextOpen: boolean) {
+    setIsCoverLetterDialogOpen(nextOpen);
+    if (!nextOpen) {
+      setCoverLetterFile(null);
+      if (coverLetterFileInputRef.current) coverLetterFileInputRef.current.value = "";
+      setCoverLetterErrorMessage(null);
+    }
+  }
+
   // Handles the resume dialog open state changes.
   function handleResumeDialogOpenChange(nextOpen: boolean) {
     setIsResumeDialogOpen(nextOpen);
@@ -346,107 +425,6 @@ export default function ProfilePage() {
     else setIsEditingResume(false);
   }
 
-
-
-  // Starts the job search preferences edit mode.
-  function startJobSearchEdit() {
-    setErrorMessage(null);
-    setSuccessMessage(null);
-    setIsEditingJobSearch(true);
-  }
-
-  // Cancels the job search preferences edit mode.
-  function cancelJobSearchEdit() {
-    setJobSearchTitlesText(toDisplayString(user?.jobSearchTitlesText));
-    setJobSearchLocationsText(toDisplayString(user?.jobSearchLocationsText));
-    setJobSearchKeywordsText(toDisplayString(user?.jobSearchKeywordsText));
-    setJobSearchSummary(toDisplayString(user?.jobSearchSummary));
-    setJobSearchWorkMode(user?.jobSearchWorkMode ?? "UNKNOWN");
-
-    setErrorMessage(null);
-    setSuccessMessage(null);
-    setIsEditingJobSearch(false);
-  }
-
-  // Saves the job search preferences.
-  async function handleJobSearchSave(e: React.FormEvent) {
-    e.preventDefault();
-    setErrorMessage(null);
-    setSuccessMessage(null);
-
-    const payload: UpdateMeRequest = {};
-
-    if (jobSearchTitlesText !== toDisplayString(user?.jobSearchTitlesText)) {
-      payload.jobSearchTitlesText = jobSearchTitlesText;
-    }
-    if (jobSearchLocationsText !== toDisplayString(user?.jobSearchLocationsText)) {
-      payload.jobSearchLocationsText = jobSearchLocationsText;
-    }
-    if (jobSearchKeywordsText !== toDisplayString(user?.jobSearchKeywordsText)) {
-      payload.jobSearchKeywordsText = jobSearchKeywordsText;
-    }
-    if (jobSearchSummary !== toDisplayString(user?.jobSearchSummary)) {
-      payload.jobSearchSummary = jobSearchSummary;
-    }
-
-    const currentMode = user?.jobSearchWorkMode ?? "UNKNOWN";
-    if (jobSearchWorkMode !== currentMode) {
-      payload.jobSearchWorkMode = jobSearchWorkMode;
-    }
-
-    if (Object.keys(payload).length === 0) {
-      setErrorMessage("No changes.");
-      return;
-    }
-
-    try {
-      setIsJobSearchSaving(true);
-
-      const res = await apiFetch<MeResponse>(routes.users.me(), {
-        method: "PATCH",
-        body: payload,
-      });
-
-      setCurrentUser(res.user);
-
-      // sync local state to saved values
-      setJobSearchTitlesText(toDisplayString(res.user.jobSearchTitlesText));
-      setJobSearchLocationsText(toDisplayString(res.user.jobSearchLocationsText));
-      setJobSearchKeywordsText(toDisplayString(res.user.jobSearchKeywordsText));
-      setJobSearchSummary(toDisplayString(res.user.jobSearchSummary));
-      setJobSearchWorkMode(res.user.jobSearchWorkMode ?? "UNKNOWN");
-
-      setIsEditingJobSearch(false);
-      setSuccessMessage("Saved.");
-      setIsJobSearchDialogOpen(false);
-
-    } catch (err) {
-      if (err instanceof ApiError) setErrorMessage(err.message);
-      else setErrorMessage("Failed to save job search preferences.");
-    } finally {
-      setIsJobSearchSaving(false);
-    }
-  }
-
-
-  // Handles the job search dialog open state changes.
-  function handleJobSearchDialogOpenChange(nextOpen: boolean) {
-    setIsJobSearchDialogOpen(nextOpen);
-  
-    // Always open in view-mode (editing is intentional).
-    if (nextOpen) {
-      setIsEditingJobSearch(false);
-      return;
-    }
-  
-    // If user closes while editing, discard unsaved changes safely.
-    if (isEditingJobSearch) {
-      cancelJobSearchEdit();
-    } else {
-      setIsEditingJobSearch(false);
-    }
-  }
-  
   const hasMessages = !!(errorMessage || successMessage);
 
   // TODO: If base resume exists, switch to 2-col layout and render first-page preview thumbnail.
@@ -548,27 +526,7 @@ export default function ProfilePage() {
             <div className="space-y-6 lg:col-span-5">
 
 
-              {/* Job search preferences section */}
-              <JobSearchPreferencesCard
-                isDialogOpen={isJobSearchDialogOpen}
-                onDialogOpenChange={handleJobSearchDialogOpenChange}
-                isEditing={isEditingJobSearch}
-                onStartEdit={startJobSearchEdit}
-                onCancelEdit={cancelJobSearchEdit}
-                isSaving={isJobSearchSaving}
-                onSave={handleJobSearchSave}
-                titlesText={jobSearchTitlesText}
-                setTitlesText={setJobSearchTitlesText}
-                locationsText={jobSearchLocationsText}
-                setLocationsText={setJobSearchLocationsText}
-                keywordsText={jobSearchKeywordsText}
-                setKeywordsText={setJobSearchKeywordsText}
-                summary={jobSearchSummary}
-                setSummary={setJobSearchSummary}
-                workMode={jobSearchWorkMode}
-                setWorkMode={setJobSearchWorkMode}
-              />
-
+              {/* Job search preferences: add JobSearchPreferencesCard here when re-enabled */}
 
               {/* Connections section */}
               <ProfileConnectionsCard />
@@ -590,6 +548,23 @@ export default function ProfilePage() {
                 resumeErrorMessage={resumeErrorMessage}
                 onClearResumeError={() => setResumeErrorMessage(null)}
               />
+
+              {/* Base cover letter template — auto-used in generation, managed here */}
+              <BaseCoverLetterCard
+                isDialogOpen={isCoverLetterDialogOpen}
+                onDialogOpenChange={handleCoverLetterDialogOpenChange}
+                baseCoverLetter={baseCoverLetter}
+                isSaving={isCoverLetterSaving}
+                onSave={handleCoverLetterSave}
+                isDeleting={isCoverLetterDeleting}
+                onDelete={handleCoverLetterDelete}
+                onDownload={handleCoverLetterDownload}
+                selectedFile={coverLetterFile}
+                onFileChange={setCoverLetterFile}
+                fileInputRef={coverLetterFileInputRef}
+                errorMessage={coverLetterErrorMessage}
+                onClearError={() => setCoverLetterErrorMessage(null)}
+              />
             </div>
           </div>
         </>
@@ -598,4 +573,3 @@ export default function ProfilePage() {
 
   );
 }
-

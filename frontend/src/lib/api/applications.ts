@@ -184,7 +184,7 @@ export const applicationsApi = {
 
   /** ---- AI Artifacts ---- */
 
-  generateAiArtifact(applicationId: string, body: { kind: AiArtifactKind; sourceDocumentId?: number }, opts?: { signal?: AbortSignal }) {
+  generateAiArtifact(applicationId: string, body: { kind: AiArtifactKind; sourceDocumentId?: number; templateText?: string; skipBaseCoverLetterTemplate?: boolean }, opts?: { signal?: AbortSignal }) {
     return apiFetch<AiArtifact>(routes.applications.aiArtifacts.create(applicationId), {
       method: "POST",
       body,

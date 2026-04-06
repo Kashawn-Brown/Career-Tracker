@@ -116,28 +116,64 @@ async function validateAndNormalizeUrl(raw: string): Promise<string> {
 // ─── Fetch ────────────────────────────────────────────────────────────────────
 
 /**
- * Fetches the URL with a timeout, redirect limit, and byte cap.
- * Returns the raw HTML/text body as a string.
+ * Fetches the URL with a timeout, manual redirect handling, and byte cap.
+ *
+ * Why manual redirects:
+ * Using redirect: "follow" lets the runtime follow redirects without
+ * re-validating the destination. An attacker could register a public domain
+ * that redirects to a private/metadata IP, bypassing the SSRF guard entirely.
+ * By handling redirects manually we re-run the full IP validation on every
+ * Location header before following it.
  */
 async function fetchPage(normalizedUrl: string, signal?: AbortSignal): Promise<string> {
-  const controller   = new AbortController();
-  const timeoutId    = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const controller     = new AbortController();
+  const timeoutId      = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   const combinedSignal = signal
     ? AbortSignal.any([signal, controller.signal])
     : controller.signal;
 
-  let response: Response;
+  let currentUrl = normalizedUrl;
+  let response:   Response;
+  let hops = 0;
+
   try {
-    response = await fetch(normalizedUrl, {
-      signal:   combinedSignal,
-      redirect: "follow",
-      headers: {
-        "User-Agent": FETCH_USER_AGENT,
-        "Accept":     "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.8",
-      },
-    });
+    while (true) {
+      response = await fetch(currentUrl, {
+        signal:   combinedSignal,
+        redirect: "manual",
+        headers: {
+          "User-Agent": FETCH_USER_AGENT,
+          "Accept":     "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.8",
+        },
+      });
+
+      const isRedirect = response.status >= 300 && response.status < 400;
+      if (!isRedirect) break;
+
+      if (hops >= MAX_REDIRECTS) {
+        throw new AppError(
+          "Too many redirects following job posting URL.",
+          422,
+          "JOB_LINK_TOO_MANY_REDIRECTS"
+        );
+      }
+
+      const location = response.headers.get("location");
+      if (!location) {
+        throw new AppError("Redirect with no Location header.", 502, "JOB_LINK_FETCH_FAILED");
+      }
+
+      // Resolve relative redirect URLs against the current URL
+      const redirectUrl = new URL(location, currentUrl).toString();
+
+      // Re-validate the redirect destination — this is the SSRF fix.
+      // validateAndNormalizeUrl re-runs DNS resolution + IP block checks.
+      currentUrl = await validateAndNormalizeUrl(redirectUrl);
+      hops++;
+    }
   } catch (err: any) {
     clearTimeout(timeoutId);
+    if (err instanceof AppError) throw err;
     if (err?.name === "AbortError") {
       throw new AppError("Request to job URL timed out.", 504, "JOB_LINK_TIMEOUT");
     }

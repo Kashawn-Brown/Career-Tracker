@@ -12,6 +12,7 @@ export type ApplicationColumnId =
   | "status"
   | "fitScore"
   | "dateApplied"
+  | "createdAt"
   | "updatedAt"
   | "actions";
 
@@ -23,23 +24,27 @@ export type ApplicationColumnDef = {
   defaultVisible: boolean;  // initially visible
 };
 
-// Storage key for the applications table columns (to be used with localStorage to remember the user's preferred visible columns)
+// Storage key for column visibility preference
 export const APPLICATION_COLUMNS_STORAGE_KEY = "career-tracker:applications:visibleColumns";
+
+// Storage key for default sort preference
+export const APPLICATION_SORT_STORAGE_KEY = "career-tracker:applications:defaultSort";
 
 // Column definitions for the applications table
 export const APPLICATION_COLUMN_DEFS: readonly ApplicationColumnDef[] = [
-  { id: "favorite",  label: "Favorite",          required: false,  defaultVisible: true },
-  { id: "company",   label: "Company",    required: true,  defaultVisible: true },
-  { id: "position",  label: "Position",   required: true,  defaultVisible: true },
-  { id: "location",  label: "Location",   required: false, defaultVisible: true },
-  { id: "jobType",   label: "Type",       required: false, defaultVisible: true },
-  { id: "workMode",  label: "Work Arrangement",required: false, defaultVisible: true },
-  { id: "salaryText",label: "Salary",     required: false, defaultVisible: true },
-  { id: "status",    label: "Status",     required: true,  defaultVisible: true },
-  { id: "fitScore",  label: "Compatibility Score", required: false, defaultVisible: true },
-  { id: "dateApplied",label:"Date Applied",    required: false, defaultVisible: true },
-  { id: "updatedAt", label: "Last Updated",    required: false, defaultVisible: false },
-  { id: "actions",   label: "Delete",    required: false,  defaultVisible: true },
+  { id: "favorite",   label: "Favorite",             required: false, defaultVisible: true  },
+  { id: "company",    label: "Company",               required: true,  defaultVisible: true  },
+  { id: "position",   label: "Position",              required: true,  defaultVisible: true  },
+  { id: "location",   label: "Location",              required: false, defaultVisible: true  },
+  { id: "jobType",    label: "Type",                  required: false, defaultVisible: true  },
+  { id: "workMode",   label: "Work Arrangement",      required: false, defaultVisible: true  },
+  { id: "salaryText", label: "Salary",                required: false, defaultVisible: true  },
+  { id: "status",     label: "Status",                required: true,  defaultVisible: true  },
+  { id: "fitScore",   label: "Compatibility Score",   required: false, defaultVisible: true  },
+  { id: "dateApplied",label: "Date Applied",          required: false, defaultVisible: true  },
+  { id: "createdAt",  label: "Created",               required: false, defaultVisible: false },
+  { id: "updatedAt",  label: "Last Updated",          required: false, defaultVisible: false },
+  { id: "actions",    label: "Delete",                required: false, defaultVisible: true  },
 ] as const;
 
 // Column order for the applications table
@@ -56,6 +61,51 @@ export const DEFAULT_VISIBLE_APPLICATION_COLUMNS = APPLICATION_COLUMN_DEFS
   .map((c) => c.id);
 
 /**
+ * Sort options available in the default sort picker.
+ * Curated to the fields users most commonly want to anchor on.
+ */
+export type DefaultSortOption = {
+  value: string; // ApplicationSortBy value
+  label: string;
+};
+
+export const DEFAULT_SORT_OPTIONS: readonly DefaultSortOption[] = [
+  { value: "updatedAt",  label: "Last Updated" },
+  { value: "createdAt",  label: "Created"       },
+  { value: "company",    label: "Company"        },
+  { value: "position",   label: "Position"       },
+] as const;
+
+export type DefaultSortPreference = {
+  sortBy:  string;
+  sortDir: "asc" | "desc";
+};
+
+export const DEFAULT_SORT_PREFERENCE: DefaultSortPreference = {
+  sortBy:  "updatedAt",
+  sortDir: "desc",
+};
+
+/** Read persisted default sort from localStorage, falling back to the app default. */
+export function readDefaultSortPreference(): DefaultSortPreference {
+  try {
+    const raw = localStorage.getItem(APPLICATION_SORT_STORAGE_KEY);
+    if (!raw) return DEFAULT_SORT_PREFERENCE;
+    const parsed = JSON.parse(raw) as Partial<DefaultSortPreference>;
+    const validValues = DEFAULT_SORT_OPTIONS.map((o) => o.value);
+    const sortBy  = validValues.includes(parsed.sortBy ?? "")
+      ? (parsed.sortBy as string)
+      : DEFAULT_SORT_PREFERENCE.sortBy;
+    const sortDir = parsed.sortDir === "asc" || parsed.sortDir === "desc"
+      ? parsed.sortDir
+      : DEFAULT_SORT_PREFERENCE.sortDir;
+    return { sortBy, sortDir };
+  } catch {
+    return DEFAULT_SORT_PREFERENCE;
+  }
+}
+
+/**
  * Normalizes a stored column list:
  * - drops unknown ids
  * - ensures required columns are included
@@ -63,19 +113,20 @@ export const DEFAULT_VISIBLE_APPLICATION_COLUMNS = APPLICATION_COLUMN_DEFS
  */
 export function normalizeVisibleColumns(columns: unknown): ApplicationColumnId[] {
   
-    // Create a set of valid column ids
+  // Create a set of valid column ids
   const valid = new Set<ApplicationColumnId>(APPLICATION_COLUMN_ORDER);
 
-  // If the stored data is not an array, fall back to defaults
+  // If columns is not an array, return the default visible columns
   if (!Array.isArray(columns)) return DEFAULT_VISIBLE_APPLICATION_COLUMNS;
 
-  // Filter the provided column ids to only include valid ids
-  const provided = columns.filter((x): x is ApplicationColumnId => typeof x === "string" && valid.has(x as ApplicationColumnId));
+  // Filter the columns to only include valid column ids
+  const provided = columns.filter(
+    (x): x is ApplicationColumnId => typeof x === "string" && valid.has(x as ApplicationColumnId)
+  );
 
-  // If storage array is empty/invalid, use defaults.
+  // If no valid columns are provided, return the default visible columns
   if (provided.length === 0) return DEFAULT_VISIBLE_APPLICATION_COLUMNS;
 
-  // Create a set of provided column ids and add required columns (in case they were somehow hidden)
   const set = new Set<ApplicationColumnId>(provided);
   for (const id of REQUIRED_APPLICATION_COLUMNS) set.add(id);
 

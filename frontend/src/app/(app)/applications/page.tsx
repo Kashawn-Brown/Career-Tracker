@@ -7,11 +7,14 @@ import { cn } from "@/lib/utils";
 import type { Application, ApplicationsListResponse, UpdateApplicationRequest, ApplicationSortBy, ApplicationSortDir, ListApplicationsParams } from "@/types/api";
 import { ApplicationsTable } from "@/components/applications/ApplicationsTable";
 import { CreateApplicationForm } from "@/components/applications/CreateApplicationForm";
-import { CreateApplicationFromJdForm } from "@/components/applications/CreateApplicationFromJdForm";
+import { CreateApplicationFromJdForm, type OnCreatedArgs } from "@/components/applications/CreateApplicationFromJdForm";
 import { ApplicationDetailsDrawer } from "@/components/applications/drawer/ApplicationDetailsDrawer";
 import { ColumnsControl } from "@/components/applications/ColumnsControl";
+import { APPLICATION_SORT_STORAGE_KEY, readDefaultSortPreference, type DefaultSortPreference } from "@/lib/applications/tableColumns";
 import { APPLICATION_COLUMNS_STORAGE_KEY, DEFAULT_VISIBLE_APPLICATION_COLUMNS, normalizeVisibleColumns, type ApplicationColumnId} from "@/lib/applications/tableColumns";
 import { useFitRuns } from "@/hooks/useFitRuns";
+import { useDocumentToolRuns } from "@/hooks/useDocumentToolRuns";
+import type { DocumentToolKind } from "@/hooks/useDocumentToolRuns";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -52,13 +55,26 @@ export default function ApplicationsPage() {
   const endIndex = total === 0 ? 0 : Math.min(page * pageSize, total);
 
   // Filters / sorting.
-  const DEFAULT_SORT_BY: ApplicationSortBy = "updatedAt";
-  const DEFAULT_SORT_DIR: ApplicationSortDir = "desc";
+  // Default sort is read from localStorage so the user's preferred column persists across sessions.
+  const [defaultSort, setDefaultSort] = useState<DefaultSortPreference>(readDefaultSortPreference);
 
-  const [sortBy, setSortBy] = useState<ApplicationSortBy>(DEFAULT_SORT_BY);
-  const [sortDir, setSortDir] = useState<ApplicationSortDir>(DEFAULT_SORT_DIR);
+  const [sortBy, setSortBy] = useState<ApplicationSortBy>(
+    () => readDefaultSortPreference().sortBy as ApplicationSortBy
+  );
+  const [sortDir, setSortDir] = useState<ApplicationSortDir>(
+    () => readDefaultSortPreference().sortDir
+  );
 
-  const isDefaultSort = sortBy === DEFAULT_SORT_BY && sortDir === DEFAULT_SORT_DIR;
+  const isDefaultSort = sortBy === defaultSort.sortBy && sortDir === defaultSort.sortDir;
+
+  // Persist default sort preference and apply it immediately
+  function handleDefaultSortChange(next: DefaultSortPreference) {
+    setDefaultSort(next);
+    setSortBy(next.sortBy as ApplicationSortBy);
+    setSortDir(next.sortDir);
+    resetToFirstPage();
+    try { localStorage.setItem(APPLICATION_SORT_STORAGE_KEY, JSON.stringify(next)); } catch {}
+  }
 
   const DEBOUNCE_MS = 250;    // Debounce time for query input (to prevent excessive API calls)
   const [query, setQuery] = useState("");       // what the user has searched for (committed query used by API)
@@ -79,15 +95,24 @@ export default function ApplicationsPage() {
   // Application details drawer state
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
-  const [autoOpenFitAppId, setAutoOpenFitAppId] = useState<string | null>(null);
+  const [autoOpenFitAppId,     setAutoOpenFitAppId]     = useState<string | null>(null);
+  // When set, the drawer scrolls to the AI Tools section on open
+  const [scrollToAiToolsAppId, setScrollToAiToolsAppId] = useState<string | null>(null);
 
   // Tracks in-flight FIT runs so they survive drawer close / navigation.
-  const fitRuns = useFitRuns();
+  const fitRuns          = useFitRuns();
+  const documentToolRuns = useDocumentToolRuns();
   const { refreshMe } = useAuth();
 
   // Label hints for apps that were just created — list may not have refreshed yet
   // when the fit run completes, so we store the label here to avoid "this application" fallback.
   const pendingFitLabelsRef = useRef<Record<string, string>>({});
+
+  // Batch tracking — maps applicationId → set of tool kinds still pending when
+  // the user triggered AI runs from the create form. The single "AI tools ready"
+  // notice fires only when the set empties (all requested tools have finished).
+  // Applications not in this map get individual notices per tool (drawer-initiated runs).
+  const pendingBatchRef = useRef<Map<string, Set<string>>>(new Map());
 
   // Global fit-run notices — success and error both surface here.
   type FitRunNotice = {
@@ -96,11 +121,16 @@ export default function ApplicationsPage() {
     label:         string;
     kind:          "success" | "error";
     message?:      string;
+    // For document tool notices — identifies which tool completed
+    toolLabel?:    string;
     createdAt:     number;
   };
 
   const [fitNotices, setFitNotices] = useState<FitRunNotice[]>([]);
   const prevFitRunStatusRef = useRef<Record<string, string>>({});
+
+  // Tracks previous status for document tool runs (same pattern as fit notices)
+  const prevDocToolRunStatusRef = useRef<Record<string, string>>({});
 
 
   // Prevent overwriting saved settings on first render
@@ -250,7 +280,12 @@ export default function ApplicationsPage() {
   }, []); // stable — reads via ref, no stale closure
 
   // openDrawerForApplication: opens the drawer for the application.
-  async function openDrawerForApplication(applicationId: string, opts?: { autoOpenFit?: boolean }) {
+  // scrollToAiTools: scrolls the drawer to the AI Tools section instead of
+  // auto-opening a specific report — used by all tool completion notices.
+  async function openDrawerForApplication(
+    applicationId: string,
+    opts?: { autoOpenFit?: boolean; scrollToAiTools?: boolean },
+  ) {
     try {
       setErrorMessage(null);
   
@@ -258,13 +293,20 @@ export default function ApplicationsPage() {
       setSelectedApplication(fullApplication);
       setDetailsOpen(true);
   
-      if (opts?.autoOpenFit) {
+      if (opts?.scrollToAiTools) {
+        // Signal the drawer to scroll to AI Tools — autoOpenFit not needed
+        setAutoOpenFitAppId(null);
+        setScrollToAiToolsAppId(applicationId);
+      } else if (opts?.autoOpenFit) {
         setAutoOpenFitAppId(applicationId);
+        setScrollToAiToolsAppId(null);
       } else {
         setAutoOpenFitAppId(null);
+        setScrollToAiToolsAppId(null);
       }
     } catch (err) {
       setAutoOpenFitAppId(null);
+      setScrollToAiToolsAppId(null);
       if (err instanceof ApiError) setErrorMessage(err.message);
       else setErrorMessage("Failed to load application details. Please try again.");
     }
@@ -326,7 +368,7 @@ export default function ApplicationsPage() {
     setPage(1);
 
     // Special case: if we're on the default sort and clicking the same column, toggle the sort direction.
-    if (isDefaultSort && nextSortBy === DEFAULT_SORT_BY) {
+    if (isDefaultSort && nextSortBy === defaultSort.sortBy) {
       setSortDir("asc");
       return;
     }
@@ -342,9 +384,9 @@ export default function ApplicationsPage() {
       return;
     }
 
-    // Third click resets to the default sort.
-    setSortBy(DEFAULT_SORT_BY);
-    setSortDir(DEFAULT_SORT_DIR);
+    // Third click resets to the user's preferred default sort.
+    setSortBy(defaultSort.sortBy as ApplicationSortBy);
+    setSortDir(defaultSort.sortDir);
   }
 
   // refreshList: forces a refetch without changing filter state.
@@ -450,6 +492,38 @@ export default function ApplicationsPage() {
   }, [queryInput, query]);
   
 
+
+  // Fire a single "AI tools ready" notice when all batch tools complete for an app.
+  // Returns true if the tool was part of a batch (suppresses individual notice).
+  const completeBatchTool = useCallback((applicationId: string, toolKey: string, failed: boolean): boolean => {
+    const batch = pendingBatchRef.current.get(applicationId);
+    if (!batch) return false; // not a batch run — use individual notice
+
+    batch.delete(toolKey);
+
+    if (batch.size === 0) {
+      // All tools finished — fire the one combined notice
+      pendingBatchRef.current.delete(applicationId);
+      const label =
+        pendingFitLabelsRef.current[applicationId]?.trim() ||
+        getApplicationLabel(applicationId);
+      delete pendingFitLabelsRef.current[applicationId];
+
+      setFitNotices((prev) => [
+        {
+          id:            `batch-${applicationId}-${Date.now()}`,
+          applicationId,
+          label,
+          kind:          failed ? "error" as const : "success" as const,
+          message:       failed ? "One or more AI tools encountered an error." : undefined,
+          createdAt:     Date.now(),
+        },
+        ...prev,
+      ]);
+    }
+    return true;
+  }, [getApplicationLabel]);
+
   // When a background FIT run completes, surface the result.
   // - If drawer is open for that app on success: refresh the drawer in place (no notice needed)
   // - If drawer is closed on success: show a notice so the user can navigate to it
@@ -464,18 +538,19 @@ export default function ApplicationsPage() {
 
       if (prevStatus !== "success" && run.status === "success") {
         if (isViewingThatApp) {
-          // Drawer is open for this app — refresh it in place so the fit
-          // result appears without the user having to close and reopen.
           void handleApplicationChange(applicationId);
-        } else {
+        }
+        // If this is a batch run, completeBatchTool handles the notice
+        if (!completeBatchTool(applicationId, "FIT", false) && !isViewingThatApp) {
           addFitNotice(applicationId, "success");
         }
         fitRuns.clearRun(applicationId);
       }
 
       if (prevStatus !== "error" && run.status === "error") {
-        // Always show error notice — the drawer doesn't display run errors on its own.
-        addFitNotice(applicationId, "error", { message: run.errorMessage ?? undefined });
+        if (!completeBatchTool(applicationId, "FIT", true)) {
+          addFitNotice(applicationId, "error", { message: run.errorMessage ?? undefined });
+        }
         fitRuns.clearRun(applicationId);
       }
 
@@ -485,7 +560,113 @@ export default function ApplicationsPage() {
     for (const applicationId of Object.keys(prev)) {
       if (!current[applicationId]) delete prev[applicationId];
     }
-  }, [fitRuns.runsByAppId, fitRuns, detailsOpen, selectedApplication?.id, addFitNotice, handleApplicationChange]);
+  }, [fitRuns.runsByAppId, fitRuns, detailsOpen, selectedApplication?.id, addFitNotice, handleApplicationChange, completeBatchTool]);
+
+
+  // Watch document tool runs (Resume Advice + Cover Letter) for completion.
+  // On success: refresh table (bumps app to top) + show notice if drawer is closed.
+  // On error: always show a notice.
+  useEffect(() => {
+    const prev    = prevDocToolRunStatusRef.current;
+    const current = documentToolRuns.runsByAppId;
+
+    for (const [key, run] of Object.entries(current)) {
+      const prevStatus       = prev[key];
+      const isViewingThatApp = detailsOpen && selectedApplication?.id === run.applicationId;
+      const toolLabel        = run.kind === "RESUME_ADVICE" ? "Resume advice" : "Cover letter";
+
+      if (prevStatus !== "success" && run.status === "success") {
+        void handleApplicationChange(run.applicationId);
+        // Batch runs: remove from set and fire combined notice when all done
+        const batchKey = run.kind === "RESUME_ADVICE" ? "RESUME_ADVICE" : "COVER_LETTER";
+        if (!completeBatchTool(run.applicationId, batchKey, false) && !isViewingThatApp) {
+          // Drawer-initiated run — show individual tool notice
+          setFitNotices((prev) => {
+            if (prev.some((n) => n.applicationId === run.applicationId && n.toolLabel === toolLabel)) return prev;
+            const label =
+              pendingFitLabelsRef.current[run.applicationId]?.trim() ||
+              getApplicationLabel(run.applicationId);
+            return [
+              {
+                id:            `${key}-${Date.now()}`,
+                applicationId: run.applicationId,
+                label,
+                kind:          "success" as const,
+                toolLabel,
+                createdAt:     Date.now(),
+              },
+              ...prev,
+            ];
+          });
+        }
+        documentToolRuns.clearRun(run.applicationId, run.kind as DocumentToolKind);
+      }
+
+      if (prevStatus !== "error" && run.status === "error") {
+        const batchKey = run.kind === "RESUME_ADVICE" ? "RESUME_ADVICE" : "COVER_LETTER";
+        if (!completeBatchTool(run.applicationId, batchKey, true)) {
+          setFitNotices((prev) => [
+            {
+              id:            `${key}-${Date.now()}`,
+              applicationId: run.applicationId,
+              label:         getApplicationLabel(run.applicationId),
+              kind:          "error" as const,
+              toolLabel,
+              message:       run.errorMessage ?? undefined,
+              createdAt:     Date.now(),
+            },
+            ...prev,
+          ]);
+        }
+        documentToolRuns.clearRun(run.applicationId, run.kind as DocumentToolKind);
+      }
+
+      prev[key] = run.status;
+    }
+
+    for (const key of Object.keys(prev)) {
+      if (!current[key]) delete prev[key];
+    }
+  }, [documentToolRuns.runsByAppId, documentToolRuns, detailsOpen, selectedApplication?.id, handleApplicationChange, getApplicationLabel, completeBatchTool]);
+
+  // Start all background AI tool runs requested from the create form.
+  // The resume override was uploaded once in the form — all runs share sourceDocumentId.
+  function startBackgroundTools(args: OnCreatedArgs) {
+    const tools = args.backgroundTools;
+    if (!tools) return;
+
+    const { applicationId, label } = args;
+    const { fit, resumeAdvice, coverLetter, sourceDocumentId, templateText } = tools;
+
+    // Register the batch so the notice effect knows to wait for all tools
+    const batchSet = new Set<string>();
+    if (fit)          batchSet.add("FIT");
+    if (resumeAdvice) batchSet.add("RESUME_ADVICE");
+    if (coverLetter)  batchSet.add("COVER_LETTER");
+    pendingBatchRef.current.set(applicationId, batchSet);
+    pendingFitLabelsRef.current[applicationId] = label;
+
+    const sharedOpts = {
+      applicationId,
+      sourceDocumentId,
+      onApplicationChanged: handleApplicationChange,
+      onDocumentsChanged: (appId: string) => {
+        if (selectedApplication?.id === appId) void handleApplicationChange(appId);
+      },
+      onRefreshMe: () => void refreshMe(),
+    };
+
+    if (fit) {
+      fitRuns.startFitRun({ ...sharedOpts, overrideFile: null }).catch(() => {});
+    }
+    if (resumeAdvice) {
+      documentToolRuns.startRun({ ...sharedOpts, kind: "RESUME_ADVICE" }).catch(() => {});
+    }
+    if (coverLetter) {
+      documentToolRuns.startRun({ ...sharedOpts, kind: "COVER_LETTER", templateText }).catch(() => {});
+    }
+  }
+
 
   return (
     <div className="space-y-6">     
@@ -507,7 +688,7 @@ export default function ApplicationsPage() {
                   onClick={async () => {
                     dismissFitNotice(n.id);
                     await openDrawerForApplication(n.applicationId, {
-                      autoOpenFit: n.kind === "success",
+                      scrollToAiTools: true,
                     });
                   }}
                   onKeyDown={async (e) => {
@@ -515,7 +696,7 @@ export default function ApplicationsPage() {
                     e.preventDefault();
                     dismissFitNotice(n.id);
                     await openDrawerForApplication(n.applicationId, {
-                      autoOpenFit: n.kind === "success",
+                      scrollToAiTools: true,
                     });
                   }}
                 >
@@ -528,8 +709,12 @@ export default function ApplicationsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium">
                       {n.kind === "success"
-                        ? "Compatibility report ready"
-                        : "Compatibility check failed"}
+                        ? (n.id.startsWith("batch-")
+                            ? "AI tools ready"
+                            : n.toolLabel ? `${n.toolLabel} ready` : "Compatibility report ready")
+                        : (n.id.startsWith("batch-")
+                            ? "AI tools finished"
+                            : n.toolLabel ? `${n.toolLabel} failed` : "Compatibility check failed")}
                     </div>
                     <div className="text-xs text-muted-foreground truncate">{n.label}</div>
                     {n.kind === "error" && n.message && (
@@ -639,9 +824,10 @@ export default function ApplicationsPage() {
               <CardContent className="space-y-4 pt-4">
                 {addMode === "manual" ? (
                   <CreateApplicationForm
-                    onCreated={() => {
+                    onCreated={(args) => {
                       setPage(1);
                       refreshList();
+                      startBackgroundTools(args);
                     }}
                   />
                 ) : (
@@ -651,28 +837,7 @@ export default function ApplicationsPage() {
                     onCreated={(args) => {
                       setPage(1);
                       refreshList();
-
-                      if (args.backgroundFit) {
-                        // Store label hint before list refreshes so the
-                        // notice can show the right label even if fit
-                        // completes before the refetch lands.
-                        pendingFitLabelsRef.current[args.applicationId] = args.label;
-
-                        // Start background fit run — non-blocking
-                        fitRuns.startFitRun({
-                          applicationId:      args.applicationId,
-                          overrideFile:       args.backgroundFit.overrideFile ?? null,
-                          onApplicationChanged: handleApplicationChange,
-                          onDocumentsChanged: (appId) => {
-                            if (selectedApplication?.id === appId) {
-                              void handleApplicationChange(appId);
-                            }
-                          },
-                          onRefreshMe: () => void refreshMe(),
-                        }).catch(() => {
-                          // Error is captured in run state and surfaced via the notice effect
-                        });
-                      }
+                      startBackgroundTools(args);
                     }}
                   />
                 )}
@@ -690,6 +855,8 @@ export default function ApplicationsPage() {
             <ColumnsControl
               visibleColumns={visibleColumns}
               onChange={setVisibleColumns}
+              defaultSort={defaultSort}
+              onDefaultSortChange={handleDefaultSortChange}
             />
           ) : null}
 
@@ -870,7 +1037,10 @@ export default function ApplicationsPage() {
         onApplicationChanged={handleApplicationChange}
         autoOpenFitForAppId={autoOpenFitAppId}
         onAutoOpenFitConsumed={() => setAutoOpenFitAppId(null)}
+        scrollToAiToolsAppId={scrollToAiToolsAppId}
+        onScrollToAiToolsConsumed={() => setScrollToAiToolsAppId(null)}
         fitRuns={fitRuns}
+        documentToolRuns={documentToolRuns}
       />
     </div>
   );

@@ -189,7 +189,7 @@ describe("Applications > AI artifacts > FIT_V1", () => {
     vi.mocked(AiService.buildFitV1).mockResolvedValue({
       payload: {
         score: 87,
-        confidence: "high",
+        fitSummary: "Strong backend alignment. AWS depth is the main gap.",
         strengths: ["Node.js APIs", "PostgreSQL"],
         gaps: ["AWS depth"],
         keywordGaps: ["Lambda", "SQS"],
@@ -214,7 +214,7 @@ describe("Applications > AI artifacts > FIT_V1", () => {
     // Route contract: returns created artifact + sourceDocumentName
     expect(res.json()).toMatchObject({
       kind: "FIT_V1",
-      payload: { score: 87, confidence: "high" },
+      payload: { score: 87, fitSummary: "Strong backend alignment. AWS depth is the main gap." },
       sourceDocumentName: "base-resume.txt",
     });
 
@@ -276,7 +276,7 @@ describe("Applications > AI artifacts > FIT_V1", () => {
     vi.mocked(AiService.buildFitV1).mockResolvedValue({
       payload: {
         score: 55,
-        confidence: "medium",
+        fitSummary: "Partial match with some gaps.",
         strengths: ["One"],
         gaps: ["Two"],
         keywordGaps: [],
@@ -295,7 +295,6 @@ describe("Applications > AI artifacts > FIT_V1", () => {
       payload: { kind: "FIT_V1" },
     });
 
-    // Expect the response to be successful 201 + body has the kind "FIT_V1", payload "score" and "confidence", and sourceDocumentName "base-resume.txt"
     expect(res.statusCode).toBe(201);
 
     // Verify quota consumption: +0 for Pro

@@ -32,6 +32,9 @@ export type StartFitRunArgs = {
   // Optional override resume upload (CAREER_HISTORY on the application)
   overrideFile?: File | null;
 
+  // Alternative to uploading: pass an existing attached doc's ID directly
+  sourceDocumentId?: number;
+
   // If we upload an override doc, we can ping the rest of the UI to refresh doc lists.
   onDocumentsChanged?: (applicationId: string) => void;
 
@@ -137,6 +140,7 @@ export function useFitRuns(): FitRunsController {
       const {
         applicationId,
         overrideFile,
+        sourceDocumentId: passedSourceDocumentId,
         onDocumentsChanged,
         onApplicationChanged,
         onRefreshMe,
@@ -149,10 +153,11 @@ export function useFitRuns(): FitRunsController {
       if (existing?.status === "running") return null;
 
       const steps: FitRunStep[] = [];
+      // Upload step only needed when there's a new file — not when picking an existing doc
       if (overrideFile) {
-        steps.push({ key: "UPLOAD_OVERRIDE", label: "Uploading override resume" });
+        steps.push({ key: "UPLOAD_OVERRIDE", label: "Uploading override resume…" });
       }
-      steps.push({ key: "RUN_COMPATIBILITY", label: "Generating compatibility report" });
+      steps.push({ key: "RUN_COMPATIBILITY", label: "Generating compatibility report…" });
 
       const runStepIndex = overrideFile ? 1 : 0;
       
@@ -187,7 +192,8 @@ export function useFitRuns(): FitRunsController {
       };
       
       
-      let sourceDocumentId: number | undefined = undefined;
+      // Start from the passed-in doc ID (picked existing doc), then override if we upload
+      let sourceDocumentId: number | undefined = passedSourceDocumentId;
 
       try {
         // Step 1 (optional): upload override

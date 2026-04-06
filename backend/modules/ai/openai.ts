@@ -36,6 +36,15 @@ export function getJdExtractOpenAIModel(): string {
   return AI_MODELS.JD_EXTRACT;
 }
 
+/**
+ * Optional second model for JD extraction when the primary returns `content_filter`
+ * (e.g. try `gpt-4o-mini`). Set `OPENAI_MODEL_JD_EXTRACT_FALLBACK` in the environment.
+ */
+export function getJdExtractFallbackOpenAIModel(): string | undefined {
+  const m = process.env.OPENAI_MODEL_JD_EXTRACT_FALLBACK?.trim();
+  return m || undefined;
+}
+
 // ─── Model registry ────────────────────────────────────────────────────────
 
 export const AI_MODELS = {
@@ -54,5 +63,9 @@ export const AI_MODELS = {
   // Interview question generation: generate interview questions based on a job description and the user's resume.
   INTERVIEW_QUESTION_GENERATION: process.env.OPENAI_MODEL_INTERVIEW_QUESTION_GENERATION ?? "gpt-5-mini", // was gpt-5
 
-} as const;
+  // Document tools: resume advice and cover letter generation.
+  // Both generic and targeted variants share one model each.
+  RESUME_ADVICE: process.env.OPENAI_MODEL_RESUME_ADVICE ?? "gpt-5-mini",
+  COVER_LETTER:  process.env.OPENAI_MODEL_COVER_LETTER  ?? "gpt-5-mini",
 
+} as const;

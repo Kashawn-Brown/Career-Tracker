@@ -423,7 +423,14 @@ export async function createAiArtifact(args: {
     const sourceDocumentName = await getDocumentName(db, args.userId, args.sourceDocumentId);
 
 
-    // Only if it was a FIT artifact, persist the latest score onto the application
+    // Touch updatedAt on every artifact creation so the application bubbles to
+    // the top of the default (updatedAt desc) sort in the table.
+    await db.jobApplication.updateMany({
+      where: { id: args.jobApplicationId, userId: args.userId },
+      data:  { updatedAt: new Date() },
+    });
+
+    // For FIT artifacts, also persist the latest score onto the application row
     if (args.kind === "FIT_V1") {
       const score = extractFitScore(args.payload);
 
@@ -431,7 +438,7 @@ export async function createAiArtifact(args: {
         await db.jobApplication.updateMany({
           where: { id: args.jobApplicationId, userId: args.userId },
           data: {
-            fitScore: score,
+            fitScore:     score,
             fitUpdatedAt: new Date(),
           },
         });

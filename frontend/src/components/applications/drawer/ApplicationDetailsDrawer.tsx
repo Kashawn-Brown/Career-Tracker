@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { usePanelManager } from "@/hooks/usePanelManager";
 import type { Application, UpdateApplicationRequest, ApplicationStatus, JobType, WorkMode, Document } from "@/types/api";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { STATUS_OPTIONS, JOB_TYPE_OPTIONS, WORK_MODE_OPTIONS, statusLabel, jobTypeLabel, workModeLabel } from "@/lib/applications/presentation";
@@ -10,6 +11,7 @@ import { ApplicationDocumentsSection } from "@/components/applications/drawer/Ap
 import { ApplicationConnectionsSection } from "@/components/applications/drawer/ApplicationConnectionsSection";
 import { ApplicationAiToolsSection } from "@/components/applications/drawer/ApplicationAiToolsSection";
 import type { FitRunsController } from "@/hooks/useFitRuns";
+import type { DocumentToolRunsController } from "@/hooks/useDocumentToolRuns";
 import { cn } from "@/lib/utils";
 import { PILL_BASE_CLASS, getStatusPillTokens } from "@/lib/applications/pills";
 import { documentsApi } from "@/lib/api/documents";
@@ -45,7 +47,7 @@ function Section({
   if (noParent) {
     return (
       <div className="space-y-2">
-        <div className="text-sm font-medium">{title}</div>
+        <div className="text-md font-medium">{title}</div>
         <div>{children}</div>
       </div>
     );
@@ -53,7 +55,7 @@ function Section({
 
   return (
     <div className="space-y-2">
-      <div className="text-sm font-medium">{title}</div>
+      <div className="text-md font-medium">{title}</div>
       <div className="rounded-md border bg-muted/10 p-3 text-sm">{children}</div>
     </div>
   );
@@ -275,8 +277,11 @@ export function ApplicationDetailsDrawer({
   onConnectionsChanged,
   onApplicationChanged,
   fitRuns,
+  documentToolRuns,
   autoOpenFitForAppId,
   onAutoOpenFitConsumed,
+  scrollToAiToolsAppId,
+  onScrollToAiToolsConsumed,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -288,9 +293,13 @@ export function ApplicationDetailsDrawer({
   onDocumentsChanged?: (applicationId: string) => void;
   onConnectionsChanged?: (applicationId: string) => void;
   onApplicationChanged?: (applicationId: string) => void;
-  fitRuns: FitRunsController;
+  fitRuns:          FitRunsController;
+  documentToolRuns: DocumentToolRunsController;
   autoOpenFitForAppId?: string | null;
   onAutoOpenFitConsumed?: () => void;
+  // When set to this application's ID, the drawer scrolls to the AI Tools section
+  scrollToAiToolsAppId?: string | null;
+  onScrollToAiToolsConsumed?: () => void;
 }) {
   // UI state
   const [isEditing, setIsEditing] = useState(false);
@@ -315,17 +324,22 @@ export function ApplicationDetailsDrawer({
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
 
-  const closeFitReportRef = useRef<(() => void) | null>(null);
-  const closeConnectionsRef = useRef<(() => void) | null>(null);
+  // Centralised panel registry — each open panel registers a close function
+  // under a unique ID. When any panel opens it calls closeOthers(myId) so all
+  // others collapse without needing individual refs for every panel.
+  const { registerPanel, closeOthers, closeAll } = usePanelManager();
 
   // Base resume document
   const [baseResume, setBaseResume] = useState<Document | null>(null);
   const baseResumeExists = Boolean(baseResume);
-  const baseResumeId = baseResume ? Number(baseResume.id) : null;
+  const baseResumeId     = baseResume ? Number(baseResume.id) : null;
+
+  // Whether the user has a stored base cover letter template — passed down to
+  // CoverLetterCard so it can show the "using base template" indicator.
+  const [baseCoverLetterExists, setBaseCoverLetterExists] = useState(false);
 
 
-  const [useAiOverride, setUseAiOverride] = useState(false);
-  const [aiOverrideFile, setAiOverrideFile] = useState<File | null>(null);
+
 
   // Docking style for the document preview
   const [previewDockedStyle, setPreviewDockedStyle] = useState<CSSProperties | null>(null);
@@ -334,6 +348,20 @@ export function ApplicationDetailsDrawer({
 
   // A key to force a reload of the documents list
   const [docsReloadKey, setDocsReloadKey] = useState(0);
+
+  // Ref attached to the AI Tools section — used to scroll into view when a
+  // completion notice is clicked (scrollToAiToolsAppId set on the page).
+  const aiToolsSectionRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollToAiToolsAppId !== application?.id) return;
+    // Small delay so the drawer has finished opening/rendering before scroll
+    const t = setTimeout(() => {
+      aiToolsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      onScrollToAiToolsConsumed?.();
+    }, 150);
+    return () => clearTimeout(t);
+  }, [scrollToAiToolsAppId, application?.id, onScrollToAiToolsConsumed]);
 
 
   // keep the drawer’s draft in sync with the selected application.
@@ -375,42 +403,37 @@ export function ApplicationDetailsDrawer({
 
   }, [open, application, isEditing]);
 
-  // Loads the base resume document for the current user
+  // Loads base resume + base cover letter template metadata for the current user.
+  // Both are user-scoped (not application-specific) so they only need to load once
+  // when the drawer opens, not on every application change.
   useEffect(() => {
     let cancelled = false;
-  
-    async function loadBaseResume() {
+
+    async function loadUserDocuments() {
       if (!open) return;
-  
+
       try {
         const res = await documentsApi.getBaseResume();
         if (!cancelled) setBaseResume(res.baseResume ?? null);
       } catch {
         if (!cancelled) setBaseResume(null);
       }
+
+      try {
+        const clRes = await documentsApi.getBaseCoverLetter();
+        if (!cancelled) setBaseCoverLetterExists(Boolean(clRes.baseCoverLetter));
+      } catch {
+        if (!cancelled) setBaseCoverLetterExists(false);
+      }
     }
-  
-    loadBaseResume();
-  
-    return () => {
-      cancelled = true;
-    };
+
+    void loadUserDocuments();
+
+    return () => { cancelled = true; };
   }, [open]);
   
 
-  // Resets the AI override state when the application changes
-  useEffect(() => {
-    setUseAiOverride(false);
-    setAiOverrideFile(null);
-  }, [application?.id]);
 
-  // Reset the AI override state when the drawer is closed
-  useEffect(() => {
-    if (!open) {
-      setUseAiOverride(false);
-      setAiOverrideFile(null);
-    }
-  }, [open]);
 
   // Starts the edit mode.
   function startEdit() {
@@ -573,8 +596,7 @@ export function ApplicationDetailsDrawer({
     const id = Number(doc.id);
     if (!Number.isFinite(id)) return;
 
-    closeFitReportRef.current?.();  // close fit report if open
-    closeConnectionsRef.current?.();  // close connections if open
+    closeAll(); // collapse any open panel before showing the doc preview
   
     setPreviewDocId(docIdStr);
     setPreviewTitle(doc.originalName ?? "Document");
@@ -651,64 +673,76 @@ export function ApplicationDetailsDrawer({
           }
         }}
       >
-        <SheetHeader>
-          <SheetTitle>{title}</SheetTitle>
+        <SheetHeader className="mb-3">
+          <SheetTitle className="mr-4">{title}</SheetTitle>
           <SheetDescription>
             {application && draft
               ? (
                 <>
-                  <span className="block">Updated: {new Date(application.updatedAt).toLocaleString()}</span>
-                  <StatusPill status={application.status} className="mt-2 inline-flex" />
+                  <span className="block">Created: {new Date(application.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric'})}</span>
+                  <span className="block">Last updated: {new Date(application.updatedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric'})}</span>
                 </>
               )
               : "Select an application to view details."}
           </SheetDescription>
 
-          {application ? (
-            <div className="pt-2 flex items-center gap-2">
-              {!isEditing ? (
-                <Button size="sm" variant="outline" onClick={startEdit}>
-                  <Pencil className="mr-2 h-4 w-4" />
-                  Edit
-                </Button>
-              ) : (
-                <>
-                  <Button size="sm" onClick={handleSave} disabled={isSaving}>
-                    <Save className="mr-2 h-4 w-4" />
-                    Save
+          <div className="flex items-start mt-2">
+            {/* Status pill */}
+            {application && 
+              <p className="text-sm text-muted-foreground">
+                <StatusPill status={application.status} className="inline-flex" />
+              </p>
+            }
+            
+            <div className="flex-1" /> {/* Spacer */}
+            
+            {/* Edit/Save/Cancel buttons */}
+            {application ? (
+              <div className=" flex items-center gap-2">
+                {!isEditing ? (
+                  <Button size="sm" variant="outline" onClick={startEdit}>
+                    <Pencil className="h-4 w-4" />
+                    Edit
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={cancelEdit}
-                    disabled={isSaving}
-                  >
-                    <X className="mr-2 h-4 w-4" />
-                    Cancel
-                  </Button>
+                ) : (
+                  <>
+                    <Button size="sm" onClick={handleSave} disabled={isSaving}>
+                      <Save className="h-4 w-4" />
+                      Save
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={cancelEdit}
+                      disabled={isSaving}
+                    >
+                      <X className="h-4 w-4" />
+                      Cancel
+                    </Button>
 
-                  {/* Favorite toggle stays in the header while editing */}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() =>
-                      setDraft((prev) =>
-                        prev ? { ...prev, isFavorite: !prev.isFavorite } : prev
-                      )
-                    }
-                    aria-pressed={draft?.isFavorite}
-                    title="Toggle favorite"
-                  >
-                    <Star
-                      className="mr-2 h-4 w-4"
-                      fill={draft?.isFavorite ? "currentColor" : "none"}
-                    />
-                    Favorite
-                  </Button>
-                </>
-              )}
-            </div>
-          ) : null}
+                    {/* Favorite toggle stays in the header while editing */}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() =>
+                        setDraft((prev) =>
+                          prev ? { ...prev, isFavorite: !prev.isFavorite } : prev
+                        )
+                      }
+                      aria-pressed={draft?.isFavorite}
+                      title="Toggle favorite"
+                    >
+                      <Star
+                        className="h-4 w-4"
+                        fill={draft?.isFavorite ? "currentColor" : "none"}
+                      />
+                      Favorite
+                    </Button>
+                  </>
+                )}
+              </div>
+            ) : null}
+          </div>
 
           {error ? (
             <div className="pt-2 text-sm text-destructive">{error}</div>
@@ -1101,9 +1135,9 @@ export function ApplicationDetailsDrawer({
                 onConnectionsChanged={onConnectionsChanged}
                 onCloseOthers={() => {
                   clearPreview();
-                  closeFitReportRef.current?.();
+                  closeOthers("connections");
                 }}
-                onRegisterClose={(fn) => { closeConnectionsRef.current = fn; }}
+                onRegisterClose={(fn) => registerPanel("connections", fn)}
               />
             </Section>
 
@@ -1112,7 +1146,12 @@ export function ApplicationDetailsDrawer({
               <ApplicationDocumentsSection
                 applicationId={application.id}
                 open={open}
-                onDocumentsChanged={onDocumentsChanged}
+                onDocumentsChanged={(applicationId) => {
+                  // Bump the key so AI tool resume pickers re-fetch immediately
+                  // when the user uploads a doc, without needing drawer close/reopen.
+                  setDocsReloadKey((k) => k + 1);
+                  onDocumentsChanged?.(applicationId);
+                }}
                 activePreviewDocId={previewDocId}
                 onPreviewRequested={handlePreviewRequest}
                 docsReloadKey={docsReloadKey}
@@ -1120,34 +1159,33 @@ export function ApplicationDetailsDrawer({
             </Section>
 
             {/* AI Tools section */}
-            <Section title="AI Tools" noParent={true}>
-              <ApplicationAiToolsSection 
-                drawerOpen={open}
-                application={application} 
-                fitRuns={fitRuns}
-                baseResumeExists={baseResumeExists} 
-                baseResumeId={baseResumeId}
-                useOverride={useAiOverride}
-                overrideFile={aiOverrideFile}
-                onToggleOverride={(checked) => {
-                  setUseAiOverride(checked);
-                  if (!checked) setAiOverrideFile(null);
-                }}
-                onOverrideFile={setAiOverrideFile}
-                onDocumentsChanged={(applicationId) => {
-                  setDocsReloadKey((k) => k + 1);      // refresh drawer docs list
-                  onDocumentsChanged?.(applicationId); // refresh main table
-                }}
-                onCloseOthers={() => {
-                  clearPreview();
-                  closeConnectionsRef.current?.();
-                }}
-                onRegisterClose={(fn) => { closeFitReportRef.current = fn; }}
-                onApplicationChanged={onApplicationChanged}
-                autoOpenLatestFit={autoOpenFitForAppId === application.id}
-                onAutoOpenLatestFitConsumed={onAutoOpenFitConsumed}
-              />
-            </Section>
+            <div ref={aiToolsSectionRef}>
+              <Section title="AI Tools" noParent={true}>
+                <ApplicationAiToolsSection 
+                  drawerOpen={open}
+                  application={application} 
+                  fitRuns={fitRuns}
+                  documentToolRuns={documentToolRuns}
+                  baseResumeExists={baseResumeExists}
+                  baseResumeId={baseResumeId}
+                  baseCoverLetterExists={baseCoverLetterExists}
+                  docsReloadKey={docsReloadKey}
+
+                  onDocumentsChanged={(applicationId) => {
+                    setDocsReloadKey((k) => k + 1);      // refresh drawer docs list
+                    onDocumentsChanged?.(applicationId); // refresh main table
+                  }}
+                  onApplicationChanged={onApplicationChanged}
+                  autoOpenLatestFit={autoOpenFitForAppId === application.id}
+                  onAutoOpenLatestFitConsumed={onAutoOpenFitConsumed}
+
+                  // Panel manager — section curries a unique ID per card so
+                  // opening any report closes all others (including Connections).
+                  registerPanel={registerPanel}
+                  closeOthers={(exceptId) => { clearPreview(); closeOthers(exceptId); }}
+                />
+              </Section>
+            </div>
           </div>
         )}
 

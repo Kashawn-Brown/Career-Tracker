@@ -438,6 +438,28 @@ export function cleanJdText(text: string): string {
     .trim();
 }
 
+/** Cap length on moderation retry (large scraped pages can hit edge cases). */
+const JD_MODERATION_RETRY_MAX_CHARS = 14_000;
+
+/**
+ * Strips common triggers for provider safety filters (long URLs, emails, bare www links)
+ * and caps length. Used for a single automatic retry when JD extraction returns
+ * `content_filter` — the original JD is still kept for `source.canonicalJdText`.
+ */
+export function sanitizeJdForModerationRetry(text: string): string {
+  let t = text
+    .replace(/https?:\/\/[^\s<>"']+/gi, "[link]")
+    .replace(/\b[\w.%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, "[email]")
+    .replace(/(?<![\w/])www\.[^\s<>'"]+/gi, "[link]");
+  t = cleanJdText(t);
+  if (t.length > JD_MODERATION_RETRY_MAX_CHARS) {
+    t =
+      t.slice(0, JD_MODERATION_RETRY_MAX_CHARS) +
+      "\n\n[... text truncated for processing ...]";
+  }
+  return t;
+}
+
 /**
  * Normalize the AI response so the UI doesn't get noisy values.
  * - trims strings
@@ -495,11 +517,9 @@ export function normalizeApplicationFromJdResponse(
 
 // ─── FIT_V1 ────────────────────────────────────────────────────────────────────
 
-export type FitConfidence = "low" | "medium" | "high";
-
 export type FitV1Response = {
-  score:            number; // 0–100
-  confidence:       FitConfidence;
+  score:            number;   // 0–100
+  fitSummary:       string;   // 2–3 sentence overall narrative shown in the drawer card
   strengths:        string[];
   gaps:             string[];
   keywordGaps:      string[];
@@ -512,7 +532,7 @@ export const FitV1JsonObject = {
   additionalProperties: false,
   required: [
     "score",
-    "confidence",
+    "fitSummary",
     "strengths",
     "gaps",
     "keywordGaps",
@@ -521,7 +541,7 @@ export const FitV1JsonObject = {
   ],
   properties: {
     score:            { type: "number" },
-    confidence:       { type: "string", enum: ["low", "medium", "high"] },
+    fitSummary:       { type: "string" },
     strengths:        { type: "array", items: { type: "string" }, maxItems: 7 },
     gaps:             { type: "array", items: { type: "string" }, maxItems: 7 },
     keywordGaps:      { type: "array", items: { type: "string" }, maxItems: 10 },
@@ -563,7 +583,7 @@ export function getFitPolicyForPlan(plan: AiTier): FitPolicy {
 
   switch (plan) {
     case UserPlan.PRO_PLUS:
-      return { tier: plan, model: AI_MODELS.FIT_PRO_PLUS, effort: "high",   verbosity: "high",   maxOutputTokens };
+      return { tier: plan, model: AI_MODELS.FIT_PRO_PLUS, effort: "medium",   verbosity: "medium",   maxOutputTokens };
     case UserPlan.PRO:
       return { tier: plan, model: AI_MODELS.FIT_PRO,      effort: "medium", verbosity: "medium", maxOutputTokens };
     case UserPlan.REGULAR:
@@ -582,12 +602,6 @@ export type FitV1RunResult = {
 function clampFitScore(v: unknown): number {
   const n = typeof v === "number" && Number.isFinite(v) ? v : 0;
   return Math.max(0, Math.min(100, Math.round(n)));
-}
-
-// Normalize confidence with safe fallback
-function cleanFitConfidence(v: unknown): FitConfidence {
-  if (v === "low" || v === "medium" || v === "high") return v;
-  return "medium";
 }
 
 // Dedupe case-insensitively while keeping order + cap
@@ -610,7 +624,7 @@ function dedupeAndCap(items: string[], max: number): string[] {
 export function normalizeFitV1Response(raw: FitV1Response): FitV1Response {
   return {
     score:            clampFitScore(raw.score),
-    confidence:       cleanFitConfidence(raw.confidence),
+    fitSummary:       (typeof raw.fitSummary === "string" ? raw.fitSummary.trim() : "") || "(No summary provided)",
     strengths:        dedupeAndCap(cleanStringArray(raw.strengths,        20), 7),
     gaps:             dedupeAndCap(cleanStringArray(raw.gaps,             20), 7),
     keywordGaps:      dedupeAndCap(cleanStringArray(raw.keywordGaps,      30), 12),

@@ -87,7 +87,8 @@ export const routes = {
     }
   },
   documents: {
-    baseResume: () => "/documents/base-resume",
+    baseResume:      () => "/documents/base-resume",
+    baseCoverLetter: () => "/documents/base-cover-letter",
     byId: (documentId: number | string) => `/documents/${documentId}`,
 
     // Get a download URL for a document. (Optional disposition query param for "open in browser" vs "force download")
@@ -110,6 +111,16 @@ export const routes = {
   ai: {
     applicationFromJd:   () => "/ai/application-from-jd",
     applicationFromLink: () => "/ai/application-from-link",
+    resumeHelp:          () => "/ai/resume-help",
+    coverLetterHelp:     () => "/ai/cover-letter-help",
+  },
+  userAiArtifacts: {
+    list: (args?: { kind?: string }) => {
+      const base = "/user-ai-artifacts";
+      if (args?.kind) return `${base}?kind=${encodeURIComponent(args.kind)}`;
+      return base;
+    },
+    delete: (id: string) => `/user-ai-artifacts/${id}`,
   },
 
 } as const;

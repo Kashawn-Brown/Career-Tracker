@@ -380,9 +380,9 @@ export async function getCandidateTextOrThrow(args: {
     throw new AppError(sourceDocumentId ? "Document not found." : "Base resume not found.", 404);
   }
 
-  // Override must be our AI-only kind, and must be attached to this application
-  if (sourceDocumentId && doc.kind !== DocumentKind.CAREER_HISTORY) {
-    throw new AppError("Invalid override document kind. Expected CAREER_HISTORY.", 400);
+  // Override must be an AI-only kind (CAREER_HISTORY) or a RESUME document
+  if (sourceDocumentId && doc.kind !== DocumentKind.CAREER_HISTORY && doc.kind !== DocumentKind.RESUME) {
+    throw new AppError("Invalid override document kind. Expected RESUME or CAREER_HISTORY.", 400);
   }
   
   // Override must be attached to this application
@@ -425,7 +425,229 @@ export async function getCandidateTextOrThrow(args: {
 // ------------------ HELPER FUNCTIONS ------------------
 
 
+// ─── Generic tool helpers ─────────────────────────────────────────────────────
+
+/**
+ * Fetches and extracts text from the user's base resume.
+ * Used by generic document tools not tied to a specific application.
+ */
+export async function getBaseResumeTextOrThrow(userId: string): Promise<string> {
+  const doc = await getBaseResume(userId);
+
+  if (!doc) {
+    throw new AppError(
+      "No base resume found. Upload one in your Profile first.",
+      404,
+      "BASE_RESUME_NOT_FOUND"
+    );
+  }
+
+  const buffer = await downloadGcsObjectToBuffer({ storageKey: doc.storageKey });
+
+  const text = await extractTextFromBuffer({
+    buffer,
+    mimeType: doc.mimeType,
+    maxChars:  MAX_CANDIDATE_TEXT_CHARS,
+  });
+
+  if (doc.mimeType === "application/pdf" && text.length < MIN_PDF_EXTRACT_CHARS) {
+    throw new AppError(
+      "Could not extract meaningful text from your base resume PDF. Try a text-based PDF or upload a TXT file.",
+      400,
+      "BASE_RESUME_UNREADABLE"
+    );
+  }
+
+  return text;
+}
+
+/**
+ * Collects a readable stream into a Buffer.
+ * Used to buffer uploaded resume files before text extraction.
+ */
+export async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    stream.on("data",  (chunk: Buffer) => chunks.push(chunk));
+    stream.on("end",   () => resolve(Buffer.concat(chunks)));
+    stream.on("error", reject);
+  });
+}
+
+/**
+ * Uploads a one-off resume file for a generic tool run and stores it as a
+ * user-scoped Document (kind=RESUME, no jobApplicationId).
+ *
+ * The returned Document.id is stored in UserAiArtifact.sourceDocumentId so
+ * the user can see which resume version a result was based on.
+ */
+export async function uploadUserToolResume(args: {
+  userId:      string;
+  stream:      NodeJS.ReadableStream;
+  filename:    string;
+  mimeType:    string;
+  isTruncated: boolean;
+  signal?:     AbortSignal;
+}) {
+  const { userId, stream, filename, mimeType, isTruncated, signal } = args;
+
+  if (!isAllowedMimeType(mimeType)) {
+    throw new AppError(`Unsupported file type: ${mimeType}`, 400, "UNSUPPORTED_MIME_TYPE");
+  }
+
+  // Store under a dedicated path so it's clearly not a base resume or application doc
+  const id         = crypto.randomUUID();
+  const dot        = filename.lastIndexOf(".");
+  const ext        = dot !== -1 ? filename.slice(dot).toLowerCase() : "";
+  const safeExt    = ext.length > 0 && ext.length <= 10 ? ext : "";
+  const prefix     = (process.env.GCS_KEY_PREFIX ?? "").trim();
+  const base       = `users/${userId}/tool-resumes/${id}${safeExt}`;
+  const storageKey = prefix ? `${prefix}/${base}` : base;
+
+  const { sizeBytes } = await uploadStreamToGcs({
+    storageKey,
+    stream,
+    contentType: mimeType,
+    isTruncated,
+    signal,
+  });
+
+  if (signal?.aborted) {
+    await deleteGcsObject(storageKey);
+    throwIfAborted(signal);
+  }
+
+  try {
+    return await prisma.document.create({
+      data: {
+        userId,
+        jobApplicationId: null,   // user-scoped, not attached to an application
+        kind:             "RESUME",
+        storageKey,
+        originalName:     filename,
+        mimeType,
+        size:             sizeBytes,
+        url:              null,
+      },
+      select: documentSelect,
+    });
+  } catch (err) {
+    // DB failed after upload → clean up blob
+    await deleteGcsObject(storageKey);
+    throw err;
+  }
+}
+
 // Helper function to build a storage key for the base resume
+// ─── Base cover letter template ──────────────────────────────────────────────
+// Mirrors the BASE_RESUME pattern exactly: one file per user, stored in GCS,
+// metadata in the Document table. Used as the default template for cover
+// letter generation unless overridden on a per-run basis.
+
+/** Builds the GCS storage key for a user's base cover letter template. */
+function buildBaseCoverLetterStorageKey(userId: string, mimeType: string) {
+  const ext    = mimeType === "application/pdf"  ? ".pdf"
+               : mimeType === "text/plain"        ? ".txt"
+               : mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ? ".docx"
+               : "";
+  const prefix = (process.env.GCS_KEY_PREFIX ?? "").trim();
+  const base   = `users/${userId}/base-cover-letter/base-cover-letter${ext}`;
+  return prefix ? `${prefix}/${base}` : base;
+}
+
+/**
+ * Uploads or replaces the user's base cover letter template.
+ * Uploads to GCS first, then commits to DB — same safe ordering as uploadBaseResume.
+ */
+export async function uploadBaseCoverLetter(args: {
+  userId:      string;
+  stream:      NodeJS.ReadableStream;
+  filename:    string;
+  mimeType:    string;
+  isTruncated: boolean;
+  signal?:     AbortSignal;
+}) {
+  const { userId, stream, filename, mimeType, isTruncated, signal } = args;
+
+  if (!isAllowedMimeType(mimeType)) {
+    throw new AppError(`Unsupported file type: ${mimeType}`, 400);
+  }
+
+  const newKey = buildBaseCoverLetterStorageKey(userId, mimeType);
+
+  const { sizeBytes } = await uploadStreamToGcs({
+    storageKey: newKey, stream, contentType: mimeType, isTruncated, signal,
+  });
+
+  // Fetch old key before transaction so we can clean up GCS afterwards
+  const existing = await prisma.document.findFirst({
+    where:  { userId, kind: DocumentKind.BASE_COVER_LETTER },
+    select: { id: true, storageKey: true },
+  });
+
+  if (signal?.aborted) {
+    await deleteGcsObject(newKey);
+    throwIfAborted(signal);
+  }
+
+  try {
+    const created = await prisma.$transaction(async (db) => {
+      // Replace: only one base cover letter per user
+      await db.document.deleteMany({ where: { userId, kind: DocumentKind.BASE_COVER_LETTER } });
+      return db.document.create({
+        data: {
+          userId, kind: DocumentKind.BASE_COVER_LETTER, url: null,
+          storageKey: newKey, originalName: filename, mimeType, size: sizeBytes,
+        },
+        select: documentSelect,
+      });
+    });
+
+    // Best-effort cleanup of the old blob after successful DB commit
+    if (existing?.storageKey && existing.storageKey !== newKey) {
+      await deleteGcsObject(existing.storageKey);
+    }
+
+    return created;
+  } catch (err) {
+    // Compensate: DB write failed after GCS upload — delete the orphaned blob
+    await deleteGcsObject(newKey);
+    throw err;
+  }
+}
+
+/** Returns the user's base cover letter template document, or null if none saved. */
+export async function getBaseCoverLetter(userId: string) {
+  return prisma.document.findFirst({
+    where:   { userId, kind: DocumentKind.BASE_COVER_LETTER },
+    orderBy: { createdAt: "desc" },
+    // Include storageKey so callers can download the file content when needed
+    select:  { ...documentSelect, storageKey: true },
+  });
+}
+
+/** Deletes the user's base cover letter template from GCS and the DB. */
+export async function deleteBaseCoverLetter(userId: string) {
+  const doc = await getBaseCoverLetter(userId);
+  if (!doc) throw new AppError("No base cover letter template found.", 404);
+
+  await prisma.document.deleteMany({ where: { userId, kind: DocumentKind.BASE_COVER_LETTER } });
+  await deleteGcsObject(doc.storageKey);
+}
+
+/**
+ * Extracts and returns the text content of the stored base cover letter template.
+ * Returns null if no template is saved — callers treat null as "start from scratch".
+ */
+export async function getBaseCoverLetterTextOrNull(userId: string): Promise<string | null> {
+  const doc = await getBaseCoverLetter(userId);
+  if (!doc) return null;
+
+  const buffer = await downloadGcsObjectToBuffer({ storageKey: doc.storageKey });
+  const text   = await extractTextFromBuffer({ buffer, mimeType: doc.mimeType, maxChars: 10_000 });
+  return text.trim() || null;
+}
+
 function buildBaseResumeStorageKey(userId: string, mimeType: string) {
   const ext = mimeType === "application/pdf" ? ".pdf" : mimeType === "text/plain" ? ".txt" : "";
   const prefix = (process.env.GCS_KEY_PREFIX ?? "").trim();

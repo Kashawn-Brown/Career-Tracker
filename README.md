@@ -21,7 +21,7 @@ The design goal is simple: **scanning stays instant** in the table, while richer
 ## What you can do
 
 ### Applications (table-first + safety model)
-- Browse applications in a fast table (sort/filter/paginate, hide/show columns)
+- Browse applications in a fast table (sort/filter/paginate, hide/show columns, set a persistent default sort)
 - Open an application in the **details drawer** (view-first by default)
 - Enter **explicit Edit mode** to make changes, then **Save/Cancel** safely
 - Destructive actions are gated/confirmed to prevent accidental changes
@@ -37,9 +37,13 @@ The design goal is simple: **scanning stays instant** in the table, while richer
 - Attach/detach connections to specific applications
 - Manage connections from Profile via a 2-pane “View all connections” modal
 
-### AI Assist (JD extraction + FIT scoring)
-- Paste a job description to extract structured fields and prefill an application
-- Run FIT/compatibility scoring (gated by free credits / Pro)
+### AI Assist (JD extraction + document tools)
+- Paste or link a job description to extract structured fields and prefill an application
+- **Compatibility check** — score your resume against a specific JD (gated by free credits / Pro)
+- **Resume advice** — targeted improvement suggestions for a specific role, or general advice on the Tools page
+- **Cover letter** — generate a tailored draft for a specific role, or a reusable draft on the Tools page
+- All AI tools run in the background and survive drawer close — a notification appears when results are ready
+- Optionally run all selected AI tools automatically after creating an application
 - Pro access can be requested and is admin-approved
 
 ### Auth + Security
@@ -169,4 +173,4 @@ See: `backend/README.md` for full details.
 
 ---
 
-*Last updated: 2026-02-02*
+*Last updated: 2026-04-03*

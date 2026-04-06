@@ -183,7 +183,7 @@ export type UpdateUserStatusRequest = {
 
 
 // --- Applications DTOs, enums and types: matches backend ---
-export type ApplicationSortBy = "company" | "position" | "location" | "status" | "jobType" | "workMode" | "dateApplied" | "updatedAt" | "isFavorite" | "fitScore";
+export type ApplicationSortBy = "company" | "position" | "location" | "status" | "jobType" | "workMode" | "dateApplied" | "createdAt" | "updatedAt" | "isFavorite" | "fitScore";
 
 export type ApplicationSortDir = "asc" | "desc";
 
@@ -499,7 +499,7 @@ export type ConnectionResponse = {
 
 // --- AI Artifacts DTOs: matches backend ---
 
-export type AiArtifactKind = "JD_EXTRACT_V1" | "FIT_V1";
+export type AiArtifactKind = "JD_EXTRACT_V1" | "FIT_V1" | "RESUME_ADVICE" | "COVER_LETTER";
 
 export type ApplicationDraftExtracted = {
   company?: string;
@@ -548,17 +548,14 @@ export type ApplicationDraftResponse = {
 };
 
 
-export type FitConfidence = "low" | "medium" | "high";
-
 export type FitV1Payload = {
-  score: number; // 0–100
-  confidence: FitConfidence;
-
-  strengths: string[];
-  gaps: string[];
-  keywordGaps: string[];
+  score:            number;   // 0–100
+  fitSummary:       string;   // 2–3 sentence overall narrative shown in the drawer card
+  strengths:        string[];
+  gaps:             string[];
+  keywordGaps:      string[];
   recommendedEdits: string[];
-  questionsToAsk: string[];
+  questionsToAsk:   string[];
 };
 
 export type AiArtifact<TPayload = unknown> = {
@@ -574,4 +571,39 @@ export type AiArtifact<TPayload = unknown> = {
   sourceDocumentName: string | null;
 
   createdAt: string;
+};
+
+// ─── Document tool payloads ───────────────────────────────────────────────────
+
+export type ResumeAdvicePayload = {
+  summary:               string;
+  strengths:             string[];
+  improvements:          string[];
+  tailoring:             string[];
+  rewrites:              string[];
+  keywords:              string[];
+};
+
+export type CoverLetterPayload = {
+  summary:      string;
+  draft:        string;
+  evidence:     string[];
+  notes:        string[];
+  placeholders: string[];
+};
+
+// ─── User-scoped AI artifacts (generic tools) ─────────────────────────────────
+
+export type UserAiArtifactKind = "RESUME_ADVICE" | "COVER_LETTER";
+export type ResumeSource       = "BASE_RESUME" | "UPLOAD";
+
+export type UserAiArtifact<TPayload = unknown> = {
+  id:               string;
+  userId:           string;
+  kind:             UserAiArtifactKind;
+  payload:          TPayload;
+  model:            string;
+  resumeSource:     ResumeSource;
+  sourceDocumentId: number | null;
+  createdAt:        string;
 };

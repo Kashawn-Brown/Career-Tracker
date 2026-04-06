@@ -11,6 +11,7 @@ import { describe, it, expect } from "vitest";
 import {
   normalizeApplicationFromJdResponse,
   cleanJdText,
+  sanitizeJdForModerationRetry,
   type ApplicationFromJdResponse,
   type DraftSource,
 } from "../../modules/ai/ai.dto.js";
@@ -308,6 +309,26 @@ describe("cleanJdText", () => {
     const input  = "   \n\nSome JD text\n\n   ";
     const result = cleanJdText(input);
     expect(result).toBe("Some JD text");
+  });
+});
+
+
+// ── sanitizeJdForModerationRetry ─────────────────────────────────────────────
+
+describe("sanitizeJdForModerationRetry", () => {
+  it("replaces http(s) URLs with a placeholder", () => {
+    const input = "Apply at https://jobs.example.com/role?id=1 today.";
+    expect(sanitizeJdForModerationRetry(input)).toBe("Apply at [link] today.");
+  });
+
+  it("replaces bare www links with a placeholder", () => {
+    const input = "See www.example.com/careers for more.";
+    expect(sanitizeJdForModerationRetry(input)).toBe("See [link] for more.");
+  });
+
+  it("replaces email addresses with a placeholder", () => {
+    const input = "Contact hr.team@company.co.uk for details.";
+    expect(sanitizeJdForModerationRetry(input)).toBe("Contact [email] for details.");
   });
 });
 

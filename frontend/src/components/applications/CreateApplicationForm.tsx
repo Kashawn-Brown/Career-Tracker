@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { applicationsApi } from "@/lib/api/applications";
 import { applicationDocumentsApi } from "@/lib/api/application-documents";
+import { documentsApi } from "@/lib/api/documents";
 import type { CreateApplicationRequest, ApplicationStatus, JobType, WorkMode, DocumentKind, Connection } from "@/types/api";
 import { STATUS_OPTIONS, JOB_TYPE_OPTIONS, WORK_MODE_OPTIONS } from "@/lib/applications/presentation";
 import { Button } from "@/components/ui/button";
@@ -13,9 +14,54 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Star, Trash2 } from "lucide-react";
 import { useConnectionAutocomplete } from "@/hooks/useConnectionAutocomplete";
+import { useBaseDocuments } from "@/hooks/useBaseDocuments";
+import { useAiToolsOnCreate } from "@/hooks/useAiToolsOnCreate";
+import { AiToolsAfterCreate } from "@/components/applications/AiToolsAfterCreate";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { canUseAi } from "@/lib/plans";
+import { useAuth } from "@/hooks/useAuth";
+import type { OnCreatedArgs } from "@/components/applications/CreateApplicationFromJdForm";
 
 // CreateApplicationForm: Form to create a new application (POST /applications).
-export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) {
+export function CreateApplicationForm({ onCreated }: { onCreated: (args: OnCreatedArgs) => void }) {
+
+  const { user } = useAuth();
+  const canUse = user ? canUseAi(user) : false;
+
+  // ── AI tools after create ───────────────────────────────────────────────
+  const { enabled: aiEnabled, setEnabled: setAiEnabled, selections, updateSelections } = useAiToolsOnCreate();
+  const { baseResumeExists, baseCoverLetterExists } = useBaseDocuments();
+  const [overrideFile,          setOverrideFile]          = useState<File | null>(null);
+  const [templateFile,          setTemplateFile]          = useState<File | null>(null);
+  const [templateText,          setTemplateText]          = useState("");
+  const [isResumeValidationOpen, setIsResumeValidationOpen] = useState(false);
+  const [saveAsBaseResume,      setSaveAsBaseResume]      = useState(false);
+
+  // Extract text from a cover letter template file client-side
+  async function handleTemplateFile(file: File | null) {
+    setTemplateFile(file);
+    setTemplateText("");
+    if (!file) return;
+    if (file.name.toLowerCase().endsWith(".docx")) {
+      const mammoth = await import("mammoth");
+      const buffer  = await file.arrayBuffer();
+      const result  = await mammoth.extractRawText({ arrayBuffer: buffer });
+      setTemplateText(result.value ?? "");
+    } else {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setTemplateText(typeof e.target?.result === "string" ? e.target.result : "");
+      };
+      reader.readAsText(file);
+    }
+  }
 
   // Form state
   const [company, setCompany] = useState("");
@@ -107,17 +153,31 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
 
   // Submitting Form (Add new application record)
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();   // Prevent page refresh
+    e.preventDefault();
     setErrorMessage(null);
 
-    const stagedDocuments = [...documents];
+    const stagedDocuments   = [...documents];
     const stagedConnections = [...selectedConnections];
-
+    const stagedAiEnabled   = aiEnabled && (selections.fit || selections.resumeAdvice || selections.coverLetter);
+    const stagedOverride    = overrideFile;
+    const stagedTemplateText = templateText;
 
     // Simple validation
     if (!company.trim() || !position.trim()) {
       setErrorMessage("Company and position are required.");
       return;
+    }
+
+    // Validate AI requirements before submitting
+    if (stagedAiEnabled) {
+      if (!canUse) {
+        setErrorMessage("No free AI credits remaining. Request Pro to run AI tools.");
+        return;
+      }
+      if (!baseResumeExists && !stagedOverride) {
+        setIsResumeValidationOpen(true);
+        return;
+      }
     }
 
     // Build payload
@@ -178,6 +238,22 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
       const failedConns = connResults.filter((r) => r.status === "rejected").length;
 
 
+      // Upload override resume once — shared by all selected tool runs
+      let sourceDocumentId: number | undefined;
+      if (stagedAiEnabled && stagedOverride) {
+        try {
+          const uploadRes = await applicationDocumentsApi.upload({
+            applicationId: created.id,
+            kind:          "CAREER_HISTORY",
+            file:          stagedOverride,
+          });
+          sourceDocumentId = Number(uploadRes.document.id);
+          if (saveAsBaseResume) {
+            documentsApi.uploadBaseResume(stagedOverride).catch(() => {});
+          }
+        } catch { /* non-fatal — tool runs fall back to base resume */ }
+      }
+
       // Reset form and refresh list.
       setCompany("");
       setPosition("");
@@ -208,8 +284,24 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
       setDocuments([]);
       setConnectionQuery("");
       setSelectedConnections([]);
+      setOverrideFile(null);
+      setTemplateFile(null);
+      setTemplateText("");
+      setSaveAsBaseResume(false);
 
-      onCreated();
+      onCreated({
+        applicationId: created.id,
+        label: `${position.trim()} @ ${company.trim()}`,
+        ...(stagedAiEnabled && {
+          backgroundTools: {
+            fit:          selections.fit,
+            resumeAdvice: selections.resumeAdvice,
+            coverLetter:  selections.coverLetter,
+            sourceDocumentId,
+            templateText: stagedTemplateText.trim() || undefined,
+          },
+        }),
+      });
 
       if (failedDocs || failedConns) {
         setErrorMessage(
@@ -564,11 +656,85 @@ export function CreateApplicationForm({ onCreated }: { onCreated: () => void }) 
         </>
       ) : null}
       
+      <AiToolsAfterCreate
+        enabled={aiEnabled}
+        onEnabledChange={setAiEnabled}
+        selections={selections}
+        onSelectionsChange={updateSelections}
+        baseResumeExists={baseResumeExists}
+        baseCoverLetterExists={baseCoverLetterExists}
+        overrideFile={overrideFile}
+        onOverrideFileChange={setOverrideFile}
+        templateFile={templateFile}
+        onTemplateFileChange={(f) => void handleTemplateFile(f)}
+        disabled={isSubmitting}
+      />
+
       <div className="flex justify-end mt-8">
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting ? "Adding..." : "Add application"}
         </Button>
       </div>
+
+      {/* ── Resume validation dialog ── */}
+      <Dialog open={isResumeValidationOpen} onOpenChange={setIsResumeValidationOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Resume required</DialogTitle>
+            <DialogDescription>
+              {`A resume is needed to run AI tools. Upload one now or add a
+              base resume to your profile so it's always available.`}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 mt-2">
+            <Input
+              type="file"
+              accept=".pdf,.txt,.docx"
+              onChange={(e) => setOverrideFile(e.target.files?.[0] ?? null)}
+            />
+            {overrideFile && (
+              <p className="text-xs text-muted-foreground truncate">
+                Selected: {overrideFile.name}
+              </p>
+            )}
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={saveAsBaseResume}
+                onChange={(e) => setSaveAsBaseResume(e.target.checked)}
+                className="h-4 w-4"
+              />
+              Also save as my base resume
+            </label>
+          </div>
+
+          <DialogFooter className="gap-2 mt-6">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setAiEnabled(false);
+                setIsResumeValidationOpen(false);
+                // Re-submit the form without AI tools
+                void handleSubmit({ preventDefault: () => {} } as React.FormEvent);
+              }}
+            >
+              Create without AI tools
+            </Button>
+            <Button
+              type="button"
+              disabled={!overrideFile}
+              onClick={() => {
+                setIsResumeValidationOpen(false);
+                void handleSubmit({ preventDefault: () => {} } as React.FormEvent);
+              }}
+            >
+              Continue
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </form>
   );
 }
