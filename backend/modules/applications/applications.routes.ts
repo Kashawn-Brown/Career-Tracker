@@ -9,7 +9,8 @@ import { requireAiAccess } from "../../middleware/require-ai-access.js";
 import { AppError } from "../../errors/app-error.js";
 import * as DocumentsService from "../documents/documents.service.js";
 import * as AiService from "../ai/ai.service.js";
-import * as DocumentToolsService from "../ai/document-tools.service.js";
+import * as DocumentToolsService  from "../ai/document-tools.service.js";
+import * as InterviewPrepService  from "../ai/interview-prep.service.js";
 import { AI_MODELS } from "../ai/openai.js";
 import { DocumentKind } from "@prisma/client";
 import { resolveAiTierForUser } from "../ai/ai-tier.js";
@@ -507,6 +508,42 @@ export async function applicationsRoutes(app: FastifyInstance) {
             payload,
             model:            AI_MODELS.COVER_LETTER,
             sourceDocumentId: candidate.documentIdUsed,
+          });
+
+          return reply.status(201).send(artifact);
+        }
+
+        // INTERVIEW_PREP: Generate interview prep for the candidate based on the JD.
+        // Resume is optional — runs JD-only if no resume is available, produces
+        // richer output when a resume source is found.
+        if (kind === "INTERVIEW_PREP") {
+          if (!application.description || application.description.trim().length === 0) {
+            throw new AppError("Application is missing a job description.", 400, "JOB_DESCRIPTION_MISSING");
+          }
+
+          // Soft resolve: explicit sourceDocumentId throws if invalid;
+          // base resume used if available; null if no resume at all.
+          const candidate = await DocumentsService.tryGetCandidateText({
+            userId,
+            jobApplicationId: id,
+            sourceDocumentId,
+          });
+
+          const payload = await InterviewPrepService.buildTargetedInterviewPrep({
+            jdText:        application.description,
+            candidateText: candidate?.text ?? null,
+            signal,
+          });
+
+          throwIfAborted(signal);
+
+          const artifact = await ApplicationsService.createAiArtifact({
+            userId,
+            jobApplicationId: id,
+            kind,
+            payload,
+            model:            AI_MODELS.INTERVIEW_PREP,
+            sourceDocumentId: candidate?.documentIdUsed ?? undefined,
           });
 
           return reply.status(201).send(artifact);

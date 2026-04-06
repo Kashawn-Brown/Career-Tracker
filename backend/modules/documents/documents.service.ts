@@ -421,6 +421,57 @@ export async function getCandidateTextOrThrow(args: {
 
 
 
+/**
+ * Soft variant of getCandidateTextOrThrow for tools where resume is optional.
+ *
+ * Behavior:
+ *   - If sourceDocumentId is provided and invalid/unreadable → throw (explicit intent)
+ *   - If base resume exists → return the candidate text result
+ *   - If no base resume → return null (caller handles JD-only path)
+ *
+ * Used by targeted interview prep, which works from the JD alone but generates
+ * richer output when a resume is available.
+ */
+export async function tryGetCandidateText(args: {
+  userId:           string;
+  jobApplicationId: string;
+  sourceDocumentId?: number;
+}): Promise<CandidateTextResult | null> {
+  const { userId, jobApplicationId, sourceDocumentId } = args;
+
+  // If an explicit override was requested, use the strict path — the user
+  // made a deliberate choice so a missing/invalid doc should still be an error.
+  if (sourceDocumentId) {
+    return getCandidateTextOrThrow({ userId, jobApplicationId, sourceDocumentId });
+  }
+
+  // No explicit override — try base resume, return null if absent
+  const doc = await getBaseResume(userId);
+  if (!doc) return null;
+
+  const buffer = await downloadGcsObjectToBuffer({ storageKey: doc.storageKey });
+  const text   = await extractTextFromBuffer({
+    buffer,
+    mimeType: doc.mimeType,
+    maxChars: MAX_CANDIDATE_TEXT_CHARS,
+  });
+
+  if (doc.mimeType === "application/pdf" && text.length < MIN_PDF_EXTRACT_CHARS) {
+    // Unreadable PDF base resume — treat as no resume rather than hard error
+    return null;
+  }
+
+  return {
+    text,
+    documentIdUsed: doc.id,
+    source:         "BASE",
+    filename:       doc.originalName ?? "document",
+    updatedAt:      doc.updatedAt,
+    mimeType:       doc.mimeType,
+  };
+}
+
+
 
 // ------------------ HELPER FUNCTIONS ------------------
 
