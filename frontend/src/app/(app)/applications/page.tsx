@@ -495,7 +495,7 @@ export default function ApplicationsPage() {
 
   // Fire a single "AI tools ready" notice when all batch tools complete for an app.
   // Returns true if the tool was part of a batch (suppresses individual notice).
-  function completeBatchTool(applicationId: string, toolKey: string, failed: boolean): boolean {
+  const completeBatchTool = useCallback((applicationId: string, toolKey: string, failed: boolean): boolean => {
     const batch = pendingBatchRef.current.get(applicationId);
     if (!batch) return false; // not a batch run — use individual notice
 
@@ -522,7 +522,7 @@ export default function ApplicationsPage() {
       ]);
     }
     return true;
-  }
+  }, [getApplicationLabel]);
 
   // When a background FIT run completes, surface the result.
   // - If drawer is open for that app on success: refresh the drawer in place (no notice needed)
@@ -560,7 +560,7 @@ export default function ApplicationsPage() {
     for (const applicationId of Object.keys(prev)) {
       if (!current[applicationId]) delete prev[applicationId];
     }
-  }, [fitRuns.runsByAppId, fitRuns, detailsOpen, selectedApplication?.id, addFitNotice, handleApplicationChange]);
+  }, [fitRuns.runsByAppId, fitRuns, detailsOpen, selectedApplication?.id, addFitNotice, handleApplicationChange, completeBatchTool]);
 
 
   // Watch document tool runs (Resume Advice + Cover Letter) for completion.
@@ -627,7 +627,7 @@ export default function ApplicationsPage() {
     for (const key of Object.keys(prev)) {
       if (!current[key]) delete prev[key];
     }
-  }, [documentToolRuns.runsByAppId, documentToolRuns, detailsOpen, selectedApplication?.id, handleApplicationChange, getApplicationLabel]);
+  }, [documentToolRuns.runsByAppId, documentToolRuns, detailsOpen, selectedApplication?.id, handleApplicationChange, getApplicationLabel, completeBatchTool]);
 
   // Start all background AI tool runs requested from the create form.
   // The resume override was uploaded once in the form — all runs share sourceDocumentId.

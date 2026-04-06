@@ -438,6 +438,28 @@ export function cleanJdText(text: string): string {
     .trim();
 }
 
+/** Cap length on moderation retry (large scraped pages can hit edge cases). */
+const JD_MODERATION_RETRY_MAX_CHARS = 14_000;
+
+/**
+ * Strips common triggers for provider safety filters (long URLs, emails, bare www links)
+ * and caps length. Used for a single automatic retry when JD extraction returns
+ * `content_filter` — the original JD is still kept for `source.canonicalJdText`.
+ */
+export function sanitizeJdForModerationRetry(text: string): string {
+  let t = text
+    .replace(/https?:\/\/[^\s<>"']+/gi, "[link]")
+    .replace(/\b[\w.%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, "[email]")
+    .replace(/(?<![\w/])www\.[^\s<>'"]+/gi, "[link]");
+  t = cleanJdText(t);
+  if (t.length > JD_MODERATION_RETRY_MAX_CHARS) {
+    t =
+      t.slice(0, JD_MODERATION_RETRY_MAX_CHARS) +
+      "\n\n[... text truncated for processing ...]";
+  }
+  return t;
+}
+
 /**
  * Normalize the AI response so the UI doesn't get noisy values.
  * - trims strings

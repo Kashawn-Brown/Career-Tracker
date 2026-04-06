@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import type { AiToolSelections } from "@/hooks/useAiToolsOnCreate";
 
@@ -58,15 +58,6 @@ export function AiToolsAfterCreate({
   const resumeInputRef   = useRef<HTMLInputElement>(null);
   const templateInputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-open settings the first time the toggle is checked
-  const prevEnabledRef = useRef(enabled);
-  useEffect(() => {
-    if (!prevEnabledRef.current && enabled) {
-      setSettingsOpen(true);
-    }
-    prevEnabledRef.current = enabled;
-  }, [enabled]);
-
   // Any tool must be selected for the toggle to be meaningful
   const anySelected = selections.fit || selections.resumeAdvice || selections.coverLetter;
 
@@ -79,7 +70,11 @@ export function AiToolsAfterCreate({
           <input
             type="checkbox"
             checked={enabled}
-            onChange={(e) => onEnabledChange(e.target.checked)}
+            onChange={(e) => {
+              const next = e.target.checked;
+              if (next && !enabled) setSettingsOpen(true);
+              onEnabledChange(next);
+            }}
             disabled={disabled}
             className="h-4 w-4"
           />

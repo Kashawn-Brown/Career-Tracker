@@ -8,13 +8,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { AccountSecurityDialog } from "@/components/profile/AccountSecurityDialog";
 import { ProfileProAccessCard } from "@/components/profile/ProfileProAccessCard";
 import { UserProfileCard } from "@/components/profile/UserProfileCard";
-// import { JobSearchPreferencesCard } from "@/components/profile/JobSearchPreferencesCard";
 import { ProfileConnectionsCard } from "@/components/profile/ProfileConnectionsCard";
 import { BaseResumeCard }        from "@/components/profile/BaseResumeCard";
 import { BaseCoverLetterCard }  from "@/components/profile/BaseCoverLetterCard";
 import { documentsApi } from "@/lib/api/documents";
 import { Alert } from "@/components/ui/alert";
-import type { Document, WorkMode } from "@/types/api";
+import type { Document } from "@/types/api";
 
 // ProfilePage: view + edit minimal profile fields via GET/PATCH /users/me.
 export default function ProfilePage() {
@@ -48,16 +47,6 @@ export default function ProfilePage() {
   const [githubUrl, setGithubUrl] = useState(user?.githubUrl ?? "");
   const [portfolioUrl, setPortfolioUrl] = useState(user?.portfolioUrl ?? "");
 
-  // Job search preferences edit mode
-  const [isEditingJobSearch, setIsEditingJobSearch] = useState(false);
-  const [isJobSearchSaving, setIsJobSearchSaving] = useState(false);
-
-  const [jobSearchTitlesText, setJobSearchTitlesText] = useState(user?.jobSearchTitlesText ?? "");
-  const [jobSearchLocationsText, setJobSearchLocationsText] = useState(user?.jobSearchLocationsText ?? "");
-  const [jobSearchKeywordsText, setJobSearchKeywordsText] = useState(user?.jobSearchKeywordsText ?? "");
-  const [jobSearchSummary, setJobSearchSummary] = useState(user?.jobSearchSummary ?? "");
-  const [jobSearchWorkMode, setJobSearchWorkMode] = useState<WorkMode>(user?.jobSearchWorkMode ?? "UNKNOWN");
-
   // UI state
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -66,7 +55,6 @@ export default function ProfilePage() {
   const [resumeErrorMessage, setResumeErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const [isJobSearchDialogOpen, setIsJobSearchDialogOpen] = useState(false);
   const [isResumeDialogOpen, setIsResumeDialogOpen] = useState(false);
 
   // Base cover letter template state — mirrors base resume state block
@@ -121,13 +109,7 @@ export default function ProfilePage() {
         setLinkedInUrl(toDisplayString(res.user.linkedInUrl));
         setGithubUrl(toDisplayString(res.user.githubUrl));
         setPortfolioUrl(toDisplayString(res.user.portfolioUrl));
-        setJobSearchTitlesText(toDisplayString(res.user.jobSearchTitlesText));
-        setJobSearchLocationsText(toDisplayString(res.user.jobSearchLocationsText));
-        setJobSearchKeywordsText(toDisplayString(res.user.jobSearchKeywordsText));
-        setJobSearchSummary(toDisplayString(res.user.jobSearchSummary));
-        setJobSearchWorkMode(res.user.jobSearchWorkMode ?? "UNKNOWN");
 
-        
         // Load base resume metadata for the logged-in user.
         try { // It's own try/catch block so it does not block profile load even if resume load fails 
           const resumeRes = await documentsApi.getBaseResume();
@@ -443,107 +425,6 @@ export default function ProfilePage() {
     else setIsEditingResume(false);
   }
 
-
-
-  // Starts the job search preferences edit mode.
-  function startJobSearchEdit() {
-    setErrorMessage(null);
-    setSuccessMessage(null);
-    setIsEditingJobSearch(true);
-  }
-
-  // Cancels the job search preferences edit mode.
-  function cancelJobSearchEdit() {
-    setJobSearchTitlesText(toDisplayString(user?.jobSearchTitlesText));
-    setJobSearchLocationsText(toDisplayString(user?.jobSearchLocationsText));
-    setJobSearchKeywordsText(toDisplayString(user?.jobSearchKeywordsText));
-    setJobSearchSummary(toDisplayString(user?.jobSearchSummary));
-    setJobSearchWorkMode(user?.jobSearchWorkMode ?? "UNKNOWN");
-
-    setErrorMessage(null);
-    setSuccessMessage(null);
-    setIsEditingJobSearch(false);
-  }
-
-  // Saves the job search preferences.
-  async function handleJobSearchSave(e: React.FormEvent) {
-    e.preventDefault();
-    setErrorMessage(null);
-    setSuccessMessage(null);
-
-    const payload: UpdateMeRequest = {};
-
-    if (jobSearchTitlesText !== toDisplayString(user?.jobSearchTitlesText)) {
-      payload.jobSearchTitlesText = jobSearchTitlesText;
-    }
-    if (jobSearchLocationsText !== toDisplayString(user?.jobSearchLocationsText)) {
-      payload.jobSearchLocationsText = jobSearchLocationsText;
-    }
-    if (jobSearchKeywordsText !== toDisplayString(user?.jobSearchKeywordsText)) {
-      payload.jobSearchKeywordsText = jobSearchKeywordsText;
-    }
-    if (jobSearchSummary !== toDisplayString(user?.jobSearchSummary)) {
-      payload.jobSearchSummary = jobSearchSummary;
-    }
-
-    const currentMode = user?.jobSearchWorkMode ?? "UNKNOWN";
-    if (jobSearchWorkMode !== currentMode) {
-      payload.jobSearchWorkMode = jobSearchWorkMode;
-    }
-
-    if (Object.keys(payload).length === 0) {
-      setErrorMessage("No changes.");
-      return;
-    }
-
-    try {
-      setIsJobSearchSaving(true);
-
-      const res = await apiFetch<MeResponse>(routes.users.me(), {
-        method: "PATCH",
-        body: payload,
-      });
-
-      setCurrentUser(res.user);
-
-      // sync local state to saved values
-      setJobSearchTitlesText(toDisplayString(res.user.jobSearchTitlesText));
-      setJobSearchLocationsText(toDisplayString(res.user.jobSearchLocationsText));
-      setJobSearchKeywordsText(toDisplayString(res.user.jobSearchKeywordsText));
-      setJobSearchSummary(toDisplayString(res.user.jobSearchSummary));
-      setJobSearchWorkMode(res.user.jobSearchWorkMode ?? "UNKNOWN");
-
-      setIsEditingJobSearch(false);
-      setSuccessMessage("Saved.");
-      setIsJobSearchDialogOpen(false);
-
-    } catch (err) {
-      if (err instanceof ApiError) setErrorMessage(err.message);
-      else setErrorMessage("Failed to save job search preferences.");
-    } finally {
-      setIsJobSearchSaving(false);
-    }
-  }
-
-
-  // Handles the job search dialog open state changes.
-  function handleJobSearchDialogOpenChange(nextOpen: boolean) {
-    setIsJobSearchDialogOpen(nextOpen);
-  
-    // Always open in view-mode (editing is intentional).
-    if (nextOpen) {
-      setIsEditingJobSearch(false);
-      return;
-    }
-  
-    // If user closes while editing, discard unsaved changes safely.
-    if (isEditingJobSearch) {
-      cancelJobSearchEdit();
-    } else {
-      setIsEditingJobSearch(false);
-    }
-  }
-  
   const hasMessages = !!(errorMessage || successMessage);
 
   // TODO: If base resume exists, switch to 2-col layout and render first-page preview thumbnail.
@@ -645,27 +526,7 @@ export default function ProfilePage() {
             <div className="space-y-6 lg:col-span-5">
 
 
-              {/* Job search preferences section */}
-              {/* <JobSearchPreferencesCard
-                isDialogOpen={isJobSearchDialogOpen}
-                onDialogOpenChange={handleJobSearchDialogOpenChange}
-                isEditing={isEditingJobSearch}
-                onStartEdit={startJobSearchEdit}
-                onCancelEdit={cancelJobSearchEdit}
-                isSaving={isJobSearchSaving}
-                onSave={handleJobSearchSave}
-                titlesText={jobSearchTitlesText}
-                setTitlesText={setJobSearchTitlesText}
-                locationsText={jobSearchLocationsText}
-                setLocationsText={setJobSearchLocationsText}
-                keywordsText={jobSearchKeywordsText}
-                setKeywordsText={setJobSearchKeywordsText}
-                summary={jobSearchSummary}
-                setSummary={setJobSearchSummary}
-                workMode={jobSearchWorkMode}
-                setWorkMode={setJobSearchWorkMode}
-              /> */}
-
+              {/* Job search preferences: add JobSearchPreferencesCard here when re-enabled */}
 
               {/* Connections section */}
               <ProfileConnectionsCard />

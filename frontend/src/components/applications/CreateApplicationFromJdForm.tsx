@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { aiApi } from "@/lib/api/ai";
 import { applicationsApi } from "@/lib/api/applications";
@@ -25,7 +25,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogClose,
 } from "@/components/ui/dialog";
 import { ChevronDown, ChevronRight, Star, Trash2, Loader2, CheckCircle2, Circle } from "lucide-react";
 import { ProAccessBanner } from "@/components/pro/ProAccessBanner";
@@ -1014,8 +1013,8 @@ export function CreateApplicationFromJdForm({
               <DialogHeader>
                 <DialogTitle>Resume required</DialogTitle>
                 <DialogDescription>
-                  A resume is needed to run AI tools. Upload one now or add a
-                  base resume to your profile so it's always available.
+                  {`A resume is needed to run AI tools. Upload one now or add a
+                  base resume to your profile so it's always available.`}
                 </DialogDescription>
               </DialogHeader>
 

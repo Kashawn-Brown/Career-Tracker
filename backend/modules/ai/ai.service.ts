@@ -1,12 +1,45 @@
 import { UserPlan } from "@prisma/client";
 import { AppError } from "../../errors/app-error.js";
-import { getOpenAIClient, AI_MODELS } from "./openai.js";
-import { ApplicationFromJdJsonObject, normalizeApplicationFromJdResponse, cleanJdText, FitV1JsonObject, normalizeFitV1Response, getFitPolicyForPlan, FitV1RunResult } from "./ai.dto.js";
+import { getOpenAIClient, AI_MODELS, getJdExtractFallbackOpenAIModel } from "./openai.js";
+import {
+  ApplicationFromJdJsonObject,
+  normalizeApplicationFromJdResponse,
+  cleanJdText,
+  sanitizeJdForModerationRetry,
+  FitV1JsonObject,
+  normalizeFitV1Response,
+  getFitPolicyForPlan,
+  FitV1RunResult,
+} from "./ai.dto.js";
 import type { ApplicationFromJdResponse, DraftSource, FitV1Response } from "./ai.dto.js";
 import { AiTier } from "./ai-tier.js";
 import { throwIfAborted } from "../../lib/request-abort.js";
 import { extractJobPostingFromUrl } from "./job-link-extraction.js";
 
+/**
+ * When `AI_LOG_JD_EXTRACT_INPUT=true`, logs full JD strings (scraped + each OpenAI user payload).
+ * Dev-only: postings can contain PII; do not enable in shared/production logs.
+ */
+function logJdExtractInput(args: {
+  phase: "scraped" | "api_input" | "api_input_moderation_retry";
+  sourceMode?: "TEXT" | "LINK";
+  sourceUrl?: string;
+  model?: string;
+  text: string;
+}) {
+  if (process.env.AI_LOG_JD_EXTRACT_INPUT !== "true") return;
+  console.log(
+    JSON.stringify({
+      msg: "[ai.jd_extract_input]",
+      phase: args.phase,
+      sourceMode: args.sourceMode ?? null,
+      sourceUrl: args.sourceUrl ?? null,
+      model: args.model ?? null,
+      len: args.text.length,
+      text: args.text,
+    })
+  );
+}
 
 /**
  * Service layer for the AI module:
@@ -35,36 +68,75 @@ export async function buildApplicationDraftFromJd(
   
   // Get the OpenAI client and model.
   const openai = getOpenAIClient();
-  const model  = AI_MODELS.JD_EXTRACT;
-  
-  // Make the OpenAI request.
-  const resp = await openai.responses.create(
-    {
-      model,
-      input: [
-        { role: "system", content: buildExtractJdSystemPrompt({ sourceMode: opts?.sourceMode }) },
-        { role: "user",   content: jd },
-      ],
-      text: {
-        verbosity: "low",
-        format: {
-          type:   "json_schema",
-          name:   "application_from_jd_v1",
-          strict: true,
-          schema: ApplicationFromJdJsonObject,
-        },
-      },
-      reasoning:         { effort: "low" },
-      max_output_tokens: JD_EXTRACT_MAX_OUTPUT_TOKENS,
-    },
-    { signal: opts?.signal }
-  );  
+  const primaryModel = AI_MODELS.JD_EXTRACT;
+  const fallbackModel = getJdExtractFallbackOpenAIModel();
+  const modelsToTry = fallbackModel && fallbackModel !== primaryModel
+    ? [primaryModel, fallbackModel]
+    : [primaryModel];
 
-  // Parse the output text into a JSON object
+  const sanitized = sanitizeJdForModerationRetry(jd);
+  const contentFilterThrow = {
+    message:
+      "This posting could not be processed automatically because the AI provider blocked part of the content. " +
+      'Copy the job description from the page and use "Paste text" instead, or try another URL.',
+    code:       "JD_CONTENT_FILTER" as const,
+    statusCode: 422,
+  };
+
+  let resp: any = null;
+
+  outer: for (const model of modelsToTry) {
+    const userVariants = sanitized !== jd ? [jd, sanitized] : [jd];
+    for (const userContent of userVariants) {
+      throwIfAborted(opts?.signal);
+      logJdExtractInput({
+        phase: userContent === jd ? "api_input" : "api_input_moderation_retry",
+        sourceMode: opts?.sourceMode,
+        sourceUrl: opts?.sourceUrl,
+        model,
+        text: userContent,
+      });
+      resp = await openai.responses.create(
+        {
+          model,
+          input: [
+            { role: "system", content: buildExtractJdSystemPrompt({ sourceMode: opts?.sourceMode }) },
+            { role: "user",   content: userContent },
+          ],
+          text: {
+            verbosity: "low",
+            format: {
+              type:   "json_schema",
+              name:   "application_from_jd_v1",
+              strict: true,
+              schema: ApplicationFromJdJsonObject,
+            },
+          },
+          reasoning:         { effort: "low" },
+          max_output_tokens: JD_EXTRACT_MAX_OUTPUT_TOKENS,
+        },
+        { signal: opts?.signal }
+      );
+
+      const classified = classifyOpenAIResponse(resp);
+      if (classified.status === "completed") {
+        break outer;
+      }
+
+      if (classified.incompleteReason !== "content_filter") {
+        parseJsonSchemaOutputOrThrow<ApplicationFromJdResponse>(resp, {
+          tag:  "jd_extract_v1",
+          meta: { jdLen: jd.length, model },
+        });
+      }
+    }
+  }
+
+  // Parse the output text into a JSON object (throws with JD_CONTENT_FILTER on final content_filter)
   const parsed = parseJsonSchemaOutputOrThrow<ApplicationFromJdResponse>(resp, {
     tag:  "jd_extract_v1",
     meta: { jdLen: jd.length },
-  });
+  }, { onContentFilter: contentFilterThrow });
 
   // Build the canonical source metadata
   const source: DraftSource = {
@@ -94,6 +166,13 @@ export async function buildApplicationDraftFromJobLink(
 
   // Step 1 — fetch + extract canonical text (throws AppError on failure)
   const { normalizedUrl, canonicalJdText } = await extractJobPostingFromUrl(rawUrl, opts);
+
+  logJdExtractInput({
+    phase:      "scraped",
+    sourceMode: "LINK",
+    sourceUrl:  normalizedUrl,
+    text:       canonicalJdText,
+  });
 
   throwIfAborted(opts?.signal);
 
@@ -441,11 +520,16 @@ type AiParseContext = {
   meta?: Record<string, unknown>; // e.g. { jdLen, candidateLen }
 };
 
+type ParseJsonSchemaOptions = {
+  /** Prefer this over generic AI_REFUSED when the API returns incomplete + content_filter */
+  onContentFilter?: { message: string; code: string; statusCode: number };
+};
+
 
 /**
  * Parse the response from the AI request and throw an error if the response is invalid.
  */
-function parseJsonSchemaOutputOrThrow<T>(resp: any, ctx: AiParseContext): T {
+function parseJsonSchemaOutputOrThrow<T>(resp: any, ctx: AiParseContext, options?: ParseJsonSchemaOptions): T {
   
   const usage = getTokenUsage(resp);
 
@@ -483,6 +567,17 @@ function parseJsonSchemaOutputOrThrow<T>(resp: any, ctx: AiParseContext): T {
 
   // Hard fail early with the REAL reason
   if (debug.status !== "completed") {
+    if (
+      options?.onContentFilter &&
+      debug.incompleteReason === "content_filter" &&
+      !refusal
+    ) {
+      throw new AppError(
+        options.onContentFilter.message,
+        options.onContentFilter.statusCode,
+        options.onContentFilter.code
+      );
+    }
     throw new AppError(
       refusal
         ? `AI refused the request (status=${debug.status}).`

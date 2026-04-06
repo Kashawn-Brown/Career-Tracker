@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { applicationsApi } from "@/lib/api/applications";
 import { applicationDocumentsApi } from "@/lib/api/application-documents";
@@ -682,8 +682,8 @@ export function CreateApplicationForm({ onCreated }: { onCreated: (args: OnCreat
           <DialogHeader>
             <DialogTitle>Resume required</DialogTitle>
             <DialogDescription>
-              A resume is needed to run AI tools. Upload one now or add a
-              base resume to your profile so it's always available.
+              {`A resume is needed to run AI tools. Upload one now or add a
+              base resume to your profile so it's always available.`}
             </DialogDescription>
           </DialogHeader>
 

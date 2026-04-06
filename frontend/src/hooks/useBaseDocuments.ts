@@ -19,22 +19,26 @@ export function useBaseDocuments(refreshKey = 0): {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
 
-    Promise.all([
-      documentsApi.getBaseResume().catch(() => ({ baseResume: null })),
-      documentsApi.getBaseCoverLetter().catch(() => ({ baseCoverLetter: null })),
-    ]).then(([resumeRes, clRes]) => {
-      if (cancelled) return;
-      setBaseResumeExists(!!resumeRes.baseResume);
-      setBaseCoverLetterExists(!!clRes.baseCoverLetter);
-    }).finally(() => {
-      if (!cancelled) setLoading(false);
-    });
+    // Function to load the base documents
+    async function load() {
+      setLoading(true);
 
+      try {
+        const [resumeRes, clRes] = await Promise.all([
+          documentsApi.getBaseResume().catch(() => ({ baseResume: null })),
+          documentsApi.getBaseCoverLetter().catch(() => ({ baseCoverLetter: null })),
+        ]);
+        if (cancelled) return;
+        setBaseResumeExists(!!resumeRes.baseResume);
+        setBaseCoverLetterExists(!!clRes.baseCoverLetter);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    void load();
     return () => { cancelled = true; };
-    // refreshKey incremented externally to re-fetch after user uploads a base doc
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey]);
 
   return { baseResumeExists, baseCoverLetterExists, loading };

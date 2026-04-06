@@ -36,6 +36,15 @@ export function getJdExtractOpenAIModel(): string {
   return AI_MODELS.JD_EXTRACT;
 }
 
+/**
+ * Optional second model for JD extraction when the primary returns `content_filter`
+ * (e.g. try `gpt-4o-mini`). Set `OPENAI_MODEL_JD_EXTRACT_FALLBACK` in the environment.
+ */
+export function getJdExtractFallbackOpenAIModel(): string | undefined {
+  const m = process.env.OPENAI_MODEL_JD_EXTRACT_FALLBACK?.trim();
+  return m || undefined;
+}
+
 // ─── Model registry ────────────────────────────────────────────────────────
 
 export const AI_MODELS = {

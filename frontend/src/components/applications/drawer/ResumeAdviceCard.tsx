@@ -307,7 +307,7 @@ export function ResumeAdviceCard({
                       {showDocPicker
                         ? <ChevronDown className="h-3 w-3" />
                         : <ChevronRight className="h-3 w-3" />}
-                      Pick from this application's documents
+                      {"Pick from this application's documents"}
                     </button>
 
                     {/* Collapsed list — only rendered when expanded */}

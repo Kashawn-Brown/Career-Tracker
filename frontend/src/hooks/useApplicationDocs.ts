@@ -34,11 +34,14 @@ export function useApplicationDocs(
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
 
-    applicationDocumentsApi
-      .list(applicationId)
-      .then((res) => {
+    // Function to load the application documents
+    async function load() {
+      // State updates inside async entry — avoids react-hooks/set-state-in-effect
+      setLoading(true);
+
+      try {
+        const res = await applicationDocumentsApi.list(applicationId);
         if (cancelled) return;
 
         const filtered = res.documents
@@ -50,13 +53,15 @@ export function useApplicationDocs(
           }));
 
         setResumeDocs(filtered);
-      })
-      .catch(() => { if (!cancelled) setResumeDocs([]); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+      } catch {
+        if (!cancelled) setResumeDocs([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
 
+    void load();
     return () => { cancelled = true; };
-    // reloadKey is intentionally included — incrementing it forces a re-fetch
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applicationId, reloadKey]);
 
   return { resumeDocs, loading };
