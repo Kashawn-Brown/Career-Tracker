@@ -207,6 +207,7 @@ model JobApplication {
   description  String?
   notes        String?
   tagsText     String?
+  jdSummary    String?
 
   fitScore     Int?
 

@@ -447,6 +447,8 @@ export function CreateApplicationFromJdForm({
       status:         applicationStatus,
       description:    sourceDescriptionText || jdText.trim(), // canonicalJdText from source, fallback to pasted text
       notes:          toOptionalTrimmed(notes),
+      // Store the AI-generated role summary if extraction was used; undefined for manual entry
+      jdSummary:      draft?.ai?.jdSummary?.trim() || undefined,
       location:       toOptionalTrimmed(location),
       locationDetails: toOptionalTrimmed(locationDetails),
       jobType:        jobType === "UNKNOWN" ? undefined : jobType,

@@ -26,6 +26,7 @@ export const applicationSelect = {
   description: true,
   notes: true,
   tagsText: true,
+  jdSummary: true,
 
   fitScore: true,
   fitUpdatedAt: true,
@@ -101,6 +102,7 @@ export type CreateApplicationInput = {
   description?: string;
   notes?: string;
   tagsText?: string;
+  jdSummary?: string;
 };
 
 
@@ -215,4 +217,3 @@ export type ExportApplicationsParams = {
   // Export-specific
   columns?: ApplicationExportColumn[];
 };
-

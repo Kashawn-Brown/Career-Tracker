@@ -48,6 +48,8 @@ export async function createApplication(input: CreateApplicationInput) {
       description: normalizeNullableString(input.description),
       notes: normalizeNullableString(input.notes),
       tagsText: normalizeNullableString(input.tagsText),
+      // Stored at create time when JD extraction was used; null for manual entries
+      jdSummary: normalizeNullableString(input.jdSummary),
 
     },
     select: applicationSelect,

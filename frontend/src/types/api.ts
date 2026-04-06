@@ -218,6 +218,8 @@ export type Application = {
   description: string | null;
   notes: string | null;
   tagsText: string | null;
+  // AI-generated role summary from JD extraction; null for manually created applications
+  jdSummary: string | null;
 
   fitScore: number | null;
   fitUpdatedAt: string | null;
@@ -303,6 +305,8 @@ export type CreateApplicationRequest = {
   description?: string;
   notes?: string;
   tagsText?: string;
+  // AI-generated role summary; only sent when creating from JD extraction
+  jdSummary?: string;
 };
 
 // UpdateApplicationRequest: matches backend schema for PATCH /applications/{id}.
