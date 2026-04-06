@@ -14,7 +14,9 @@ import type {
 } from "@/types/api";
 
 interface Props {
-  kind:      UserAiArtifactKind;
+  kind:       UserAiArtifactKind;
+  /** Increment to trigger a re-fetch after a new run completes */
+  refreshKey?: number;
   /** Called after a deletion so the parent can refresh its own state if needed */
   onDeleted?: () => void;
 }
@@ -32,7 +34,7 @@ interface Props {
  * Sits in the collapsed card header so users immediately see past work
  * without needing to expand the form first.
  */
-export function PastRunsSection({ kind, onDeleted }: Props) {
+export function PastRunsSection({ kind, refreshKey = 0, onDeleted }: Props) {
   const [artifacts, setArtifacts] = useState<UserAiArtifact[] | null>(null);
   const [loading,   setLoading]   = useState(true);
 
@@ -53,7 +55,8 @@ export function PastRunsSection({ kind, onDeleted }: Props) {
       .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
-  }, [kind]);
+  // refreshKey incremented by parent after a new run so the list updates immediately
+  }, [kind, refreshKey]);
 
   async function handleDelete(id: string) {
     setDeletingId(id);

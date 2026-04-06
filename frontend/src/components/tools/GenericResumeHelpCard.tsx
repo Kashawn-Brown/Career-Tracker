@@ -37,6 +37,9 @@ export function GenericResumeHelpCard({ hasBaseResume, onSuccess }: Props) {
 
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState<string | null>(null);
+  // Bumped after a successful run to trigger PastRunsSection re-fetch
+  const [pastRunsKey, setPastRunsKey] = useState(0);
+
   const [artifact, setArtifact] = useState<UserAiArtifact<ResumeAdvicePayload> | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -59,6 +62,7 @@ export function GenericResumeHelpCard({ hasBaseResume, onSuccess }: Props) {
         resumeFile:        resumeFile ?? undefined,
       });
       setArtifact(result);
+      setPastRunsKey((k) => k + 1);
       onSuccess();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
@@ -94,7 +98,7 @@ export function GenericResumeHelpCard({ hasBaseResume, onSuccess }: Props) {
 
       {/* ── Past runs — shown in collapsed state so users see previous results
            without needing to open the form first. Up to 3 stored per user. */}
-      <PastRunsSection kind="RESUME_ADVICE" />
+      <PastRunsSection kind="RESUME_ADVICE" refreshKey={pastRunsKey} />
 
       {/* ── Expanded form ─────────────────────────────────────────────────*/}
       {expanded && (

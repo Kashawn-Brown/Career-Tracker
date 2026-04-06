@@ -560,11 +560,11 @@ export type ApplicationDraftResponse = {
 export type FitV1Payload = {
   score:       number;    // 0–100 overall fit score
   fitSummary:  string;    // 2–3 sentence narrative shown in the drawer card
-  strengths:   string[];  // strongest alignments
+  strengths:   string[];  // strongest alignments with this role
   gaps:        string[];  // shortfalls, missing requirements, and risk areas
   roleSignals: string[];  // what the JD is actually prioritising
   prepAreas:   string[];  // what to brush up on before pursuing this role
-  keywordGaps: string[];  // missing terms/tools for keyword coverage
+  // Note: keywordGaps was removed in v2 — use FitReportLegacy for v1 artifacts
 };
 
 export type AiArtifact<TPayload = unknown> = {
