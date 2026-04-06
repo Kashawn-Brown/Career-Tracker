@@ -12,12 +12,12 @@ export function ResumeAdviceResult({ payload }: Props) {
       {/* Summary */}
       <p className="text-muted-foreground leading-relaxed">{payload.summary}</p>
 
-      <Section title="Strengths" items={payload.strengths} accent="green" />
-      <Section title="Improvements" items={payload.improvements} accent="amber" />
-      <Section title="Tailoring suggestions" items={payload.tailoring} accent="blue" />
-      <Section title="Rewrite suggestions" items={payload.rewrites} accent="purple" />
+      <Section title="What's working" items={payload.strengths}     accent="green"  />
+      <Section title="Areas to improve" items={payload.improvements}  accent="amber"  />
+      <Section title="How to better align to target roles"     items={payload.roleAlignment} accent="blue"   />
+      <Section title="Possible rewrite suggestions" items={payload.rewrites}     accent="purple" />
 
-      {payload.keywords.length > 0 && (
+      {payload.keywords?.length > 0 && (
         <div>
           <h4 className="mb-2 font-medium text-foreground">Keywords to cover</h4>
           <div className="flex flex-wrap gap-1.5">
@@ -41,11 +41,12 @@ function Section({
   items,
   accent,
 }: {
-  title: string;
-  items: string[];
+  title:  string;
+  items?: string[];
   accent: "green" | "amber" | "blue" | "purple";
 }) {
-  if (!items.length) return null;
+  // Guard against undefined/empty — empty arrays are valid (model found nothing to flag)
+  if (!items?.length) return null;
 
   const dotColor = {
     green:  "bg-green-500",

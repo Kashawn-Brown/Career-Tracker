@@ -124,7 +124,7 @@ export function ResumeAdviceReport({ open, onOpenChange, artifact, jobLabel }: P
             {/* Sections — empty arrays show a brief positive note so the candidate
                 knows the tool evaluated that area and found nothing to flag.      */}
             <SectionList
-              title="Strengths"
+              title="What's working"
               items={p.strengths}
               accent="green"
               emptyMessage="No clear standout strengths identified — consider adding more specific achievements."
@@ -136,13 +136,13 @@ export function ResumeAdviceReport({ open, onOpenChange, artifact, jobLabel }: P
               emptyMessage="Nothing significant flagged — resume reads clearly and specifically."
             />
             <SectionList
-              title="Role alignment"
+              title="How to better align with the role"
               items={p.roleAlignment}
               accent="blue"
               emptyMessage="Resume already aligns well with the target role — no major shifts needed."
             />
             <SectionList
-              title="Rewrite suggestions"
+              title="Possible rewrite suggestions"
               items={p.rewrites}
               accent="purple"
               emptyMessage="No specific rewrites flagged — bullets are clear and well-framed."
