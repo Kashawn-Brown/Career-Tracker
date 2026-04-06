@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { ProAccessBanner }  from "@/components/pro/ProAccessBanner";
 import { RequestProDialog } from "@/components/pro/RequestProDialog";
 import { CompatibilityCheckCard } from "@/components/applications/drawer/CompatibilityCheckCard";
+import { InterviewPrepCard }      from "@/components/applications/drawer/InterviewPrepCard";
 import { ResumeAdviceCard }       from "@/components/applications/drawer/ResumeAdviceCard";
 import { CoverLetterCard }        from "@/components/applications/drawer/CoverLetterCard";
 import { canUseAi, getRemainingAiCredits, hasProPlan, getEffectivePlan } from "@/lib/plans";
@@ -136,6 +137,7 @@ export function ApplicationAiToolsSection({
       {/* Each card gets its own panel ID curried in so the registry can     */}
       {/* target it individually without cards needing to know each other.   */}
 
+      {/* Compatibility tells you how you match the role */}
       <CompatibilityCheckCard
         drawerOpen={drawerOpen}
         application={application}
@@ -153,6 +155,7 @@ export function ApplicationAiToolsSection({
         docsReloadKey={docsReloadKey}
       />
 
+      {/* Resume Advice & Cover Letter help you apply to the role */}
       <ResumeAdviceCard
         application={application}
         baseResumeExists={baseResumeExists}
@@ -174,6 +177,20 @@ export function ApplicationAiToolsSection({
         documentToolRuns={documentToolRuns}
         onRegisterClose={(fn) => registerPanel("cover-letter", fn)}
         onCloseOthers={() => closeOthers("cover-letter")}
+        onDocumentsChanged={onDocumentsChanged}
+        onApplicationChanged={onApplicationChanged}
+        onRefreshMe={() => void refreshMe()}
+        docsReloadKey={docsReloadKey}
+      />
+
+      {/* Interview Prep helps you prepare for the interview */}
+      <InterviewPrepCard
+        application={application}
+        baseResumeExists={baseResumeExists}
+        canUseAi={canUse}
+        documentToolRuns={documentToolRuns}
+        onRegisterClose={(fn) => registerPanel("interview-prep", fn)}
+        onCloseOthers={() => closeOthers("interview-prep")}
         onDocumentsChanged={onDocumentsChanged}
         onApplicationChanged={onApplicationChanged}
         onRefreshMe={() => void refreshMe()}

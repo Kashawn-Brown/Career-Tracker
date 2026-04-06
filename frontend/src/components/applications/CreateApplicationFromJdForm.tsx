@@ -53,9 +53,10 @@ export type OnCreatedArgs = {
   applicationId: string;
   label:         string;
   backgroundTools?: {
-    fit:          boolean;
-    resumeAdvice: boolean;
-    coverLetter:  boolean;
+    fit:           boolean;
+    interviewPrep: boolean;
+    resumeAdvice:  boolean;
+    coverLetter:   boolean;
     // Uploaded once after app creation — all tool runs reference this doc ID
     sourceDocumentId?: number;
     templateText?:     string;
@@ -419,7 +420,7 @@ export function CreateApplicationFromJdForm({
     // Snapshot staged items so reset doesn't race with async work
     const stagedDocuments   = [...documents];
     const stagedConnections = [...selectedConnections];
-    const stagedAiEnabled   = aiEnabled && (selections.fit || selections.resumeAdvice || selections.coverLetter);
+    const stagedAiEnabled   = aiEnabled && (selections.fit || selections.interviewPrep || selections.resumeAdvice || selections.coverLetter);
     const stagedOverride    = overrideFile;
     const stagedTemplateText = templateText;
 
@@ -507,9 +508,10 @@ export function CreateApplicationFromJdForm({
         label,
         ...(stagedAiEnabled && {
           backgroundTools: {
-            fit:          selections.fit,
-            resumeAdvice: selections.resumeAdvice,
-            coverLetter:  selections.coverLetter,
+            fit:           selections.fit,
+            interviewPrep: selections.interviewPrep,
+            resumeAdvice:  selections.resumeAdvice,
+            coverLetter:   selections.coverLetter,
             sourceDocumentId,
             templateText: stagedTemplateText.trim() || undefined,
           },

@@ -53,6 +53,23 @@ export const TOOL_INFO = {
       "A job description must be present on this application for the tool to run.",
   },
 
+  INTERVIEW_PREP: {
+    title: "Interview Prep",
+    content:
+      "This tool generates a personalised interview prep pack for this specific role " +
+      "using the job description and your resume.\n\n" +
+      "It covers the topics you should focus on, questions you are likely to be asked " +
+      "across background, technical, behavioural, situational, and motivational areas, " +
+      "challenge questions that may probe your weaknesses relative to this role, and " +
+      "strong questions for you to ask the interviewer.\n\n" +
+      "It does not generate answers — the goal is to surface what to prepare, " +
+      "not to script your responses.\n\n" +
+      "A job description must be present on this application for the tool to run. " +
+      "Resume is optional but produces richer, more personalised output when provided.\n\n" +
+      "For general interview prep not tied to a specific role, use the Interview Prep " +
+      "tool on the Tools page.",
+  },
+
   GENERIC_RESUME_HELP: {
     title: "Resume Help",
     content:
@@ -83,23 +100,6 @@ export const TOOL_INFO = {
       "Results are saved to your account. Up to 3 results are kept.\n\n" +
       "For a cover letter tailored to a specific job, create an application for " +
       "that role and use the Cover Letter tool in the application drawer.",
-  },
-
-  INTERVIEW_PREP: {
-    title: "Interview Prep",
-    content:
-      "This tool generates a personalised interview prep pack for this specific role " +
-      "using the job description and your resume.\n\n" +
-      "It covers the topics you should focus on, questions you are likely to be asked " +
-      "across background, technical, behavioural, situational, and motivational areas, " +
-      "challenge questions that may probe your weaknesses relative to this role, and " +
-      "strong questions for you to ask the interviewer.\n\n" +
-      "It does not generate answers — the goal is to surface what to prepare, " +
-      "not to script your responses.\n\n" +
-      "A job description must be present on this application for the tool to run. " +
-      "Resume is optional but produces richer, more personalised output when provided.\n\n" +
-      "For general interview prep not tied to a specific role, use the Interview Prep " +
-      "tool on the Tools page.",
   },
 
   GENERIC_INTERVIEW_PREP: {
