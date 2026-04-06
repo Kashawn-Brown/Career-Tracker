@@ -276,7 +276,17 @@ function extractJsonLd(html: string): string | null {
       if (item.identifier?.value) parts.push(`Job ID: ${item.identifier.value}`);
       if (item.description) {
         // Strip HTML tags from the description field
-        const desc = item.description.replace(/<[^>]+>/g, " ").replace(/\s{2,}/g, " ").trim();
+        const desc = item.description
+        .replace(/<[^>]+>/g, " ")   // strip real HTML tags
+        .replace(/&amp;/g,  "&")    // decode entities — some sites store HTML-escaped descriptions
+        .replace(/&lt;/g,   "<")    // (these look like &lt;div&gt; in the raw JSON-LD field)
+        .replace(/&gt;/g,   ">")
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g,  "'")
+        .replace(/&nbsp;/g, " ")
+        .replace(/<[^>]+>/g, " ")   // strip any real tags that were hiding behind entities
+        .replace(/\s{2,}/g, " ")
+        .trim();        
         parts.push("", desc);
       }
 

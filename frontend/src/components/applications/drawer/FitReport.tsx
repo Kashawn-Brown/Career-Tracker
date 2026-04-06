@@ -223,11 +223,6 @@ export function FitReport({
               items={p.prepAreas}
               emptyMessage="No specific prep areas flagged — you appear well-prepared."
             />
-            <SectionList
-              title="Keyword gaps"
-              items={p.keywordGaps}
-              emptyMessage="Keyword coverage looks solid for this role."
-            />
 
           </div>
 

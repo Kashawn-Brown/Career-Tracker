@@ -535,7 +535,6 @@ export type FitV1Response = {
   gaps:        string[];  // shortfalls, missing requirements, and risk areas
   roleSignals: string[];  // what the JD is actually prioritising — helps candidate weight their read
   prepAreas:   string[];  // skills/concepts worth studying before pursuing this role
-  keywordGaps: string[];  // missing terms/tools worth noting for keyword coverage
 };
 
 export const FitV1JsonObject = {
@@ -548,7 +547,6 @@ export const FitV1JsonObject = {
     "gaps",
     "roleSignals",
     "prepAreas",
-    "keywordGaps",
   ],
   properties: {
     score:       { type: "number" },
@@ -558,7 +556,6 @@ export const FitV1JsonObject = {
     // Arrays may be empty — model should not manufacture content to fill them
     roleSignals: { type: "array", items: { type: "string" }, maxItems: 5 },
     prepAreas:   { type: "array", items: { type: "string" }, maxItems: 6 },
-    keywordGaps: { type: "array", items: { type: "string" }, maxItems: 10 },
   },
 } as const;
 
@@ -641,6 +638,5 @@ export function normalizeFitV1Response(raw: FitV1Response): FitV1Response {
     gaps:        dedupeAndCap(cleanStringArray(raw.gaps,        20), 7),
     roleSignals: dedupeAndCap(cleanStringArray(raw.roleSignals, 20), 5),
     prepAreas:   dedupeAndCap(cleanStringArray(raw.prepAreas,   20), 6),
-    keywordGaps: dedupeAndCap(cleanStringArray(raw.keywordGaps, 30), 10),
   };
 }
