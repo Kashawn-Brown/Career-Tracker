@@ -113,6 +113,7 @@ export const routes = {
     applicationFromLink: () => "/ai/application-from-link",
     resumeHelp:          () => "/ai/resume-help",
     coverLetterHelp:     () => "/ai/cover-letter-help",
+    interviewPrep:       () => "/ai/interview-prep",
   },
   userAiArtifacts: {
     list: (args?: { kind?: string }) => {

@@ -503,7 +503,7 @@ export type ConnectionResponse = {
 
 // --- AI Artifacts DTOs: matches backend ---
 
-export type AiArtifactKind = "JD_EXTRACT_V1" | "FIT_V1" | "RESUME_ADVICE" | "COVER_LETTER";
+export type AiArtifactKind = "JD_EXTRACT_V1" | "FIT_V1" | "RESUME_ADVICE" | "COVER_LETTER" | "INTERVIEW_PREP";
 
 export type ApplicationDraftExtracted = {
   company?: string;
@@ -606,9 +606,35 @@ export type CoverLetterPayload = {
   placeholders: string[];
 };
 
+// ─── Interview Prep payload ───────────────────────────────────────────────────
+
+export type FocusTopicPriority = "HIGH" | "MEDIUM" | "LOW";
+
+export type FocusTopic = {
+  topic:    string;
+  priority: FocusTopicPriority;
+  reason:   string;
+};
+
+/**
+ * Interview prep payload — shared shape for generic and targeted variants.
+ * Contains questions and focus topics only — no model-generated answers.
+ */
+export type InterviewPrepPayload = {
+  summary:               string;
+  focusTopics:           FocusTopic[];
+  backgroundQuestions:   string[];
+  technicalQuestions:    string[];
+  behavioralQuestions:   string[];
+  situationalQuestions:  string[];
+  motivationalQuestions: string[];
+  challengeQuestions:    string[];
+  questionsToAsk:        string[];
+};
+
 // ─── User-scoped AI artifacts (generic tools) ─────────────────────────────────
 
-export type UserAiArtifactKind = "RESUME_ADVICE" | "COVER_LETTER";
+export type UserAiArtifactKind = "RESUME_ADVICE" | "COVER_LETTER" | "INTERVIEW_PREP";
 export type ResumeSource       = "BASE_RESUME" | "UPLOAD";
 
 export type UserAiArtifact<TPayload = unknown> = {

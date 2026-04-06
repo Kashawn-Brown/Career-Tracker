@@ -5,6 +5,7 @@ import { useAuth }              from "@/hooks/useAuth";
 import { documentsApi }         from "@/lib/api/documents";
 import { GenericResumeHelpCard }      from "@/components/tools/GenericResumeHelpCard";
 import { GenericCoverLetterHelpCard } from "@/components/tools/GenericCoverLetterHelpCard";
+import { GenericInterviewPrepCard }   from "@/components/tools/GenericInterviewPrepCard";
 import type { Document } from "@/types/api";
 
 export default function ToolsPage() {
@@ -43,7 +44,7 @@ export default function ToolsPage() {
       <div className="mb-4">
         <h1 className="text-2xl font-semibold tracking-tight">Tools</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          AI-powered tools to help improve your resume and craft cover letters.  
+          AI-powered tools to help with interview prep, resume improvement, and cover letters.
           <br/>
           Results are saved so you can come back to them later.
         </p>
@@ -59,6 +60,10 @@ export default function ToolsPage() {
             hasBaseResume={hasBaseResume}
             onSuccess={handleToolSuccess}
           />
+          <GenericInterviewPrepCard
+            hasBaseResume={hasBaseResume}
+            onSuccess={handleToolSuccess}
+          />
           <GenericCoverLetterHelpCard
             hasBaseResume={hasBaseResume}
             baseCoverLetterExists={baseCoverLetterExists}
@@ -68,7 +73,7 @@ export default function ToolsPage() {
       )}
       {/* Contextual nudge — points users toward the drawer for role-specific work */}
         <p className="mt-2 text-xs text-muted-foreground">
-          Looking to tailor your resume or generate a cover letter for a{" "}
+          Looking to prep for, tailor your resume, or generate a cover letter for a{" "}
           <span className="font-medium text-foreground">specific role</span>?{" "}
           <br/>
           Open that application from the{" "}

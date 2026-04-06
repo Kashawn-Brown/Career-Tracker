@@ -6,11 +6,13 @@ import { userAiArtifactsApi }   from "@/lib/api/user-ai-artifacts";
 import { documentsApi }         from "@/lib/api/documents";
 import { ResumeAdviceResult }   from "@/components/tools/ResumeAdviceResult";
 import { CoverLetterResult }    from "@/components/tools/CoverLetterResult";
+import { InterviewPrepResult }  from "@/components/tools/InterviewPrepResult";
 import type {
   UserAiArtifact,
   UserAiArtifactKind,
   ResumeAdvicePayload,
   CoverLetterPayload,
+  InterviewPrepPayload,
 } from "@/types/api";
 
 interface Props {
@@ -86,7 +88,11 @@ export function PastRunsSection({ kind, refreshKey = 0, onDeleted }: Props) {
 
   if (!artifacts || artifacts.length === 0) return null;
 
-  const label = kind === "RESUME_ADVICE" ? "resume advice run" : "cover letter";
+  const label =
+    kind === "RESUME_ADVICE"   ? "resume advice run" :
+    kind === "COVER_LETTER"    ? "cover letter" :
+    "interview prep";
+
 
   return (
     <div className="border-t px-5 py-3 space-y-3">
@@ -152,6 +158,10 @@ export function PastRunsSection({ kind, refreshKey = 0, onDeleted }: Props) {
                 {kind === "RESUME_ADVICE" ? (
                   <ResumeAdviceResult
                     payload={artifact.payload as ResumeAdvicePayload}
+                  />
+                ) : kind === "INTERVIEW_PREP" ? (
+                  <InterviewPrepResult
+                    payload={artifact.payload as InterviewPrepPayload}
                   />
                 ) : (
                   <CoverLetterResult
