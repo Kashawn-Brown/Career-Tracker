@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import type { AiArtifact, FitV1Payload } from "@/types/api";
 import type { FitBand } from "@/lib/fit/presentation";
 import { X } from "lucide-react";
+import { FitReportLegacy } from "@/components/applications/drawer/FitReportLegacy";
 
 // Selector for the application details drawer
 const DRAWER_SELECTOR = '[data-app-drawer="application-details"]';
@@ -25,14 +26,26 @@ type Props = {
 
 // ─── SectionList ──────────────────────────────────────────────────────────────
 
-function SectionList({ title, items }: { title: string; items?: string[] }) {
-  if (!items?.length) return null;
+/**
+ * SectionList — renders a titled list of strings.
+ * When items is empty, shows emptyMessage as a muted note rather than hiding
+ * the section, so the candidate knows the tool evaluated that area.
+ */
+function SectionList({ title, items, emptyMessage }: {
+  title:         string;
+  items?:        string[];
+  emptyMessage?: string;
+}) {
   return (
     <div className="space-y-2">
       <div className="text-md font-medium">{title}</div>
-      <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
-        {items.map((item, i) => <li key={i}>{item}</li>)}
-      </ul>
+      {items?.length ? (
+        <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
+          {items.map((item, i) => <li key={i}>{item}</li>)}
+        </ul>
+      ) : emptyMessage ? (
+        <p className="text-sm text-muted-foreground italic">{emptyMessage}</p>
+      ) : null}
     </div>
   );
 }
@@ -92,6 +105,21 @@ export function FitReport({
     window.addEventListener("resize", compute);
     return () => window.removeEventListener("resize", compute);
   }, [open]);
+
+  // Route legacy v1 artifacts (pre-v2) to the legacy renderer.
+  // v1 is identified by the presence of "recommendedEdits" which was removed in v2.
+  if ("recommendedEdits" in artifact.payload) {
+    return (
+      <FitReportLegacy
+        open={open}
+        onOpenChange={onOpenChange}
+        artifact={artifact as AiArtifact<any>}
+        band={band}
+        usedDocLabel={usedDocLabel}
+        jobLabel={jobLabel}
+      />
+    );
+  }
 
   if (!open) return null;
 
@@ -173,12 +201,33 @@ export function FitReport({
                   )}
             </div>
 
-            {/* Full sections */}
-            <SectionList title="Strengths"                     items={p.strengths} />
-            <SectionList title="Gaps"                          items={p.gaps} />
-            <SectionList title="Keyword gaps"                  items={p.keywordGaps} />
-            <SectionList title="Recommended resume edits"      items={p.recommendedEdits} />
-            <SectionList title="Questions to ask the employer" items={p.questionsToAsk} />
+            {/* Full sections — empty arrays show a brief positive note rather than
+                hiding the section entirely, so the candidate knows the tool evaluated it. */}
+            <SectionList
+              title="Strengths"
+              items={p.strengths}
+              emptyMessage="No significant gaps — strong alignment across the board."
+            />
+            <SectionList
+              title="Gaps"
+              items={p.gaps}
+              emptyMessage="No major gaps identified for this role."
+            />
+            <SectionList
+              title="What this role prioritises"
+              items={p.roleSignals}
+              emptyMessage="Not enough detail in the JD to extract clear signals."
+            />
+            <SectionList
+              title="Areas to brush up on"
+              items={p.prepAreas}
+              emptyMessage="No specific prep areas flagged — you appear well-prepared."
+            />
+            <SectionList
+              title="Keyword gaps"
+              items={p.keywordGaps}
+              emptyMessage="Keyword coverage looks solid for this role."
+            />
 
           </div>
 
