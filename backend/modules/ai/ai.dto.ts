@@ -517,14 +517,25 @@ export function normalizeApplicationFromJdResponse(
 
 // ─── FIT_V1 ────────────────────────────────────────────────────────────────────
 
+/**
+ * Fit v1 payload — v2 shape.
+ *
+ * Distinct from Resume Advice: Fit operates on the candidate as a whole
+ * (their history, roles, skills) and answers "how well do I line up against
+ * this role?" — not "how do I fix my resume?".
+ *
+ * v2 removes recommendedEdits (resume advice's job) and questionsToAsk
+ * (Phase 8 interview prep's job). Adds roleSignals and prepAreas.
+ * Legacy v1 artifacts are detected on the frontend via "recommendedEdits" in payload.
+ */
 export type FitV1Response = {
-  score:            number;   // 0–100
-  fitSummary:       string;   // 2–3 sentence overall narrative shown in the drawer card
-  strengths:        string[];
-  gaps:             string[];
-  keywordGaps:      string[];
-  recommendedEdits: string[];
-  questionsToAsk:   string[];
+  score:       number;    // 0–100 overall fit score
+  fitSummary:  string;    // 2–3 sentence narrative shown in the drawer card
+  strengths:   string[];  // strongest alignments between candidate and role
+  gaps:        string[];  // shortfalls, missing requirements, and risk areas
+  roleSignals: string[];  // what the JD is actually prioritising — helps candidate weight their read
+  prepAreas:   string[];  // skills/concepts worth studying before pursuing this role
+  keywordGaps: string[];  // missing terms/tools worth noting for keyword coverage
 };
 
 export const FitV1JsonObject = {
@@ -535,18 +546,19 @@ export const FitV1JsonObject = {
     "fitSummary",
     "strengths",
     "gaps",
+    "roleSignals",
+    "prepAreas",
     "keywordGaps",
-    "recommendedEdits",
-    "questionsToAsk",
   ],
   properties: {
-    score:            { type: "number" },
-    fitSummary:       { type: "string" },
-    strengths:        { type: "array", items: { type: "string" }, maxItems: 7 },
-    gaps:             { type: "array", items: { type: "string" }, maxItems: 7 },
-    keywordGaps:      { type: "array", items: { type: "string" }, maxItems: 10 },
-    recommendedEdits: { type: "array", items: { type: "string" }, maxItems: 5 },
-    questionsToAsk:   { type: "array", items: { type: "string" }, maxItems: 5 },
+    score:       { type: "number" },
+    fitSummary:  { type: "string" },
+    strengths:   { type: "array", items: { type: "string" }, maxItems: 7 },
+    gaps:        { type: "array", items: { type: "string" }, maxItems: 7 },
+    // Arrays may be empty — model should not manufacture content to fill them
+    roleSignals: { type: "array", items: { type: "string" }, maxItems: 5 },
+    prepAreas:   { type: "array", items: { type: "string" }, maxItems: 6 },
+    keywordGaps: { type: "array", items: { type: "string" }, maxItems: 10 },
   },
 } as const;
 
@@ -623,12 +635,12 @@ function dedupeAndCap(items: string[], max: number): string[] {
  */
 export function normalizeFitV1Response(raw: FitV1Response): FitV1Response {
   return {
-    score:            clampFitScore(raw.score),
-    fitSummary:       (typeof raw.fitSummary === "string" ? raw.fitSummary.trim() : "") || "(No summary provided)",
-    strengths:        dedupeAndCap(cleanStringArray(raw.strengths,        20), 7),
-    gaps:             dedupeAndCap(cleanStringArray(raw.gaps,             20), 7),
-    keywordGaps:      dedupeAndCap(cleanStringArray(raw.keywordGaps,      30), 12),
-    recommendedEdits: dedupeAndCap(cleanStringArray(raw.recommendedEdits, 20), 7),
-    questionsToAsk:   dedupeAndCap(cleanStringArray(raw.questionsToAsk,   20), 5),
+    score:       clampFitScore(raw.score),
+    fitSummary:  (typeof raw.fitSummary === "string" ? raw.fitSummary.trim() : "") || "(No summary provided)",
+    strengths:   dedupeAndCap(cleanStringArray(raw.strengths,   20), 7),
+    gaps:        dedupeAndCap(cleanStringArray(raw.gaps,        20), 7),
+    roleSignals: dedupeAndCap(cleanStringArray(raw.roleSignals, 20), 5),
+    prepAreas:   dedupeAndCap(cleanStringArray(raw.prepAreas,   20), 6),
+    keywordGaps: dedupeAndCap(cleanStringArray(raw.keywordGaps, 30), 10),
   };
 }
