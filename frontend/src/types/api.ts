@@ -218,6 +218,8 @@ export type Application = {
   description: string | null;
   notes: string | null;
   tagsText: string | null;
+  // AI-generated role summary from JD extraction; null for manually created applications
+  jdSummary: string | null;
 
   fitScore: number | null;
   fitUpdatedAt: string | null;
@@ -303,6 +305,8 @@ export type CreateApplicationRequest = {
   description?: string;
   notes?: string;
   tagsText?: string;
+  // AI-generated role summary; only sent when creating from JD extraction
+  jdSummary?: string;
 };
 
 // UpdateApplicationRequest: matches backend schema for PATCH /applications/{id}.
@@ -548,14 +552,19 @@ export type ApplicationDraftResponse = {
 };
 
 
+/**
+ * Fit v1 payload — v2 shape.
+ * Legacy v1 artifacts (pre-v2) are detected via "recommendedEdits" in payload
+ * and rendered by FitReportLegacy instead.
+ */
 export type FitV1Payload = {
-  score:            number;   // 0–100
-  fitSummary:       string;   // 2–3 sentence overall narrative shown in the drawer card
-  strengths:        string[];
-  gaps:             string[];
-  keywordGaps:      string[];
-  recommendedEdits: string[];
-  questionsToAsk:   string[];
+  score:       number;    // 0–100 overall fit score
+  fitSummary:  string;    // 2–3 sentence narrative shown in the drawer card
+  strengths:   string[];  // strongest alignments
+  gaps:        string[];  // shortfalls, missing requirements, and risk areas
+  roleSignals: string[];  // what the JD is actually prioritising
+  prepAreas:   string[];  // what to brush up on before pursuing this role
+  keywordGaps: string[];  // missing terms/tools for keyword coverage
 };
 
 export type AiArtifact<TPayload = unknown> = {
@@ -575,13 +584,18 @@ export type AiArtifact<TPayload = unknown> = {
 
 // ─── Document tool payloads ───────────────────────────────────────────────────
 
+/**
+ * Resume advice payload — v2 shape.
+ * Legacy v1 artifacts (pre-v2) are detected via "tailoring" in payload
+ * and rendered by ResumeAdviceReportLegacy instead.
+ */
 export type ResumeAdvicePayload = {
-  summary:               string;
-  strengths:             string[];
-  improvements:          string[];
-  tailoring:             string[];
-  rewrites:              string[];
-  keywords:              string[];
+  summary:       string;    // 2–3 sentence overall assessment
+  strengths:     string[];  // what's working well — lean into these
+  improvements:  string[];  // what's weak, vague, or undersold — things to fix
+  roleAlignment: string[];  // role-specific: what to emphasise, shift, or add for this JD
+  rewrites:      string[];  // specific directional rewrite suggestions
+  keywords:      string[];  // keywords/concepts worth incorporating naturally
 };
 
 export type CoverLetterPayload = {

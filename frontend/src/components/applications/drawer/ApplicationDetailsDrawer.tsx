@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Pencil, Save, X, Star } from "lucide-react";
+import { Pencil, Save, X, Star, ChevronDown, ChevronRight } from "lucide-react";
 import type { CSSProperties } from "react";
 
 
@@ -348,6 +348,8 @@ export function ApplicationDetailsDrawer({
 
   // A key to force a reload of the documents list
   const [docsReloadKey, setDocsReloadKey] = useState(0);
+  // Controls the Role Summary collapsible — starts closed so it doesn't dominate the view
+  const [jdSummaryOpen, setJdSummaryOpen] = useState(false);
 
   // Ref attached to the AI Tools section — used to scroll into view when a
   // completion notice is clicked (scrollToAiToolsAppId set on the page).
@@ -396,6 +398,7 @@ export function ApplicationDetailsDrawer({
       setIsSaving(false);
       setError(null);
       setTagInput("");
+      setJdSummaryOpen(false); // collapse summary when switching to a different application
       setArmedTagIndex(null);
     }
 
@@ -987,6 +990,30 @@ export function ApplicationDetailsDrawer({
                 )}
               </div>
             </Section>
+
+            {/* Role Summary — only shown when jdSummary was populated at create time
+                (i.e. the application was created via JD extraction, not manually). */}
+            {application.jdSummary && (
+              <Section title="" noParent={true}>
+                <div className="rounded-md border">
+                  <button
+                    type="button"
+                    onClick={() => setJdSummaryOpen((v) => !v)}
+                    className="flex w-full items-center justify-between px-3 py-3 text-sm text-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
+                  >
+                    <span className="text-md font-medium">{jdSummaryOpen ? "Hide summary" : "Summary"}</span>
+                    {jdSummaryOpen
+                      ? <ChevronDown  className="h-4 w-4 shrink-0" />
+                      : <ChevronRight className="h-4 w-4 shrink-0" />}
+                  </button>
+                  {jdSummaryOpen && (
+                    <div className="px-3 pb-3 pt-1 text-sm text-foreground/80 leading-relaxed border-t">
+                      {application.jdSummary}
+                    </div>
+                  )}
+                </div>
+              </Section>
+            )}
 
             {/* Tags section */}
             <Section title="Tags">

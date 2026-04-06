@@ -62,12 +62,12 @@ beforeEach(() => {
 // ─── Shared mock payloads ────────────────────────────────────────────────────
 
 const MOCK_RESUME_ADVICE = {
-  summary:      "Solid backend profile with room to grow on cloud tooling.",
-  strengths:    ["Node.js", "Postgres"],
-  improvements: ["Add AWS exposure"],
-  tailoring:    ["Highlight API design"],
-  rewrites:     ["Expand the Fastify bullet"],
-  keywords:     ["Lambda", "SQS"],
+  summary:       "Solid backend profile with room to grow on cloud tooling.",
+  strengths:     ["Node.js", "Postgres"],
+  improvements:  ["Add AWS exposure"],
+  roleAlignment: ["Highlight API design experience more prominently for this role"],
+  rewrites:      ["Expand the Fastify bullet to include throughput or scale context"],
+  keywords:      ["Lambda", "SQS"],
 };
 
 const MOCK_COVER_LETTER = {

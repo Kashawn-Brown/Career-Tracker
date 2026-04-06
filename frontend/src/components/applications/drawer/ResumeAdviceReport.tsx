@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import type { AiArtifact, ResumeAdvicePayload } from "@/types/api";
+import { ResumeAdviceReportLegacy } from "@/components/applications/drawer/ResumeAdviceReportLegacy";
 
 // Mirrors FitReport layout constants
 const DRAWER_SELECTOR   = '[data-app-drawer="application-details"]';
@@ -15,6 +16,16 @@ type Props = {
   onOpenChange: (open: boolean) => void;
   artifact:     AiArtifact<ResumeAdvicePayload>;
   jobLabel:     string;
+};
+
+// Legacy Resume Advice v1 payload shape — used by artifacts generated before the v2 redesign.
+type ResumeAdviceV1LegacyPayload = {
+  summary?: string;
+  strengths?: string[];
+  improvements?: string[];
+  tailoring?: string[];
+  rewrites?: string[];
+  keywords?: string[];
 };
 
 /**
@@ -44,6 +55,19 @@ export function ResumeAdviceReport({ open, onOpenChange, artifact, jobLabel }: P
     window.addEventListener("resize", compute);
     return () => window.removeEventListener("resize", compute);
   }, [open]);
+
+  // Route legacy v1 artifacts (pre-v2) to the legacy renderer.
+  // v1 is identified by the presence of "tailoring" which was removed in v2.
+  if ("tailoring" in artifact.payload) {
+    return (
+      <ResumeAdviceReportLegacy
+        open={open}
+        onOpenChange={onOpenChange}
+        artifact={artifact as AiArtifact<ResumeAdviceV1LegacyPayload>}
+        jobLabel={jobLabel}
+      />
+    );
+  }
 
   if (!open) return null;
 
@@ -97,10 +121,32 @@ export function ResumeAdviceReport({ open, onOpenChange, artifact, jobLabel }: P
             {/* Summary — gives a quick sense of what the advice covers */}
             <p className="text-sm text-foreground/80 leading-relaxed font-medium">{p.summary}</p>
 
-            <SectionList title="Strengths"            items={p.strengths}    accent="green" />
-            <SectionList title="Areas to improve"     items={p.improvements} accent="amber" />
-            <SectionList title="Tailoring suggestions" items={p.tailoring}   accent="blue"  />
-            <SectionList title="Rewrite suggestions"  items={p.rewrites}     accent="purple" />
+            {/* Sections — empty arrays show a brief positive note so the candidate
+                knows the tool evaluated that area and found nothing to flag.      */}
+            <SectionList
+              title="What's working"
+              items={p.strengths}
+              accent="green"
+              emptyMessage="No clear standout strengths identified — consider adding more specific achievements."
+            />
+            <SectionList
+              title="Areas to improve"
+              items={p.improvements}
+              accent="amber"
+              emptyMessage="Nothing significant flagged — resume reads clearly and specifically."
+            />
+            <SectionList
+              title="How to better align with the role"
+              items={p.roleAlignment}
+              accent="blue"
+              emptyMessage="Resume already aligns well with the target role — no major shifts needed."
+            />
+            <SectionList
+              title="Possible rewrite suggestions"
+              items={p.rewrites}
+              accent="purple"
+              emptyMessage="No specific rewrites flagged — bullets are clear and well-framed."
+            />
 
             {p.keywords.length > 0 && (
               <div>
@@ -126,15 +172,19 @@ export function ResumeAdviceReport({ open, onOpenChange, artifact, jobLabel }: P
 }
 
 // Coloured dot list — same visual language as the inline ResumeAdviceResult component
+/**
+ * SectionList — coloured-dot list with optional empty-state message.
+ * Shows emptyMessage (muted italic) instead of hiding the section when items
+ * is empty, so the candidate knows the tool evaluated that area.
+ */
 function SectionList({
-  title, items, accent,
+  title, items, accent, emptyMessage,
 }: {
-  title: string;
-  items: string[];
-  accent: "green" | "amber" | "blue" | "purple";
+  title:         string;
+  items:         string[];
+  accent:        "green" | "amber" | "blue" | "purple";
+  emptyMessage?: string;
 }) {
-  if (!items.length) return null;
-
   const dotColor = {
     green:  "bg-green-500",
     amber:  "bg-amber-500",
@@ -145,14 +195,18 @@ function SectionList({
   return (
     <div className="space-y-2">
       <div className="text-md font-medium">{title}</div>
-      <ul className="space-y-1.5">
-        {items.map((item, i) => (
-          <li key={i} className="flex gap-2 text-sm text-muted-foreground">
-            <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${dotColor}`} />
-            <span className="leading-relaxed">{item}</span>
-          </li>
-        ))}
-      </ul>
+      {items.length ? (
+        <ul className="space-y-1.5">
+          {items.map((item, i) => (
+            <li key={i} className="flex gap-2 text-sm text-muted-foreground">
+              <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${dotColor}`} />
+              <span className="leading-relaxed">{item}</span>
+            </li>
+          ))}
+        </ul>
+      ) : emptyMessage ? (
+        <p className="text-sm text-muted-foreground italic">{emptyMessage}</p>
+      ) : null}
     </div>
   );
 }
