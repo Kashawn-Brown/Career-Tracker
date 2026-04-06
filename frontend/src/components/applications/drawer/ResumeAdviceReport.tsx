@@ -18,6 +18,16 @@ type Props = {
   jobLabel:     string;
 };
 
+// Legacy Resume Advice v1 payload shape — used by artifacts generated before the v2 redesign.
+type ResumeAdviceV1LegacyPayload = {
+  summary?: string;
+  strengths?: string[];
+  improvements?: string[];
+  tailoring?: string[];
+  rewrites?: string[];
+  keywords?: string[];
+};
+
 /**
  * ResumeAdviceReport — renders the resume advice result as a non-blocking
  * fixed panel, following the same layout pattern as FitReport and CoverLetterReport.
@@ -53,7 +63,7 @@ export function ResumeAdviceReport({ open, onOpenChange, artifact, jobLabel }: P
       <ResumeAdviceReportLegacy
         open={open}
         onOpenChange={onOpenChange}
-        artifact={artifact as AiArtifact<any>}
+        artifact={artifact as AiArtifact<ResumeAdviceV1LegacyPayload>}
         jobLabel={jobLabel}
       />
     );

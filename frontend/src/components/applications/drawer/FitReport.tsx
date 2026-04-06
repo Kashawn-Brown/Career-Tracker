@@ -24,6 +24,17 @@ type Props = {
   jobLabel: string;
 };
 
+// Legacy Fit v1 payload shape — used by artifacts generated before the v2 redesign.
+type FitV1LegacyPayload = {
+  score: number;
+  fitSummary?: string;
+  strengths?: string[];
+  gaps?: string[];
+  keywordGaps?: string[];
+  recommendedEdits?: string[];
+  questionsToAsk?: string[];
+};
+
 // ─── SectionList ──────────────────────────────────────────────────────────────
 
 /**
@@ -113,7 +124,7 @@ export function FitReport({
       <FitReportLegacy
         open={open}
         onOpenChange={onOpenChange}
-        artifact={artifact as AiArtifact<any>}
+        artifact={artifact as AiArtifact<FitV1LegacyPayload>}
         band={band}
         usedDocLabel={usedDocLabel}
         jobLabel={jobLabel}
