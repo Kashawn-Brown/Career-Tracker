@@ -16,12 +16,13 @@ export const TOOL_INFO = {
       "This tool analyses how well your profile lines up with the job based on " +
       "the application's job description and your resume / CV.\n\n" +
       "It produces a match score (0–100), a fit label, and a breakdown of your " +
-      "strengths and gaps relative to what the role requires.\n\n" +
+      "strengths, gaps, what the role is prioritising, and areas worth brushing up on.\n\n" +
       "By default it uses your saved base resume. You can optionally upload a " +
       "different resume file for this specific run. That file will be attached " +
-      "to the application so you can reference it later. \n\n" +
+      "to the application so you can reference it later.\n\n" +
       "For best results you can consider using a full CV covering all of your skills, experience, projects and achievements.\n\n" +
-      "A job description must be present on this application for the tool to run. The tool will only use the job description and your resume / CV to generate the report.",
+      "A job description must be present on this application for the tool to run. The tool will only use the job description and your resume / CV to generate the report.\n\n" +
+      "To prepare for an interview for this role — including likely questions and topics to study — use the Interview Prep tool.",
   },
 
   RESUME_ADVICE: {
