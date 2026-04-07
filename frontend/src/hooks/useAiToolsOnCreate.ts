@@ -5,9 +5,10 @@ import { useCallback, useState } from "react";
 const STORAGE_KEY = "career-tracker:ai-tools-on-create";
 
 export type AiToolSelections = {
-  fit:          boolean;
-  resumeAdvice: boolean;
-  coverLetter:  boolean;
+  fit:           boolean;
+  interviewPrep: boolean;
+  resumeAdvice:  boolean;
+  coverLetter:   boolean;
 };
 
 type PersistedState = {
@@ -17,7 +18,7 @@ type PersistedState = {
 
 const DEFAULTS: PersistedState = {
   enabled: false,
-  selections: { fit: true, resumeAdvice: true, coverLetter: true },
+  selections: { fit: true, interviewPrep: true, resumeAdvice: true, coverLetter: true },
 };
 
 function readFromStorage(): PersistedState {
@@ -31,9 +32,10 @@ function readFromStorage(): PersistedState {
     return {
       enabled: parsed.enabled ?? DEFAULTS.enabled,
       selections: {
-        fit:          (sel as AiToolSelections).fit          ?? DEFAULTS.selections.fit,
-        resumeAdvice: (sel as AiToolSelections).resumeAdvice ?? DEFAULTS.selections.resumeAdvice,
-        coverLetter:  (sel as AiToolSelections).coverLetter  ?? DEFAULTS.selections.coverLetter,
+        fit:           (sel as AiToolSelections).fit           ?? DEFAULTS.selections.fit,
+        interviewPrep: (sel as AiToolSelections).interviewPrep ?? DEFAULTS.selections.interviewPrep,
+        resumeAdvice:  (sel as AiToolSelections).resumeAdvice  ?? DEFAULTS.selections.resumeAdvice,
+        coverLetter:   (sel as AiToolSelections).coverLetter   ?? DEFAULTS.selections.coverLetter,
       },
     };
   } catch {

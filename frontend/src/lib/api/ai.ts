@@ -85,4 +85,27 @@ export const aiApi = {
       { method: "POST", body: form }
     );
   },
+
+  /**
+   * Generic interview prep. Sends multipart/form-data.
+   * resumeFile is optional — falls back to stored base resume if omitted.
+   * At least one of targetField, targetRolesText, or additionalContext is required.
+   */
+  interviewPrep(fields: {
+    targetField?:       string;
+    targetRolesText?:   string;
+    additionalContext?: string;
+    resumeFile?:        File | null;
+  }) {
+    const form = new FormData();
+    if (fields.targetField)       form.append("targetField",       fields.targetField);
+    if (fields.targetRolesText)   form.append("targetRolesText",   fields.targetRolesText);
+    if (fields.additionalContext) form.append("additionalContext", fields.additionalContext);
+    if (fields.resumeFile)        form.append("resumeFile",        fields.resumeFile);
+
+    return apiFetch<import("@/types/api").UserAiArtifact<import("@/types/api").InterviewPrepPayload>>(
+      routes.ai.interviewPrep(),
+      { method: "POST", body: form }
+    );
+  },
 };

@@ -503,7 +503,7 @@ export type ConnectionResponse = {
 
 // --- AI Artifacts DTOs: matches backend ---
 
-export type AiArtifactKind = "JD_EXTRACT_V1" | "FIT_V1" | "RESUME_ADVICE" | "COVER_LETTER";
+export type AiArtifactKind = "JD_EXTRACT_V1" | "FIT_V1" | "RESUME_ADVICE" | "COVER_LETTER" | "INTERVIEW_PREP";
 
 export type ApplicationDraftExtracted = {
   company?: string;
@@ -560,11 +560,11 @@ export type ApplicationDraftResponse = {
 export type FitV1Payload = {
   score:       number;    // 0–100 overall fit score
   fitSummary:  string;    // 2–3 sentence narrative shown in the drawer card
-  strengths:   string[];  // strongest alignments
+  strengths:   string[];  // strongest alignments with this role
   gaps:        string[];  // shortfalls, missing requirements, and risk areas
   roleSignals: string[];  // what the JD is actually prioritising
   prepAreas:   string[];  // what to brush up on before pursuing this role
-  keywordGaps: string[];  // missing terms/tools for keyword coverage
+  // Note: keywordGaps was removed in v2 — use FitReportLegacy for v1 artifacts
 };
 
 export type AiArtifact<TPayload = unknown> = {
@@ -590,12 +590,13 @@ export type AiArtifact<TPayload = unknown> = {
  * and rendered by ResumeAdviceReportLegacy instead.
  */
 export type ResumeAdvicePayload = {
-  summary:       string;    // 2–3 sentence overall assessment
-  strengths:     string[];  // what's working well — lean into these
-  improvements:  string[];  // what's weak, vague, or undersold — things to fix
-  roleAlignment: string[];  // role-specific: what to emphasise, shift, or add for this JD
-  rewrites:      string[];  // specific directional rewrite suggestions
-  keywords:      string[];  // keywords/concepts worth incorporating naturally
+  summary:         string;    // 2–3 sentence overall assessment
+  strengths:       string[];  // what's working well — lean into these
+  improvements:    string[];  // what's weak, vague, or undersold — things to fix
+  roleAlignment:   string[];  // role-specific: what to emphasise, shift, or add for this JD
+  rewrites:        string[];  // specific directional rewrite suggestions
+  keywordsPresent: string[];  // role-relevant keywords already in the resume — keep these
+  keywordsMissing: string[];  // role-relevant keywords not found in the resume — worth adding
 };
 
 export type CoverLetterPayload = {
@@ -606,9 +607,35 @@ export type CoverLetterPayload = {
   placeholders: string[];
 };
 
+// ─── Interview Prep payload ───────────────────────────────────────────────────
+
+export type FocusTopicPriority = "HIGH" | "MEDIUM" | "LOW";
+
+export type FocusTopic = {
+  topic:    string;
+  priority: FocusTopicPriority;
+  reason:   string;
+};
+
+/**
+ * Interview prep payload — shared shape for generic and targeted variants.
+ * Contains questions and focus topics only — no model-generated answers.
+ */
+export type InterviewPrepPayload = {
+  summary:               string;
+  focusTopics:           FocusTopic[];
+  backgroundQuestions:   string[];
+  technicalQuestions:    string[];
+  behavioralQuestions:   string[];
+  situationalQuestions:  string[];
+  motivationalQuestions: string[];
+  challengeQuestions:    string[];
+  questionsToAsk:        string[];
+};
+
 // ─── User-scoped AI artifacts (generic tools) ─────────────────────────────────
 
-export type UserAiArtifactKind = "RESUME_ADVICE" | "COVER_LETTER";
+export type UserAiArtifactKind = "RESUME_ADVICE" | "COVER_LETTER" | "INTERVIEW_PREP";
 export type ResumeSource       = "BASE_RESUME" | "UPLOAD";
 
 export type UserAiArtifact<TPayload = unknown> = {

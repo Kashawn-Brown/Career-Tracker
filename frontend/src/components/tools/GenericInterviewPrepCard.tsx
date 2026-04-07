@@ -1,14 +1,14 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Button }            from "@/components/ui/button";
-import { ApiError }          from "@/lib/api/client";
-import { aiApi }             from "@/lib/api/ai";
-import { ResumeAdviceResult } from "@/components/tools/ResumeAdviceResult";
-import { ToolInfoPopover }   from "@/components/tools/ToolInfoPopover";
-import { TOOL_INFO }         from "@/lib/tool-info";
-import { PastRunsSection }   from "@/components/tools/PastRunsSection";
-import type { UserAiArtifact, ResumeAdvicePayload } from "@/types/api";
+import { Button }                from "@/components/ui/button";
+import { ApiError }              from "@/lib/api/client";
+import { aiApi }                 from "@/lib/api/ai";
+import { InterviewPrepResult }   from "@/components/tools/InterviewPrepResult";
+import { ToolInfoPopover }       from "@/components/tools/ToolInfoPopover";
+import { TOOL_INFO }             from "@/lib/tool-info";
+import { PastRunsSection }       from "@/components/tools/PastRunsSection";
+import type { UserAiArtifact, InterviewPrepPayload } from "@/types/api";
 
 // Accepted resume file types (matches backend allowlist)
 const RESUME_ACCEPT = ".pdf,.txt,.docx";
@@ -19,33 +19,35 @@ interface Props {
 }
 
 /**
- * GenericResumeHelpCard — card-first layout for the Tools page.
+ * GenericInterviewPrepCard — card-first layout for the Tools page.
  *
- * Collapsed by default: shows name, description, and ? info button.
- * Clicking "Get started" expands the form inline.
- * After a successful run the result appears below the form.
+ * Generates interview prep from the user's resume + targeting context.
+ * Not tied to a specific job — helps the candidate prepare to defend
+ * their background, history, and decisions in general.
+ *
+ * Collapsed by default; expands inline on "Get started".
+ * Past runs shown below the header in collapsed state.
  */
-export function GenericResumeHelpCard({ hasBaseResume, onSuccess }: Props) {
-  // Whether the form is expanded (card-first: collapsed by default)
+export function GenericInterviewPrepCard({ hasBaseResume, onSuccess }: Props) {
   const [expanded, setExpanded] = useState(false);
 
   const [targetField,       setTargetField]       = useState("");
   const [targetRolesText,   setTargetRolesText]   = useState("");
-  const [targetKeywords,    setTargetKeywords]     = useState("");
   const [additionalContext, setAdditionalContext] = useState("");
   const [resumeFile,        setResumeFile]         = useState<File | null>(null);
 
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState<string | null>(null);
+  const [artifact, setArtifact] = useState<UserAiArtifact<InterviewPrepPayload> | null>(null);
+
   // Bumped after a successful run to trigger PastRunsSection re-fetch
   const [pastRunsKey, setPastRunsKey] = useState(0);
 
-  const [artifact, setArtifact] = useState<UserAiArtifact<ResumeAdvicePayload> | null>(null);
-
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // At least one targeting field required so the output isn't generic mush
+  // At least one targeting field required so the output has direction
   const hasTarget = targetField.trim() || targetRolesText.trim() || additionalContext.trim();
+  // Resume is required — base resume or explicit upload
   const canRun    = hasTarget && (hasBaseResume || resumeFile);
 
   async function handleSubmit() {
@@ -54,11 +56,10 @@ export function GenericResumeHelpCard({ hasBaseResume, onSuccess }: Props) {
     setError(null);
 
     try {
-      const result = await aiApi.resumeHelp({
-        targetField:       targetField.trim()      || undefined,
-        targetRolesText:   targetRolesText.trim()  || undefined,
-        targetKeywords:    targetKeywords.trim()   || undefined,
-        additionalContext: additionalContext.trim() || undefined,
+      const result = await aiApi.interviewPrep({
+        targetField:       targetField.trim()       || undefined,
+        targetRolesText:   targetRolesText.trim()   || undefined,
+        additionalContext: additionalContext.trim()  || undefined,
         resumeFile:        resumeFile ?? undefined,
       });
       setArtifact(result);
@@ -71,19 +72,17 @@ export function GenericResumeHelpCard({ hasBaseResume, onSuccess }: Props) {
     }
   }
 
-  const info = TOOL_INFO.GENERIC_RESUME_HELP;
+  const info = TOOL_INFO.GENERIC_INTERVIEW_PREP;
 
   return (
     <div className="rounded-lg border bg-card">
 
-      {/* ── Card header — always visible ──────────────────────────────────
-           Shows the tool name, description, and ? info button.
-           "Get started" expands the form; stays visible after expansion.  */}
+      {/* ── Card header — always visible ────────────────────────────────── */}
       <div className="flex items-start justify-between gap-3 p-5">
         <div className="min-w-0">
           <div className="font-semibold text-foreground">{info.title}</div>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Get actionable advice to improve your resume for your target roles.
+            Prepare to explain and defend your background, experience, and decisions in an interview.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -96,11 +95,10 @@ export function GenericResumeHelpCard({ hasBaseResume, onSuccess }: Props) {
         </div>
       </div>
 
-      {/* ── Past runs — shown in collapsed state so users see previous results
-           without needing to open the form first. Up to 3 stored per user. */}
-      <PastRunsSection kind="RESUME_ADVICE" refreshKey={pastRunsKey} />
+      {/* ── Past runs — visible in collapsed state ───────────────────────── */}
+      <PastRunsSection kind="INTERVIEW_PREP" refreshKey={pastRunsKey} />
 
-      {/* ── Expanded form ─────────────────────────────────────────────────*/}
+      {/* ── Expanded form ─────────────────────────────────────────────────── */}
       {expanded && (
         <div className="border-t px-5 pb-5 pt-4 space-y-4">
           <div className="flex justify-end mb-0">
@@ -119,17 +117,15 @@ export function GenericResumeHelpCard({ hasBaseResume, onSuccess }: Props) {
               Resume
             </label>
             <div className="mt-1.5 space-y-1.5">
-              {resumeFile ? (
-                null
-              ) : hasBaseResume ? (
+              {resumeFile ? null : hasBaseResume ? (
                 <p className="text-sm text-muted-foreground">
-                  Will be using your saved base resume. Or you can {" "} 
+                  Will be using your saved base resume. Or you can{" "}
                   <button
                     type="button"
                     className="text-foreground underline underline-offset-2"
                     onClick={() => fileInputRef.current?.click()}
                   >
-                    Upload a different one
+                    upload a different one
                   </button>{" "}
                   to use for this run.
                 </p>
@@ -159,10 +155,10 @@ export function GenericResumeHelpCard({ hasBaseResume, onSuccess }: Props) {
               />
               {resumeFile && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <span className="truncate hover:font-semibold">{resumeFile.name}</span>
+                  <span className="truncate">{resumeFile.name}</span>
                   <button
                     type="button"
-                    className="text-xs hover:text-foreground hover:font-semibold hover:text-red-600"
+                    className="text-xs hover:text-red-600"
                     onClick={() => {
                       setResumeFile(null);
                       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -187,12 +183,6 @@ export function GenericResumeHelpCard({ hasBaseResume, onSuccess }: Props) {
             value={targetRolesText}
             onChange={setTargetRolesText}
           />
-          <Field
-            label="Target keywords (optional)"
-            placeholder="e.g. TypeScript, PostgreSQL, CI/CD"
-            value={targetKeywords}
-            onChange={setTargetKeywords}
-          />
 
           <div>
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -201,7 +191,7 @@ export function GenericResumeHelpCard({ hasBaseResume, onSuccess }: Props) {
             <textarea
               className="mt-1.5 w-full rounded-md border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               rows={3}
-              placeholder="Years of experience, industries you've worked in, anything else we should consider…"
+              placeholder="Years of experience, industries, anything else we should consider…"
               value={additionalContext}
               onChange={(e) => setAdditionalContext(e.target.value)}
             />
@@ -210,13 +200,13 @@ export function GenericResumeHelpCard({ hasBaseResume, onSuccess }: Props) {
           {error && <p className="text-sm text-destructive">{error}</p>}
 
           <Button onClick={handleSubmit} disabled={!canRun || loading} className="w-full">
-            {loading ? "Generating…" : "Get resume advice"}
+            {loading ? "Generating…" : "Generate interview prep"}
           </Button>
 
-          {/* Result rendered inline below the form after a successful run */}
+          {/* Inline result below the form after a successful run */}
           {artifact && (
             <div className="border-t pt-5">
-              <ResumeAdviceResult payload={artifact.payload} />
+              <InterviewPrepResult payload={artifact.payload} />
             </div>
           )}
         </div>

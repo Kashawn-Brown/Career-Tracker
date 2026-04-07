@@ -60,7 +60,7 @@ backend/
     applications/         # CRUD + list + docs + connections + AI artifacts
     documents/            # base resume + download/delete
     connections/          # global connections CRUD/list/search
-    ai/                   # JD extraction (standalone AI endpoint)
+    ai/                   # JD extraction, document tools, interview prep (AI endpoints + user artifacts)
     pro/                  # Pro access request
     admin/                # admin Pro approvals + credit grants
     debug/                # dev-only routes (seed)
@@ -271,28 +271,32 @@ Not limited to the current page — fetches all matching rows up to the export c
 Standalone extraction routes — both require verified email + AI access:
 
 * `POST /api/v1/ai/application-from-jd`
-  Extracts structured job fields from pasted job description text.
+  Extracts structured job fields from pasted job description text. Stores a `jdSummary` on the created application.
 
 * `POST /api/v1/ai/application-from-link`
   Fetches a job-posting URL server-side, extracts canonical JD text, and runs
   it through the same extraction pipeline. Includes full SSRF protection:
   private IPs, loopback, and cloud-metadata ranges are blocked, and each
-  redirect hop is re-validated before following.
+  redirect hop is re-validated before following. Retries with sanitized text on `content_filter` responses.
 
 Per-application AI artifacts:
 
 * `POST /api/v1/applications/:id/ai-artifacts`
 
-  * Supported `kind`: `FIT_V1`, `RESUME_ADVICE`, `COVER_LETTER`
+  * Supported `kind`: `FIT_V1`, `RESUME_ADVICE`, `COVER_LETTER`, `INTERVIEW_PREP`
   * Optional body fields for `COVER_LETTER`: `templateText` (string), `skipBaseCoverLetterTemplate` (boolean)
   * Optional body field for all kinds: `sourceDocumentId` (number) — use an already-attached resume doc instead of uploading a new file
+  * `INTERVIEW_PREP`: JD required, resume optional — degrades gracefully to JD-only output when no resume is available
 
 * `GET  /api/v1/applications/:id/ai-artifacts`
 
-Standalone document tool routes (Tools page — no JD required):
+Standalone generic tool routes (Tools page — no specific JD required):
 
-* `POST /api/v1/ai/resume-help` — generic resume advice using base resume + targeting context
+* `POST /api/v1/ai/resume-help` — generic resume advice; base resume or file upload required; at least one targeting field required
 * `POST /api/v1/ai/cover-letter-help` — generic cover letter draft; accepts optional `resumeFile` multipart upload and `templateText`
+* `POST /api/v1/ai/interview-prep` — generic interview prep from resume + targeting context; base resume or file upload required; at least one targeting field required
+
+All generic tool results are persisted as `UserAiArtifact` (capped at 3 per user per kind; oldest evicted on overflow; uploaded resume documents are cleaned up on delete/eviction).
 
 AI gating rules:
 
@@ -300,7 +304,8 @@ AI gating rules:
 * `requireAiAccess` blocks users without free quota or Pro
 * Quota is consumed **only after successful AI completion** — failed or
   invalid requests do not consume free uses
-* Resume source resolution: `sourceDocumentId` (must be `RESUME` or `CAREER_HISTORY` kind) → uploaded override → base resume
+* Resume source resolution for targeted tools: `sourceDocumentId` (must be `RESUME` or `CAREER_HISTORY` kind) → uploaded override → base resume
+* `INTERVIEW_PREP` targeted: uses `tryGetCandidateText` (soft resolve — returns null instead of throwing when no resume exists)
 
 ### Pro
 
@@ -582,4 +587,4 @@ Run instructions + output conventions:
 
 ---
 
-*Last updated: 2026-02-02*
+*Last updated: 2026-04-07*

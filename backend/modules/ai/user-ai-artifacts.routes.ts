@@ -31,7 +31,7 @@ export async function userAiArtifactsRoutes(app: FastifyInstance) {
       const kind   = (req.query as Record<string, string>).kind;
 
       // Validate kind if provided
-      const VALID_KINDS = ["RESUME_ADVICE", "COVER_LETTER"] as const;
+      const VALID_KINDS = ["RESUME_ADVICE", "COVER_LETTER", "INTERVIEW_PREP"] as const;
       if (kind && !VALID_KINDS.includes(kind as typeof VALID_KINDS[number])) {
         throw new AppError(`Invalid kind. Must be one of: ${VALID_KINDS.join(", ")}`, 400, "INVALID_KIND");
       }

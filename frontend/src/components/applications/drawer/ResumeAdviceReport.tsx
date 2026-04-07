@@ -148,21 +148,11 @@ export function ResumeAdviceReport({ open, onOpenChange, artifact, jobLabel }: P
               emptyMessage="No specific rewrites flagged — bullets are clear and well-framed."
             />
 
-            {p.keywords.length > 0 && (
-              <div>
-                <div className="text-md font-medium mb-2">Missing Keywords</div>
-                <div className="flex flex-wrap gap-1.5">
-                  {p.keywords.map((kw) => (
-                    <span
-                      key={kw}
-                      className="rounded-full border px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
-                    >
-                      {kw}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* Keywords — mixed chip view: green = already covered, amber = worth adding */}
+            <KeywordsSection
+              present={p.keywordsPresent}
+              missing={p.keywordsMissing}
+            />
           </div>
 
         </div>
@@ -207,6 +197,63 @@ function SectionList({
       ) : emptyMessage ? (
         <p className="text-sm text-muted-foreground italic">{emptyMessage}</p>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * KeywordsSection — mixed chip group for keyword coverage.
+ * Green chips = already in resume (keep it). Amber chips = not found (worth adding naturally).
+ * Both buckets rendered together with a legend so the user knows at a glance what to act on.
+ */
+function KeywordsSection({
+  present,
+  missing,
+}: {
+  present?: string[];
+  missing?: string[];
+}) {
+  const hasPresent = (present?.length ?? 0) > 0;
+  const hasMissing = (missing?.length ?? 0) > 0;
+  if (!hasPresent && !hasMissing) return null;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="text-md font-medium">Keywords</div>
+        {hasPresent && hasMissing && (
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <span className="inline-block h-2 w-2 rounded-full bg-green-500" />
+              Already covered
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block h-2 w-2 rounded-full bg-amber-500" />
+              Worth adding (if applicable)
+            </span>
+          </div>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-1.5 max-w-2xl">
+        {present?.map((kw) => (
+          <span
+            key={`present-${kw}`}
+            className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700 dark:border-green-800 dark:bg-green-900/20 dark:text-green-400"
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-green-500 shrink-0" />
+            {kw}
+          </span>
+        ))}
+        {missing?.map((kw) => (
+          <span
+            key={`missing-${kw}`}
+            className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400"
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+            {kw}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }

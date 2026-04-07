@@ -46,6 +46,9 @@ export function GenericCoverLetterHelpCard({ hasBaseResume, baseCoverLetterExist
 
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState<string | null>(null);
+  // Bumped after a successful run to trigger PastRunsSection re-fetch
+  const [pastRunsKey, setPastRunsKey] = useState(0);
+
   const [artifact, setArtifact] = useState<UserAiArtifact<CoverLetterPayload> | null>(null);
 
   // When true, the user has opted out of using their stored base cover letter
@@ -99,6 +102,7 @@ export function GenericCoverLetterHelpCard({ hasBaseResume, baseCoverLetterExist
         skipBaseCoverLetterTemplate: skipBaseTemplate && !templateFile,
       });
       setArtifact(result);
+      setPastRunsKey((k) => k + 1);
       onSuccess();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
@@ -132,7 +136,7 @@ export function GenericCoverLetterHelpCard({ hasBaseResume, baseCoverLetterExist
 
       {/* ── Past runs — shown in collapsed state so users see previous results
            without needing to open the form first. Up to 3 stored per user. */}
-      <PastRunsSection kind="COVER_LETTER" />
+      <PastRunsSection kind="COVER_LETTER" refreshKey={pastRunsKey} />
 
       {/* ── Expanded form ─────────────────────────────────────────────────── */}
       {expanded && (

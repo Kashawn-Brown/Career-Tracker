@@ -301,9 +301,19 @@ function buildResumeAdviceSystemPrompt(): string {
     "  Each suggestion must reference actual resume content — do not invent new content.",
     "  Empty array if no specific rewrites are warranted.",
     "",
-    "- keywords: up to 12 items. Keywords/concepts worth incorporating naturally given the target.",
-    "  Only suggest keywords that are plausibly evidenced by the candidate's actual experience.",
-    "  Empty array if keyword coverage is already solid.",
+    "- keywordsPresent: up to 8 items. Role-relevant keywords/tools/concepts that ARE present in the resume.",
+    "  Cross-reference the candidate's resume text carefully before classifying as present.",
+    "  Only mark as present if the candidate explicitly uses the term or a direct equivalent — do not infer.",
+    "  Each item must be a short keyword or tool name only — 1 to 4 words, no explanations, no parentheses.",
+    "  Examples: 'TypeScript', 'PostgreSQL', 'CI/CD', 'REST APIs'.",
+    "  Only include the most relevant — do not pad to reach the limit. Empty array if none apply.",
+    "",
+    "- keywordsMissing: up to 10 items. Role-relevant keywords/tools/concepts NOT found in the resume.",
+    "  These are terms the candidate's resume does not mention — they may or may not have the skill.",
+    "  The candidate will decide what to do with them. Just surface the terms clearly.",
+    "  Each item must be a short keyword or tool name only — 1 to 4 words, no explanations, no parentheses.",
+    "  Examples: 'Kafka', 'Prometheus', 'Kubernetes', 'ETL pipelines'.",
+    "  Only include genuinely role-relevant terms — do not pad to reach the limit. Empty array if role has no clear keyword gaps.",
   ].join("\n");
 }
 

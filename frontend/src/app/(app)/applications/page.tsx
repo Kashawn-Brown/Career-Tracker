@@ -573,12 +573,15 @@ export default function ApplicationsPage() {
     for (const [key, run] of Object.entries(current)) {
       const prevStatus       = prev[key];
       const isViewingThatApp = detailsOpen && selectedApplication?.id === run.applicationId;
-      const toolLabel        = run.kind === "RESUME_ADVICE" ? "Resume advice" : "Cover letter";
+      const toolLabel =
+        run.kind === "RESUME_ADVICE"   ? "Resume advice" :
+        run.kind === "INTERVIEW_PREP"  ? "Interview prep" :
+        "Cover letter";
 
       if (prevStatus !== "success" && run.status === "success") {
         void handleApplicationChange(run.applicationId);
         // Batch runs: remove from set and fire combined notice when all done
-        const batchKey = run.kind === "RESUME_ADVICE" ? "RESUME_ADVICE" : "COVER_LETTER";
+        const batchKey = run.kind === "RESUME_ADVICE" ? "RESUME_ADVICE" : run.kind === "INTERVIEW_PREP" ? "INTERVIEW_PREP" : "COVER_LETTER";
         if (!completeBatchTool(run.applicationId, batchKey, false) && !isViewingThatApp) {
           // Drawer-initiated run — show individual tool notice
           setFitNotices((prev) => {
@@ -603,7 +606,7 @@ export default function ApplicationsPage() {
       }
 
       if (prevStatus !== "error" && run.status === "error") {
-        const batchKey = run.kind === "RESUME_ADVICE" ? "RESUME_ADVICE" : "COVER_LETTER";
+        const batchKey = run.kind === "RESUME_ADVICE" ? "RESUME_ADVICE" : run.kind === "INTERVIEW_PREP" ? "INTERVIEW_PREP" : "COVER_LETTER";
         if (!completeBatchTool(run.applicationId, batchKey, true)) {
           setFitNotices((prev) => [
             {
@@ -636,13 +639,14 @@ export default function ApplicationsPage() {
     if (!tools) return;
 
     const { applicationId, label } = args;
-    const { fit, resumeAdvice, coverLetter, sourceDocumentId, templateText } = tools;
+    const { fit, interviewPrep, resumeAdvice, coverLetter, sourceDocumentId, templateText } = tools;
 
     // Register the batch so the notice effect knows to wait for all tools
     const batchSet = new Set<string>();
-    if (fit)          batchSet.add("FIT");
-    if (resumeAdvice) batchSet.add("RESUME_ADVICE");
-    if (coverLetter)  batchSet.add("COVER_LETTER");
+    if (fit)           batchSet.add("FIT");
+    if (interviewPrep) batchSet.add("INTERVIEW_PREP");
+    if (resumeAdvice)  batchSet.add("RESUME_ADVICE");
+    if (coverLetter)   batchSet.add("COVER_LETTER");
     pendingBatchRef.current.set(applicationId, batchSet);
     pendingFitLabelsRef.current[applicationId] = label;
 
@@ -658,6 +662,10 @@ export default function ApplicationsPage() {
 
     if (fit) {
       fitRuns.startFitRun({ ...sharedOpts, overrideFile: null }).catch(() => {});
+    }
+    if (interviewPrep) {
+      // Interview prep: no template, resume optional (run degrades to JD-only if absent)
+      documentToolRuns.startRun({ ...sharedOpts, kind: "INTERVIEW_PREP" }).catch(() => {});
     }
     if (resumeAdvice) {
       documentToolRuns.startRun({ ...sharedOpts, kind: "RESUME_ADVICE" }).catch(() => {});

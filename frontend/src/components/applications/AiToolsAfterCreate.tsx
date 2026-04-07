@@ -59,7 +59,7 @@ export function AiToolsAfterCreate({
   const templateInputRef = useRef<HTMLInputElement>(null);
 
   // Any tool must be selected for the toggle to be meaningful
-  const anySelected = selections.fit || selections.resumeAdvice || selections.coverLetter;
+  const anySelected = selections.fit || selections.interviewPrep || selections.resumeAdvice || selections.coverLetter;
 
   return (
     <div className="space-y-2">
@@ -107,11 +107,12 @@ export function AiToolsAfterCreate({
               AI tools to run:
             </div>
 
-            {(["fit", "resumeAdvice", "coverLetter"] as const).map((key) => {
+            {(["fit", "interviewPrep", "resumeAdvice", "coverLetter"] as const).map((key) => {
               const labels: Record<typeof key, string> = {
-                fit:          "Compatibility check",
-                resumeAdvice: "Tailored resume advice",
-                coverLetter:  "Cover letter generation (draft)",
+                fit:           "Compatibility check",
+                interviewPrep: "Interview prep",
+                resumeAdvice:  "Tailored resume advice",
+                coverLetter:   "Cover letter generation (draft)",
               };
               return (
                 <label key={key} className="flex items-center gap-2 cursor-pointer">

@@ -282,6 +282,7 @@ export const AiArtifactKindSchema = Type.Union([
   Type.Literal("FIT_V1"),
   Type.Literal("RESUME_ADVICE"),
   Type.Literal("COVER_LETTER"),
+  Type.Literal("INTERVIEW_PREP"),
 ]);
 
 export const GenerateAiArtifactBody = Type.Object(

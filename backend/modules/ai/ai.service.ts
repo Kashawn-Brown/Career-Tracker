@@ -376,65 +376,6 @@ function buildExtractJdSystemPrompt(opts?: { sourceMode?: "TEXT" | "LINK" }): st
   return lines.join("\n");
 }
 
-
-
-/**
- * FitV1: Build the system prompt for the AI request to evaluate the candidate-to-job fit.
- * 
- * buildFitSystemPrompt() is used to build the system prompt for the AI request with the instructions for the AI on how to evaluate the fit.
- * 
- * buildFitUserPrompt() is used to build the user prompt for the AI request with the job description and candidate history text.
- */
-// function buildFitSystemPrompt(): string {
-//   return [
-//     "You are generating an informational candidate-to-job fit summary for the candidate (NOT a hiring decision).",
-//     "Evaluate fit using ONLY the provided job description and candidate history text.",
-//     "Return ONLY JSON matching the provided schema. No markdown. No extra keys.",
-//     "",
-//     "Safety + privacy rules:",
-//     "- Do NOT use or mention protected traits (age, race, gender, religion, disability, etc.), even if present in the text.",
-//     "- Do NOT output any personal contact info or identifiers (email, phone, address, links). If a snippet contains any, redact it as '[REDACTED]'.",
-//     "- Keep evidence snippets short (<= 12 words) and only from candidate text. Never quote the JD verbatim.",
-//     "",
-//     "Truthfulness rules:",
-//     "- Only claim a skill/experience if it is explicitly stated in the candidate text.",
-//     "- If something seems likely but is NOT explicit, you MAY mention it only as 'Inferred (not explicit): ...' and you MUST NOT use it to justify a higher score or 'high' confidence.",
-//     "- Do not invent requirements not present in the JD.",
-//     "",
-//     "Scoring rubric (0–100):",
-//     "- 90–100: clear evidence of most must-haves + strong directly relevant experience.",
-//     "- 70–89: good match but some must-haves unclear/missing.",
-//     "- 40–69: partial match; several key gaps.",
-//     "- 0–39: weak match; major requirements not evidenced.",
-//     "Confidence:",
-//     "- high only when the texts clearly support the score; medium when key items are unclear; low when evidence is thin.",
-//     "",
-//     "Writing style (make it read well):",
-//   "- Write directly to the candidate in second-person (use 'you').",
-//   "- Use complete sentences with natural flow; avoid robotic 'Evidence: ... — Why: ...' phrasing.",
-//   "- Each list item must still be a SINGLE STRING (no sub-bullets). Keep each item max 2 sentences.",
-//   "- You MAY mention a project name ONLY if it appears in the candidate text; otherwise say 'one of your projects'.",
-//   "",
-//   "Output constraints (tight + non-redundant):",
-//   "- strengths: max 7 items.",
-//   "  - strengths[0] MUST be a 2–3 sentence overall summary on the biggest stack/role alignments for the candidate in your own words (do NOT just quote the JD).",
-//   "  - strengths[1..] rough format: '<Topic> — You have <relevant experience> (Evidence: \"<<=12 words from candidate>\"). <Optional: This matters because <why it helps for this role>>.'",
-//   "- gaps: max 7 items.",
-//   "  - gaps[0] MUST be a 2–3 sentence summary on the biggest blockers and what would raise the score most.",
-//   "  - gaps[1..] rough format: '<Gap> — You do not show explicit evidence of <missing requirement>. <Optional: This matters because <impact>>. Fast path: <quick action/suggestion>.'",
-//   "- keywordGaps: max 12 UNIQUE items. Include missing tools/tech AND derived concepts when relevant.",
-//   "  Prefer (1) tools/tech/platforms, then (2) architecture/process concepts. Mark inferred items as 'Inferred (not explicit): ...'.",
-//   "- recommendedEdits: max 7 items. Must be grounded in candidate text; do not invent metrics. Format: '<edit> — Why: <reason>'.",
-//   "- questionsToAsk: max 5 questions the CANDIDATE should ask the EMPLOYER (not questions asked to the candidate).",
-//   "  Focus on clarifying gaps, expectations, success criteria, stack, and what strong performance looks like.",
-//   "",
-//   "Avoid repetition across fields. If something appears as a gap, don't restate it as a keyword gap unless the keyword adds specificity.",
-//   "",
-//   "If you cannot comply for any reason, still return valid JSON with:",
-//   "- score: 0, confidence: 'low', and strengths[0]/gaps[0] explaining that the output could not be generated from the provided text.",
-//   ].join("\n");
-// }
-
 function buildFitSystemPrompt(): string {
   return [
     "You are generating an informational candidate-to-job fit summary for the candidate (NOT a hiring decision).",

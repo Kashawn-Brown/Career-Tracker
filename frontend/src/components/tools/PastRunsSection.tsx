@@ -6,15 +6,19 @@ import { userAiArtifactsApi }   from "@/lib/api/user-ai-artifacts";
 import { documentsApi }         from "@/lib/api/documents";
 import { ResumeAdviceResult }   from "@/components/tools/ResumeAdviceResult";
 import { CoverLetterResult }    from "@/components/tools/CoverLetterResult";
+import { InterviewPrepResult }  from "@/components/tools/InterviewPrepResult";
 import type {
   UserAiArtifact,
   UserAiArtifactKind,
   ResumeAdvicePayload,
   CoverLetterPayload,
+  InterviewPrepPayload,
 } from "@/types/api";
 
 interface Props {
-  kind:      UserAiArtifactKind;
+  kind:       UserAiArtifactKind;
+  /** Increment to trigger a re-fetch after a new run completes */
+  refreshKey?: number;
   /** Called after a deletion so the parent can refresh its own state if needed */
   onDeleted?: () => void;
 }
@@ -32,7 +36,7 @@ interface Props {
  * Sits in the collapsed card header so users immediately see past work
  * without needing to expand the form first.
  */
-export function PastRunsSection({ kind, onDeleted }: Props) {
+export function PastRunsSection({ kind, refreshKey = 0, onDeleted }: Props) {
   const [artifacts, setArtifacts] = useState<UserAiArtifact[] | null>(null);
   const [loading,   setLoading]   = useState(true);
 
@@ -53,7 +57,8 @@ export function PastRunsSection({ kind, onDeleted }: Props) {
       .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
-  }, [kind]);
+  // refreshKey incremented by parent after a new run so the list updates immediately
+  }, [kind, refreshKey]);
 
   async function handleDelete(id: string) {
     setDeletingId(id);
@@ -83,7 +88,11 @@ export function PastRunsSection({ kind, onDeleted }: Props) {
 
   if (!artifacts || artifacts.length === 0) return null;
 
-  const label = kind === "RESUME_ADVICE" ? "resume advice run" : "cover letter";
+  const label =
+    kind === "RESUME_ADVICE"   ? "resume advice run" :
+    kind === "COVER_LETTER"    ? "cover letter" :
+    "interview prep";
+
 
   return (
     <div className="border-t px-5 py-3 space-y-3">
@@ -149,6 +158,10 @@ export function PastRunsSection({ kind, onDeleted }: Props) {
                 {kind === "RESUME_ADVICE" ? (
                   <ResumeAdviceResult
                     payload={artifact.payload as ResumeAdvicePayload}
+                  />
+                ) : kind === "INTERVIEW_PREP" ? (
+                  <InterviewPrepResult
+                    payload={artifact.payload as InterviewPrepPayload}
                   />
                 ) : (
                   <CoverLetterResult

@@ -5,7 +5,8 @@ import { requireAiAccess } from "../../middleware/require-ai-access.js";
 import { JdBody, JobLinkBody, ApplicationDraftResponse } from "./ai.schemas.js";
 import type { JdBodyType, JobLinkBodyType } from "./ai.schemas.js";
 import * as AiService from "./ai.service.js";
-import * as DocumentToolsService from "./document-tools.service.js";
+import * as DocumentToolsService  from "./document-tools.service.js";
+import * as InterviewPrepService  from "./interview-prep.service.js";
 import * as DocumentsService from "../documents/documents.service.js";
 import * as UserAiArtifactsService from "./user-ai-artifacts.service.js";
 import { extractTextFromBuffer } from "../../lib/text-extraction.js";
@@ -325,6 +326,122 @@ export async function aiRoutes(app: FastifyInstance) {
         req.log?.error({ err }, "AI cover-letter-help failed");
         if (err instanceof AppError) throw err;
         throw new AppError("Cover letter request failed.", 502, "AI_EXTRACTION_FAILED");
+      }
+    }
+  );
+
+  /**
+   * POST /ai/interview-prep
+   * Generic interview prep from a user's resume + optional targeting context.
+   *
+   * Fields (multipart/form-data):
+   *   resumeFile        — PDF or TXT upload (optional; falls back to base resume)
+   *   targetField       — e.g. "Software Engineering"
+   *   targetRolesText   — e.g. "Backend Engineer, API Developer"
+   *   additionalContext — any extra context the user wants to provide
+   *
+   * Resume is required (via upload or base resume) — without it the output
+   * would be generic boilerplate not grounded in the candidate's actual history.
+   *
+   * Result stored as UserAiArtifact (capped at 3 per user per kind).
+   */
+  app.post(
+    "/interview-prep",
+    { preHandler: [requireAuth, requireVerifiedEmail, requireAiAccess] },
+    async (req, reply) => {
+      try {
+        const userId = req.user!.id;
+
+        // Parse multipart fields + optional resume file
+        let fileBuffer:    Buffer | null = null;
+        let fileMimeType:  string | null = null;
+        let fileFilename:  string | null = null;
+        const fields: Record<string, string> = {};
+
+        const parts = req.parts();
+        for await (const part of parts) {
+          if (part.type === "file" && part.fieldname === "resumeFile") {
+            fileBuffer   = await DocumentsService.streamToBuffer(part.file);
+            fileMimeType = part.mimetype;
+            fileFilename = part.filename || "resume";
+          } else if (part.type === "field") {
+            fields[part.fieldname] = part.value as string;
+          }
+        }
+
+        const { targetField, targetRolesText, additionalContext } = fields;
+
+        // At least one targeting field is required so the prep has direction
+        if (!targetField && !targetRolesText && !additionalContext) {
+          throw new AppError(
+            "Provide at least one targeting field: targetField, targetRolesText, or additionalContext.",
+            400,
+            "INTERVIEW_PREP_MISSING_TARGET"
+          );
+        }
+
+        // Resolve resume: upload takes priority, falls back to base resume
+        let candidateText:    string;
+        let resumeSource:     "BASE_RESUME" | "UPLOAD";
+        let sourceDocumentId: number | null = null;
+
+        if (fileBuffer && fileMimeType && fileFilename) {
+          candidateText = await extractTextFromBuffer({
+            buffer:   fileBuffer,
+            mimeType: fileMimeType,
+            maxChars: 60_000,
+          });
+
+          if (!candidateText.trim()) {
+            throw new AppError(
+              "Could not extract text from the uploaded file. Try a text-based PDF or TXT.",
+              400,
+              "RESUME_UNREADABLE"
+            );
+          }
+
+          const { Readable } = await import("node:stream");
+          const doc = await DocumentsService.uploadUserToolResume({
+            userId,
+            stream:      Readable.from(fileBuffer),
+            filename:    fileFilename,
+            mimeType:    fileMimeType,
+            isTruncated: false,
+          });
+
+          resumeSource     = "UPLOAD";
+          sourceDocumentId = doc.id;
+        } else {
+          // No file uploaded — require base resume (generic prep needs a resume)
+          candidateText = await DocumentsService.getBaseResumeTextOrThrow(userId);
+          resumeSource  = "BASE_RESUME";
+        }
+
+        const payload = await InterviewPrepService.buildGenericInterviewPrep({
+          candidateText,
+          targetField,
+          targetRolesText,
+          additionalContext,
+        });
+
+        // Consume quota only after successful AI completion
+        await consumeAiFreeUseOnSuccessOrThrow(userId);
+
+        const artifact = await UserAiArtifactsService.createUserAiArtifact({
+          userId,
+          kind:    "INTERVIEW_PREP",
+          payload,
+          model:   AI_MODELS.INTERVIEW_PREP,
+          resumeSource,
+          sourceDocumentId,
+        });
+
+        return reply.status(201).send(artifact);
+
+      } catch (err) {
+        req.log?.error({ err }, "AI interview-prep failed");
+        if (err instanceof AppError) throw err;
+        throw new AppError("Interview prep request failed.", 502, "AI_EXTRACTION_FAILED");
       }
     }
   );

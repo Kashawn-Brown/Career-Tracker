@@ -68,4 +68,8 @@ export const AI_MODELS = {
   RESUME_ADVICE: process.env.OPENAI_MODEL_RESUME_ADVICE ?? "gpt-5-mini",
   COVER_LETTER:  process.env.OPENAI_MODEL_COVER_LETTER  ?? "gpt-5-mini",
 
+  // Interview prep: generates focus topics, question banks, and prep guidance.
+  // One model for both generic (resume-only) and targeted (JD + optional resume) variants.
+  INTERVIEW_PREP: process.env.OPENAI_MODEL_INTERVIEW_PREP ?? "gpt-5-mini",
+
 } as const;

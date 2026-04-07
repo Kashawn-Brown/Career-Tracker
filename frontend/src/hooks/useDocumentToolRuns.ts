@@ -7,7 +7,7 @@ import { applicationDocumentsApi } from "@/lib/api/application-documents";
 import { documentsApi }            from "@/lib/api/documents";
 import type { AiArtifact } from "@/types/api";
 
-export type DocumentToolKind      = "RESUME_ADVICE" | "COVER_LETTER";
+export type DocumentToolKind      = "RESUME_ADVICE" | "COVER_LETTER" | "INTERVIEW_PREP";
 export type DocumentToolRunStatus = "idle" | "running" | "success" | "error" | "cancelled";
 
 // A single step shown in the progress UI — same shape as FitRunStep
@@ -167,7 +167,10 @@ export function useDocumentToolRuns(): DocumentToolRunsController {
 
       steps.push({
         key:   "GENERATE",
-        label: kind === "RESUME_ADVICE" ? "Generating resume advice…" : "Generating cover letter…",
+        label:
+          kind === "RESUME_ADVICE"   ? "Generating resume advice…" :
+          kind === "INTERVIEW_PREP"  ? "Generating interview prep…" :
+          "Generating cover letter…",
       });
 
       const controller = new AbortController();
@@ -266,7 +269,7 @@ export function useDocumentToolRuns(): DocumentToolRunsController {
             ? err.message
             : err instanceof Error
               ? err.message
-              : `Failed to generate ${kind === "RESUME_ADVICE" ? "resume advice" : "cover letter"}.`;
+              : `Failed to generate ${kind === "RESUME_ADVICE" ? "resume advice" : kind === "INTERVIEW_PREP" ? "interview prep" : "cover letter"}.`;
 
         safeUpdate((s) => ({ ...s, status: "error", errorMessage: message }));
 

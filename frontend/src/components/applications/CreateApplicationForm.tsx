@@ -294,9 +294,10 @@ export function CreateApplicationForm({ onCreated }: { onCreated: (args: OnCreat
         label: `${position.trim()} @ ${company.trim()}`,
         ...(stagedAiEnabled && {
           backgroundTools: {
-            fit:          selections.fit,
-            resumeAdvice: selections.resumeAdvice,
-            coverLetter:  selections.coverLetter,
+            fit:           selections.fit,
+            interviewPrep: selections.interviewPrep,
+            resumeAdvice:  selections.resumeAdvice,
+            coverLetter:   selections.coverLetter,
             sourceDocumentId,
             templateText: stagedTemplateText.trim() || undefined,
           },
