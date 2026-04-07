@@ -50,7 +50,7 @@ export const ResumeAdviceJsonObject = {
     rewrites:      { type: "array", items: { type: "string" }, maxItems: 6 },
     // Two classified buckets — model cross-references resume text before assigning
     keywordsPresent: { type: "array", items: { type: "string" }, maxItems: 8 },
-    keywordsMissing: { type: "array", items: { type: "string" }, maxItems: 8 },
+    keywordsMissing: { type: "array", items: { type: "string" }, maxItems: 10 },
   },
 } as const;
 
@@ -65,7 +65,7 @@ export function normalizeResumeAdvice(raw: ResumeAdvicePayload): ResumeAdvicePay
     roleAlignment: cleanCap(raw.roleAlignment, 6),
     rewrites:      cleanCap(raw.rewrites,      6),
     keywordsPresent: cleanCap(raw.keywordsPresent, 8),
-    keywordsMissing:  cleanCap(raw.keywordsMissing,  8),
+    keywordsMissing:  cleanCap(raw.keywordsMissing,  10),
   };
 }
 

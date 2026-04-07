@@ -229,12 +229,12 @@ function KeywordsSection({
             </span>
             <span className="flex items-center gap-1">
               <span className="inline-block h-2 w-2 rounded-full bg-amber-500" />
-              Worth adding
+              Worth adding (if applicable)
             </span>
           </div>
         )}
       </div>
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-1.5 max-w-2xl">
         {present?.map((kw) => (
           <span
             key={`present-${kw}`}
