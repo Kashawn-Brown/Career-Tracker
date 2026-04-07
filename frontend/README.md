@@ -87,8 +87,9 @@ Defaults:
 
 ### Authenticated app
 
-* `/applications` — main table + drawer
-* `/profile` — profile + settings + connections management
+* `/applications` — main table + drawer (AI tools, documents, connections, notes per application)
+* `/tools` — standalone AI tools (generic interview prep, resume advice, cover letter; results saved per user)
+* `/profile` — profile + settings + connections management + base resume / cover letter upload
 * `/pro` — Pro request flow (if applicable)
 * `/admin` — admin-only views (Pro approvals / credit operations)
 
@@ -152,5 +153,25 @@ The frontend shows gating UI (upgrade/request Pro) but the server is the enforce
 
 ---
 
-*Last updated: 2026-02-02*
+## AI tools (drawer + Tools page)
 
+### Per-application drawer tools (require JD on the application)
+
+* **Compatibility Check** — fit score, strengths, gaps, role signals, prep areas
+* **Interview Prep** — focus topics with priority chips, question bank (background/technical/behavioural/situational/motivational/challenge), questions to ask; resume optional — degrades to JD-only
+* **Resume Advice** — what's working, areas to improve, role alignment, rewrite suggestions, keyword coverage (split into already-covered and worth-adding chips)
+* **Cover Letter** — tailored draft with evidence, notes, and placeholder list
+
+All drawer tools run in the background via `useDocumentToolRuns` / `useFitRuns` and survive drawer close. A notification appears on completion. Tools can optionally be run automatically after application creation.
+
+### Generic Tools page tools (no JD required)
+
+* **Interview Prep** — self-defense prep from resume + targeting context; results saved as `UserAiArtifact`
+* **Resume Advice** — general resume improvement for target field/roles
+* **Cover Letter** — reusable draft for a target direction
+
+Generic tool results are capped at 3 per user per kind (oldest evicted). Uploaded resume files are cleaned up when a result is deleted or evicted.
+
+---
+
+*Last updated: 2026-04-07*

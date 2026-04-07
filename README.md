@@ -1,6 +1,6 @@
 # Career-Tracker
 
-Career-Tracker is a production-minded job application tracker built around a fast, **table-first Applications** view (Excel/Notion-style) and a **right-side details drawer** for safe viewing/editing.
+Career-Tracker is a production-minded job application tracker built around a fast, **table-first Applications** view (Excel/Notion-style) and a **right-side details drawer** for safe viewing/editing and elusive AI features.
 
 The design goal is simple: **scanning stays instant** in the table, while richer details (documents, connections, notes) live in the drawer and dialogs without cluttering the grid.
 
@@ -37,13 +37,14 @@ The design goal is simple: **scanning stays instant** in the table, while richer
 - Attach/detach connections to specific applications
 - Manage connections from Profile via a 2-pane “View all connections” modal
 
-### AI Assist (JD extraction + document tools)
-- Paste or link a job description to extract structured fields and prefill an application
-- **Compatibility check** — score your resume against a specific JD (gated by free credits / Pro)
-- **Resume advice** — targeted improvement suggestions for a specific role, or general advice on the Tools page
+### AI Assist (JD extraction + document tools + interview prep)
+- **JD extraction** — Paste or link a job description to extract structured fields and prefill an application; an AI-generated role summary is stored and viewable in the drawer
+- **Compatibility check** — score your resume/CV against a specific JD; see strengths, gaps, what the role prioritises, and areas to brush up on
+- **Interview prep** — generate a personalised prep pack (focus topics with priority, question bank across background/technical/behavioural/situational/motivational/challenge categories, questions to ask); works with JD only or JD + resume; also available as a generic self-defense prep tool on the Tools page
+- **Resume advice** — targeted improvement suggestions for a specific role (what's working, what to improve, role alignment, rewrite suggestions, keyword coverage split into already-covered and worth-adding); also available as generic advice on the Tools page
 - **Cover letter** — generate a tailored draft for a specific role, or a reusable draft on the Tools page
-- All AI tools run in the background and survive drawer close — a notification appears when results are ready
-- Optionally run all selected AI tools automatically after creating an application
+- All drawer AI tools run in the background and survive drawer close — a notification appears when results are ready
+- Optionally run all selected AI tools automatically after creating an application (Compatibility, Interview Prep, Resume Advice, Cover Letter)
 - Pro access can be requested and is admin-approved
 
 ### Auth + Security
@@ -173,4 +174,4 @@ See: `backend/README.md` for full details.
 
 ---
 
-*Last updated: 2026-04-03*
+*Last updated: 2026-04-07*
