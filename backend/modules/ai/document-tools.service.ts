@@ -301,9 +301,15 @@ function buildResumeAdviceSystemPrompt(): string {
     "  Each suggestion must reference actual resume content — do not invent new content.",
     "  Empty array if no specific rewrites are warranted.",
     "",
-    "- keywords: up to 12 items. Keywords/concepts worth incorporating naturally given the target.",
-    "  Only suggest keywords that are plausibly evidenced by the candidate's actual experience.",
-    "  Empty array if keyword coverage is already solid.",
+    "- keywordsPresent: up to 8 items. Role-relevant keywords/tools/concepts that ARE present in the resume.",
+    "  Cross-reference the candidate's resume text carefully before classifying as present.",
+    "  Only mark as present if the candidate explicitly uses the term or a direct equivalent — do not infer.",
+    "  These are highlighted to the candidate as 'keep it — it's working'. Empty array if none apply.",
+    "",
+    "- keywordsMissing: up to 8 items. Role-relevant keywords/tools/concepts NOT found in the resume.",
+    "  These are shown to the candidate as 'worth adding naturally if you have the experience'.",
+    "  Only suggest keywords plausibly within reach given the candidate's background.",
+    "  Empty array if the resume already covers the role's key terminology well.",
   ].join("\n");
 }
 

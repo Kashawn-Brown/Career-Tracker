@@ -29,7 +29,8 @@ export type ResumeAdvicePayload = {
   improvements:  string[];  // what's weak, vague, or undersold — things to fix
   roleAlignment: string[];  // role-specific emphasis: what to push, shift, or add for THIS JD
   rewrites:      string[];  // specific directional rewrite suggestions for bullets/sections
-  keywords:      string[];  // keywords/concepts worth incorporating naturally
+  keywordsPresent: string[];  // relevant keywords already in the resume — keep these
+  keywordsMissing:  string[];  // relevant keywords not found in the resume — worth adding naturally
 };
 
 /**
@@ -40,14 +41,16 @@ export type ResumeAdvicePayload = {
 export const ResumeAdviceJsonObject = {
   type: "object",
   additionalProperties: false,
-  required: ["summary", "strengths", "improvements", "roleAlignment", "rewrites", "keywords"],
+  required: ["summary", "strengths", "improvements", "roleAlignment", "rewrites", "keywordsPresent", "keywordsMissing"],
   properties: {
     summary:       { type: "string" },
     strengths:     { type: "array", items: { type: "string" }, maxItems: 6 },
     improvements:  { type: "array", items: { type: "string" }, maxItems: 6 },
     roleAlignment: { type: "array", items: { type: "string" }, maxItems: 6 },
     rewrites:      { type: "array", items: { type: "string" }, maxItems: 6 },
-    keywords:      { type: "array", items: { type: "string" }, maxItems: 12 },
+    // Two classified buckets — model cross-references resume text before assigning
+    keywordsPresent: { type: "array", items: { type: "string" }, maxItems: 8 },
+    keywordsMissing: { type: "array", items: { type: "string" }, maxItems: 8 },
   },
 } as const;
 
@@ -61,7 +64,8 @@ export function normalizeResumeAdvice(raw: ResumeAdvicePayload): ResumeAdvicePay
     improvements:  cleanCap(raw.improvements,  6),
     roleAlignment: cleanCap(raw.roleAlignment, 6),
     rewrites:      cleanCap(raw.rewrites,      6),
-    keywords:      cleanCap(raw.keywords,     12),
+    keywordsPresent: cleanCap(raw.keywordsPresent, 8),
+    keywordsMissing:  cleanCap(raw.keywordsMissing,  8),
   };
 }
 

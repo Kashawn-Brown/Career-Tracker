@@ -590,12 +590,13 @@ export type AiArtifact<TPayload = unknown> = {
  * and rendered by ResumeAdviceReportLegacy instead.
  */
 export type ResumeAdvicePayload = {
-  summary:       string;    // 2–3 sentence overall assessment
-  strengths:     string[];  // what's working well — lean into these
-  improvements:  string[];  // what's weak, vague, or undersold — things to fix
-  roleAlignment: string[];  // role-specific: what to emphasise, shift, or add for this JD
-  rewrites:      string[];  // specific directional rewrite suggestions
-  keywords:      string[];  // keywords/concepts worth incorporating naturally
+  summary:         string;    // 2–3 sentence overall assessment
+  strengths:       string[];  // what's working well — lean into these
+  improvements:    string[];  // what's weak, vague, or undersold — things to fix
+  roleAlignment:   string[];  // role-specific: what to emphasise, shift, or add for this JD
+  rewrites:        string[];  // specific directional rewrite suggestions
+  keywordsPresent: string[];  // role-relevant keywords already in the resume — keep these
+  keywordsMissing: string[];  // role-relevant keywords not found in the resume — worth adding
 };
 
 export type CoverLetterPayload = {

@@ -12,26 +12,16 @@ export function ResumeAdviceResult({ payload }: Props) {
       {/* Summary */}
       <p className="text-muted-foreground leading-relaxed">{payload.summary}</p>
 
-      <Section title="What's working" items={payload.strengths}     accent="green"  />
-      <Section title="Areas to improve" items={payload.improvements}  accent="amber"  />
-      <Section title="How to better align to target roles"     items={payload.roleAlignment} accent="blue"   />
-      <Section title="Possible rewrite suggestions" items={payload.rewrites}     accent="purple" />
+      <Section title="What's working"    items={payload.strengths}     accent="green"  />
+      <Section title="Areas to improve"  items={payload.improvements}  accent="amber"  />
+      <Section title="Role alignment"    items={payload.roleAlignment} accent="blue"   />
+      <Section title="Rewrite suggestions" items={payload.rewrites}    accent="purple" />
 
-      {payload.keywords?.length > 0 && (
-        <div>
-          <h4 className="mb-2 font-medium text-foreground">Keywords to cover</h4>
-          <div className="flex flex-wrap gap-1.5">
-            {payload.keywords.map((kw) => (
-              <span
-                key={kw}
-                className="rounded-full border px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
-              >
-                {kw}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Keywords — merged chip view with present/missing classification */}
+      <KeywordsSection
+        present={payload.keywordsPresent}
+        missing={payload.keywordsMissing}
+      />
     </div>
   );
 }
@@ -45,7 +35,6 @@ function Section({
   items?: string[];
   accent: "green" | "amber" | "blue" | "purple";
 }) {
-  // Guard against undefined/empty — empty arrays are valid (model found nothing to flag)
   if (!items?.length) return null;
 
   const dotColor = {
@@ -66,6 +55,64 @@ function Section({
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/**
+ * KeywordsSection — renders present and missing keywords as a single mixed
+ * chip group. Green = already in resume (keep it). Amber = not found (worth adding).
+ * A small legend explains the colour coding so users don't have to guess.
+ */
+function KeywordsSection({
+  present,
+  missing,
+}: {
+  present?: string[];
+  missing?: string[];
+}) {
+  const hasPresent = (present?.length ?? 0) > 0;
+  const hasMissing = (missing?.length ?? 0) > 0;
+  if (!hasPresent && !hasMissing) return null;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <h4 className="font-medium text-foreground">Keywords</h4>
+        {/* Legend — only shown when both types are present */}
+        {hasPresent && hasMissing && (
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <span className="inline-block h-2 w-2 rounded-full bg-green-500" />
+              Already covered
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block h-2 w-2 rounded-full bg-amber-500" />
+              Worth adding
+            </span>
+          </div>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {present?.map((kw) => (
+          <span
+            key={`present-${kw}`}
+            className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700 dark:border-green-800 dark:bg-green-900/20 dark:text-green-400"
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-green-500 shrink-0" />
+            {kw}
+          </span>
+        ))}
+        {missing?.map((kw) => (
+          <span
+            key={`missing-${kw}`}
+            className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400"
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+            {kw}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
