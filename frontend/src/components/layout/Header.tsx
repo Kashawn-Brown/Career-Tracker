@@ -23,6 +23,7 @@ export function Header() {
   const navItems = [
     { label: "Applications", href: "/applications" },
     { label: "Tools",        href: "/tools" },
+    { label: "Activity",     href: "/activity" },
     // { label: "Profile",      href: "/profile" },
     { label: "About",        href: "/about" },
     { label: "Docs",         href: "/docs" },
