@@ -60,7 +60,7 @@ export type StartAiRunArgs = {
 };
 
 export type SucceedAiRunArgs = {
-  runId:                  string;
+  runId:                  string | null;
   // Linked artifact IDs — set when a persisted artifact was created
   userArtifactId?:        string | null;
   applicationArtifactId?: string | null;
@@ -75,7 +75,7 @@ export type SucceedAiRunArgs = {
 };
 
 export type FailAiRunArgs = {
-  runId:        string;
+  runId:        string | null;
   error:        unknown;           // raw caught error
   errorCode?:   string | null;
   metadata?:    Record<string, unknown> | null;

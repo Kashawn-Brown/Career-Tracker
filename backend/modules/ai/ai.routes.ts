@@ -13,6 +13,7 @@ import { extractTextFromBuffer } from "../../lib/text-extraction.js";
 import { consumeAiFreeUseOnSuccessOrThrow } from "./ai-access.js";
 import { AppError } from "../../errors/app-error.js";
 import { AI_MODELS } from "./openai.js";
+import { startAiRun, succeedAiRun, failAiRun } from "../analytics/ai-run-tracker.js";
 
 export async function aiRoutes(app: FastifyInstance) {
 
@@ -30,18 +31,31 @@ export async function aiRoutes(app: FastifyInstance) {
       },
     },
     async (req, reply) => {
+      let runId: string | null = null;
       try {
         const body = req.body as JdBodyType;
+
+        runId = await startAiRun({
+          userId:        req.user!.id,
+          toolKind:      "JD_EXTRACTION",
+          scope:         "GENERIC",
+          triggerSource: "CREATE_FLOW",
+          provider:      "openai",
+          model:         AI_MODELS.JD_EXTRACT,
+          jdMode:        "PASTED",
+        });
 
         const result = await AiService.buildApplicationDraftFromJd(body.text);
 
         // Only consume quota on successful AI completion
         await consumeAiFreeUseOnSuccessOrThrow(req.user!.id);
+        void succeedAiRun({ runId, inputChars: body.text.length });
 
         return reply.status(200).send(result);
 
       } catch (err) {
         req.log?.error({ err }, "AI application-from-jd failed");
+        void failAiRun({ runId, error: err });
         if (err instanceof AppError) throw err;
         throw new AppError("AI request failed", 502, "AI_EXTRACTION_FAILED");
       }
@@ -67,21 +81,33 @@ export async function aiRoutes(app: FastifyInstance) {
       },
     },
     async (req, reply) => {
+      let runId: string | null = null;
       try {
         const body = req.body as JobLinkBodyType;
+
+        runId = await startAiRun({
+          userId:        req.user!.id,
+          toolKind:      "JD_EXTRACTION",
+          scope:         "GENERIC",
+          triggerSource: "CREATE_FLOW",
+          provider:      "openai",
+          model:         AI_MODELS.JD_EXTRACT,
+          jdMode:        "LINK",
+        });
 
         const result = await AiService.buildApplicationDraftFromJobLink(body.url);
 
         // Only consume quota on successful AI extraction
         await consumeAiFreeUseOnSuccessOrThrow(req.user!.id);
+        void succeedAiRun({ runId, inputChars: body.url.length });
 
         return reply.status(200).send(result);
 
       } catch (err) {
         req.log?.error({ err }, "AI application-from-link failed");
+        void failAiRun({ runId, error: err });
 
         // Preserve AppErrors (SSRF blocks, fetch failures, insufficient content, etc.)
-        // These carry user-facing messages and the correct status codes.
         if (err instanceof AppError) throw err;
 
         throw new AppError("AI request failed", 502, "AI_EXTRACTION_FAILED");
@@ -108,6 +134,7 @@ export async function aiRoutes(app: FastifyInstance) {
     "/resume-help",
     { preHandler: [requireAuth, requireVerifiedEmail, requireAiAccess] },
     async (req, reply) => {
+      let runId: string | null = null;
       try {
         const userId = req.user!.id;
 
@@ -176,6 +203,16 @@ export async function aiRoutes(app: FastifyInstance) {
           resumeSource     = "BASE_RESUME";
         }
 
+        runId = await startAiRun({
+          userId,
+          toolKind:      "RESUME_HELP",
+          scope:         "GENERIC",
+          triggerSource: "TOOLS_PAGE",
+          provider:      "openai",
+          model:         AI_MODELS.RESUME_ADVICE,
+          resumeMode:    resumeSource === "UPLOAD" ? "UPLOADED_OVERRIDE" : "BASE",
+        });
+
         // Run AI
         const payload = await DocumentToolsService.buildGenericResumeAdvice({
           candidateText,
@@ -198,10 +235,17 @@ export async function aiRoutes(app: FastifyInstance) {
           sourceDocumentId,
         });
 
+        void succeedAiRun({
+          runId,
+          userArtifactId: artifact.id,
+          inputChars:     candidateText.length,
+        });
+
         return reply.status(201).send(artifact);
 
       } catch (err) {
         req.log?.error({ err }, "AI resume-help failed");
+        void failAiRun({ runId, error: err });
         if (err instanceof AppError) throw err;
         throw new AppError("Resume advice request failed.", 502, "AI_EXTRACTION_FAILED");
       }
@@ -223,6 +267,7 @@ export async function aiRoutes(app: FastifyInstance) {
     "/cover-letter-help",
     { preHandler: [requireAuth, requireVerifiedEmail, requireAiAccess] },
     async (req, reply) => {
+      let runId: string | null = null;
       try {
         const userId = req.user!.id;
 
@@ -299,6 +344,16 @@ export async function aiRoutes(app: FastifyInstance) {
             ? undefined
             : (await DocumentsService.getBaseCoverLetterTextOrNull(userId)) || undefined);
 
+        runId = await startAiRun({
+          userId,
+          toolKind:      "COVER_LETTER_HELP",
+          scope:         "GENERIC",
+          triggerSource: "TOOLS_PAGE",
+          provider:      "openai",
+          model:         AI_MODELS.COVER_LETTER,
+          resumeMode:    resumeSource === "UPLOAD" ? "UPLOADED_OVERRIDE" : "BASE",
+        });
+
         const payload = await DocumentToolsService.buildGenericCoverLetter({
           candidateText,
           targetField,
@@ -320,10 +375,17 @@ export async function aiRoutes(app: FastifyInstance) {
           sourceDocumentId,
         });
 
+        void succeedAiRun({
+          runId,
+          userArtifactId: artifact.id,
+          inputChars:     candidateText.length,
+        });
+
         return reply.status(201).send(artifact);
 
       } catch (err) {
         req.log?.error({ err }, "AI cover-letter-help failed");
+        void failAiRun({ runId, error: err });
         if (err instanceof AppError) throw err;
         throw new AppError("Cover letter request failed.", 502, "AI_EXTRACTION_FAILED");
       }
@@ -349,6 +411,7 @@ export async function aiRoutes(app: FastifyInstance) {
     "/interview-prep",
     { preHandler: [requireAuth, requireVerifiedEmail, requireAiAccess] },
     async (req, reply) => {
+      let runId: string | null = null;
       try {
         const userId = req.user!.id;
 
@@ -417,6 +480,16 @@ export async function aiRoutes(app: FastifyInstance) {
           resumeSource  = "BASE_RESUME";
         }
 
+        runId = await startAiRun({
+          userId,
+          toolKind:      "INTERVIEW_PREP",
+          scope:         "GENERIC",
+          triggerSource: "TOOLS_PAGE",
+          provider:      "openai",
+          model:         AI_MODELS.INTERVIEW_PREP,
+          resumeMode:    resumeSource === "UPLOAD" ? "UPLOADED_OVERRIDE" : "BASE",
+        });
+
         const payload = await InterviewPrepService.buildGenericInterviewPrep({
           candidateText,
           targetField,
@@ -436,10 +509,17 @@ export async function aiRoutes(app: FastifyInstance) {
           sourceDocumentId,
         });
 
+        void succeedAiRun({
+          runId,
+          userArtifactId: artifact.id,
+          inputChars:     candidateText.length,
+        });
+
         return reply.status(201).send(artifact);
 
       } catch (err) {
         req.log?.error({ err }, "AI interview-prep failed");
+        void failAiRun({ runId, error: err });
         if (err instanceof AppError) throw err;
         throw new AppError("Interview prep request failed.", 502, "AI_EXTRACTION_FAILED");
       }
