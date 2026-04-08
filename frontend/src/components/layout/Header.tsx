@@ -28,6 +28,7 @@ export function Header() {
     { label: "Docs",         href: "/docs" },
     ...(user && isAdminUser(user) ? [{ label: "Pro Requests", href: "/admin/pro-requests" }] : []),
     ...(user && isAdminUser(user) ? [{ label: "Users", href: "/admin/users" }] : []),
+    ...(user && isAdminUser(user) ? [{ label: "Analytics", href: "/admin/analytics" }] : []),
   ];
 
   return (

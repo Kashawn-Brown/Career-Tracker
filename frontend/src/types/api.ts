@@ -648,3 +648,112 @@ export type UserAiArtifact<TPayload = unknown> = {
   sourceDocumentId: number | null;
   createdAt:        string;
 };
+
+// ─── Analytics ────────────────────────────────────────────────────────────────
+
+export type DateWindow = "7d" | "30d" | "all";
+
+export type AdminOverviewResponse = {
+  users:        { total: number; new: number };
+  applications: { total: number; new: number };
+  aiRuns: {
+    total:       number;
+    successful:  number;
+    failed:      number;
+    successRate: number | null;
+  };
+  artifacts: {
+    targeted: number;
+    generic:  number;
+    views:    number;
+  };
+};
+
+export type AiRunSummary = {
+  id:            string;
+  toolKind:      string;
+  scope:         string;
+  status:        string;
+  errorCategory: string | null;
+  errorCode:     string | null;
+  errorMessage:  string | null;
+  durationMs:    number | null;
+  createdAt:     string;
+  userId:        string;
+  applicationId: string | null;
+  user?:         { email: string };
+};
+
+export type AdminAiUsageResponse = {
+  byTool:    { toolKind: string; count: number; avgDurationMs: number | null }[];
+  byScope:   { scope: string;    count: number }[];
+  byPlan:    { plan: string | null; count: number }[];
+  byStatus:  { status: string;   count: number }[];
+  recentFailures: AiRunSummary[];
+  topUsers:  { userId: string; email: string; plan: string | null; count: number }[];
+};
+
+export type AdminActivityResponse = {
+  recentRuns:   AiRunSummary[];
+  recentEvents: {
+    id:        string;
+    eventType: string;
+    category:  string;
+    createdAt: string;
+    userId:    string | null;
+    user?:     { email: string } | null;
+  }[];
+};
+
+export type AdminUserAnalyticsResponse = {
+  user: {
+    id:              string;
+    email:           string;
+    plan:            string;
+    role:            string;
+    isActive:        boolean;
+    emailVerifiedAt: string | null;
+    createdAt:       string;
+    aiFreeUsesUsed:  number;
+  };
+  applicationCount: number;
+  aiRuns: {
+    byTool:   { toolKind: string; status: string; count: number }[];
+    byStatus: { status: string; count: number }[];
+    recent:   Omit<AiRunSummary, "user" | "errorCode" | "errorMessage">[];
+  };
+  artifacts: {
+    targeted:     number;
+    generic:      number;
+    interactions: number;
+  };
+  recentEvents: {
+    id:        string;
+    eventType: string;
+    category:  string;
+    createdAt: string;
+    metadata:  Record<string, unknown> | null;
+  }[];
+};
+
+export type UserActivityOverviewResponse = {
+  applicationCount:    number;
+  totalSuccessfulRuns: number;
+  byTool:    { toolKind: string; count: number }[];
+  artifacts: { targeted: number; generic: number };
+  recentRuns: {
+    id:            string;
+    toolKind:      string;
+    scope:         string;
+    status:        string;
+    durationMs:    number | null;
+    createdAt:     string;
+    applicationId: string | null;
+  }[];
+  recentEvents: {
+    id:        string;
+    eventType: string;
+    category:  string;
+    createdAt: string;
+  }[];
+};

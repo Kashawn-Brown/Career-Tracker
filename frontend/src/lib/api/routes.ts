@@ -28,6 +28,13 @@ export const routes = {
   pro: {
     request: () => "/pro/request",
   },
+  analytics: {
+    adminOverview:      (window?: string) => `/analytics/admin/overview${window ? `?window=${window}` : ""}`,
+    adminAi:            (window?: string) => `/analytics/admin/ai${window ? `?window=${window}` : ""}`,
+    adminActivity:      ()                => "/analytics/admin/activity",
+    adminUserAnalytics: (userId: string, window?: string) => `/analytics/admin/users/${userId}${window ? `?window=${window}` : ""}`,
+    meOverview:         (window?: string) => `/analytics/me/overview${window ? `?window=${window}` : ""}`,
+  },
   admin: {
     listProRequests: () => "/admin/pro-requests",
     approveProRequest: (requestId: string) => `/admin/pro-requests/${requestId}/approve`,

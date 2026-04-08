@@ -15,6 +15,7 @@ import { connectionsRoutes } from "./modules/connections/connections.routes.js";
 import { aiRoutes } from "./modules/ai/ai.routes.js";
 import { proRoutes } from "./modules/pro/pro.routes.js";
 import { adminRoutes } from "./modules/admin/admin.routes.js";
+import { analyticsRoutes } from "./modules/analytics/analytics.routes.js";
 import { userAiArtifactsRoutes } from "./modules/ai/user-ai-artifacts.routes.js";
 
 
@@ -102,6 +103,9 @@ export function buildApp() {
 
   // Mount Admin endpoints under /api/v1/admin
   app.register(adminRoutes, { prefix: "/api/v1/admin" });
+  
+  // Mount analytics endpoints under /api/v1/analytics
+  app.register(analyticsRoutes, { prefix: "/api/v1/analytics" });
 
   // Mount user-scoped AI artifact endpoints under /api/v1/user-ai-artifacts
   app.register(userAiArtifactsRoutes, { prefix: "/api/v1/user-ai-artifacts" });
