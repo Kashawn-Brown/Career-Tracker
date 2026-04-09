@@ -11,13 +11,16 @@ import { prisma } from "../../lib/prisma.js";
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
 
-export type DateWindow = "7d" | "30d" | "all";
+export type DateWindow = "1d" | "7d" | "30d" | "1y" | "all";
 
 function windowStart(window: DateWindow): Date | undefined {
   if (window === "all") return undefined;
   const d = new Date();
-  d.setDate(d.getDate() - (window === "7d" ? 7 : 30));
-  return d;
+  if (window === "1d")  { d.setDate(d.getDate() - 1);    return d; }
+  if (window === "7d")  { d.setDate(d.getDate() - 7);    return d; }
+  if (window === "30d") { d.setDate(d.getDate() - 30);   return d; }
+  if (window === "1y")  { d.setFullYear(d.getFullYear() - 1); return d; }
+  return undefined;
 }
 
 function windowWhere(window: DateWindow, field = "createdAt") {

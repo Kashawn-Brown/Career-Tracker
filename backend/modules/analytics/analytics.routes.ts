@@ -18,7 +18,7 @@ import * as AnalyticsService from "./analytics.service.js";
 import type { DateWindow } from "./analytics.service.js";
 import { AppError } from "../../errors/app-error.js";
 
-const VALID_WINDOWS: DateWindow[] = ["7d", "30d", "all"];
+const VALID_WINDOWS: DateWindow[] = ["1d", "7d", "30d", "1y", "all"];
 
 function parseWindow(raw: unknown): DateWindow {
   if (typeof raw === "string" && VALID_WINDOWS.includes(raw as DateWindow)) {

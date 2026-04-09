@@ -25,11 +25,11 @@ export function Header() {
     { label: "Tools",        href: "/tools" },
     { label: "Activity",     href: "/activity" },
     // { label: "Profile",      href: "/profile" },
-    { label: "About",        href: "/about" },
-    { label: "Docs",         href: "/docs" },
     ...(user && isAdminUser(user) ? [{ label: "Pro Requests", href: "/admin/pro-requests" }] : []),
     ...(user && isAdminUser(user) ? [{ label: "Users", href: "/admin/users" }] : []),
     ...(user && isAdminUser(user) ? [{ label: "Analytics", href: "/admin/analytics" }] : []),
+    { label: "About",        href: "/about" },
+    { label: "Docs",         href: "/docs" },
   ];
 
   return (

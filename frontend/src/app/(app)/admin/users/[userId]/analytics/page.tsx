@@ -81,7 +81,7 @@ function AdminUserAnalyticsContent() {
           )}
         </div>
         <div className="flex gap-1 rounded-md border p-0.5 bg-muted text-sm">
-          {(["7d", "30d", "all"] as DateWindow[]).map((w) => (
+          {(["1d", "7d", "30d", "1y", "all"] as DateWindow[]).map((w) => (
             <button
               key={w}
               onClick={() => setWindow(w)}
@@ -91,7 +91,7 @@ function AdminUserAnalyticsContent() {
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              {w === "7d" ? "7 days" : w === "30d" ? "30 days" : "All time"}
+              {w === "1d" ? "Today" : w === "7d" ? "7 days" : w === "30d" ? "30 days" : w === "1y" ? "1 year" : "All time"}
             </button>
           ))}
         </div>

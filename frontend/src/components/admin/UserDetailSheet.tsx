@@ -3,11 +3,22 @@
 import { useEffect, useState } from "react";
 import { adminApi } from "@/lib/api/admin";
 import { ApiError } from "@/lib/api/client";
-import type { AdminUserDetail, AdminUserListItem, UserPlan } from "@/types/api";
+import type { AdminUserDetail, AdminUserListItem, UserPlan, AdminUserAnalyticsResponse } from "@/types/api";
+import { analyticsApi } from "@/lib/api/analytics";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { AI_FREE_QUOTA } from "@/lib/constants";
+
+const TOOL_LABELS: Record<string, string> = {
+  JD_EXTRACTION:     "JD Extraction",
+  FIT:               "Compatibility Check",
+  RESUME_HELP:       "Resume Advice (Generic)",
+  COVER_LETTER_HELP: "Cover Letter (Generic)",
+  RESUME_ADVICE:     "Resume Advice (Targeted)",
+  COVER_LETTER:      "Cover Letter (Targeted)",
+  INTERVIEW_PREP:    "Interview Prep",
+};
 
 const PLAN_LABELS: Record<UserPlan, string> = {
   REGULAR:  "Regular",
@@ -36,9 +47,11 @@ type Props = {
 };
 
 export function UserDetailSheet({ user, open, onClose, onUserUpdated }: Props) {
-  const [detail, setDetail]       = useState<AdminUserDetail | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError]         = useState<string | null>(null);
+  const [detail, setDetail]           = useState<AdminUserDetail | null>(null);
+  const [isLoading, setIsLoading]     = useState(false);
+  const [error, setError]             = useState<string | null>(null);
+  const [aiUsage, setAiUsage]         = useState<AdminUserAnalyticsResponse | null>(null);
+  const [aiUsageLoading, setAiUsageLoading] = useState(false);
 
   // Confirm state: null = no confirm showing, otherwise holds the pending action
   const [pendingAction, setPendingAction] = useState<ConfirmAction | null>(null);
@@ -49,6 +62,7 @@ export function UserDetailSheet({ user, open, onClose, onUserUpdated }: Props) {
   useEffect(() => {
     if (!open || !user) {
       setDetail(null);
+      setAiUsage(null);
       setPendingAction(null);
       setActionError(null);
       return;
@@ -65,6 +79,13 @@ export function UserDetailSheet({ user, open, onClose, onUserUpdated }: Props) {
       } finally {
         setIsLoading(false);
       }
+
+      // Load AI usage separately — non-blocking so sheet still opens if it fails
+      setAiUsageLoading(true);
+      analyticsApi.getAdminUserAnalytics(user!.id, "all")
+        .then(setAiUsage)
+        .catch(() => {}) // non-fatal
+        .finally(() => setAiUsageLoading(false));
     }
 
     void load();
@@ -149,12 +170,60 @@ export function UserDetailSheet({ user, open, onClose, onUserUpdated }: Props) {
               <Field label="Connections" value={String(detail.connectionCount)} />
             </Section>
 
-            {/* --- Usage (placeholder for future tracking) --- */}
+            {/* --- AI Usage --- */}
             <Section title="AI Usage">
-              <div className="text-xs text-muted-foreground italic">
-                Detailed usage tracking coming soon — will include AI features used
-                broken down by type, total tokens consumed, and more.
-              </div>
+              {aiUsageLoading && (
+                <div className="text-xs text-muted-foreground">Loading...</div>
+              )}
+              {!aiUsageLoading && aiUsage && (
+                <div className="space-y-2">
+                  <Field
+                    label="Total runs"
+                    value={String(aiUsage.aiRuns.byStatus.reduce((s, r) => s + r.count, 0))}
+                  />
+                  <Field
+                    label="Successful"
+                    value={String(aiUsage.aiRuns.byStatus.find((r) => r.status === "SUCCEEDED")?.count ?? 0)}
+                  />
+                  <Field
+                    label="Failed"
+                    value={String(aiUsage.aiRuns.byStatus.find((r) => r.status === "FAILED")?.count ?? 0)}
+                  />
+                  <Field
+                    label="Artifacts generated"
+                    value={String(aiUsage.artifacts.targeted + aiUsage.artifacts.generic)}
+                  />
+                  {/* Per-tool breakdown */}
+                  {aiUsage.aiRuns.byTool.length > 0 && (
+                    <div className="mt-1 ml-2 space-y-1 border-l-2 border-muted pl-3">
+                      {Object.entries(
+                        aiUsage.aiRuns.byTool.reduce<Record<string, number>>((acc, r) => {
+                          if (r.status === "SUCCEEDED") acc[r.toolKind] = (acc[r.toolKind] ?? 0) + r.count;
+                          return acc;
+                        }, {})
+                      )
+                        .sort(([, a], [, b]) => b - a)
+                        .map(([kind, count]) => (
+                          <div key={kind} className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">{TOOL_LABELS[kind] ?? kind}</span>
+                            <span className="text-muted-foreground">{count}</span>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                  <div className="pt-1">
+                    <a
+                      href={`/admin/users/${detail?.id}/analytics`}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      View full usage breakdown →
+                    </a>
+                  </div>
+                </div>
+              )}
+              {!aiUsageLoading && !aiUsage && (
+                <div className="text-xs text-muted-foreground">No usage data available.</div>
+              )}
             </Section>
 
             {/* --- Actions (blocked for admins) --- */}

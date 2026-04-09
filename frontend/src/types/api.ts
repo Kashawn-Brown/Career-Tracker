@@ -651,7 +651,7 @@ export type UserAiArtifact<TPayload = unknown> = {
 
 // ─── Analytics ────────────────────────────────────────────────────────────────
 
-export type DateWindow = "7d" | "30d" | "all";
+export type DateWindow = "1d" | "7d" | "30d" | "1y" | "all";
 
 export type AdminOverviewResponse = {
   users:        { total: number; new: number };
