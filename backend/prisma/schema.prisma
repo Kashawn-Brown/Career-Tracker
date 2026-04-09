@@ -51,8 +51,11 @@ model User {
   jobApplications JobApplication[]
   connections    Connection[]
   documents       Document[]
-  aiArtifacts     AiArtifact[]
-  userAiArtifacts UserAiArtifact[]
+  aiArtifacts          AiArtifact[]
+  userAiArtifacts      UserAiArtifact[]
+  productEvents        ProductEvent[]
+  aiRuns               AiRun[]
+  artifactInteractions ArtifactInteraction[]
 
   authSessions    AuthSession[]
 
@@ -219,7 +222,10 @@ model JobApplication {
 
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   documents Document[]
-  aiArtifacts AiArtifact[]
+  aiArtifacts          AiArtifact[]
+  productEvents        ProductEvent[]
+  aiRuns               AiRun[]
+  artifactInteractions ArtifactInteraction[]
 
   @@index([userId])
   @@index([status])
@@ -377,4 +383,149 @@ model UserAiArtifact {
   @@index([userId, kind])
   @@index([userId, kind, createdAt])
   @@map("user_ai_artifacts")
+}
+
+
+// ─── Analytics ────────────────────────────────────────────────────────────────
+
+/**
+ * ProductEvent — lean tracking of major product actions.
+ *
+ * Only used for meaningful user/system events (application created, export
+ * performed, etc.). Not a clickstream. Metadata holds small contextual details
+ * specific to the event type.
+ */
+model ProductEvent {
+  id            String   @id @default(cuid())
+  userId        String?
+  applicationId String?
+
+  eventType  String  // e.g. "APPLICATION_CREATED", "JD_EXTRACTION_SUCCEEDED"
+  category   String  // "APPLICATION" | "AI" | "ARTIFACT" | "EXPORT" | "AUTH" | "ADMIN"
+  surface    String? // e.g. "DRAWER" | "TOOLS_PAGE" | "CREATE_FORM"
+
+  // Snapshot plan/role at event time — users may change plan later
+  planAtTime String?
+  roleAtTime String?
+
+  metadata Json? // small contextual details; never the primary model
+
+  createdAt DateTime @default(now())
+
+  user        User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  application JobApplication? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([eventType, createdAt(sort: Desc)])
+  @@index([category, createdAt(sort: Desc)])
+  @@index([applicationId, createdAt(sort: Desc)])
+  @@map("product_events")
+}
+
+/**
+ * AiRun — first-class ledger record for every meaningful AI invocation.
+ *
+ * This is the most important analytics table. It records every AI tool run
+ * with timing, token usage, cost estimates, and success/failure details so
+ * we can answer: which tools are expensive, which fail most, which users
+ * consume the most AI, and which plans drive the most usage.
+ */
+model AiRun {
+  id            String  @id @default(cuid())
+  userId        String
+  applicationId String?
+
+  // Links back to the artifact created by this run (set on success)
+  userArtifactId        String? // UserAiArtifact.id for generic tool runs
+  applicationArtifactId String? // AiArtifact.id for targeted tool runs
+
+  // What ran and where
+  toolKind      String  // "JD_EXTRACTION" | "FIT" | "RESUME_HELP" | "COVER_LETTER_HELP" | "RESUME_ADVICE" | "COVER_LETTER" | "INTERVIEW_PREP"
+  scope         String  // "GENERIC" | "TARGETED"
+  triggerSource String  // "TOOLS_PAGE" | "APPLICATION_DRAWER" | "CREATE_FLOW" | "SYSTEM"
+
+  // Provider / model
+  provider String?
+  model    String?
+
+  // Lifecycle
+  status        String   // "STARTED" | "SUCCEEDED" | "FAILED"
+  errorCode     String?
+  errorMessage  String?
+  errorCategory String?  // "AUTH" | "VALIDATION" | "MODEL_PROVIDER" | "TIMEOUT" | "RATE_LIMIT" | "PARSING" | "PERSISTENCE" | "UNKNOWN"
+
+  startedAt   DateTime
+  completedAt DateTime?
+  durationMs  Int?
+
+  // Input/output sizing
+  inputChars  Int?
+  outputChars Int?
+
+  // Token usage (populated when the provider returns it)
+  promptTokens     Int?
+  completionTokens Int?
+  totalTokens      Int?
+
+  // Estimated cost in USD as a decimal string (null when not calculable)
+  estimatedCostUsd String?
+
+  // Context at time of run
+  resumeMode String? // "NONE" | "BASE" | "ATTACHED" | "UPLOADED_OVERRIDE"
+  jdMode     String? // "NONE" | "PASTED" | "LINK" | "APPLICATION_DESCRIPTION"
+
+  // Snapshot plan/role — users may change plan; we need historical truth
+  planAtTime String?
+  roleAtTime String?
+
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  application JobApplication? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([toolKind, createdAt(sort: Desc)])
+  @@index([scope, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([planAtTime, createdAt(sort: Desc)])
+  @@index([applicationId, createdAt(sort: Desc)])
+  @@index([provider, model, createdAt(sort: Desc)])
+  @@map("ai_runs")
+}
+
+/**
+ * ArtifactInteraction — tracks whether generated outputs are actually used.
+ *
+ * Generating an artifact and it being valuable are two different things.
+ * This table lets us see whether users return to, copy, or regenerate
+ * their AI outputs — answering "did this tool actually help?"
+ */
+model ArtifactInteraction {
+  id            String  @id @default(cuid())
+  userId        String
+  applicationId String?
+
+  // Exactly one of these should be set per interaction
+  userArtifactId        String? // UserAiArtifact.id for generic artifacts
+  applicationArtifactId String? // AiArtifact.id for targeted artifacts
+
+  interactionType String // "VIEWED" | "COPIED" | "REGENERATED"
+  artifactKind    String // e.g. "RESUME_ADVICE", "INTERVIEW_PREP", "FIT_V1"
+  scope           String // "GENERIC" | "TARGETED"
+
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  application JobApplication? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([interactionType, createdAt(sort: Desc)])
+  @@index([artifactKind, createdAt(sort: Desc)])
+  @@index([applicationId, createdAt(sort: Desc)])
+  @@map("artifact_interactions")
 }

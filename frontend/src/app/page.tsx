@@ -202,16 +202,20 @@ export default function HomePage() {
           </h1>
 
           <p className="text-muted-foreground">
-            Manage applications, statuses, connections, and documents all in one dashboard. 
-            Use AI features to generate a structured extract via job descriptions, and/or to assess your possible job compatability. Includes{" "}
-            <span className="font-medium text-foreground">5 free AI credits</span>, upon sign up, with Pro access availabe to unlock more AI credits.
+            Manage applications, statuses, connections, and documents all in one dashboard.
+            Use AI tools to extract structured job details from a posting, check your compatibility with a role, get targeted resume advice, generate cover letters, and prepare for interviews — all from a single drawer.
+            Includes{" "}
+            <span className="font-medium text-foreground">5 free AI credits</span> on sign up, with Pro access available to unlock more.
           </p>
 
           <div className="flex flex-wrap justify-center gap-2 text-xs text-muted-foreground">
             <span className="rounded-full border px-3 py-1">Application Tracking</span>
             <span className="rounded-full border px-3 py-1">Detailed Drawer View</span>
-            <span className="rounded-full border px-3 py-1">AI JD extraction</span>
-            <span className="rounded-full border px-3 py-1">AI Compatability Scoring</span>
+            <span className="rounded-full border px-3 py-1">AI JD Extraction</span>
+            <span className="rounded-full border px-3 py-1">Compatibility Check</span>
+            <span className="rounded-full border px-3 py-1">Resume Advice</span>
+            <span className="rounded-full border px-3 py-1">Cover Letter Generation</span>
+            <span className="rounded-full border px-3 py-1">Interview Prep</span>
             <span className="rounded-full border px-3 py-1">Document Storage</span>
             <span className="rounded-full border px-3 py-1">Connection Management</span>
           </div>
@@ -237,6 +241,10 @@ export default function HomePage() {
                   <Link href="/login" className="underline underline-offset-4">
                     Log in
                   </Link>
+                  {" · "}
+                  <Link href="/login" className="underline underline-offset-4">
+                    Sign in with Google
+                  </Link>
                 </div>
               </div>
             )}
@@ -245,20 +253,15 @@ export default function HomePage() {
 
         {/* How it works */}
         <section className="mt-10 mx-auto w-full max-w-screen-lg px-4 sm:px-6 lg:px-8">
-          <div className="mb-4 flex items-end justify-between">
-            <div>
-              <div className="text-lg font-semibold">How it works</div>
-              <div className="text-sm text-muted-foreground">
-                
-              </div>
-            </div>
+          <div className="mb-4">
+            <div className="text-lg font-semibold">How it works</div>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             <HowItWorksStep
               step="1"
               title="Create an account"
-              body="Sign up and verify your account to gain access to the dashboard + AI tools."
+              body="Sign up with email or continue with Google OAuth. Verify your email to unlock the dashboard and AI tools."
             />
             <HowItWorksStep
               step="2"
@@ -268,7 +271,7 @@ export default function HomePage() {
             <HowItWorksStep
               step="3"
               title="Use AI tools"
-              body="Paste a job description to generate a structured extract + Upload your resume to generate a FIT score."
+              body="Run AI tools directly from the application drawer. Generic versions of each tool are also available on the Tools page without needing a specific application."
             />
             <HowItWorksStep
               step="4"
@@ -415,11 +418,11 @@ export default function HomePage() {
 
                 <Card>
                   <CardHeader className="border-b">
-                    <CardTitle className="text-base">AI · FIT score (demo)</CardTitle>
+                    <CardTitle className="text-base">AI · Compatibility check (demo)</CardTitle>
                   </CardHeader>
                   <CardContent className="pt-4 text-sm">
                     <div className="flex items-baseline justify-between">
-                      <div className="text-muted-foreground">Estimated match</div>
+                      <div className="text-muted-foreground">Compatibility score</div>
                       <div className="text-lg font-semibold">{selected.fitSummary.score}</div>
                     </div>
 
@@ -443,9 +446,11 @@ export default function HomePage() {
                       </div>
                     </div>
 
-                    <div className="mt-4 text-xs text-muted-foreground">
-                      You get <span className="font-medium text-foreground">5 free AI credits</span>. Pro access unlocks
-                      additional AI usage.
+                    <div className="mt-3 rounded-md border bg-muted/10 p-3 text-xs text-muted-foreground space-y-1">
+                      <div className="font-medium text-foreground text-sm">More AI tools available in the full app:</div>
+                      <div>· Resume Advice — targeted suggestions + keyword coverage</div>
+                      <div>· Cover Letter — tailored draft based on the JD and your resume</div>
+                      <div>· Interview Prep — question bank, focus topics, and prep areas</div>
                     </div>
                   </CardContent>
                 </Card>
@@ -488,8 +493,10 @@ export default function HomePage() {
               <CardTitle className="text-base">Application workflow</CardTitle>
             </CardHeader>
             <CardContent className="pt-4 text-sm text-muted-foreground">
-              Create and manage applications, upload documents per application, and track connections, 
-              so follow-ups and context stay organized.
+              Create and manage applications so follow-ups and context stay organized.
+              <br/><br/>
+              Control and track your applications in a fast table with sorting, filtering, and column controls.
+              Open any application in a detail drawer to view and edit fields, upload documents, manage connections, and run AI tools.
             </CardContent>
           </Card>
 
@@ -498,17 +505,22 @@ export default function HomePage() {
               <CardTitle className="text-base">AI tools + credits</CardTitle>
             </CardHeader>
             <CardContent className="pt-4 text-sm text-muted-foreground">
-              Generate a structured JD extract and a Compatibility score. Includes 5 free credits, plus a Pro request/approval flow to unlock more.
+              5 AI tools built into the workflow: JD extraction, compatibility check, resume advice, cover letter generation, and interview prep.
+              <br/><br/>
+              Targeted versions run inside the application drawer; generic versions live on the Tools page.
+              <br/><br/>
+              Includes 5 free credits on sign up, with a Pro request flow to unlock more.
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="border-b">
-              <CardTitle className="text-base">Profile + account hub</CardTitle>
+              <CardTitle className="text-base">Profile + activity</CardTitle>
             </CardHeader>
             <CardContent className="pt-4 text-sm text-muted-foreground">
-              Store info about what your targeting, manage your base-resume, update security settings,
-              and handle requesting more credits/pro account in one place.
+              Manage your CV / base resume and cover letter template, update security settings, and request Pro access.
+              <br/><br/>
+              Track your personal activity — AI runs completed, tools used, and generated artifacts — from the Activity page.
             </CardContent>
           </Card>
         </section>
@@ -519,7 +531,7 @@ export default function HomePage() {
               <div>
                 <div className="font-semibold">Ready to organize your search?</div>
                 <div className="text-sm text-muted-foreground">
-                  Create an account and start tracking in under a minute.
+                  Create an account and start tracking in under a minute. Sign up with email or continue with Google.
                 </div>
               </div>
 

@@ -228,12 +228,18 @@ export async function listUsersForAdmin(params: ListUsersQueryType) {
     }),
   ]);
 
+  // Count pending Pro requests so the UI can show a badge without a separate fetch
+  const pendingProRequestCount = await prisma.aiProRequest.count({
+    where: { status: "PENDING" },
+  });
+
   return {
     items,
     page,
     pageSize,
     total,
     totalPages: Math.ceil(total / pageSize),
+    pendingProRequestCount,
   };
 }
 
@@ -291,8 +297,22 @@ export async function getUserDetailForAdmin(userId: string) {
   // Get the total number of applications for the user
   const applicationCount = applications.reduce((sum, a) => sum + a._count.status, 0);
 
+  // Get all Pro requests for this user (newest first)
+  const proRequests = await prisma.aiProRequest.findMany({
+    where:   { userId },
+    orderBy: { requestedAt: "desc" },
+    select: {
+      id:           true,
+      status:       true,
+      note:         true,
+      decisionNote: true,
+      requestedAt:  true,
+      decidedAt:    true,
+    },
+  });
+
   // Return the user detail
-  return { ...user, applicationCount, connectionCount, statusBreakdown };
+  return { ...user, applicationCount, connectionCount, statusBreakdown, proRequests };
 }
 
 /**
@@ -350,4 +370,3 @@ function escapeHtml(s: string): string {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
 }
-  

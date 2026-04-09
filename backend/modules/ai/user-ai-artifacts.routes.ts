@@ -15,6 +15,7 @@ import { requireAuth }          from "../../middleware/auth.js";
 import { requireVerifiedEmail } from "../../middleware/require-verified-email.js";
 import { AppError }             from "../../errors/app-error.js";
 import * as UserAiArtifactsService from "./user-ai-artifacts.service.js";
+import { trackUserArtifactViewed } from "../analytics/artifact-interactions.service.js";
 
 export async function userAiArtifactsRoutes(app: FastifyInstance) {
 
@@ -37,6 +38,17 @@ export async function userAiArtifactsRoutes(app: FastifyInstance) {
       }
 
       const artifacts = await UserAiArtifactsService.listUserAiArtifacts({ userId, kind });
+
+      // Track a view interaction for each artifact returned so we can measure
+      // whether users return to their generic tool outputs.
+      for (const artifact of artifacts) {
+        void trackUserArtifactViewed({
+          userId,
+          userArtifactId: artifact.id,
+          artifactKind:   artifact.kind,
+        });
+      }
+
       return reply.status(200).send({ artifacts });
     }
   );

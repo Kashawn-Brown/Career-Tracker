@@ -449,8 +449,7 @@ describe("Applications core", () => {
       url:    `/api/v1/applications/${appId}`,
       headers: authHeader(token),
     });
-    expect(delRes.statusCode).toBe(200);
-    expect(delRes.json()).toMatchObject({ ok: true });
+    expect(delRes.statusCode).toBe(204);
 
     // Subsequent GET should return 404.
     const getRes = await app.inject({

@@ -42,7 +42,10 @@ export type CreateUserAiArtifactInput = {
  * Called on both manual deletion and cap-based eviction to prevent
  * orphaned DB rows and GCS files accumulating over time.
  */
-async function cleanupSourceDocument(sourceDocumentId: number | null) {
+async function cleanupSourceDocument(
+  sourceDocumentId: number | null,
+  excludeArtifactId?: string,
+) {
   if (!sourceDocumentId) return;
 
   try {
@@ -51,9 +54,21 @@ async function cleanupSourceDocument(sourceDocumentId: number | null) {
       select: { id: true, kind: true, storageKey: true },
     });
 
-    // Only delete CAREER_HISTORY docs — these are uploads specific to a tool
-    // run. BASE_RESUME and other kinds must never be touched here.
+    // Only delete CAREER_HISTORY docs — these are ephemeral per-run uploads.
+    // BASE_RESUME and other permanent kinds must never be touched here.
     if (!doc || doc.kind !== DocumentKind.CAREER_HISTORY) return;
+
+    // Reference count guard: if any other UserAiArtifact still points at this
+    // document (e.g. a user re-used the same upload across multiple tool runs),
+    // skip the delete — the document is still in use.
+    const stillReferenced = await prisma.userAiArtifact.count({
+      where: {
+        sourceDocumentId,
+        ...(excludeArtifactId ? { id: { not: excludeArtifactId } } : {}),
+      },
+    });
+
+    if (stillReferenced > 0) return;
 
     await prisma.document.delete({ where: { id: doc.id } });
     await deleteGcsObject(doc.storageKey).catch(() => {
@@ -61,7 +76,7 @@ async function cleanupSourceDocument(sourceDocumentId: number | null) {
       console.warn(`[user-ai-artifacts] GCS cleanup failed for storageKey=${doc.storageKey}`);
     });
   } catch {
-    // Non-fatal: best-effort cleanup, don't block artifact creation
+    // Non-fatal: best-effort cleanup, don't block artifact creation or deletion
     console.warn(`[user-ai-artifacts] Source document cleanup failed for id=${sourceDocumentId}`);
   }
 }
@@ -140,6 +155,9 @@ export async function deleteUserAiArtifact(userId: string, artifactId: string) {
 
   await prisma.userAiArtifact.delete({ where: { id: artifactId } });
 
-  // Clean up the uploaded resume document if one was used for this run
-  await cleanupSourceDocument(artifact.sourceDocumentId);
+  // Clean up the uploaded resume document if one was used for this run.
+  // Pass the artifact id so the reference check correctly excludes the
+  // row we just deleted (it no longer exists in the DB at this point,
+  // but passing it is harmless and makes intent explicit).
+  await cleanupSourceDocument(artifact.sourceDocumentId, artifactId);
 }

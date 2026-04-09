@@ -3,11 +3,22 @@
 import { useEffect, useState } from "react";
 import { adminApi } from "@/lib/api/admin";
 import { ApiError } from "@/lib/api/client";
-import type { AdminUserDetail, AdminUserListItem, UserPlan } from "@/types/api";
+import type { AdminUserDetail, AdminUserListItem, UserPlan, AdminUserAnalyticsResponse, AdminProRequestEntry } from "@/types/api";
+import { analyticsApi } from "@/lib/api/analytics";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { AI_FREE_QUOTA } from "@/lib/constants";
+
+const TOOL_LABELS: Record<string, string> = {
+  JD_EXTRACTION:     "JD Extraction",
+  FIT:               "Compatibility Check",
+  RESUME_HELP:       "Resume Advice (Generic)",
+  COVER_LETTER_HELP: "Cover Letter (Generic)",
+  RESUME_ADVICE:     "Resume Advice (Targeted)",
+  COVER_LETTER:      "Cover Letter (Targeted)",
+  INTERVIEW_PREP:    "Interview Prep",
+};
 
 const PLAN_LABELS: Record<UserPlan, string> = {
   REGULAR:  "Regular",
@@ -36,9 +47,14 @@ type Props = {
 };
 
 export function UserDetailSheet({ user, open, onClose, onUserUpdated }: Props) {
-  const [detail, setDetail]       = useState<AdminUserDetail | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError]         = useState<string | null>(null);
+  const [detail, setDetail]           = useState<AdminUserDetail | null>(null);
+  const [isLoading, setIsLoading]     = useState(false);
+  const [error, setError]             = useState<string | null>(null);
+  const [aiUsage, setAiUsage]               = useState<AdminUserAnalyticsResponse | null>(null);
+  const [aiUsageLoading, setAiUsageLoading] = useState(false);
+  const [proActing, setProActing]           = useState<Record<string, boolean>>({});
+  const [proNotes, setProNotes]             = useState<Record<string, string>>({});
+  const [proError, setProError]             = useState<string | null>(null);
 
   // Confirm state: null = no confirm showing, otherwise holds the pending action
   const [pendingAction, setPendingAction] = useState<ConfirmAction | null>(null);
@@ -49,6 +65,9 @@ export function UserDetailSheet({ user, open, onClose, onUserUpdated }: Props) {
   useEffect(() => {
     if (!open || !user) {
       setDetail(null);
+      setAiUsage(null);
+      setProError(null);
+      setProNotes({});
       setPendingAction(null);
       setActionError(null);
       return;
@@ -65,10 +84,38 @@ export function UserDetailSheet({ user, open, onClose, onUserUpdated }: Props) {
       } finally {
         setIsLoading(false);
       }
+
+      // Load AI usage separately — non-blocking so sheet still opens if it fails
+      setAiUsageLoading(true);
+      analyticsApi.getAdminUserAnalytics(user!.id, "all")
+        .then(setAiUsage)
+        .catch(() => {}) // non-fatal
+        .finally(() => setAiUsageLoading(false));
     }
 
     void load();
   }, [open, user]);
+
+  async function handleProAction(requestId: string, action: "approve" | "deny" | "credits") {
+    if (!user) return;
+    setProActing((m) => ({ ...m, [requestId]: true }));
+    setProError(null);
+    try {
+      const note = proNotes[requestId]?.trim() || undefined;
+      if (action === "approve") await adminApi.approveProRequest(requestId, { decisionNote: note });
+      else if (action === "deny") await adminApi.denyProRequest(requestId, { decisionNote: note });
+      else await adminApi.grantCredits(requestId);
+      setProNotes((m) => ({ ...m, [requestId]: "" }));
+      // Reload detail to reflect updated request status
+      const res = await adminApi.getUserDetail(user.id);
+      setDetail(res);
+      onUserUpdated();
+    } catch (err) {
+      setProError(err instanceof Error ? err.message : "Action failed.");
+    } finally {
+      setProActing((m) => ({ ...m, [requestId]: false }));
+    }
+  }
 
   async function confirmAction() {
     if (!pendingAction || !user) return;
@@ -149,13 +196,132 @@ export function UserDetailSheet({ user, open, onClose, onUserUpdated }: Props) {
               <Field label="Connections" value={String(detail.connectionCount)} />
             </Section>
 
-            {/* --- Usage (placeholder for future tracking) --- */}
+            {/* --- AI Usage --- */}
             <Section title="AI Usage">
-              <div className="text-xs text-muted-foreground italic">
-                Detailed usage tracking coming soon — will include AI features used
-                broken down by type, total tokens consumed, and more.
-              </div>
+              {aiUsageLoading && (
+                <div className="text-xs text-muted-foreground">Loading...</div>
+              )}
+              {!aiUsageLoading && aiUsage && (
+                <div className="space-y-2">
+                  <Field
+                    label="Total runs"
+                    value={String(aiUsage.aiRuns.byStatus.reduce((s, r) => s + r.count, 0))}
+                  />
+                  <Field
+                    label="Successful"
+                    value={String(aiUsage.aiRuns.byStatus.find((r) => r.status === "SUCCEEDED")?.count ?? 0)}
+                  />
+                  <Field
+                    label="Failed"
+                    value={String(aiUsage.aiRuns.byStatus.find((r) => r.status === "FAILED")?.count ?? 0)}
+                  />
+                  <Field
+                    label="Artifacts generated"
+                    value={String(aiUsage.artifacts.targeted + aiUsage.artifacts.generic)}
+                  />
+                  {/* Per-tool breakdown */}
+                  {aiUsage.aiRuns.byTool.length > 0 && (
+                    <div className="mt-1 ml-2 space-y-1 border-l-2 border-muted pl-3">
+                      {Object.entries(
+                        aiUsage.aiRuns.byTool.reduce<Record<string, number>>((acc, r) => {
+                          if (r.status === "SUCCEEDED") acc[r.toolKind] = (acc[r.toolKind] ?? 0) + r.count;
+                          return acc;
+                        }, {})
+                      )
+                        .sort(([, a], [, b]) => b - a)
+                        .map(([kind, count]) => (
+                          <div key={kind} className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">{TOOL_LABELS[kind] ?? kind}</span>
+                            <span className="text-muted-foreground">{count}</span>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                  <div className="pt-1">
+                    <a
+                      href={`/admin/users/${detail?.id}/analytics`}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      View full usage breakdown →
+                    </a>
+                  </div>
+                </div>
+              )}
+              {!aiUsageLoading && !aiUsage && (
+                <div className="text-xs text-muted-foreground">No usage data available.</div>
+              )}
             </Section>
+
+            {/* --- Pro Requests --- */}
+            {(detail.proRequests ?? []).length > 0 && (
+              <Section title="Pro Requests">
+                {proError && (
+                  <div className="text-xs text-red-600 mb-2">{proError}</div>
+                )}
+                <div className="space-y-3">
+                  {(detail.proRequests ?? []).map((r: AdminProRequestEntry) => (
+                    <div key={r.id} className="space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">
+                          {new Date(r.requestedAt).toLocaleDateString()}
+                          {r.decidedAt ? ` → ${new Date(r.decidedAt).toLocaleDateString()}` : ""}
+                        </span>
+                        <span className={`rounded border px-2 py-0.5 text-[10px] font-semibold tracking-wide ${
+                          r.status === "PENDING"  ? "border-amber-300 text-amber-700 dark:text-amber-400" :
+                          r.status === "APPROVED" ? "border-green-300 text-green-700 dark:text-green-400" :
+                          r.status === "DENIED"   ? "border-red-300 text-red-600" :
+                          "border-muted text-muted-foreground"
+                        }`}>
+                          {r.status}
+                        </span>
+                      </div>
+                      {r.note && (
+                        <p className="text-xs text-muted-foreground">{r.note}</p>
+                      )}
+                      {r.decisionNote && (
+                        <p className="text-xs text-muted-foreground italic">Note: {r.decisionNote}</p>
+                      )}
+                      {r.status === "PENDING" && !isAdmin && (
+                        <div className="space-y-1.5">
+                          <input
+                            type="text"
+                            placeholder="Decision note (optional)"
+                            value={proNotes[r.id] ?? ""}
+                            onChange={(e) => setProNotes((m) => ({ ...m, [r.id]: e.target.value }))}
+                            className="w-full rounded border bg-background px-2 py-1 text-xs"
+                          />
+                          <div className="flex gap-1.5">
+                            <Button
+                              size="sm"
+                              disabled={!!proActing[r.id]}
+                              onClick={() => handleProAction(r.id, "approve")}
+                            >
+                              {proActing[r.id] ? "..." : "Approve"}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={!!proActing[r.id]}
+                              onClick={() => handleProAction(r.id, "deny")}
+                            >
+                              Deny
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={!!proActing[r.id]}
+                              onClick={() => handleProAction(r.id, "credits")}
+                            >
+                              Grant credits
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </Section>
+            )}
 
             {/* --- Actions (blocked for admins) --- */}
             {isAdmin ? (

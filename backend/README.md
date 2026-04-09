@@ -62,7 +62,8 @@ backend/
     connections/          # global connections CRUD/list/search
     ai/                   # JD extraction, document tools, interview prep (AI endpoints + user artifacts)
     pro/                  # Pro access request
-    admin/                # admin Pro approvals + credit grants
+    admin/                # admin user management + Pro approvals
+    analytics/            # analytics tracking helpers + query service + routes
     debug/                # dev-only routes (seed)
   prisma/
     schema.prisma
@@ -311,12 +312,31 @@ AI gating rules:
 
 * `POST /api/v1/pro/request` (rate-limited per user)
 
-### Admin (Pro approvals + credits)
+### Admin (user management + Pro approvals)
 
+* `GET  /api/v1/admin/users`
+* `GET  /api/v1/admin/users/:userId`
+* `PATCH /api/v1/admin/users/:userId/plan`
+* `PATCH /api/v1/admin/users/:userId/status`
 * `GET  /api/v1/admin/pro-requests`
 * `POST /api/v1/admin/pro-requests/:requestId/approve`
 * `POST /api/v1/admin/pro-requests/:requestId/deny`
 * `POST /api/v1/admin/pro-requests/:requestId/grant-credits`
+
+### Analytics
+
+Admin and user analytics — all require verified email; admin routes additionally require ADMIN role.
+
+* `GET /api/v1/analytics/admin/overview?window=1d|7d|30d|1y|all` — summary cards: users, applications, AI runs, artifacts
+* `GET /api/v1/analytics/admin/ai?window=...` — AI usage by tool, scope, plan, status; top users; recent failures
+* `GET /api/v1/analytics/admin/activity` — recent AI runs and product events across all users
+* `GET /api/v1/analytics/admin/users/:userId?window=...` — per-user analytics drilldown
+* `GET /api/v1/analytics/me/overview?window=...` — personal usage summary scoped to the authenticated user
+
+Tracking is write-only via internal helpers — there are no public write routes. Three structured tables:
+- `ProductEvent` — major product actions (application CRUD, CSV export)
+- `AiRun` — every AI tool invocation with timing, tokens, cost, and error categorisation
+- `ArtifactInteraction` — tracks whether generated outputs are viewed or copied
 
 ---
 
@@ -587,4 +607,4 @@ Run instructions + output conventions:
 
 ---
 
-*Last updated: 2026-04-07*
+*Last updated: 2026-04-08*

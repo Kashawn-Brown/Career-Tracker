@@ -17,6 +17,9 @@ import { resolveAiTierForUser } from "../ai/ai-tier.js";
 import { createAbortControllerFromRawRequest, isAbortError, throwIfAborted } from "../../lib/request-abort.js";
 import { parseApplicationFilters } from "./applications.filters.js";
 import { ExportApplicationsQuery, type ExportApplicationsQueryType } from "./applications.schemas.js";
+import { trackEventForUser } from "../analytics/analytics-tracker.js";
+import { startAiRun, succeedAiRun, failAiRun } from "../analytics/ai-run-tracker.js";
+import { trackApplicationArtifactViewed } from "../analytics/artifact-interactions.service.js";
 
 export async function applicationsRoutes(app: FastifyInstance) {
   
@@ -40,6 +43,17 @@ export async function applicationsRoutes(app: FastifyInstance) {
       const body = req.body as CreateApplicationBodyType;
       
       const created = await ApplicationsService.createApplication({ userId, ...body });
+
+      // Track application creation — note whether it came from JD extraction or manual entry
+      void trackEventForUser(userId, {
+        applicationId: created.id,
+        eventType:     "APPLICATION_CREATED",
+        category:      "APPLICATION",
+        surface:       "CREATE_FORM",
+        metadata: {
+          creationMethod: body.description && body.jdSummary ? "JD_EXTRACTION" : "MANUAL",
+        },
+      });
 
       return reply.status(201).send({ application: created });
 
@@ -159,6 +173,12 @@ export async function applicationsRoutes(app: FastifyInstance) {
         ...filters,
       });
 
+      void trackEventForUser(userId, {
+        eventType: "APPLICATIONS_CSV_EXPORTED",
+        category:  "EXPORT",
+        metadata:  { resultCount: csv.split("\n").length - 1 },
+      });
+
       return reply
         .header("Content-Type", "text/csv; charset=utf-8")
         .header("Content-Disposition", `attachment; filename="${filename}"`)
@@ -206,7 +226,13 @@ export async function applicationsRoutes(app: FastifyInstance) {
       const body = req.body as UpdateApplicationBodyType;
 
       const updated = await ApplicationsService.updateApplication(userId, params.id, body);
-      
+
+      void trackEventForUser(userId, {
+        applicationId: params.id,
+        eventType:     "APPLICATION_UPDATED",
+        category:      "APPLICATION",
+      });
+
       return reply.send({ application: updated });
     }
   );
@@ -222,11 +248,20 @@ export async function applicationsRoutes(app: FastifyInstance) {
       preHandler: [requireAuth, requireVerifiedEmail], 
       schema: { params: ApplicationIdParams } 
     },
-    async (req) => {
+    async (req, reply) => {
       const userId = req.user!.id;
       const params = req.params as ApplicationIdParamsType;
 
-      return ApplicationsService.deleteApplication(userId, params.id);
+      await ApplicationsService.deleteApplication(userId, params.id);
+
+      // Note: applicationId is intentionally omitted — the row is already
+      // deleted by this point so passing it would cause a FK violation.
+      void trackEventForUser(userId, {
+        eventType: "APPLICATION_DELETED",
+        category:  "APPLICATION",
+      });
+
+      return reply.status(204).send();
     }
   );
 
@@ -374,6 +409,9 @@ export async function applicationsRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const controller = createAbortControllerFromRawRequest(req.raw, reply.raw);
       const { signal } = controller;
+
+      // Declared outside try so the catch block can call failAiRun on error
+      let runId: string | null = null;
     
       try {
         const userId = req.user!.id;
@@ -427,6 +465,18 @@ export async function applicationsRoutes(app: FastifyInstance) {
           // If the client cancelled, don't write artifact or consume quota.
           throwIfAborted(signal);
     
+          runId = await startAiRun({
+            userId,
+            applicationId:  id,
+            toolKind:       "FIT",
+            scope:          "TARGETED",
+            triggerSource:  "APPLICATION_DRAWER",
+            provider:       "openai",
+            model,
+            resumeMode:     candidate.source === "BASE" ? "BASE" : "ATTACHED",
+            jdMode:         "APPLICATION_DESCRIPTION",
+          });
+
           const artifact = await ApplicationsService.createAiArtifact({
             userId,
             jobApplicationId: id,
@@ -434,6 +484,12 @@ export async function applicationsRoutes(app: FastifyInstance) {
             payload,
             model,
             sourceDocumentId: candidate.documentIdUsed,
+          });
+
+          void succeedAiRun({
+            runId,
+            applicationArtifactId: artifact.id,
+            inputChars: candidate.text.length + application.description.length,
           });
     
           return reply.status(201).send(artifact);
@@ -459,6 +515,18 @@ export async function applicationsRoutes(app: FastifyInstance) {
 
           throwIfAborted(signal);
 
+          runId = await startAiRun({
+            userId,
+            applicationId: id,
+            toolKind:      "RESUME_ADVICE",
+            scope:         "TARGETED",
+            triggerSource: "APPLICATION_DRAWER",
+            provider:      "openai",
+            model:         AI_MODELS.RESUME_ADVICE,
+            resumeMode:    candidate.source === "BASE" ? "BASE" : "ATTACHED",
+            jdMode:        "APPLICATION_DESCRIPTION",
+          });
+
           const artifact = await ApplicationsService.createAiArtifact({
             userId,
             jobApplicationId: id,
@@ -466,6 +534,12 @@ export async function applicationsRoutes(app: FastifyInstance) {
             payload,
             model:            AI_MODELS.RESUME_ADVICE,
             sourceDocumentId: candidate.documentIdUsed,
+          });
+
+          void succeedAiRun({
+            runId,
+            applicationArtifactId: artifact.id,
+            inputChars: candidate.text.length + application.description.length,
           });
 
           return reply.status(201).send(artifact);
@@ -501,6 +575,18 @@ export async function applicationsRoutes(app: FastifyInstance) {
 
           throwIfAborted(signal);
 
+          runId = await startAiRun({
+            userId,
+            applicationId: id,
+            toolKind:      "COVER_LETTER",
+            scope:         "TARGETED",
+            triggerSource: "APPLICATION_DRAWER",
+            provider:      "openai",
+            model:         AI_MODELS.COVER_LETTER,
+            resumeMode:    candidate.source === "BASE" ? "BASE" : "ATTACHED",
+            jdMode:        "APPLICATION_DESCRIPTION",
+          });
+
           const artifact = await ApplicationsService.createAiArtifact({
             userId,
             jobApplicationId: id,
@@ -508,6 +594,12 @@ export async function applicationsRoutes(app: FastifyInstance) {
             payload,
             model:            AI_MODELS.COVER_LETTER,
             sourceDocumentId: candidate.documentIdUsed,
+          });
+
+          void succeedAiRun({
+            runId,
+            applicationArtifactId: artifact.id,
+            inputChars: candidate.text.length + application.description.length,
           });
 
           return reply.status(201).send(artifact);
@@ -537,6 +629,18 @@ export async function applicationsRoutes(app: FastifyInstance) {
 
           throwIfAborted(signal);
 
+          runId = await startAiRun({
+            userId,
+            applicationId: id,
+            toolKind:      "INTERVIEW_PREP",
+            scope:         "TARGETED",
+            triggerSource: "APPLICATION_DRAWER",
+            provider:      "openai",
+            model:         AI_MODELS.INTERVIEW_PREP,
+            resumeMode:    candidate ? (candidate.source === "BASE" ? "BASE" : "ATTACHED") : "NONE",
+            jdMode:        "APPLICATION_DESCRIPTION",
+          });
+
           const artifact = await ApplicationsService.createAiArtifact({
             userId,
             jobApplicationId: id,
@@ -544,6 +648,12 @@ export async function applicationsRoutes(app: FastifyInstance) {
             payload,
             model:            AI_MODELS.INTERVIEW_PREP,
             sourceDocumentId: candidate?.documentIdUsed ?? undefined,
+          });
+
+          void succeedAiRun({
+            runId,
+            applicationArtifactId: artifact.id,
+            inputChars: (candidate?.text.length ?? 0) + application.description.length,
           });
 
           return reply.status(201).send(artifact);
@@ -554,6 +664,8 @@ export async function applicationsRoutes(app: FastifyInstance) {
       } catch (err) {
         // Cancellation is expected: don't log as failure, don't try to reply.
         if (signal.aborted || isAbortError(err)) return;
+
+        void failAiRun({ runId, error: err });
     
         throw err;
       }
@@ -583,6 +695,17 @@ export async function applicationsRoutes(app: FastifyInstance) {
         kind: query.kind,
         all: query.all,
       });
+
+      // Track a view interaction for each artifact returned — this is the
+      // primary signal that a user is revisiting generated outputs.
+      for (const artifact of artifacts ?? []) {
+        void trackApplicationArtifactViewed({
+          userId,
+          applicationId:         id,
+          applicationArtifactId: artifact.id,
+          artifactKind:          artifact.kind,
+        });
+      }
 
       return reply.status(200).send(artifacts);
     }
