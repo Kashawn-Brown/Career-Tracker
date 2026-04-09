@@ -34,8 +34,9 @@ export default function AdminUsersPage() {
 }
 
 function AdminUsersContent() {
-  const [users, setUsers]         = useState<AdminUserListItem[]>([]);
-  const [total, setTotal]         = useState(0);
+  const [users, setUsers]               = useState<AdminUserListItem[]>([]);
+  const [total, setTotal]               = useState(0);
+  const [pendingRequests, setPendingRequests] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError]         = useState<string | null>(null);
 
@@ -56,6 +57,7 @@ function AdminUsersContent() {
       });
       setUsers(res.items);
       setTotal(res.total);
+      setPendingRequests(res.pendingProRequestCount ?? 0);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load users.");
     } finally {
@@ -80,7 +82,14 @@ function AdminUsersContent() {
   return (
     <div className="space-y-6 p-6">
       <div>
-        <h1 className="text-2xl font-semibold">Users</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-semibold">Users</h1>
+          {pendingRequests > 0 && (
+            <span className="rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 px-2.5 py-0.5 text-xs font-medium">
+              {pendingRequests} pending Pro request{pendingRequests !== 1 ? "s" : ""}
+            </span>
+          )}
+        </div>
         <p className="text-sm text-muted-foreground mt-1">
           {total} user{total !== 1 ? "s" : ""} total
         </p>

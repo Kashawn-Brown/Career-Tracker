@@ -159,21 +159,32 @@ export type AdminUserListItem = {
 };
 
 export type AdminUsersListResponse = {
-  items: AdminUserListItem[];
-  page: number;
-  pageSize: number;
-  total: number;
-  totalPages: number;
+  items:                  AdminUserListItem[];
+  page:                   number;
+  pageSize:               number;
+  total:                  number;
+  totalPages:             number;
+  pendingProRequestCount: number;
 };
 
 export type UpdateUserPlanRequest = {
   plan: UserPlan;
 };
 
+export type AdminProRequestEntry = {
+  id:           string;
+  status:       AiProRequestStatus;
+  note:         string | null;
+  decisionNote: string | null;
+  requestedAt:  string;
+  decidedAt:    string | null;
+};
+
 export type AdminUserDetail = AdminUserListItem & {
   applicationCount: number;
   connectionCount:  number;
   statusBreakdown:  Record<string, number>;
+  proRequests:      AdminProRequestEntry[];
 };
 
 export type UpdateUserStatusRequest = {

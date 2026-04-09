@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { RequireAdmin } from "@/components/auth/RequireAdmin";
 import { analyticsApi } from "@/lib/api/analytics";
 import { ApiError } from "@/lib/api/client";
@@ -40,6 +40,7 @@ function timeAgo(iso: string) {
 
 function AdminUserAnalyticsContent() {
   const { userId } = useParams<{ userId: string }>();
+  const router = useRouter();
   const [window, setWindow]   = useState<DateWindow>("30d");
   const [data, setData]       = useState<AdminUserAnalyticsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -65,6 +66,12 @@ function AdminUserAnalyticsContent() {
 
       <div className="flex items-center justify-between">
         <div>
+          <button
+            onClick={() => router.back()}
+            className="mb-2 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            ← Back
+          </button>
           <div className="text-xs text-muted-foreground mb-1">
             <a href="/admin/analytics" className="hover:underline">Analytics</a>
             {" / User"}
