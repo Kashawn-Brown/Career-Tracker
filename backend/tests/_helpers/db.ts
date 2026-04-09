@@ -40,6 +40,10 @@ export async function truncateAllTables(): Promise<void> {
   // Ordering is not important with TRUNCATE ... CASCADE.
   await prisma.$executeRawUnsafe(`
     TRUNCATE TABLE
+      "artifact_interactions",
+      "ai_runs",
+      "product_events",
+      "user_ai_artifacts",
       "application_connections",
       "ai_artifacts",
       "documents",
