@@ -254,10 +254,11 @@ export async function applicationsRoutes(app: FastifyInstance) {
 
       await ApplicationsService.deleteApplication(userId, params.id);
 
+      // Note: applicationId is intentionally omitted — the row is already
+      // deleted by this point so passing it would cause a FK violation.
       void trackEventForUser(userId, {
-        applicationId: params.id,
-        eventType:     "APPLICATION_DELETED",
-        category:      "APPLICATION",
+        eventType: "APPLICATION_DELETED",
+        category:  "APPLICATION",
       });
 
       return reply.status(204).send();
