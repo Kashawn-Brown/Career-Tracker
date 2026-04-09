@@ -27,7 +27,7 @@ export type AiToolKind =
   | "COVER_LETTER"
   | "INTERVIEW_PREP";
 
-export type AiRunScope         = "GENERIC" | "TARGETED";
+export type AiRunScope         = "GENERIC" | "TARGETED" | "EXTRACTION";
 export type AiRunTriggerSource = "TOOLS_PAGE" | "APPLICATION_DRAWER" | "CREATE_FLOW" | "SYSTEM";
 export type AiResumeMode       = "NONE" | "BASE" | "ATTACHED" | "UPLOADED_OVERRIDE";
 export type AiJdMode           = "NONE" | "PASTED" | "LINK" | "APPLICATION_DESCRIPTION";

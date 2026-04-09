@@ -38,7 +38,7 @@ export async function aiRoutes(app: FastifyInstance) {
         runId = await startAiRun({
           userId:        req.user!.id,
           toolKind:      "JD_EXTRACTION",
-          scope:         "GENERIC",
+          scope:         "EXTRACTION",
           triggerSource: "CREATE_FLOW",
           provider:      "openai",
           model:         AI_MODELS.JD_EXTRACT,
@@ -88,7 +88,7 @@ export async function aiRoutes(app: FastifyInstance) {
         runId = await startAiRun({
           userId:        req.user!.id,
           toolKind:      "JD_EXTRACTION",
-          scope:         "GENERIC",
+          scope:         "EXTRACTION",
           triggerSource: "CREATE_FLOW",
           provider:      "openai",
           model:         AI_MODELS.JD_EXTRACT,

@@ -185,7 +185,9 @@ function AdminAnalyticsContent() {
             <BreakdownCard
               title="By scope"
               rows={aiUsage.byScope.map((r) => ({
-                label: r.scope === "GENERIC" ? "Generic (Tools page)" : "Targeted (Drawer)",
+                label: r.scope === "GENERIC" ? "Generic (Tools page)" :
+                       r.scope === "TARGETED" ? "Targeted (Drawer)" :
+                       r.scope === "EXTRACTION" ? "JD Extraction" : r.scope,
                 count: r.count,
               }))}
             />

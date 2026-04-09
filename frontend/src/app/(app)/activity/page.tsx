@@ -176,7 +176,7 @@ export default function ActivityPage() {
                         <tr key={r.id} className="border-b last:border-0">
                           <td className="py-2">{toolLabel(r.toolKind)}</td>
                           <td className="py-2 text-muted-foreground capitalize">
-                            {r.scope === "GENERIC" ? "Tools page" : "Application"}
+                            {r.scope === "GENERIC" ? "Tools page" : r.scope === "EXTRACTION" ? "Extraction" : "Application"}
                           </td>
                           <td className="py-2">
                             <StatusBadge status={r.status} />
