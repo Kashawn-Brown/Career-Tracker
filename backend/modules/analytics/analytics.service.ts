@@ -94,6 +94,7 @@ export async function getAdminAiUsage(window: DateWindow) {
       _count:  { id: true },
       _avg:    { durationMs: true },
       orderBy: { _count: { id: "desc" } },
+      take:    20, // bounded — we only have ~8 tool kinds today
     }),
 
     // Runs grouped by scope (generic vs targeted)
@@ -109,6 +110,7 @@ export async function getAdminAiUsage(window: DateWindow) {
       where:   dateFilter,
       _count:  { id: true },
       orderBy: { _count: { id: "desc" } },
+      take:    10,
     }),
 
     // Runs grouped by status

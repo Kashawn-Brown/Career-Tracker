@@ -47,6 +47,13 @@ The design goal is simple: **scanning stays instant** in the table, while richer
 - Optionally run all selected AI tools automatically after creating an application (Compatibility, Interview Prep, Resume Advice, Cover Letter)
 - Pro access can be requested and is admin-approved
 
+### Analytics + tracking
+- Every major product action (application created/updated/deleted, CSV export) is recorded as a structured product event
+- Every AI tool run is persisted as a first-class AI run record with timing, token usage, estimated cost, provider/model, and success/failure with error categorisation
+- Artifact interactions (views) are tracked to measure whether generated outputs are actually used
+- **Admin analytics** — overview of users, applications, AI usage by tool/scope/plan/status, top users, recent failures, and per-user usage drilldown at `/admin/analytics`
+- **User activity page** — personal summary of applications tracked, AI runs completed, tool usage breakdown, and recent activity at `/activity`
+
 ### Auth + Security
 - Password auth with email verification flows
 - Google OAuth sign-in (PKCE)
@@ -174,4 +181,4 @@ See: `backend/README.md` for full details.
 
 ---
 
-*Last updated: 2026-04-07*
+*Last updated: 2026-04-08*

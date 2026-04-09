@@ -89,9 +89,11 @@ Defaults:
 
 * `/applications` — main table + drawer (AI tools, documents, connections, notes per application)
 * `/tools` — standalone AI tools (generic interview prep, resume advice, cover letter; results saved per user)
+* `/activity` — personal usage summary: AI runs by tool, recent activity, artifact counts
 * `/profile` — profile + settings + connections management + base resume / cover letter upload
 * `/pro` — Pro request flow (if applicable)
-* `/admin` — admin-only views (Pro approvals / credit operations)
+* `/admin/users` — admin user management with inline Pro request handling and AI usage summary
+* `/admin/analytics` — admin analytics overview; per-user drilldown at `/admin/users/[userId]/analytics`
 
 > Actual access control is enforced by backend middleware; frontend routes reflect UI surfaces.
 
@@ -153,6 +155,16 @@ The frontend shows gating UI (upgrade/request Pro) but the server is the enforce
 
 ---
 
+## Analytics surfaces
+
+### Admin (`/admin/analytics`)
+Overview summary cards (users, applications, AI runs, artifacts), AI usage breakdown by tool/scope/plan/status, top users by run count, recent failures table, and recent activity feed. Per-user drilldown at `/admin/users/[userId]/analytics` showing run history, tool breakdown, and product events. Window filter: Today / 7 days / 30 days / 1 year / All time.
+
+### User (`/activity`)
+Personal summary: applications tracked, AI runs completed, targeted and generic artifact counts. Per-tool usage bar chart. Recent runs table and recent product actions feed. Same window filter options as admin.
+
+---
+
 ## AI tools (drawer + Tools page)
 
 ### Per-application drawer tools (require JD on the application)
@@ -174,4 +186,4 @@ Generic tool results are capped at 3 per user per kind (oldest evicted). Uploade
 
 ---
 
-*Last updated: 2026-04-07*
+*Last updated: 2026-04-08*
