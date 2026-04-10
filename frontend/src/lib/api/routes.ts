@@ -34,6 +34,7 @@ export const routes = {
     adminActivity:      ()                => "/analytics/admin/activity",
     adminUserAnalytics: (userId: string, window?: string) => `/analytics/admin/users/${userId}${window ? `?window=${window}` : ""}`,
     meOverview:         (window?: string) => `/analytics/me/overview${window ? `?window=${window}` : ""}`,
+    meUsage:            () => "/analytics/me/usage",
   },
   admin: {
     listProRequests: () => "/admin/pro-requests",

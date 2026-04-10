@@ -6,6 +6,7 @@ import type {
   AdminActivityResponse,
   AdminUserAnalyticsResponse,
   UserActivityOverviewResponse,
+  UsageState,
   DateWindow,
 } from "@/types/api";
 
@@ -39,6 +40,10 @@ export const analyticsApi = {
   },
 
   // ── User ───────────────────────────────────────────────────────────────────
+
+  getMyUsage() {
+    return apiFetch<UsageState>(routes.analytics.meUsage(), { method: "GET" });
+  },
 
   getMyOverview(window?: DateWindow) {
     return apiFetch<UserActivityOverviewResponse>(routes.analytics.meOverview(window), {
