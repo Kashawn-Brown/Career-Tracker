@@ -214,7 +214,7 @@ export async function aiRoutes(app: FastifyInstance) {
         });
 
         // Run AI
-        const payload = await DocumentToolsService.buildGenericResumeAdvice({
+        const { payload, usage: raUsage } = await DocumentToolsService.buildGenericResumeAdvice({
           candidateText,
           targetField,
           targetRolesText,
@@ -237,8 +237,11 @@ export async function aiRoutes(app: FastifyInstance) {
 
         void succeedAiRun({
           runId,
-          userArtifactId: artifact.id,
-          inputChars:     candidateText.length,
+          userArtifactId:   artifact.id,
+          inputChars:       candidateText.length,
+          promptTokens:     raUsage.input,
+          completionTokens: raUsage.output,
+          totalTokens:      raUsage.total,
         });
 
         return reply.status(201).send(artifact);
@@ -354,7 +357,7 @@ export async function aiRoutes(app: FastifyInstance) {
           resumeMode:    resumeSource === "UPLOAD" ? "UPLOADED_OVERRIDE" : "BASE",
         });
 
-        const payload = await DocumentToolsService.buildGenericCoverLetter({
+        const { payload, usage: clUsage } = await DocumentToolsService.buildGenericCoverLetter({
           candidateText,
           targetField,
           targetRolesText,
@@ -377,8 +380,11 @@ export async function aiRoutes(app: FastifyInstance) {
 
         void succeedAiRun({
           runId,
-          userArtifactId: artifact.id,
-          inputChars:     candidateText.length,
+          userArtifactId:   artifact.id,
+          inputChars:       candidateText.length,
+          promptTokens:     clUsage.input,
+          completionTokens: clUsage.output,
+          totalTokens:      clUsage.total,
         });
 
         return reply.status(201).send(artifact);
@@ -490,7 +496,7 @@ export async function aiRoutes(app: FastifyInstance) {
           resumeMode:    resumeSource === "UPLOAD" ? "UPLOADED_OVERRIDE" : "BASE",
         });
 
-        const payload = await InterviewPrepService.buildGenericInterviewPrep({
+        const { payload, usage: ipUsage } = await InterviewPrepService.buildGenericInterviewPrep({
           candidateText,
           targetField,
           targetRolesText,
@@ -511,8 +517,11 @@ export async function aiRoutes(app: FastifyInstance) {
 
         void succeedAiRun({
           runId,
-          userArtifactId: artifact.id,
-          inputChars:     candidateText.length,
+          userArtifactId:   artifact.id,
+          inputChars:       candidateText.length,
+          promptTokens:     ipUsage.input,
+          completionTokens: ipUsage.output,
+          totalTokens:      ipUsage.total,
         });
 
         return reply.status(201).send(artifact);

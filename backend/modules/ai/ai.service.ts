@@ -261,10 +261,14 @@ export async function buildFitV1(
     meta: { tier, model: policy.model, jdLen: jd.length, candidateLen: candidate.length },
   });
 
+  // Extract token usage from resp directly — getTokenUsage is a local helper
+  const fitUsage = getTokenUsage(resp);
+
   return {
     payload: normalizeFitV1Response(parsed),
-    model: policy.model,
+    model:   policy.model,
     tier,
+    usage:   { input: fitUsage.input, output: fitUsage.output, total: fitUsage.total },
   };
 }
 

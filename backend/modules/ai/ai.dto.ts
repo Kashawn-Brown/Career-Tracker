@@ -605,6 +605,7 @@ export type FitV1RunResult = {
   payload: FitV1Response;
   model:   string;
   tier:    AiTier;
+  usage:   { input: number; output: number; total: number };
 };
 
 // Clamp score to 0–100
