@@ -18,6 +18,7 @@
 import { AppError }                      from "../../errors/app-error.js";
 import { getOpenAIClient, AI_MODELS }    from "./openai.js";
 import type { DocumentToolResult, TokenUsage } from "./document-tools.service.js";
+import type { ExecutionProfile } from "../plans/entitlement-policy.js";
 import { throwIfAborted }                from "../../lib/request-abort.js";
 import {
   InterviewPrepJsonObject,
@@ -40,13 +41,15 @@ export type GenericInterviewPrepInput = {
   targetField?:       string;   // e.g. "Software Engineering"
   targetRolesText?:   string;   // e.g. "Backend Engineer, API Developer"
   additionalContext?: string;   // any other context the user wants to provide
-  signal?:            AbortSignal;
+  signal?:            AbortSignal
+  profile?: ExecutionProfile;
 };
 
 export type TargetedInterviewPrepInput = {
   jdText:         string;         // required — job description text
   candidateText?: string | null;  // optional — resume text if available
-  signal?:        AbortSignal;
+  signal?:        AbortSignal
+  profile?: ExecutionProfile;
 };
 
 
@@ -100,7 +103,7 @@ export async function buildGenericInterviewPrep(
           schema: InterviewPrepJsonObject,
         },
       },
-      reasoning:         { effort: "medium" },
+      reasoning:         { effort: input.profile?.effort ?? "medium" },
       max_output_tokens: INTERVIEW_PREP_MAX_TOKENS,
     },
     { signal }
@@ -153,7 +156,7 @@ export async function buildTargetedInterviewPrep(
           schema: InterviewPrepJsonObject,
         },
       },
-      reasoning:         { effort: "medium" },
+      reasoning:         { effort: input.profile?.effort ?? "medium" },
       max_output_tokens: INTERVIEW_PREP_MAX_TOKENS,
     },
     { signal }

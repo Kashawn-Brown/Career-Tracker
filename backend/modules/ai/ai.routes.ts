@@ -10,7 +10,8 @@ import * as InterviewPrepService  from "./interview-prep.service.js";
 import * as DocumentsService from "../documents/documents.service.js";
 import * as UserAiArtifactsService from "./user-ai-artifacts.service.js";
 import { extractTextFromBuffer } from "../../lib/text-extraction.js";
-import { consumeAiFreeUseOnSuccessOrThrow } from "./ai-access.js";
+import { consumeCreditsOnSuccess, getExecutionProfile } from "../../modules/plans/entitlement-policy.js";
+import { resolveAiTierForUser } from "./ai-tier.js";
 import { AppError } from "../../errors/app-error.js";
 import { AI_MODELS } from "./openai.js";
 import { startAiRun, succeedAiRun, failAiRun } from "../analytics/ai-run-tracker.js";
@@ -48,7 +49,7 @@ export async function aiRoutes(app: FastifyInstance) {
         const result = await AiService.buildApplicationDraftFromJd(body.text);
 
         // Only consume quota on successful AI completion
-        await consumeAiFreeUseOnSuccessOrThrow(req.user!.id);
+        void consumeCreditsOnSuccess(req.user!.id, "JD_EXTRACTION");
         void succeedAiRun({ runId, inputChars: body.text.length });
 
         return reply.status(200).send(result);
@@ -98,7 +99,7 @@ export async function aiRoutes(app: FastifyInstance) {
         const result = await AiService.buildApplicationDraftFromJobLink(body.url);
 
         // Only consume quota on successful AI extraction
-        await consumeAiFreeUseOnSuccessOrThrow(req.user!.id);
+        void consumeCreditsOnSuccess(req.user!.id, "JD_EXTRACTION");
         void succeedAiRun({ runId, inputChars: body.url.length });
 
         return reply.status(200).send(result);
@@ -213,17 +214,22 @@ export async function aiRoutes(app: FastifyInstance) {
           resumeMode:    resumeSource === "UPLOAD" ? "UPLOADED_OVERRIDE" : "BASE",
         });
 
-        // Run AI
+        // Resolve execution profile for this user's plan
+        const raTier    = await resolveAiTierForUser(userId);
+        const raProfile = getExecutionProfile(raTier);
+
+        // Run AI with plan-aware effort/verbosity
         const { payload, usage: raUsage } = await DocumentToolsService.buildGenericResumeAdvice({
           candidateText,
           targetField,
           targetRolesText,
           targetKeywords,
           additionalContext,
+          profile: raProfile,
         });
 
         // Consume quota before persisting — if this throws, nothing is saved
-        await consumeAiFreeUseOnSuccessOrThrow(userId);
+        void consumeCreditsOnSuccess(userId, "RESUME_HELP");
 
         // Store result as UserAiArtifact (auto-caps at 3, deletes oldest)
         const artifact = await UserAiArtifactsService.createUserAiArtifact({
@@ -357,6 +363,9 @@ export async function aiRoutes(app: FastifyInstance) {
           resumeMode:    resumeSource === "UPLOAD" ? "UPLOADED_OVERRIDE" : "BASE",
         });
 
+        const clTier    = await resolveAiTierForUser(userId);
+        const clProfile = getExecutionProfile(clTier);
+
         const { payload, usage: clUsage } = await DocumentToolsService.buildGenericCoverLetter({
           candidateText,
           targetField,
@@ -365,9 +374,10 @@ export async function aiRoutes(app: FastifyInstance) {
           whyInterested,
           templateText: effectiveTemplate,
           additionalContext,
+          profile: clProfile,
         });
 
-        await consumeAiFreeUseOnSuccessOrThrow(userId);
+        void consumeCreditsOnSuccess(userId, "COVER_LETTER_HELP");
 
         const artifact = await UserAiArtifactsService.createUserAiArtifact({
           userId,
@@ -496,15 +506,19 @@ export async function aiRoutes(app: FastifyInstance) {
           resumeMode:    resumeSource === "UPLOAD" ? "UPLOADED_OVERRIDE" : "BASE",
         });
 
+        const ipTier    = await resolveAiTierForUser(userId);
+        const ipProfile = getExecutionProfile(ipTier);
+
         const { payload, usage: ipUsage } = await InterviewPrepService.buildGenericInterviewPrep({
           candidateText,
           targetField,
           targetRolesText,
           additionalContext,
+          profile: ipProfile,
         });
 
-        // Consume quota only after successful AI completion
-        await consumeAiFreeUseOnSuccessOrThrow(userId);
+        // Consume credits only after successful AI completion
+        void consumeCreditsOnSuccess(userId, "INTERVIEW_PREP");
 
         const artifact = await UserAiArtifactsService.createUserAiArtifact({
           userId,

@@ -1,10 +1,11 @@
 import type { FastifyRequest } from "fastify";
 import { AppError } from "../errors/app-error.js";
-import { assertAiAccessOrThrow } from "../modules/ai/ai-access.js";
+import { assertCreditAccessOrThrow } from "../modules/plans/entitlement-policy.js";
 
 /**
- * Blocks access to AI endpoints if the user has exhausted free quota and is not Pro.
- * Assumes requireAuth ran first.
+ * Pre-handler guard for all AI endpoints.
+ * Blocks execution if the user has exhausted their monthly credit allowance.
+ * Assumes requireAuth ran first (req.user is set).
  */
 export async function requireAiAccess(req: FastifyRequest) {
   const userId = req.user?.id;
@@ -13,5 +14,5 @@ export async function requireAiAccess(req: FastifyRequest) {
     throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
   }
 
-  await assertAiAccessOrThrow(userId);
+  await assertCreditAccessOrThrow(userId);
 }

@@ -19,6 +19,7 @@ import { parseApplicationFilters } from "./applications.filters.js";
 import { ExportApplicationsQuery, type ExportApplicationsQueryType } from "./applications.schemas.js";
 import { trackEventForUser } from "../analytics/analytics-tracker.js";
 import { startAiRun, succeedAiRun, failAiRun } from "../analytics/ai-run-tracker.js";
+import { consumeCreditsOnSuccess, getExecutionProfile } from "../plans/entitlement-policy.js";
 
 export async function applicationsRoutes(app: FastifyInstance) {
   
@@ -493,6 +494,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
             completionTokens: fitUsage.output,
             totalTokens:      fitUsage.total,
           });
+          void consumeCreditsOnSuccess(userId, "FIT");
     
           return reply.status(201).send(artifact);
         }
@@ -521,10 +523,12 @@ export async function applicationsRoutes(app: FastifyInstance) {
             jdMode:        "APPLICATION_DESCRIPTION",
           });
 
+          const raProfile = getExecutionProfile(await resolveAiTierForUser(userId));
           const { payload, usage: raUsage } = await DocumentToolsService.buildTargetedResumeAdvice({
             candidateText: candidate.text,
             jdText:        application.description,
             signal,
+            profile:       raProfile,
           });
 
           throwIfAborted(signal);
@@ -546,6 +550,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
             completionTokens: raUsage.output,
             totalTokens:      raUsage.total,
           });
+          void consumeCreditsOnSuccess(userId, "RESUME_ADVICE");
 
           return reply.status(201).send(artifact);
         }
@@ -583,11 +588,13 @@ export async function applicationsRoutes(app: FastifyInstance) {
             jdMode:        "APPLICATION_DESCRIPTION",
           });
 
+          const clProfile = getExecutionProfile(await resolveAiTierForUser(userId));
           const { payload, usage: clUsage } = await DocumentToolsService.buildTargetedCoverLetter({
             candidateText: candidate.text,
             jdText:        application.description,
             templateText:  effectiveTemplate,
             signal,
+            profile:       clProfile,
           });
 
           throwIfAborted(signal);
@@ -609,6 +616,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
             completionTokens: clUsage.output,
             totalTokens:      clUsage.total,
           });
+          void consumeCreditsOnSuccess(userId, "COVER_LETTER");
 
           return reply.status(201).send(artifact);
         }
@@ -641,10 +649,12 @@ export async function applicationsRoutes(app: FastifyInstance) {
             jdMode:        "APPLICATION_DESCRIPTION",
           });
 
+          const ipProfile = getExecutionProfile(await resolveAiTierForUser(userId));
           const { payload, usage: ipUsage } = await InterviewPrepService.buildTargetedInterviewPrep({
             jdText:        application.description,
             candidateText: candidate?.text ?? null,
             signal,
+            profile:       ipProfile,
           });
 
           throwIfAborted(signal);
@@ -666,6 +676,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
             completionTokens: ipUsage.output,
             totalTokens:      ipUsage.total,
           });
+          void consumeCreditsOnSuccess(userId, "INTERVIEW_PREP");
 
           return reply.status(201).send(artifact);
         }

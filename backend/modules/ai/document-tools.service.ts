@@ -18,6 +18,7 @@
 
 import { AppError }          from "../../errors/app-error.js";
 import { getOpenAIClient, AI_MODELS } from "./openai.js";
+import type { ExecutionProfile } from "../plans/entitlement-policy.js";
 import { throwIfAborted }    from "../../lib/request-abort.js";
 import {
   ResumeAdviceJsonObject,
@@ -43,13 +44,15 @@ export type GenericResumeAdviceInput = {
   targetRolesText?:   string;
   targetKeywords?:    string;
   additionalContext?: string;
-  signal?:            AbortSignal;
+  signal?:            AbortSignal
+  profile?: ExecutionProfile;
 };
 
 export type TargetedResumeAdviceInput = {
   candidateText: string;
   jdText:        string;
-  signal?:       AbortSignal;
+  signal?:       AbortSignal
+  profile?: ExecutionProfile;
 };
 
 export type GenericCoverLetterInput = {
@@ -60,14 +63,16 @@ export type GenericCoverLetterInput = {
   whyInterested?:     string;
   templateText?:      string;
   additionalContext?: string;
-  signal?:            AbortSignal;
+  signal?:            AbortSignal
+  profile?: ExecutionProfile;
 };
 
 export type TargetedCoverLetterInput = {
   candidateText: string;
   jdText:        string;
   templateText?: string;
-  signal?:       AbortSignal;
+  signal?:       AbortSignal
+  profile?: ExecutionProfile;
 };
 
 
@@ -124,7 +129,7 @@ export async function buildGenericResumeAdvice(
           schema: ResumeAdviceJsonObject,
         },
       },
-      reasoning:         { effort: "medium" },
+      reasoning:         { effort: input.profile?.effort ?? "medium" },
       max_output_tokens: RESUME_ADVICE_MAX_TOKENS,
     },
     { signal }
@@ -168,7 +173,7 @@ export async function buildTargetedResumeAdvice(
           schema: ResumeAdviceJsonObject,
         },
       },
-      reasoning:         { effort: "medium" },
+      reasoning:         { effort: input.profile?.effort ?? "medium" },
       max_output_tokens: RESUME_ADVICE_MAX_TOKENS,
     },
     { signal }
@@ -217,7 +222,7 @@ export async function buildGenericCoverLetter(
           schema: CoverLetterJsonObject,
         },
       },
-      reasoning:         { effort: "medium" },
+      reasoning:         { effort: input.profile?.effort ?? "medium" },
       max_output_tokens: COVER_LETTER_MAX_TOKENS,
     },
     { signal }
@@ -262,7 +267,7 @@ export async function buildTargetedCoverLetter(
           schema: CoverLetterJsonObject,
         },
       },
-      reasoning:         { effort: "medium" },
+      reasoning:         { effort: input.profile?.effort ?? "medium" },
       max_output_tokens: COVER_LETTER_MAX_TOKENS,
     },
     { signal }
