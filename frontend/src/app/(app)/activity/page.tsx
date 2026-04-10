@@ -43,9 +43,9 @@ function timeAgo(iso: string) {
 }
 
 export default function ActivityPage() {
-  const [window, setWindow]   = useState<DateWindow>("30d");
-  const [data, setData]         = useState<UserActivityOverviewResponse | null>(null);
-  const [usage, setUsage]       = useState<UsageState | null>(null);
+  const [window, setWindow]       = useState<DateWindow>("30d");
+  const [data, setData]           = useState<UserActivityOverviewResponse | null>(null);
+  const [usage, setUsage]         = useState<UsageState | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError]         = useState<string | null>(null);
 
@@ -71,29 +71,12 @@ export default function ActivityPage() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8 space-y-8">
 
-      {/* Header + window toggle */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Your Activity</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            A summary of what you have done and the AI tools you have used.
-          </p>
-        </div>
-        <div className="flex gap-1 rounded-md border p-0.5 bg-muted">
-          {(["1d", "7d", "30d", "1y", "all"] as DateWindow[]).map((w) => (
-            <button
-              key={w}
-              onClick={() => setWindow(w)}
-              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                window === w
-                  ? "bg-background shadow-sm text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {w === "1d" ? "Today" : w === "7d" ? "7 days" : w === "30d" ? "30 days" : w === "1y" ? "1 year" : "All time"}
-            </button>
-          ))}
-        </div>
+      {/* Header — filter moved below summary cards intentionally */}
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Your Activity</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          A summary of what you have done and the AI tools you have used.
+        </p>
       </div>
 
       {error && <Alert variant="destructive">{error}</Alert>}
@@ -101,10 +84,9 @@ export default function ActivityPage() {
         <div className="text-sm text-muted-foreground">Loading...</div>
       )}
 
-
       {data && (
         <>
-          {/* Summary cards */}
+          {/* Summary cards — all-time totals, unaffected by the period filter below */}
           <section>
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
               <SummaryCard
@@ -127,6 +109,26 @@ export default function ActivityPage() {
               />
             </div>
           </section>
+
+          {/* Period filter — positioned here so it visually governs the activity
+              sections below, not the all-time totals above */}
+          <div className="flex items-center gap-3 justify-end mb-4">
+            <div className="flex gap-1 rounded-md border p-0.5 bg-muted ">
+              {(["1d", "7d", "30d", "1y", "all"] as DateWindow[]).map((w) => (
+                <button
+                  key={w}
+                  onClick={() => setWindow(w)}
+                  className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                    window === w
+                      ? "bg-background shadow-sm text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {w === "1d" ? "Today" : w === "7d" ? "7 days" : w === "30d" ? "30 days" : w === "1y" ? "1 year" : "All time"}
+                </button>
+              ))}
+            </div>
+          </div>
 
           {/* AI usage by tool */}
           {data.byTool.length > 0 && (
@@ -259,10 +261,10 @@ function SummaryCard({ title, value, sub }: { title: string; value: string; sub?
 // ─── UsageCard ────────────────────────────────────────────────────────────────
 
 const THRESHOLD_STYLES: Record<UsageThreshold, { bar: string; text: string; bg: string }> = {
-  OK:          { bar: "bg-primary",               text: "text-muted-foreground",                     bg: "" },
-  WARNING_75:  { bar: "bg-amber-500",              text: "text-amber-700 dark:text-amber-400",        bg: "bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800" },
-  WARNING_90:  { bar: "bg-orange-500",             text: "text-orange-700 dark:text-orange-400",      bg: "bg-orange-50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800" },
-  BLOCKED:     { bar: "bg-red-500",                text: "text-red-700 dark:text-red-400",            bg: "bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800" },
+  OK:         { bar: "bg-primary",    text: "text-muted-foreground",                bg: "" },
+  WARNING_75: { bar: "bg-amber-500",  text: "text-amber-700 dark:text-amber-400",   bg: "bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800" },
+  WARNING_90: { bar: "bg-orange-500", text: "text-orange-700 dark:text-orange-400", bg: "bg-orange-50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800" },
+  BLOCKED:    { bar: "bg-red-500",    text: "text-red-700 dark:text-red-400",       bg: "bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800" },
 };
 
 const THRESHOLD_MESSAGES: Partial<Record<UsageThreshold, string>> = {
@@ -272,8 +274,8 @@ const THRESHOLD_MESSAGES: Partial<Record<UsageThreshold, string>> = {
 };
 
 function UsageCard({ usage }: { usage: UsageState }) {
-  const styles  = THRESHOLD_STYLES[usage.threshold];
-  const message = THRESHOLD_MESSAGES[usage.threshold];
+  const styles    = THRESHOLD_STYLES[usage.threshold];
+  const message   = THRESHOLD_MESSAGES[usage.threshold];
   const resetDate = new Date(usage.resetAt).toLocaleDateString(undefined, {
     month: "long", day: "numeric",
   });
@@ -283,22 +285,17 @@ function UsageCard({ usage }: { usage: UsageState }) {
       <CardHeader className="pb-2 pt-4">
         <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
           <span>AI credits · {usage.plan}</span>
-          <span className={`text-xs font-normal ${styles.text}`}>
-            Resets {resetDate}
-          </span>
+          <span className={`text-xs font-normal ${styles.text}`}>Resets {resetDate}</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="pb-4 space-y-3">
-        {/* Progress bar */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-sm">
             <span className="tabular-nums font-medium">
               {fmt(usage.usedCredits)}
               <span className="text-muted-foreground font-normal"> / {fmt(usage.totalCredits)} credits used</span>
             </span>
-            <span className={`text-xs font-medium ${styles.text}`}>
-              {fmt(usage.remaining)} remaining
-            </span>
+            <span className={`text-xs font-medium ${styles.text}`}>{fmt(usage.remaining)} remaining</span>
           </div>
           <div className="h-2 rounded-full bg-muted overflow-hidden">
             <div
@@ -308,7 +305,6 @@ function UsageCard({ usage }: { usage: UsageState }) {
           </div>
         </div>
 
-        {/* Warning / blocked message */}
         {message && (
           <p className={`text-xs ${styles.text}`}>
             {message}
@@ -318,7 +314,6 @@ function UsageCard({ usage }: { usage: UsageState }) {
           </p>
         )}
 
-        {/* Bonus credits note */}
         {usage.bonusCredits > 0 && (
           <p className="text-xs text-muted-foreground">
             Includes {fmt(usage.bonusCredits)} bonus credits added by admin.
@@ -328,7 +323,6 @@ function UsageCard({ usage }: { usage: UsageState }) {
     </Card>
   );
 }
-
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
