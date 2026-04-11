@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useAuth }              from "@/hooks/useAuth";
+import { analyticsApi }         from "@/lib/api/analytics";
+import type { UsageState }      from "@/types/api";
 import { documentsApi }         from "@/lib/api/documents";
 import { GenericResumeHelpCard }      from "@/components/tools/GenericResumeHelpCard";
 import { GenericCoverLetterHelpCard } from "@/components/tools/GenericCoverLetterHelpCard";
@@ -11,6 +13,7 @@ import type { Document } from "@/types/api";
 export default function ToolsPage() {
   const { refreshMe } = useAuth();
   const [baseResume,       setBaseResume]       = useState<Document | null | undefined>(undefined);
+  const [usageState,      setUsageState]      = useState<UsageState | null>(null);
   // Track whether a base cover letter template exists so the card can show
   // the "using base template" indicator without fetching the file itself.
   const [baseCoverLetterExists, setBaseCoverLetterExists] = useState(false);
@@ -28,14 +31,20 @@ export default function ToolsPage() {
       .getBaseCoverLetter()
       .then((res) => setBaseCoverLetterExists(Boolean(res.baseCoverLetter)))
       .catch(() => setBaseCoverLetterExists(false));
+
+    // Fetch current usage state for entitlement UI
+    analyticsApi.getMyUsage()
+      .then(setUsageState)
+      .catch(() => null); // non-fatal — cards default to unblocked if fetch fails
   }, []);
 
   const hasBaseResume = !!baseResume;
   const loading       = baseResume === undefined;
 
   function handleToolSuccess() {
-    // Refresh auth so AI credit count stays in sync after a successful run
     void refreshMe();
+    // Re-fetch usage state so credit count updates immediately after a run
+    analyticsApi.getMyUsage().then(setUsageState).catch(() => null);
   }
 
   return (
@@ -59,15 +68,21 @@ export default function ToolsPage() {
           <GenericResumeHelpCard
             hasBaseResume={hasBaseResume}
             onSuccess={handleToolSuccess}
+            isBlocked={usageState?.isBlocked ?? false}
+            plan={usageState?.plan ?? "REGULAR"}
           />
           <GenericInterviewPrepCard
             hasBaseResume={hasBaseResume}
             onSuccess={handleToolSuccess}
+            isBlocked={usageState?.isBlocked ?? false}
+            plan={usageState?.plan ?? "REGULAR"}
           />
           <GenericCoverLetterHelpCard
             hasBaseResume={hasBaseResume}
             baseCoverLetterExists={baseCoverLetterExists}
             onSuccess={handleToolSuccess}
+            isBlocked={usageState?.isBlocked ?? false}
+            plan={usageState?.plan ?? "REGULAR"}
           />
         </div>
       )}

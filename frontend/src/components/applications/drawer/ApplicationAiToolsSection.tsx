@@ -4,7 +4,11 @@ import { useMemo } from "react";
 import type { Application } from "@/types/api";
 import type { FitRunsController } from "@/hooks/useFitRuns";
 import type { DocumentToolRunsController } from "@/hooks/useDocumentToolRuns";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth }        from "@/hooks/useAuth";
+import { useEffect, useState } from "react";
+import { analyticsApi }   from "@/lib/api/analytics";
+import type { UsageState } from "@/types/api";
+import { CreditCostNote, BlockedRunButton } from "@/components/tools/ToolEntitlementGate";
 import { ProAccessBanner }  from "@/components/pro/ProAccessBanner";
 import { RequestProDialog } from "@/components/pro/RequestProDialog";
 import { CompatibilityCheckCard } from "@/components/applications/drawer/CompatibilityCheckCard";
@@ -12,7 +16,6 @@ import { InterviewPrepCard }      from "@/components/applications/drawer/Intervi
 import { ResumeAdviceCard }       from "@/components/applications/drawer/ResumeAdviceCard";
 import { CoverLetterCard }        from "@/components/applications/drawer/CoverLetterCard";
 import { canUseAi, getRemainingAiCredits, hasProPlan, getEffectivePlan } from "@/lib/plans";
-import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
 
 // Props for the ApplicationAiToolsSection component
@@ -75,6 +78,15 @@ export function ApplicationAiToolsSection({
   const isPro              = user ? hasProPlan(getEffectivePlan(user)) : false;
 
   const [isProDialogOpen, setIsProDialogOpen] = useState(false);
+  const [usageState, setUsageState]           = useState<UsageState | null>(null);
+
+  // Fetch usage state for credit labels and blocked state
+  useEffect(() => {
+    analyticsApi.getMyUsage().then(setUsageState).catch(() => null);
+  }, []);
+
+  const isBlocked  = usageState?.isBlocked ?? false;
+  const planLabel  = usageState?.plan ?? (user ? getEffectivePlan(user) : "REGULAR");
 
   // Shared derived state used by the status bar and passed to cards
   const hasJd = useMemo(
@@ -145,6 +157,9 @@ export function ApplicationAiToolsSection({
         baseResumeExists={baseResumeExists}
         baseResumeId={baseResumeId}
         canUseAi={canUse}
+        isBlocked={isBlocked}
+        plan={planLabel}
+        creditCost={2}
         onRegisterClose={(fn) => registerPanel("compatibility", fn)}
         onCloseOthers={() => closeOthers("compatibility")}
         onDocumentsChanged={onDocumentsChanged}
@@ -160,6 +175,9 @@ export function ApplicationAiToolsSection({
         application={application}
         baseResumeExists={baseResumeExists}
         canUseAi={canUse}
+        isBlocked={isBlocked}
+        plan={planLabel}
+        creditCost={2}
         documentToolRuns={documentToolRuns}
         onRegisterClose={(fn) => registerPanel("resume-advice", fn)}
         onCloseOthers={() => closeOthers("resume-advice")}
@@ -174,6 +192,9 @@ export function ApplicationAiToolsSection({
         baseResumeExists={baseResumeExists}
         baseCoverLetterExists={baseCoverLetterExists}
         canUseAi={canUse}
+        isBlocked={isBlocked}
+        plan={planLabel}
+        creditCost={3}
         documentToolRuns={documentToolRuns}
         onRegisterClose={(fn) => registerPanel("cover-letter", fn)}
         onCloseOthers={() => closeOthers("cover-letter")}
@@ -188,6 +209,9 @@ export function ApplicationAiToolsSection({
         application={application}
         baseResumeExists={baseResumeExists}
         canUseAi={canUse}
+        isBlocked={isBlocked}
+        plan={planLabel}
+        creditCost={3}
         documentToolRuns={documentToolRuns}
         onRegisterClose={(fn) => registerPanel("interview-prep", fn)}
         onCloseOthers={() => closeOthers("interview-prep")}

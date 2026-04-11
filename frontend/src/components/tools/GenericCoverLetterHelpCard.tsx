@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Button }            from "@/components/ui/button";
+import { Button }                                              from "@/components/ui/button";
+import { CreditCostNote, BlockedRunButton } from "@/components/tools/ToolEntitlementGate";
 import { ApiError }          from "@/lib/api/client";
 import { aiApi }             from "@/lib/api/ai";
 import { CoverLetterResult } from "@/components/tools/CoverLetterResult";
@@ -19,7 +20,9 @@ interface Props {
   // Whether the user has a stored base cover letter template — shown as default
   // with an opt-out option so they don't have to re-upload every time.
   baseCoverLetterExists: boolean;
-  onSuccess:             () => void; // called after a successful run to refresh credit count
+  onSuccess:             () => void;
+  isBlocked?:            boolean;
+  plan?:                 string;
 }
 
 /**
@@ -28,7 +31,7 @@ interface Props {
  * Collapsed by default. "Get started" expands the form inline.
  * Template field accepts file upload (.txt or .docx) — text extracted client-side.
  */
-export function GenericCoverLetterHelpCard({ hasBaseResume, baseCoverLetterExists, onSuccess }: Props) {
+export function GenericCoverLetterHelpCard({ hasBaseResume, baseCoverLetterExists, onSuccess, isBlocked = false, plan = "REGULAR" }: Props) {
   // Whether the form is expanded
   const [expanded, setExpanded] = useState(false);
 
@@ -345,9 +348,16 @@ export function GenericCoverLetterHelpCard({ hasBaseResume, baseCoverLetterExist
 
           {error && <p className="text-sm text-destructive">{error}</p>}
 
-          <Button onClick={handleSubmit} disabled={!canRun || loading} className="w-full">
-            {loading ? "Generating…" : "Generate cover letter"}
-          </Button>
+          {isBlocked ? (
+            <BlockedRunButton plan={plan} />
+          ) : (
+            <>
+              <Button onClick={handleSubmit} disabled={!canRun || loading} className="w-full mb-2">
+                {loading ? "Generating…" : "Generate cover letter"}
+              </Button>
+              <CreditCostNote plan={plan} cost={3} />
+            </>
+          )}
 
           {artifact && (
             <div className="border-t pt-5">

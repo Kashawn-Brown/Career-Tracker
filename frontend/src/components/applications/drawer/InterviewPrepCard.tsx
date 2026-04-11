@@ -2,6 +2,7 @@
 
 import { useApplicationDocs } from "@/hooks/useApplicationDocs";
 import { useEffect, useRef, useState } from "react";
+import { CreditCostNote, BlockedRunButton } from "@/components/tools/ToolEntitlementGate";
 import { Button }                from "@/components/ui/button";
 import { Card }                  from "@/components/ui/card";
 import { ApiError }              from "@/lib/api/client";
@@ -20,6 +21,9 @@ interface Props {
   application:        Application;
   baseResumeExists:   boolean;
   canUseAi:           boolean;
+  isBlocked?:   boolean;
+  plan?:        string;
+  creditCost?:  number;
   documentToolRuns:   DocumentToolRunsController;
   onCloseOthers?:     () => void;
   onRegisterClose?:   (fn: () => void) => void;
@@ -43,6 +47,9 @@ export function InterviewPrepCard({
   application,
   baseResumeExists,
   canUseAi,
+  isBlocked  = false,
+  plan       = "REGULAR",
+  creditCost = 2,
   documentToolRuns,
   onCloseOthers,
   onRegisterClose,
@@ -359,17 +366,17 @@ export function InterviewPrepCard({
                 />
               </div>
 
-              {/* Resume mode indicator — tells the candidate what they'll get */}
-              <p className="text-xs text-muted-foreground mt-2">
-                {usingOverride || baseResumeExists
-                  ? `Will use ${resumeLabel ?? "resume"} + job description`
-                  : "Will use job description only — upload a resume above for richer prep"}
-              </p>
-
-              <div className="flex items-center gap-2 pt-2 border-t">
-                <Button disabled={!canRun} onClick={handleGenerate} className={isRerunMode ? "" : "w-full"}>
-                  Generate interview prep
-                </Button>
+              <div className="pt-2 border-t space-y-2">
+                {isBlocked && !isRerunMode ? (
+                  <BlockedRunButton plan={plan} />
+                ) : (
+                  <>
+                    <Button disabled={!canRun} onClick={handleGenerate} className={isRerunMode ? "" : "w-full mb-2"}>
+                      Generate interview prep
+                    </Button>
+                    {!isRerunMode && <CreditCostNote plan={plan} cost={creditCost} />}
+                  </>
+                )}
                 {isRerunMode && (
                   <Button variant="outline" onClick={() => { setError(null); setIsRerunMode(false); }}>
                     Cancel

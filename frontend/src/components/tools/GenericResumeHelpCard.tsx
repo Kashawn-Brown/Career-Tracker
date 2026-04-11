@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Button }            from "@/components/ui/button";
+import { Button }                                              from "@/components/ui/button";
+import { CreditCostNote, BlockedRunButton } from "@/components/tools/ToolEntitlementGate";
 import { ApiError }          from "@/lib/api/client";
 import { aiApi }             from "@/lib/api/ai";
 import { ResumeAdviceResult } from "@/components/tools/ResumeAdviceResult";
@@ -15,7 +16,9 @@ const RESUME_ACCEPT = ".pdf,.txt,.docx";
 
 interface Props {
   hasBaseResume: boolean;
-  onSuccess:     () => void; // called after a successful run to refresh credit count
+  onSuccess:     () => void;
+  isBlocked?:   boolean;
+  plan?:        string;
 }
 
 /**
@@ -25,7 +28,7 @@ interface Props {
  * Clicking "Get started" expands the form inline.
  * After a successful run the result appears below the form.
  */
-export function GenericResumeHelpCard({ hasBaseResume, onSuccess }: Props) {
+export function GenericResumeHelpCard({ hasBaseResume, onSuccess, isBlocked = false, plan = "REGULAR" }: Props) {
   // Whether the form is expanded (card-first: collapsed by default)
   const [expanded, setExpanded] = useState(false);
 
@@ -209,9 +212,16 @@ export function GenericResumeHelpCard({ hasBaseResume, onSuccess }: Props) {
 
           {error && <p className="text-sm text-destructive">{error}</p>}
 
-          <Button onClick={handleSubmit} disabled={!canRun || loading} className="w-full">
-            {loading ? "Generating…" : "Get resume advice"}
-          </Button>
+          {isBlocked ? (
+            <BlockedRunButton plan={plan} />
+          ) : (
+            <>
+              <Button onClick={handleSubmit} disabled={!canRun || loading} className="w-full mb-2">
+                {loading ? "Generating…" : "Get resume advice"}
+              </Button>
+              <CreditCostNote plan={plan} cost={2} />
+            </>
+          )}
 
           {/* Result rendered inline below the form after a successful run */}
           {artifact && (
