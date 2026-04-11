@@ -81,8 +81,16 @@ export type EffortLevel     = "low" | "medium";
 export type VerbosityLevel  = "low" | "medium";
 
 export type ExecutionProfile = {
-  effort:    EffortLevel;
-  verbosity: VerbosityLevel;
+  effort:          EffortLevel;
+  verbosity:       VerbosityLevel;
+  maxOutputTokens: number;
+};
+
+/** Per-plan output token budgets for judgment-heavy tools. */
+const MAX_OUTPUT_TOKENS_BY_PLAN: Record<UserPlan, number> = {
+  [UserPlan.REGULAR]:  10_000,
+  [UserPlan.PRO]:      15_000,
+  [UserPlan.PRO_PLUS]: 20_000,
 };
 
 /**
@@ -93,13 +101,14 @@ export type ExecutionProfile = {
  * PRO / PRO+ → medium             (richer, more thorough output)
  */
 export function getExecutionProfile(plan: UserPlan): ExecutionProfile {
+  const maxOutputTokens = MAX_OUTPUT_TOKENS_BY_PLAN[plan] ?? 10_000;
   switch (plan) {
     case UserPlan.PRO:
     case UserPlan.PRO_PLUS:
-      return { effort: "medium", verbosity: "medium" };
+      return { effort: "medium", verbosity: "medium", maxOutputTokens };
     case UserPlan.REGULAR:
     default:
-      return { effort: "low", verbosity: "low" };
+      return { effort: "low", verbosity: "low", maxOutputTokens };
   }
 }
 
