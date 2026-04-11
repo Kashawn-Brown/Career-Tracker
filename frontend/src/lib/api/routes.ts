@@ -45,6 +45,9 @@ export const routes = {
     listUsers: () => "/admin/users",
     getUserDetail: (userId: string) => `/admin/users/${userId}`,
     updateUserStatus: (userId: string) => `/admin/users/${userId}/status`,
+    getUserUsage:     (userId: string) => `/admin/users/${userId}/usage`,
+    addUserCredits:   (userId: string) => `/admin/users/${userId}/credits/add`,
+    resetUserCredits: (userId: string) => `/admin/users/${userId}/credits/reset`,
   },
   users: {
     me: () => "/users/me",

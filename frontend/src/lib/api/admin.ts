@@ -1,5 +1,6 @@
 import { apiFetch } from "@/lib/api/client";
 import { routes } from "@/lib/api/routes";
+import type { UsageState } from "@/types/api";
 import type {
   AdminProRequestsListResponse,
   AdminDecisionBody,
@@ -92,6 +93,23 @@ export const adminApi = {
     return apiFetch<AdminUserDetail>(routes.admin.getUserDetail(userId), { method: "GET" });
   },
 
+  getUserUsage(userId: string) {
+    return apiFetch<UsageState>(routes.admin.getUserUsage(userId), { method: "GET" });
+  },
+
+  addUserCredits(userId: string, credits: number, note?: string) {
+    return apiFetch<{ ok: boolean }>(routes.admin.addUserCredits(userId), {
+      method: "POST",
+      body:   JSON.stringify({ credits, note }),
+    });
+  },
+
+  resetUserCredits(userId: string) {
+    return apiFetch<{ ok: boolean }>(routes.admin.resetUserCredits(userId), {
+      method: "POST",
+    });
+  },
+
   /**
    * Update a user's active status by userId.
    */
@@ -103,11 +121,3 @@ export const adminApi = {
   },
 
 }
-
-
-
-
-
-
-
-

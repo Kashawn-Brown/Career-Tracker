@@ -2,8 +2,9 @@ import type { FastifyInstance } from "fastify";
 import { requireAuth } from "../../middleware/auth.js";
 import { requireVerifiedEmail } from "../../middleware/require-verified-email.js";
 import { requireAdmin } from "../../middleware/require-admin.js";
-import { ProDecisionBody, ListUsersQuery, AdminUserIdParams, UpdateUserPlanBody, UpdateUserStatusBody } from "./admin.schemas.js";
-import type { ProDecisionBodyType, ListUsersQueryType, AdminUserIdParamsType, UpdateUserPlanBodyType, UpdateUserStatusBodyType } from "./admin.schemas.js";
+import { ProDecisionBody, ListUsersQuery, AdminUserIdParams, UpdateUserPlanBody, UpdateUserStatusBody, AdminAddCreditsBody } from "./admin.schemas.js";
+import type { ProDecisionBodyType, ListUsersQueryType, AdminUserIdParamsType, UpdateUserPlanBodyType, UpdateUserStatusBodyType, AdminAddCreditsBodyType } from "./admin.schemas.js";
+import { adminAddCredits, adminResetCycle, resolveUsageState } from "../plans/entitlement-policy.js";
 import * as AdminService from "./admin.service.js";
 
 export async function adminRoutes(app: FastifyInstance) {
@@ -164,6 +165,57 @@ export async function adminRoutes(app: FastifyInstance) {
       return reply.send(result);
     }
   );
+  /**
+   * GET /admin/users/:userId/usage
+   * Returns the current plan usage state for a user (admin view).
+   */
+  app.get(
+    "/users/:userId/usage",
+    {
+      preHandler: [requireAuth, requireVerifiedEmail, requireAdmin],
+      schema: { params: AdminUserIdParams },
+    },
+    async (req, reply) => {
+      const { userId } = req.params as AdminUserIdParamsType;
+      return reply.send(await resolveUsageState(userId));
+    }
+  );
 
+  /**
+   * POST /admin/users/:userId/credits/add
+   * Add bonus credits to a user's current cycle.
+   */
+  app.post(
+    "/users/:userId/credits/add",
+    {
+      preHandler: [requireAuth, requireVerifiedEmail, requireAdmin],
+      schema: { params: AdminUserIdParams, body: AdminAddCreditsBody },
+    },
+    async (req, reply) => {
+      const { userId }    = req.params as AdminUserIdParamsType;
+      const { credits, note } = req.body as AdminAddCreditsBodyType;
+      const adminUserId   = req.user!.id;
+      await adminAddCredits(userId, credits, adminUserId, note);
+      return reply.send({ ok: true });
+    }
+  );
+
+  /**
+   * POST /admin/users/:userId/credits/reset
+   * Reset a user's current cycle to their plan's base allowance.
+   */
+  app.post(
+    "/users/:userId/credits/reset",
+    {
+      preHandler: [requireAuth, requireVerifiedEmail, requireAdmin],
+      schema: { params: AdminUserIdParams },
+    },
+    async (req, reply) => {
+      const { userId }  = req.params as AdminUserIdParamsType;
+      const adminUserId = req.user!.id;
+      await adminResetCycle(userId, adminUserId);
+      return reply.send({ ok: true });
+    }
+  );
 
 }

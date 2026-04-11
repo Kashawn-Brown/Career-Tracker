@@ -56,9 +56,21 @@ export const UpdateUserStatusBody = Type.Object(
 );
 
 
+/**
+ * Body for adding bonus credits to a user.
+ */
+export const AdminAddCreditsBody = Type.Object(
+  {
+    credits: Type.Integer({ minimum: 1, maximum: 10_000 }),
+    note:    Type.Optional(Type.String({ minLength: 1, maxLength: 500 })),
+  },
+  { additionalProperties: false }
+);
+
 // Derived TS types
 export type ProDecisionBodyType = Static<typeof ProDecisionBody>;
 export type ListUsersQueryType     = Static<typeof ListUsersQuery>;
 export type AdminUserIdParamsType  = Static<typeof AdminUserIdParams>;
 export type UpdateUserPlanBodyType = Static<typeof UpdateUserPlanBody>;
 export type UpdateUserStatusBodyType = Static<typeof UpdateUserStatusBody>;
+export type AdminAddCreditsBodyType  = Static<typeof AdminAddCreditsBody>;
