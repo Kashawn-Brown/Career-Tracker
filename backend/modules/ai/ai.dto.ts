@@ -1,7 +1,7 @@
 import { JobType, WorkMode } from "@prisma/client";
 import { UserPlan } from "@prisma/client";
 import type { AiTier } from "./ai-tier.js";
-import { AI_MODELS } from "./openai.js";
+import { OPENAI_MODEL } from "./openai.js";
 
 
 // ------------------- EXTRACT JOB DESCRIPTION -------------------
@@ -592,12 +592,12 @@ export function getFitPolicyForPlan(plan: AiTier): FitPolicy {
 
   switch (plan) {
     case UserPlan.PRO_PLUS:
-      return { tier: plan, model: AI_MODELS.FIT_PRO_PLUS, effort: "medium",   verbosity: "medium",   maxOutputTokens };
+      return { tier: plan, model: OPENAI_MODEL, effort: "medium", verbosity: "medium", maxOutputTokens };
     case UserPlan.PRO:
-      return { tier: plan, model: AI_MODELS.FIT_PRO,      effort: "medium", verbosity: "medium", maxOutputTokens };
+      return { tier: plan, model: OPENAI_MODEL, effort: "medium", verbosity: "medium", maxOutputTokens };
     case UserPlan.REGULAR:
     default:
-      return { tier: plan, model: AI_MODELS.FIT_REGULAR,  effort: "low",    verbosity: "low",    maxOutputTokens };
+      return { tier: plan, model: OPENAI_MODEL, effort: "low",    verbosity: "low",    maxOutputTokens };
   }
 }
 
