@@ -10,6 +10,17 @@
 
 export const TOOL_INFO = {
 
+  JD_EXTRACTION: {
+    title: "JD Extraction",
+    content:
+      "Paste a job description or provide a link and we will extract the key details " +
+      "into a structured draft application — company, role, location, type, salary range, " +
+      "and a plain-English summary of what the role is looking for.\n\n" +
+      "The draft is fully editable before you save it, so you can correct or fill in " +
+      "anything the extraction missed.\n\n" +
+      "Credit cost: 1 credit per run.",
+  },
+
   COMPATIBILITY_CHECK: {
     title: "Compatibility Check",
     content:
@@ -22,7 +33,8 @@ export const TOOL_INFO = {
       "to the application so you can reference it later.\n\n" +
       "For best results you can consider using a full CV covering all of your skills, experience, projects and achievements.\n\n" +
       "A job description must be present on this application for the tool to run. The tool will only use the job description and your resume / CV to generate the report.\n\n" +
-      "To prepare for an interview for this role — including likely questions and topics to study — use the Interview Prep tool.",
+      "To prepare for an interview for this role — including likely questions and topics to study — use the Interview Prep tool.\n\n" +
+      "Credit cost: 2 credits per run.",
   },
 
   RESUME_ADVICE: {
@@ -36,7 +48,8 @@ export const TOOL_INFO = {
       "By default it uses your saved base resume. You can upload a different " +
       "resume for this run and it will be attached to the application.\n\n" +
       "A job description must be present on this application for the tool to run.\n\n" + 
-      "For generic resume advice targetted to your field, use the resume help tool on the Tools page.",
+      "For generic resume advice targetted to your field, use the resume help tool on the Tools page.\n\n" +
+      "Credit cost: 2 credits per run.",
   },
 
   COVER_LETTER: {
@@ -51,7 +64,8 @@ export const TOOL_INFO = {
       "and we will build on its structure and tone instead of starting from scratch.\n\n" +
       "By default it uses your saved base resume. You can upload a different " +
       "resume for this run and it will be attached to the application.\n\n" +
-      "A job description must be present on this application for the tool to run.",
+      "A job description must be present on this application for the tool to run.\n\n" +
+      "Credit cost: 3 credits per run.",
   },
 
   INTERVIEW_PREP: {
@@ -68,7 +82,8 @@ export const TOOL_INFO = {
       "A job description must be present on this application for the tool to run. " +
       "Resume is optional but produces richer, more personalised output when provided.\n\n" +
       "For general interview prep not tied to a specific role, use the Interview Prep " +
-      "tool on the Tools page.",
+      "tool on the Tools page.\n\n" +
+      "Credit cost: 3 credits per run.",
   },
 
   GENERIC_RESUME_HELP: {
@@ -83,7 +98,8 @@ export const TOOL_INFO = {
       "Results are saved to your account so you can come back to them. " +
       "Up to 3 results are kept — the oldest is removed when you generate a new one.\n\n" +
       "For advice tailored to a specific job, create an application for that role " +
-      "and use the Resume Advice tool in the application drawer.",
+      "and use the Resume Advice tool in the application drawer.\n\n" +
+      "Credit cost: 2 credits per run.",
   },
 
   GENERIC_COVER_LETTER: {
@@ -100,7 +116,8 @@ export const TOOL_INFO = {
       "automatically. You can also upload a different resume file just for this run.\n\n" +
       "Results are saved to your account. Up to 3 results are kept.\n\n" +
       "For a cover letter tailored to a specific job, create an application for " +
-      "that role and use the Cover Letter tool in the application drawer.",
+      "that role and use the Cover Letter tool in the application drawer.\n\n" +
+      "Credit cost: 3 credits per run.",
   },
 
   GENERIC_INTERVIEW_PREP: {
@@ -118,7 +135,8 @@ export const TOOL_INFO = {
       "not grounded in your actual experience.\n\n" +
       "Results are saved to your account. Up to 3 results are kept.\n\n" +
       "For prep tailored to a specific role, create an application and use the " +
-      "Interview Prep tool in the application drawer.",
+      "Interview Prep tool in the application drawer.\n\n" +
+      "Credit cost: 3 credits per run.",
   },
 
 } as const;

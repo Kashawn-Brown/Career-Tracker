@@ -8,6 +8,9 @@ import { connectionsApi } from "@/lib/api/connections";
 import type { ApplicationDraftResponse, ApplicationStatus, CreateApplicationRequest, JobType, WorkMode, DocumentKind, Connection, CreateConnectionRequest } from "@/types/api";
 import { JOB_TYPE_OPTIONS, STATUS_OPTIONS, WORK_MODE_OPTIONS } from "@/lib/applications/presentation";
 import { Button } from "@/components/ui/button";
+import { CreditCostNote, BlockedRunButton } from "@/components/tools/ToolEntitlementGate";
+import { analyticsApi }   from "@/lib/api/analytics";
+import type { UsageState } from "@/types/api";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -94,6 +97,7 @@ export function CreateApplicationFromJdForm({
   // UI state
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [usageState,   setUsageState]   = useState<UsageState | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Submit progress — covers only create-flow work (no fit steps)
@@ -250,6 +254,14 @@ export function CreateApplicationFromJdForm({
 
   const { user, aiProRequest, refreshMe } = useAuth();
   const canUse             = user ? canUseAi(user) : false;
+
+  // Fetch usage state for entitlement UI (cost note + blocked state)
+  useEffect(() => {
+    analyticsApi.getMyUsage().then(setUsageState).catch(() => null);
+  }, []);
+
+  const isBlocked = usageState?.isBlocked ?? false;
+  const planLabel = usageState?.plan ?? (user ? getEffectivePlan(user) : "REGULAR");
   const remainingAiCredits = user ? getRemainingAiCredits(user) : 0;
   const isPro              = user ? hasProPlan(getEffectivePlan(user)) : false;
 
@@ -733,14 +745,27 @@ export function CreateApplicationFromJdForm({
               Reset
             </Button>
           ) : null}
-          <Button type="button" onClick={handleGenerate} disabled={!canGenerate || draft !== null}>
-            {isGenerating
-              ? "Generating…"
-              : sourceMode === "LINK"
-              ? "Generate draft from link"
-              : "Generate draft"}
-          </Button>
+          {isBlocked ? (
+            <BlockedRunButton plan={planLabel} />
+          ) : (
+            sourceMode === "LINK" ? (
+              <div className="flex flex-col items-end gap-1">
+                <Button type="button" onClick={handleGenerate} disabled={!canGenerate || draft !== null} className="w-full mb-2">
+                  {isGenerating ? "Generating…" : "Generate draft from link"}
+                </Button>
+                <CreditCostNote plan={planLabel} cost={1} />
+              </div>
+            ) : (
+              <>
+                <Button type="button" onClick={handleGenerate} disabled={!canGenerate || draft !== null} className="w-full mb-2">
+                  {isGenerating ? "Generating…" : "Generate draft"}
+                </Button>
+                <CreditCostNote plan={planLabel} cost={1} />
+              </>
+            )
+          )}
         </div>
+   
       </div>
 
       {/* After draft exists, show editable form + AI info */}
