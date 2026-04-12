@@ -179,7 +179,7 @@ describe("AI Document Tools > RESUME_ADVICE (per-application artifact)", () => {
   });
 
   it("blocks when free quota exhausted and not Pro", async () => {
-    const { userId, token } = await createVerifiedUserWithState({ isPro: false});
+    const { userId, token } = await createVerifiedUserWithState({ isPro: false, aiFreeUsesUsed: 5 });
     const appId = await createApplication(userId);
 
     const res = await app.inject({

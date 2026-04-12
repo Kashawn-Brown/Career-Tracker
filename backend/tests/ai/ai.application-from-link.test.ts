@@ -75,7 +75,7 @@ describe("AI > application-from-link", () => {
 
   it("blocks when free quota is exhausted and user is not Pro (AI_QUOTA_EXCEEDED)", async () => {
     const { userId, token } = await registerUser();
-    await setUserState(userId, { verified: true, isPro: false});
+    await setUserState(userId, { verified: true, isPro: false, aiFreeUsesUsed: 5 });
 
     const res = await app.inject({
       method:  "POST",

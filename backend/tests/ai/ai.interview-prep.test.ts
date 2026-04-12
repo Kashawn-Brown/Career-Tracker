@@ -173,7 +173,7 @@ describe("AI > Interview Prep > generic (/ai/interview-prep)", () => {
   });
 
   it("blocks when free quota exhausted and not Pro", async () => {
-    const { token } = await createVerifiedUserWithState({ isPro: false});
+    const { token } = await createVerifiedUserWithState({ isPro: false, aiFreeUsesUsed: 5 });
     const { headers, payload } = buildFieldsOnly({ targetField: "Engineering" }, token);
     const res = await app.inject({ method: "POST", url: "/api/v1/ai/interview-prep", headers, payload });
     expect(res.statusCode).toBe(403);
@@ -295,7 +295,7 @@ describe("AI > Interview Prep > targeted (ai-artifacts INTERVIEW_PREP)", () => {
   });
 
   it("blocks when free quota exhausted and not Pro", async () => {
-    const { userId, token } = await createVerifiedUserWithState({ isPro: false});
+    const { userId, token } = await createVerifiedUserWithState({ isPro: false, aiFreeUsesUsed: 5 });
     const appId = await createApplication(userId);
     const res = await app.inject({
       method:  "POST",

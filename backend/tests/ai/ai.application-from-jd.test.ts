@@ -91,7 +91,7 @@ describe("AI > application-from-jd", () => {
     const { userId, token } = await registerUser();
 
     // Set the user to not Pro and with free quota exhausted
-    await setUserState(userId, { verified: true, isPro: false});
+    await setUserState(userId, { verified: true, isPro: false, aiFreeUsesUsed: 5 });
 
     // Call application-from-jd route
     const res = await app.inject({
