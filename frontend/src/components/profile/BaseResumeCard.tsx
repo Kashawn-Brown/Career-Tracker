@@ -23,6 +23,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { Document } from "@/types/api";
+import { DOCUMENT_INFO } from "@/lib/tool-info";
+import { ToolInfoPopover } from "@/components/tools/ToolInfoPopover";
 
 type Props = {
   isDialogOpen: boolean;
@@ -121,7 +123,12 @@ export function BaseResumeCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Base Resume</CardTitle>
+        <CardTitle>
+          <span className="flex items-center gap-1.5">
+            Base Resume
+            <ToolInfoPopover title={DOCUMENT_INFO.BASE_RESUME.title} content={DOCUMENT_INFO.BASE_RESUME.content} />
+          </span>
+        </CardTitle>
         <CardDescription>
           Keep your base resume up to date as a general document of your skills and experience.
         </CardDescription>

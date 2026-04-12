@@ -11,6 +11,8 @@ import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import type { Document } from "@/types/api";
+import { DOCUMENT_INFO } from "@/lib/tool-info";
+import { ToolInfoPopover } from "@/components/tools/ToolInfoPopover";
 
 // All three formats accepted — consistent with base resume
 const ACCEPT = ".pdf,.txt,.docx";
@@ -90,7 +92,12 @@ export function BaseCoverLetterCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Base Cover Letter Template</CardTitle>
+        <CardTitle>
+          <span className="flex items-center gap-1.5">
+            Base Cover Letter Template
+            <ToolInfoPopover title={DOCUMENT_INFO.BASE_COVER_LETTER.title} content={DOCUMENT_INFO.BASE_COVER_LETTER.content} />
+          </span>
+        </CardTitle>
         <CardDescription>
           Upload a cover letter or template you want to reuse. It will be used automatically
           as the starting point for cover letter generations — you can always override

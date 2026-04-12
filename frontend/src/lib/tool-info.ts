@@ -31,8 +31,10 @@ export const TOOL_INFO = {
       "By default it uses your saved base resume. You can optionally upload a " +
       "different resume file for this specific run. That file will be attached " +
       "to the application so you can reference it later.\n\n" +
-      "For best results you can consider using a full CV covering all of your skills, experience, projects and achievements.\n\n" +
-      "A job description must be present on this application for the tool to run. The tool will only use the job description and your resume / CV to generate the report.\n\n" +
+      "For best results, use a full CV covering all of your skills, experience, " +
+      "projects, and achievements — the AI reads your full history and determines " +
+      "what's relevant to this role. You don't need to tailor it yourself.\n\n" +
+      "A job description must be present on this application for the tool to run.\n\n" +
       "To prepare for an interview for this role — including likely questions and topics to study — use the Interview Prep tool.\n\n" +
       "Credit cost: 2 credits per run.",
   },
@@ -45,10 +47,13 @@ export const TOOL_INFO = {
       "It covers what you should emphasise, what gaps exist, what keywords are " +
       "worth covering, and specific directional rewrites — without inventing " +
       "experiences you don't have.\n\n" +
-      "By default it uses your saved base resume. You can upload a different " +
-      "resume for this run and it will be attached to the application.\n\n" +
-      "A job description must be present on this application for the tool to run.\n\n" + 
-      "For generic resume advice targetted to your field, use the resume help tool on the Tools page.\n\n" +
+      "For best results, use your full base resume rather than an already-trimmed version. " +
+      "The advice will tell you exactly what to pull forward, what to cut, and how to tailor " +
+      "it for this role — that guidance is more valuable when the AI has your complete " +
+      "history to work from.\n\n" +
+      "You can upload a different resume for this run if needed — it will be attached to the application.\n\n" +
+      "A job description must be present on this application for the tool to run.\n\n" +
+      "For generic resume advice targeted to your field, use the Resume Help tool on the Tools page.\n\n" +
       "Credit cost: 2 credits per run.",
   },
 
@@ -93,15 +98,17 @@ export const TOOL_INFO = {
       "based on the target field, roles, and keywords you provide.\n\n" +
       "It is not tied to a specific job — it is designed to help you strengthen " +
       "your resume for the kinds of roles you are generally going after.\n\n" +
-      "If you have a base resume saved to your profile it will be used " +
-      "automatically. You can also upload a different resume file just for this run.\n\n" +
+      "For best results, use your full base resume rather than an already-trimmed version. " +
+      "The advice will identify what's worth keeping, what to cut, and what to strengthen " +
+      "for your target field — more useful when the AI has your complete history to draw from.\n\n" +
+      "You can also upload a different resume file just for this run.\n\n" +
       "Results are saved to your account so you can come back to them. " +
       "Up to 3 results are kept — the oldest is removed when you generate a new one.\n\n" +
       "For advice tailored to a specific job, create an application for that role " +
       "and use the Resume Advice tool in the application drawer.\n\n" +
       "Credit cost: 2 credits per run.",
   },
-
+  
   GENERIC_COVER_LETTER: {
     title: "Cover Letter Help",
     content:
@@ -137,6 +144,42 @@ export const TOOL_INFO = {
       "For prep tailored to a specific role, create an application and use the " +
       "Interview Prep tool in the application drawer.\n\n" +
       "Credit cost: 3 credits per run.",
+  },
+
+} as const;
+
+/**
+ * Profile document info — same pattern as TOOL_INFO, used in
+ * ToolInfoPopover on the BaseResumeCard and BaseCoverLetterCard.
+ */
+export const DOCUMENT_INFO = {
+
+  BASE_RESUME: {
+    title: "Base Resume",
+    content:
+      "Your base resume should be your complete career document — every role, " +
+      "skill, project, certification, and accomplishment. Don't trim it for a " +
+      "specific job.\n\n" +
+      "Career-Tracker's AI reads your full history and determines what's relevant " +
+      "when scoring compatibility, generating resume advice, drafting cover letters, " +
+      "or building an interview prep pack. It does the filtering — you don't have to.\n\n" +
+      "Think of it like a master CV rather than a tailored application resume. " +
+      "The more complete it is, the better your results will be.\n\n" +
+      "Accepted formats: PDF, DOCX, TXT.",
+  },
+
+  BASE_COVER_LETTER: {
+    title: "Base Cover Letter Template",
+    content:
+      "This is an optional starting template for cover letter generation.\n\n" +
+      "If you have a cover letter structure, opening, or tone you want to reuse, " +
+      "upload it here and Career-Tracker will use it as the foundation when " +
+      "generating cover letters for specific roles — adapting the content to each " +
+      "job while keeping your preferred style.\n\n" +
+      "Leave it blank to generate cover letters from scratch.\n\n" +
+      "You can also override this on a per-run basis from the Cover Letter tool " +
+      "in the application drawer.\n\n" +
+      "Accepted formats: PDF, DOCX, TXT.",
   },
 
 } as const;
