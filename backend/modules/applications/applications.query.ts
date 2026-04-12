@@ -118,10 +118,26 @@ const NULLS_LAST_FIELDS = new Set([
  * Builds the Prisma orderBy clause for application sorting.
  * Always appends updatedAt desc as a stable tiebreaker.
  */
+// Text fields that need case-insensitive sorting (Prisma doesn't support
+// lower() in orderBy, so we sort these in JS after fetching).
+export const TEXT_SORT_FIELDS = new Set([
+  "company",
+  "position",
+  "location",
+  "status",
+  "jobType",
+  "workMode",
+]);
+
 export function buildApplicationsOrderBy(
   sortBy:  NonNullable<ListApplicationsParams["sortBy"]>,
   sortDir: NonNullable<ListApplicationsParams["sortDir"]>
 ): Prisma.JobApplicationOrderByWithRelationInput[] {
+  // Text fields are handled via JS sort in the service — use stable tiebreaker only
+  if (TEXT_SORT_FIELDS.has(sortBy)) {
+    return [{ updatedAt: "desc" }];
+  }
+
   if (NULLS_LAST_FIELDS.has(sortBy)) {
     return [
       { [sortBy]: { sort: sortDir, nulls: "last" } },

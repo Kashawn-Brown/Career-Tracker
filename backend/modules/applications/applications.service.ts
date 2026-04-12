@@ -5,7 +5,7 @@ import { applicationSelect, applicationConnectionSelect, applicationListSelect }
 import type { CreateApplicationInput, UpdateApplicationInput, ListApplicationsParams, ExportApplicationsParams } from "./applications.dto.js";
 import type { AiArtifactKindType } from "./applications.schemas.js";
 import { consumeAiFreeUseOnSuccessOrThrow } from "../ai/ai-access.js";
-import { buildApplicationsWhere, buildApplicationsOrderBy } from "./applications.query.js";
+import { buildApplicationsWhere, buildApplicationsOrderBy, TEXT_SORT_FIELDS } from "./applications.query.js";
 import { buildApplicationsCsv, buildExportFilename, normalizeExportColumns } from "./applications.export.js";
 
 
@@ -73,6 +73,31 @@ export async function listApplications(params: ListApplicationsParams) {
   // Build shared where + orderBy (reused by export)
   const where   = buildApplicationsWhere(params);
   const orderBy = buildApplicationsOrderBy(sortBy, sortDir);
+
+  // For text fields, fetch all matching results and sort case-insensitively in JS.
+  // Prisma doesn't support lower() in orderBy; per-user lists are small enough
+  // that a full fetch + JS sort is correct and performant.
+  if (TEXT_SORT_FIELDS.has(sortBy)) {
+    const [total, allItems] = await prisma.$transaction([
+      prisma.jobApplication.count({ where }),
+      prisma.jobApplication.findMany({ where, orderBy, select: applicationListSelect }),
+    ]);
+
+    const sorted = [...allItems].sort((a, b) => {
+      const aVal = String((a as Record<string, unknown>)[sortBy] ?? "").toLowerCase();
+      const bVal = String((b as Record<string, unknown>)[sortBy] ?? "").toLowerCase();
+      const cmp  = aVal.localeCompare(bVal);
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+
+    return {
+      items: sorted.slice(skip, skip + pageSize),
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+    };
+  }
 
   // Run count + items in a single transaction for consistency
   const [total, items] = await prisma.$transaction([

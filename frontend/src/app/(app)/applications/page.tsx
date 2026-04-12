@@ -918,7 +918,6 @@ export default function ApplicationsPage() {
               items={data?.items ?? []}
               sortBy={sortBy}
               sortDir={sortDir}
-              isDefaultSort={isDefaultSort}
               onSort={handleHeaderSortClick}
               onChanged={() => setReloadKey((k) => k + 1)}
               visibleColumns={visibleColumns}
