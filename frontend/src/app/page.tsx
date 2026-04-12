@@ -524,8 +524,13 @@ export default function HomePage() {
       </main>
 
       <footer className="border-t">
-        <div className="mx-auto w-full px-20 py-6 text-xs text-muted-foreground">
-          Built with Next.js + Fastify + PostgreSQL.
+        <div className="mx-auto w-full px-20 py-6 text-xs text-muted-foreground flex items-center justify-between">
+          <span>Built with Next.js + Fastify + PostgreSQL.</span>
+          <div className="flex items-center gap-4">
+            <Link href="/about" className="hover:text-foreground transition-colors">About</Link>
+            <Link href="/docs" className="hover:text-foreground transition-colors">Docs</Link>
+            <a href="https://github.com/Kashawn-Brown/Career-Tracker" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">GitHub</a>
+          </div>
         </div>
       </footer>
     </div>
