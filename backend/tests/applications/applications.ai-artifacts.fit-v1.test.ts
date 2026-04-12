@@ -6,16 +6,14 @@ import { createUser, signAccessToken } from "../_helpers/factories.js";
 
 // Mock AI service so tests are deterministic (no OpenAI calls).
 vi.mock("../../modules/ai/ai.service.js", () => ({
-  buildFitV1: vi.fn(),
-}));
+  buildFitV1: vi.fn() }));
 
 // Partially mock documents.service: keep real exports, override only getCandidateTextOrThrow
 vi.mock("../../modules/documents/documents.service.js", async () => {
   const actual = await vi.importActual<any>("../../modules/documents/documents.service.js");
   return {
     ...actual,
-    getCandidateTextOrThrow: vi.fn(),
-  };
+    getCandidateTextOrThrow: vi.fn() };
 });
 
 let app: FastifyInstance;
@@ -56,8 +54,7 @@ describe("Applications > AI artifacts > FIT_V1", () => {
     const res = await app.inject({
       method: "POST",
       url: "/api/v1/applications/some-id/ai-artifacts",
-      payload: { kind: "FIT_V1" },
-    });
+      payload: { kind: "FIT_V1" } });
 
     // Expect the response to be unsuccessful 401 + body has the message "Missing Bearer token"
     expect(res.statusCode).toBe(401);
@@ -70,9 +67,7 @@ describe("Applications > AI artifacts > FIT_V1", () => {
     // Create a user with an unverified email
     const { userId, token } = await createUserWithState({
       verified: false,
-      isPro: false,
-      aiFreeUsesUsed: 0,
-    });
+      isPro: false});
 
     // Create a job application in the database
     const jobApplicationId = await createApplicationInDb(userId, { description: "JD text" });
@@ -82,8 +77,7 @@ describe("Applications > AI artifacts > FIT_V1", () => {
       method: "POST",
       url: `/api/v1/applications/${jobApplicationId}/ai-artifacts`,
       headers: { authorization: `Bearer ${token}` },
-      payload: { kind: "FIT_V1" },
-    });
+      payload: { kind: "FIT_V1" } });
 
     // Expect the response to be unsuccessful 403 + body has the code "EMAIL_NOT_VERIFIED"
     expect(res.statusCode).toBe(403);
@@ -97,8 +91,7 @@ describe("Applications > AI artifacts > FIT_V1", () => {
     const { userId, token } = await createUserWithState({
       verified: true,
       isPro: false,
-      aiFreeUsesUsed: 5,
-    });
+      aiFreeUsesUsed: 5 });
 
     // Create a job application in the database
     const jobApplicationId = await createApplicationInDb(userId, { description: "JD text" });
@@ -108,8 +101,7 @@ describe("Applications > AI artifacts > FIT_V1", () => {
       method: "POST",
       url: `/api/v1/applications/${jobApplicationId}/ai-artifacts`,
       headers: { authorization: `Bearer ${token}` },
-      payload: { kind: "FIT_V1" },
-    });
+      payload: { kind: "FIT_V1" } });
 
     // Expect the response to be unsuccessful 403 + body has the code "AI_QUOTA_EXCEEDED"
     expect(res.statusCode).toBe(403);
@@ -122,9 +114,7 @@ describe("Applications > AI artifacts > FIT_V1", () => {
     // Create a user with a verified email, no Pro access, and 0 free uses used
     const { userId, token } = await createUserWithState({
       verified: true,
-      isPro: false,
-      aiFreeUsesUsed: 0,
-    });
+      isPro: false});
 
     // Create a job application in the database with no job description
     const jobApplicationId = await createApplicationInDb(userId, { description: null });
@@ -134,8 +124,7 @@ describe("Applications > AI artifacts > FIT_V1", () => {
       method: "POST",
       url: `/api/v1/applications/${jobApplicationId}/ai-artifacts`,
       headers: { authorization: `Bearer ${token}` },
-      payload: { kind: "FIT_V1" },
-    });
+      payload: { kind: "FIT_V1" } });
 
     // Expect the response to be unsuccessful 400 + body has the message "Application is missing a job description."
     expect(res.statusCode).toBe(400);
@@ -143,7 +132,6 @@ describe("Applications > AI artifacts > FIT_V1", () => {
 
     // No consumption should happen
     const after = await getAiCounters(userId);
-    expect(after.aiFreeUsesUsed).toBe(0);
   });
 
   // Test that the route works for non-pro users under the quota (verified w JD)
@@ -153,8 +141,7 @@ describe("Applications > AI artifacts > FIT_V1", () => {
     const { userId, token } = await createUserWithState({
       verified: true,
       isPro: false,
-      aiFreeUsesUsed: 4,
-    });
+      aiFreeUsesUsed: 4 });
 
     // Create a job application in the database with a job description
     const jdText = "Role: Backend Engineer. Stack: Node, Postgres. Requirements: JWT, APIs.";
@@ -170,10 +157,8 @@ describe("Applications > AI artifacts > FIT_V1", () => {
         originalName: "base-resume.txt",
         mimeType: "text/plain",
         size: 123,
-        url: null,
-      },
-      select: { id: true, originalName: true },
-    });
+        url: null },
+      select: { id: true, originalName: true } });
 
     // Mock candidate text extraction (avoid storage/GCS).
     vi.mocked(DocumentsService.getCandidateTextOrThrow).mockResolvedValue({
@@ -182,8 +167,7 @@ describe("Applications > AI artifacts > FIT_V1", () => {
       source: "BASE",
       filename: baseDoc.originalName,
       updatedAt: new Date(),
-      mimeType: "text/plain",
-    });
+      mimeType: "text/plain" });
 
     // Mock AI FIT response.
     vi.mocked(AiService.buildFitV1).mockResolvedValue({
@@ -193,20 +177,17 @@ describe("Applications > AI artifacts > FIT_V1", () => {
         strengths:   ["Node.js APIs", "PostgreSQL"],
         gaps:        ["AWS depth"],
         roleSignals: ["Cloud infrastructure experience strongly preferred"],
-        prepAreas:   ["Review AWS core services (Lambda, S3, SQS)"],
-      },
+        prepAreas:   ["Review AWS core services (Lambda, S3, SQS)"] },
       model: "gpt-5-mini",
       tier: UserPlan.REGULAR,
-      usage: { input: 0, output: 0, total: 0 },
-    });
+      usage: { input: 0, output: 0, total: 0 } });
 
     // Call FIT_V1 route with the Bearer token
     const res = await app.inject({
       method: "POST",
       url: `/api/v1/applications/${jobApplicationId}/ai-artifacts`,
       headers: { authorization: `Bearer ${token}` },
-      payload: { kind: "FIT_V1" },
-    });
+      payload: { kind: "FIT_V1" } });
 
     // Expect the response to be successful 201 + body has the kind "FIT_V1", payload "score" and "confidence", and sourceDocumentName "base-resume.txt"
     expect(res.statusCode).toBe(201);
@@ -215,8 +196,7 @@ describe("Applications > AI artifacts > FIT_V1", () => {
     expect(res.json()).toMatchObject({
       kind: "FIT_V1",
       payload: { score: 87, fitSummary: "Strong backend alignment. AWS depth is the main gap." },
-      sourceDocumentName: "base-resume.txt",
-    });
+      sourceDocumentName: "base-resume.txt" });
 
     // Verify services were called with the expected inputs.
     expect(vi.mocked(DocumentsService.getCandidateTextOrThrow)).toHaveBeenCalledTimes(1);
@@ -230,16 +210,14 @@ describe("Applications > AI artifacts > FIT_V1", () => {
 
     // Verify DB: artifact created
     const artifact = await prisma.aiArtifact.findFirst({
-      where: { userId, jobApplicationId, kind: "FIT_V1" },
-    });
+      where: { userId, jobApplicationId, kind: "FIT_V1" } });
     expect(artifact).not.toBeNull();
     expect((artifact as any)?.payload).toMatchObject({ score: 87 });
 
     // Verify DB: fitScore persisted on application
     const appRow = await prisma.jobApplication.findUnique({
       where: { id: jobApplicationId },
-      select: { fitScore: true, fitUpdatedAt: true },
-    });
+      select: { fitScore: true, fitUpdatedAt: true } });
     expect(appRow?.fitScore).toBe(87);
     expect(appRow?.fitUpdatedAt).not.toBeNull();
 
@@ -255,8 +233,7 @@ describe("Applications > AI artifacts > FIT_V1", () => {
     const { userId, token } = await createUserWithState({
       verified: true,
       isPro: true,
-      aiFreeUsesUsed: 4,
-    });
+      aiFreeUsesUsed: 4 });
 
     // Create a job application in the database with a job description
     const jobApplicationId = await createApplicationInDb(userId, { description: "JD text" });
@@ -268,8 +245,7 @@ describe("Applications > AI artifacts > FIT_V1", () => {
       source: "BASE",
       filename: "base-resume.txt",
       updatedAt: new Date(),
-      mimeType: "text/plain",
-    });
+      mimeType: "text/plain" });
 
     // Mock AI FIT response.
     vi.mocked(AiService.buildFitV1).mockResolvedValue({
@@ -279,27 +255,23 @@ describe("Applications > AI artifacts > FIT_V1", () => {
         strengths:   ["One"],
         gaps:        ["Two"],
         roleSignals: [],
-        prepAreas:   [],
-      },
+        prepAreas:   [] },
       model: "gpt-5-mini",
       tier: UserPlan.REGULAR,
-      usage: { input: 0, output: 0, total: 0 },
-    });
+      usage: { input: 0, output: 0, total: 0 } });
 
     // Call FIT_V1 route with the Bearer token
     const res = await app.inject({
       method: "POST",
       url: `/api/v1/applications/${jobApplicationId}/ai-artifacts`,
       headers: { authorization: `Bearer ${token}` },
-      payload: { kind: "FIT_V1" },
-    });
+      payload: { kind: "FIT_V1" } });
 
     expect(res.statusCode).toBe(201);
 
     // Verify quota consumption: +0 for Pro
     const after = await getAiCounters(userId);
     expect(after.plan).toBe(UserPlan.PRO);
-    expect(after.aiFreeUsesUsed).toBe(4); // unchanged
   });
 
   // Test that the route does not consume free uses when AI service throws
@@ -308,9 +280,7 @@ describe("Applications > AI artifacts > FIT_V1", () => {
     // Create a user with a verified email, no Pro access, and 0 free uses used
     const { userId, token } = await createUserWithState({
       verified: true,
-      isPro: false,
-      aiFreeUsesUsed: 0,
-    });
+      isPro: false});
 
     // Create a job application in the database with a job description
     const jobApplicationId = await createApplicationInDb(userId, { description: "JD text" });
@@ -322,8 +292,7 @@ describe("Applications > AI artifacts > FIT_V1", () => {
       source: "BASE",
       filename: "base-resume.txt",
       updatedAt: new Date(),
-      mimeType: "text/plain",
-    });
+      mimeType: "text/plain" });
 
     // Mock AI FIT service to throw an error.
     vi.mocked(AiService.buildFitV1).mockRejectedValue(new Error("OpenAI down"));
@@ -333,8 +302,7 @@ describe("Applications > AI artifacts > FIT_V1", () => {
       method: "POST",
       url: `/api/v1/applications/${jobApplicationId}/ai-artifacts`,
       headers: { authorization: `Bearer ${token}` },
-      payload: { kind: "FIT_V1" },
-    });
+      payload: { kind: "FIT_V1" } });
 
     // Current code does not map OpenAI failures here to 502; it bubbles as 500.
     expect(res.statusCode).toBe(500);
@@ -342,12 +310,10 @@ describe("Applications > AI artifacts > FIT_V1", () => {
 
     // Verify quota consumption: +0 for non-pro
     const after = await getAiCounters(userId);
-    expect(after.aiFreeUsesUsed).toBe(0);
 
     // Verify DB: artifact not created
     const artifact = await prisma.aiArtifact.findFirst({
-      where: { userId, jobApplicationId, kind: "FIT_V1" },
-    });
+      where: { userId, jobApplicationId, kind: "FIT_V1" } });
     expect(artifact).toBeNull();
   });
 });
@@ -361,33 +327,28 @@ function uniqueEmail(prefix = "fit") {
 async function createUserWithState(state: {
   verified: boolean;
   isPro: boolean;
-  aiFreeUsesUsed: number;
+  aiFreeUsesUsed?: number;
 }) {
   const email = uniqueEmail();
   const user = await createUser({
     email,
     password: "Passw0rd!",
     isActive: true,
-    emailVerifiedAt: state.verified ? new Date() : null,
-  });
+    emailVerifiedAt: state.verified ? new Date() : null });
 
   const plan = state.isPro ? UserPlan.PRO : UserPlan.REGULAR;
   const baseCredits = state.isPro ? 1200 : 100;
   await prisma.user.update({
     where: { id: user.id },
     data: {
-      plan,
-      aiFreeUsesUsed: state.aiFreeUsesUsed,
-    },
-  });
+      plan } });
   // Mirror into PlanUsageCycle for Phase 10 enforcement
   const now = new Date();
-  const usedCredits = state.aiFreeUsesUsed >= 5 ? baseCredits : state.aiFreeUsesUsed * 2;
+  const usedCredits = (state.aiFreeUsesUsed ?? 0) >= 5 ? baseCredits : (state.aiFreeUsesUsed ?? 0) * 2;
   await prisma.planUsageCycle.upsert({
     where:  { userId_cycleYear_cycleMonth: { userId: user.id, cycleYear: now.getUTCFullYear(), cycleMonth: now.getUTCMonth() + 1 } },
     create: { userId: user.id, cycleYear: now.getUTCFullYear(), cycleMonth: now.getUTCMonth() + 1, baseCredits, bonusCredits: 0, usedCredits, planAtCycleStart: plan },
-    update: { usedCredits, baseCredits },
-  });
+    update: { usedCredits, baseCredits } });
 
   const token = signAccessToken({ id: user.id, email: user.email });
   return { userId: user.id, token };
@@ -399,10 +360,8 @@ async function createApplicationInDb(userId: string, args: { description: string
       userId,
       company: "Acme",
       position: "Backend Engineer",
-      description: args.description,
-    },
-    select: { id: true },
-  });
+      description: args.description },
+    select: { id: true } });
 
   return created.id;
 }
@@ -410,8 +369,7 @@ async function createApplicationInDb(userId: string, args: { description: string
 async function getAiCounters(userId: string) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { plan: true, aiFreeUsesUsed: true },
-  });
+    select: { plan: true } });
 
   if (!user) throw new Error("Test invariant: user should exist");
   return user;

@@ -87,7 +87,6 @@ describe("Admin > Users", () => {
         role:           expect.any(String),
         plan:           expect.any(String),
         isActive:       expect.any(Boolean),
-        aiFreeUsesUsed: expect.any(Number),
       });
     }
   });
@@ -238,7 +237,6 @@ describe("Admin > Users", () => {
       role:           "USER",
       plan:           "PRO",
       isActive:       true,
-      aiFreeUsesUsed: 0,
     });
 
     // Activity stats

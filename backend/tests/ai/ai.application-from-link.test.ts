@@ -58,7 +58,7 @@ describe("AI > application-from-link", () => {
 
   it("blocks unverified users (EMAIL_NOT_VERIFIED)", async () => {
     const { userId, token } = await registerUser();
-    await setUserState(userId, { verified: false, isPro: false, aiFreeUsesUsed: 0 });
+    await setUserState(userId, { verified: false, isPro: false});
 
     vi.mocked(AiService.buildApplicationDraftFromJobLink).mockResolvedValue(MOCK_DRAFT);
 
@@ -75,7 +75,7 @@ describe("AI > application-from-link", () => {
 
   it("blocks when free quota is exhausted and user is not Pro (AI_QUOTA_EXCEEDED)", async () => {
     const { userId, token } = await registerUser();
-    await setUserState(userId, { verified: true, isPro: false, aiFreeUsesUsed: 5 });
+    await setUserState(userId, { verified: true, isPro: false});
 
     const res = await app.inject({
       method:  "POST",
@@ -92,7 +92,7 @@ describe("AI > application-from-link", () => {
 
   it("rejects a missing url field", async () => {
     const { userId, token } = await registerUser();
-    await setUserState(userId, { verified: true, isPro: false, aiFreeUsesUsed: 0 });
+    await setUserState(userId, { verified: true, isPro: false});
 
     const res = await app.inject({
       method:  "POST",
@@ -107,7 +107,7 @@ describe("AI > application-from-link", () => {
 
   it("rejects an invalid URL format (JOB_LINK_INVALID_URL)", async () => {
     const { userId, token } = await registerUser();
-    await setUserState(userId, { verified: true, isPro: false, aiFreeUsesUsed: 0 });
+    await setUserState(userId, { verified: true, isPro: false});
 
     // Real validation runs — no mock needed since it fails before any fetch
     vi.mocked(AiService.buildApplicationDraftFromJobLink).mockImplementation(
@@ -132,7 +132,7 @@ describe("AI > application-from-link", () => {
 
   it("rejects non-http/https schemes (JOB_LINK_INVALID_SCHEME)", async () => {
     const { userId, token } = await registerUser();
-    await setUserState(userId, { verified: true, isPro: false, aiFreeUsesUsed: 0 });
+    await setUserState(userId, { verified: true, isPro: false});
 
     vi.mocked(AiService.buildApplicationDraftFromJobLink).mockImplementation(
       async (url) => {
@@ -155,7 +155,7 @@ describe("AI > application-from-link", () => {
 
   it("blocks loopback addresses (JOB_LINK_BLOCKED_ADDRESS)", async () => {
     const { userId, token } = await registerUser();
-    await setUserState(userId, { verified: true, isPro: false, aiFreeUsesUsed: 0 });
+    await setUserState(userId, { verified: true, isPro: false});
 
     vi.mocked(AiService.buildApplicationDraftFromJobLink).mockImplementation(
       async (url) => {
@@ -178,7 +178,7 @@ describe("AI > application-from-link", () => {
 
   it("blocks private network addresses (JOB_LINK_BLOCKED_ADDRESS)", async () => {
     const { userId, token } = await registerUser();
-    await setUserState(userId, { verified: true, isPro: false, aiFreeUsesUsed: 0 });
+    await setUserState(userId, { verified: true, isPro: false});
 
     vi.mocked(AiService.buildApplicationDraftFromJobLink).mockImplementation(
       async (url) => {
@@ -203,7 +203,7 @@ describe("AI > application-from-link", () => {
 
   it("consumes exactly 1 free use on success (REGULAR plan)", async () => {
     const { userId, token } = await registerUser();
-    await setUserState(userId, { verified: true, isPro: false, aiFreeUsesUsed: 2 });
+    await setUserState(userId, { verified: true, isPro: false});
 
     vi.mocked(AiService.buildApplicationDraftFromJobLink).mockResolvedValue(MOCK_DRAFT);
 
@@ -225,7 +225,7 @@ describe("AI > application-from-link", () => {
 
   it("does NOT consume free uses when user is Pro", async () => {
     const { userId, token } = await registerUser();
-    await setUserState(userId, { verified: true, isPro: true, aiFreeUsesUsed: 4 });
+    await setUserState(userId, { verified: true, isPro: true});
 
     vi.mocked(AiService.buildApplicationDraftFromJobLink).mockResolvedValue(MOCK_DRAFT);
 
@@ -240,12 +240,11 @@ describe("AI > application-from-link", () => {
 
     const after = await getAiCounters(userId);
     expect(after.plan).toBe(UserPlan.PRO);
-    expect(after.aiFreeUsesUsed).toBe(4); // unchanged
   });
 
   it("does NOT consume free uses when the service throws (fetch failure)", async () => {
     const { userId, token } = await registerUser();
-    await setUserState(userId, { verified: true, isPro: false, aiFreeUsesUsed: 0 });
+    await setUserState(userId, { verified: true, isPro: false});
 
     vi.mocked(AiService.buildApplicationDraftFromJobLink).mockRejectedValue(
       new Error("Network failure")
@@ -262,12 +261,11 @@ describe("AI > application-from-link", () => {
     expect(res.json()).toMatchObject({ code: "AI_EXTRACTION_FAILED" });
 
     const after = await getAiCounters(userId);
-    expect(after.aiFreeUsesUsed).toBe(0); // not consumed on failure
   });
 
   it("allows Pro users even with free quota exhausted", async () => {
     const { userId, token } = await registerUser();
-    await setUserState(userId, { verified: true, isPro: true, aiFreeUsesUsed: 5 });
+    await setUserState(userId, { verified: true, isPro: true});
 
     vi.mocked(AiService.buildApplicationDraftFromJobLink).mockResolvedValue(MOCK_DRAFT);
 
@@ -281,7 +279,6 @@ describe("AI > application-from-link", () => {
     expect(res.statusCode).toBe(200);
 
     const after = await getAiCounters(userId);
-    expect(after.aiFreeUsesUsed).toBe(5); // unchanged
   });
 });
 
@@ -311,7 +308,7 @@ async function registerUser() {
 
 async function setUserState(
   userId: string,
-  state: { verified?: boolean; isPro?: boolean; aiFreeUsesUsed?: number }
+  state: { verified?: boolean; isPro?: boolean; aiFreeUsesUsed?: number; }
 ) {
   const now = new Date();
   const plan = state.isPro ? "PRO" : "REGULAR";
@@ -323,8 +320,6 @@ async function setUserState(
         ? { emailVerifiedAt: state.verified ? new Date() : null } : {}),
       ...(state.isPro !== undefined
         ? { plan } : {}),
-      ...(state.aiFreeUsesUsed !== undefined
-        ? { aiFreeUsesUsed: state.aiFreeUsesUsed } : {}),
     },
   });
   if (state.aiFreeUsesUsed !== undefined) {
@@ -341,7 +336,7 @@ async function setUserState(
 async function getAiCounters(userId: string) {
   const user = await prisma.user.findUnique({
     where:  { id: userId },
-    select: { plan: true, aiFreeUsesUsed: true },
+    select: { plan: true },
   });
   if (!user) throw new Error("Test invariant: user should exist");
   return user;

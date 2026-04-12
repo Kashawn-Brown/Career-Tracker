@@ -30,7 +30,6 @@ export const adminUserSelect = {
   role:           true,
   plan:           true,
   isActive:       true,
-  aiFreeUsesUsed: true,
   createdAt:      true,
   updatedAt:      true,
   lastActiveAt:   true,
@@ -57,7 +56,6 @@ export type AdminUserListItem = {
   role:           UserRole;
   plan:           UserPlan;
   isActive:       boolean;
-  aiFreeUsesUsed: number;
   createdAt:      Date;
   updatedAt:      Date;
   lastActiveAt:   Date | null;

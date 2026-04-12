@@ -93,7 +93,7 @@ const MOCK_CANDIDATE = {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-async function createVerifiedUserWithState(opts: { isPro: boolean; aiFreeUsesUsed: number }) {
+async function createVerifiedUserWithState(opts: { isPro: boolean; aiFreeUsesUsed?: number }) {
   const email = uniqueEmail();
   const user  = await createUser({
     email,
@@ -105,13 +105,12 @@ async function createVerifiedUserWithState(opts: { isPro: boolean; aiFreeUsesUse
     where: { id: user.id },
     data: {
       plan:           opts.isPro ? UserPlan.PRO : UserPlan.REGULAR,
-      aiFreeUsesUsed: opts.aiFreeUsesUsed,
     },
   });
   // Mirror into PlanUsageCycle for Phase 10 enforcement
   const now = new Date();
   const baseCredits = opts.isPro ? 1200 : 100;
-  const usedCredits = opts.aiFreeUsesUsed >= 5 ? baseCredits : opts.aiFreeUsesUsed * 2;
+  const usedCredits = (opts.aiFreeUsesUsed ?? 0) >= 5 ? baseCredits : (opts.aiFreeUsesUsed ?? 0) * 2;
   await prisma.planUsageCycle.upsert({
     where:  { userId_cycleYear_cycleMonth: { userId: user.id, cycleYear: now.getUTCFullYear(), cycleMonth: now.getUTCMonth() + 1 } },
     create: { userId: user.id, cycleYear: now.getUTCFullYear(), cycleMonth: now.getUTCMonth() + 1, baseCredits, bonusCredits: 0, usedCredits, planAtCycleStart: opts.isPro ? "PRO" : "REGULAR" },
@@ -132,14 +131,6 @@ async function createApplication(userId: string, description: string | null = "J
     select: { id: true },
   });
   return app.id;
-}
-
-async function getAiFreeUsesUsed(userId: string) {
-  const user = await prisma.user.findUniqueOrThrow({
-    where:  { id: userId },
-    select: { aiFreeUsesUsed: true },
-  });
-  return user.aiFreeUsesUsed;
 }
 
 /** Build a multipart request body with the given text fields and no file. */
@@ -182,7 +173,7 @@ describe("AI > Interview Prep > generic (/ai/interview-prep)", () => {
   });
 
   it("blocks when free quota exhausted and not Pro", async () => {
-    const { token } = await createVerifiedUserWithState({ isPro: false, aiFreeUsesUsed: 5 });
+    const { token } = await createVerifiedUserWithState({ isPro: false});
     const { headers, payload } = buildFieldsOnly({ targetField: "Engineering" }, token);
     const res = await app.inject({ method: "POST", url: "/api/v1/ai/interview-prep", headers, payload });
     expect(res.statusCode).toBe(403);
@@ -190,7 +181,7 @@ describe("AI > Interview Prep > generic (/ai/interview-prep)", () => {
   });
 
   it("rejects when no targeting fields provided", async () => {
-    const { token } = await createVerifiedUserWithState({ isPro: false, aiFreeUsesUsed: 0 });
+    const { token } = await createVerifiedUserWithState({ isPro: false});
     const form = buildMultipartSingleFile({
       fieldName: "resumeFile", filename: "empty.txt", contentType: "text/plain", content: Buffer.from(""),
     });
@@ -205,7 +196,7 @@ describe("AI > Interview Prep > generic (/ai/interview-prep)", () => {
   });
 
   it("creates UserAiArtifact; consumes 1 free use; returns INTERVIEW_PREP payload", async () => {
-    const { userId, token } = await createVerifiedUserWithState({ isPro: false, aiFreeUsesUsed: 0 });
+    const { userId, token } = await createVerifiedUserWithState({ isPro: false});
 
     // Seed a base resume document so the route can resolve candidate text
     const baseDoc = await prisma.document.create({
@@ -253,7 +244,7 @@ describe("AI > Interview Prep > generic (/ai/interview-prep)", () => {
   });
 
   it("does NOT consume free uses when AI service throws", async () => {
-    const { userId, token } = await createVerifiedUserWithState({ isPro: false, aiFreeUsesUsed: 0 });
+    const { userId, token } = await createVerifiedUserWithState({ isPro: false});
 
     vi.mocked(DocumentsService.getBaseResumeTextOrThrow).mockResolvedValue("Candidate text.");
     vi.mocked(InterviewPrepService.buildGenericInterviewPrep).mockRejectedValue(new Error("AI down"));
@@ -262,11 +253,10 @@ describe("AI > Interview Prep > generic (/ai/interview-prep)", () => {
     const res = await app.inject({ method: "POST", url: "/api/v1/ai/interview-prep", headers, payload });
 
     expect(res.statusCode).toBe(502); // route maps unknown AI errors to 502
-    expect(await getAiFreeUsesUsed(userId)).toBe(0);
   });
 
   it("does NOT consume free uses when user is Pro", async () => {
-    const { userId, token } = await createVerifiedUserWithState({ isPro: true, aiFreeUsesUsed: 2 });
+    const { userId, token } = await createVerifiedUserWithState({ isPro: true});
 
     vi.mocked(DocumentsService.getBaseResumeTextOrThrow).mockResolvedValue("Candidate text.");
     vi.mocked(InterviewPrepService.buildGenericInterviewPrep).mockResolvedValue({ payload: MOCK_PREP_PAYLOAD, usage: { input: 0, output: 0, total: 0 } });
@@ -275,7 +265,6 @@ describe("AI > Interview Prep > generic (/ai/interview-prep)", () => {
     await app.inject({ method: "POST", url: "/api/v1/ai/interview-prep", headers, payload });
 
     // Pro users don't consume free uses
-    expect(await getAiFreeUsesUsed(userId)).toBe(2);
   });
 });
 
@@ -306,7 +295,7 @@ describe("AI > Interview Prep > targeted (ai-artifacts INTERVIEW_PREP)", () => {
   });
 
   it("blocks when free quota exhausted and not Pro", async () => {
-    const { userId, token } = await createVerifiedUserWithState({ isPro: false, aiFreeUsesUsed: 5 });
+    const { userId, token } = await createVerifiedUserWithState({ isPro: false});
     const appId = await createApplication(userId);
     const res = await app.inject({
       method:  "POST",
@@ -319,7 +308,7 @@ describe("AI > Interview Prep > targeted (ai-artifacts INTERVIEW_PREP)", () => {
   });
 
   it("rejects when application has no job description", async () => {
-    const { userId, token } = await createVerifiedUserWithState({ isPro: false, aiFreeUsesUsed: 0 });
+    const { userId, token } = await createVerifiedUserWithState({ isPro: false});
     const appId = await createApplication(userId, null);
 
     const res = await app.inject({
@@ -332,11 +321,10 @@ describe("AI > Interview Prep > targeted (ai-artifacts INTERVIEW_PREP)", () => {
     expect(res.json()).toMatchObject({ code: "JOB_DESCRIPTION_MISSING" });
 
     // No credit consumed
-    expect(await getAiFreeUsesUsed(userId)).toBe(0);
   });
 
   it("works with JD only (no resume) — tryGetCandidateText returns null", async () => {
-    const { userId, token } = await createVerifiedUserWithState({ isPro: false, aiFreeUsesUsed: 0 });
+    const { userId, token } = await createVerifiedUserWithState({ isPro: false});
     const appId = await createApplication(userId, "Backend role: Node.js required.");
 
     // No resume available — tryGetCandidateText returns null
@@ -371,7 +359,7 @@ describe("AI > Interview Prep > targeted (ai-artifacts INTERVIEW_PREP)", () => {
   });
 
   it("works with JD + base resume — passes candidateText to service", async () => {
-    const { userId, token } = await createVerifiedUserWithState({ isPro: false, aiFreeUsesUsed: 0 });
+    const { userId, token } = await createVerifiedUserWithState({ isPro: false});
     const appId = await createApplication(userId, "Backend role. Node.js required.");
 
     // Base resume found — tryGetCandidateText returns candidate text
@@ -399,7 +387,7 @@ describe("AI > Interview Prep > targeted (ai-artifacts INTERVIEW_PREP)", () => {
   });
 
   it("does NOT consume free uses when AI service throws", async () => {
-    const { userId, token } = await createVerifiedUserWithState({ isPro: false, aiFreeUsesUsed: 0 });
+    const { userId, token } = await createVerifiedUserWithState({ isPro: false});
     const appId = await createApplication(userId, "JD text.");
 
     vi.mocked(DocumentsService.tryGetCandidateText).mockResolvedValue(null);
@@ -413,7 +401,6 @@ describe("AI > Interview Prep > targeted (ai-artifacts INTERVIEW_PREP)", () => {
     });
 
     expect(res.statusCode).toBe(500);
-    expect(await getAiFreeUsesUsed(userId)).toBe(0);
 
     // Artifact not persisted on failure
     const artifact = await prisma.aiArtifact.findFirst({
@@ -423,7 +410,7 @@ describe("AI > Interview Prep > targeted (ai-artifacts INTERVIEW_PREP)", () => {
   });
 
   it("does NOT consume free uses when user is Pro", async () => {
-    const { userId, token } = await createVerifiedUserWithState({ isPro: true, aiFreeUsesUsed: 2 });
+    const { userId, token } = await createVerifiedUserWithState({ isPro: true});
     const appId = await createApplication(userId, "JD text.");
 
     vi.mocked(DocumentsService.tryGetCandidateText).mockResolvedValue(MOCK_CANDIDATE);
@@ -437,6 +424,5 @@ describe("AI > Interview Prep > targeted (ai-artifacts INTERVIEW_PREP)", () => {
     });
 
     expect(res.statusCode).toBe(201);
-    expect(await getAiFreeUsesUsed(userId)).toBe(2); // unchanged
   });
 });

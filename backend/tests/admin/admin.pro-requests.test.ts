@@ -330,7 +330,6 @@ describe("Admin > Pro requests", () => {
         passwordHash: "hash_not_used_in_this_test",
         emailVerifiedAt: new Date(),
         name: "Grant Credits User",
-        aiFreeUsesUsed: 5,
       },
       select: { id: true, email: true },
     });

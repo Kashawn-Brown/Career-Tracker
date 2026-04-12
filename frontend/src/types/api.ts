@@ -43,9 +43,6 @@ export type AuthUser = {
   jobSearchSummary: string | null;
   jobSearchWorkMode: WorkMode;
 
-  // AI access control
-  aiFreeUsesUsed: number;
-
   createdAt: string; // JSON-serialized Date from backend
   updatedAt: string; // JSON-serialized Date from backend
 };
@@ -152,7 +149,6 @@ export type AdminUserListItem = {
   role:           UserRole;
   plan:           UserPlan;
   isActive:       boolean;
-  aiFreeUsesUsed: number;
   createdAt:      string;
   updatedAt:      string;
   lastActiveAt:   string | null;
@@ -742,8 +738,7 @@ export type AdminUserAnalyticsResponse = {
     isActive:        boolean;
     emailVerifiedAt: string | null;
     createdAt:       string;
-    aiFreeUsesUsed:  number;
-  };
+    };
   applicationCount: number;
   aiRuns: {
     byTool:   { toolKind: string; status: string; count: number }[];

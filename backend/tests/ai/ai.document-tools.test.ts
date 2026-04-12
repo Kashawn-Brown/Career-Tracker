@@ -83,7 +83,7 @@ const MOCK_COVER_LETTER = {
 
 async function createVerifiedUserWithState(opts: {
   isPro: boolean;
-  aiFreeUsesUsed: number;
+  aiFreeUsesUsed?: number;
 }) {
   const email = uniqueEmail();
   const user  = await createUser({
@@ -97,13 +97,12 @@ async function createVerifiedUserWithState(opts: {
     where: { id: user.id },
     data: {
       plan:           opts.isPro ? UserPlan.PRO : UserPlan.REGULAR,
-      aiFreeUsesUsed: opts.aiFreeUsesUsed,
     },
   });
   // Mirror into PlanUsageCycle for Phase 10 enforcement
   const now = new Date();
   const baseCredits = opts.isPro ? 1200 : 100;
-  const usedCredits = opts.aiFreeUsesUsed >= 5 ? baseCredits : opts.aiFreeUsesUsed * 2;
+  const usedCredits = (opts.aiFreeUsesUsed ?? 0) >= 5 ? baseCredits : (opts.aiFreeUsesUsed ?? 0) * 2;
   await prisma.planUsageCycle.upsert({
     where:  { userId_cycleYear_cycleMonth: { userId: user.id, cycleYear: now.getUTCFullYear(), cycleMonth: now.getUTCMonth() + 1 } },
     create: { userId: user.id, cycleYear: now.getUTCFullYear(), cycleMonth: now.getUTCMonth() + 1, baseCredits, bonusCredits: 0, usedCredits, planAtCycleStart: opts.isPro ? "PRO" : "REGULAR" },
@@ -119,14 +118,6 @@ async function createApplication(userId: string, description: string | null = "J
     select: { id: true },
   });
   return created.id;
-}
-
-async function getAiFreeUsesUsed(userId: string) {
-  const user = await prisma.user.findUniqueOrThrow({
-    where:  { id: userId },
-    select: { aiFreeUsesUsed: true },
-  });
-  return user.aiFreeUsesUsed;
 }
 
 function mockCandidateText(text = "Candidate history: Node.js, Fastify.") {
@@ -188,7 +179,7 @@ describe("AI Document Tools > RESUME_ADVICE (per-application artifact)", () => {
   });
 
   it("blocks when free quota exhausted and not Pro", async () => {
-    const { userId, token } = await createVerifiedUserWithState({ isPro: false, aiFreeUsesUsed: 5 });
+    const { userId, token } = await createVerifiedUserWithState({ isPro: false});
     const appId = await createApplication(userId);
 
     const res = await app.inject({
@@ -202,7 +193,7 @@ describe("AI Document Tools > RESUME_ADVICE (per-application artifact)", () => {
   });
 
   it("rejects when application has no job description", async () => {
-    const { userId, token } = await createVerifiedUserWithState({ isPro: false, aiFreeUsesUsed: 0 });
+    const { userId, token } = await createVerifiedUserWithState({ isPro: false});
     const appId = await createApplication(userId, null);
 
     const res = await app.inject({
@@ -215,11 +206,10 @@ describe("AI Document Tools > RESUME_ADVICE (per-application artifact)", () => {
     expect(res.json()).toMatchObject({ message: "Application is missing a job description." });
 
     // No credit consumed
-    expect(await getAiFreeUsesUsed(userId)).toBe(0);
   });
 
   it("creates artifact; consumes 1 free use; returns RESUME_ADVICE payload", async () => {
-    const { userId, token } = await createVerifiedUserWithState({ isPro: false, aiFreeUsesUsed: 0 });
+    const { userId, token } = await createVerifiedUserWithState({ isPro: false});
     const appId = await createApplication(userId, "Backend role: Node.js, Postgres.");
 
     mockCandidateText();
@@ -248,7 +238,7 @@ describe("AI Document Tools > RESUME_ADVICE (per-application artifact)", () => {
   });
 
   it("does NOT consume free uses when user is Pro", async () => {
-    const { userId, token } = await createVerifiedUserWithState({ isPro: true, aiFreeUsesUsed: 2 });
+    const { userId, token } = await createVerifiedUserWithState({ isPro: true});
     const appId = await createApplication(userId);
 
     mockCandidateText();
@@ -263,11 +253,10 @@ describe("AI Document Tools > RESUME_ADVICE (per-application artifact)", () => {
     expect(res.statusCode).toBe(201);
 
     // No credit consumed for Pro
-    expect(await getAiFreeUsesUsed(userId)).toBe(2);
   });
 
   it("does NOT consume free uses when AI service throws", async () => {
-    const { userId, token } = await createVerifiedUserWithState({ isPro: false, aiFreeUsesUsed: 0 });
+    const { userId, token } = await createVerifiedUserWithState({ isPro: false});
     const appId = await createApplication(userId);
 
     mockCandidateText();
@@ -280,7 +269,6 @@ describe("AI Document Tools > RESUME_ADVICE (per-application artifact)", () => {
       payload: { kind: "RESUME_ADVICE" },
     });
     expect(res.statusCode).toBe(500);
-    expect(await getAiFreeUsesUsed(userId)).toBe(0);
   });
 });
 
@@ -299,7 +287,7 @@ describe("AI Document Tools > COVER_LETTER (per-application artifact)", () => {
   });
 
   it("rejects when application has no job description", async () => {
-    const { userId, token } = await createVerifiedUserWithState({ isPro: false, aiFreeUsesUsed: 0 });
+    const { userId, token } = await createVerifiedUserWithState({ isPro: false});
     const appId = await createApplication(userId, null);
 
     const res = await app.inject({
@@ -309,11 +297,10 @@ describe("AI Document Tools > COVER_LETTER (per-application artifact)", () => {
       payload: { kind: "COVER_LETTER" },
     });
     expect(res.statusCode).toBe(400);
-    expect(await getAiFreeUsesUsed(userId)).toBe(0);
   });
 
   it("creates artifact; consumes 1 free use; returns COVER_LETTER payload", async () => {
-    const { userId, token } = await createVerifiedUserWithState({ isPro: false, aiFreeUsesUsed: 0 });
+    const { userId, token } = await createVerifiedUserWithState({ isPro: false});
     const appId = await createApplication(userId, "Backend role at Acme. Node.js required.");
 
     mockCandidateText();
@@ -345,7 +332,7 @@ describe("AI Document Tools > COVER_LETTER (per-application artifact)", () => {
   });
 
   it("passes templateText to the cover letter builder when provided", async () => {
-    const { userId, token } = await createVerifiedUserWithState({ isPro: false, aiFreeUsesUsed: 0 });
+    const { userId, token } = await createVerifiedUserWithState({ isPro: false});
     const appId = await createApplication(userId, "Backend role. Node.js required.");
 
     mockCandidateText();
@@ -363,7 +350,7 @@ describe("AI Document Tools > COVER_LETTER (per-application artifact)", () => {
   });
 
   it("does NOT consume free uses when AI service throws", async () => {
-    const { userId, token } = await createVerifiedUserWithState({ isPro: false, aiFreeUsesUsed: 0 });
+    const { userId, token } = await createVerifiedUserWithState({ isPro: false});
     const appId = await createApplication(userId);
 
     mockCandidateText();
@@ -376,7 +363,6 @@ describe("AI Document Tools > COVER_LETTER (per-application artifact)", () => {
       payload: { kind: "COVER_LETTER" },
     });
     expect(res.statusCode).toBe(500);
-    expect(await getAiFreeUsesUsed(userId)).toBe(0);
   });
 });
 
@@ -394,7 +380,7 @@ describe("AI Document Tools > generic cover-letter-help (/ai/cover-letter-help)"
   });
 
   it("rejects when no targeting fields provided", async () => {
-    const { token } = await createVerifiedUserWithState({ isPro: false, aiFreeUsesUsed: 0 });
+    const { token } = await createVerifiedUserWithState({ isPro: false});
 
     // Multipart request with a file but no targeting fields (targetField, targetRolesText, etc.)
     // The route validates targeting fields and returns 400 before touching the AI.
