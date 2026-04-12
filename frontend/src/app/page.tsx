@@ -186,9 +186,10 @@ export default function HomePage() {
 
           <p className="text-muted-foreground">
             Manage applications, statuses, connections, and documents all in one dashboard.
-            Use AI tools to extract structured job details from a posting, check your compatibility with a role, get targeted resume advice, generate cover letters, and prepare for interviews — all from a single drawer.
-            Includes{" "}
-            <span className="font-medium text-foreground">5 free AI credits</span> on sign up, with Pro access available to unlock more.
+            Use AI tools to extract structured job details from a posting, check your compatibility 
+            with a role, get targeted resume advice, generate cover letters, and prepare for interviews 
+            — all from a single drawer. AI credits are allocated monthly; run tools as part of your 
+            regular workflow, <br/>and request more from your profile when needed.
           </p>
 
           <div className="flex flex-wrap justify-center gap-2 text-xs text-muted-foreground">
@@ -221,12 +222,8 @@ export default function HomePage() {
 
                 <div className="text-sm text-muted-foreground">
                   Have an account?{" "}
-                  <Link href="/login" className="underline underline-offset-4">
+                  <Link href="/login" className="underline underline-offset-1">
                     Log in
-                  </Link>
-                  {" · "}
-                  <Link href="/login" className="underline underline-offset-4">
-                    Sign in with Google
                   </Link>
                 </div>
               </div>
@@ -492,7 +489,7 @@ export default function HomePage() {
               <br/><br/>
               Targeted versions run inside the application drawer; generic versions live on the Tools page.
               <br/><br/>
-              Includes 5 free credits on sign up, with a Pro request flow to unlock more.
+              AI credits are allocated monthly. Request for more from your profile when you run out.            
             </CardContent>
           </Card>
 
