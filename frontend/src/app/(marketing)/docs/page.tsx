@@ -133,7 +133,7 @@ const CONTENT: Record<string, React.ReactNode> = {
         <h2 className="text-base font-semibold">Table</h2>
         <p className="text-sm text-muted-foreground leading-relaxed">
           Sort by company, position, compatibility score, date applied, or last updated.
-          Filter by status, job type, or work arrangement. Hide columns you don't need
+          Filter by status, job type, or work arrangement. Hide columns you don&apos;t need
           via the Column Controls button. Your column and sort preferences are saved.
         </p>
       </div>
@@ -153,7 +153,7 @@ const CONTENT: Record<string, React.ReactNode> = {
       <div className="space-y-3">
         <h2 className="text-base font-semibold">Status</h2>
         <p className="text-sm text-muted-foreground leading-relaxed">
-          Change an application's status directly from the table by clicking the status pill.
+          Change an application&apos;s status directly from the table by clicking the status pill.
           Available statuses: Wishlist, Interested, Applied, Interview, Offer, Rejected, Withdrawn.
         </p>
       </div>
@@ -204,24 +204,24 @@ const CONTENT: Record<string, React.ReactNode> = {
     <div className="space-y-4">
       <h1 className="text-2xl font-semibold tracking-tight">Base Resume</h1>
       <div className="rounded-md border-l-4 border-primary bg-muted/20 px-4 py-3 space-y-1">
-        <p className="text-sm font-medium">Your base resume isn't a job application — it's your career document.</p>
+        <p className="text-sm font-medium">Your base resume isn&apos;t a job application — it&apos;s your career document.</p>
       </div>
       <p className="text-muted-foreground leading-relaxed text-sm">
         Most resume tools ask you to upload a tailored, trimmed resume for a specific role.
         Career-Tracker works differently. Your base resume (or CV) should be a comprehensive
-        record of everything you've done — every role, project, skill, certification, and
+        record of everything you&apos;ve done — every role, project, skill, certification, and
         accomplishment — without worrying about length or targeting.
       </p>
       <p className="text-muted-foreground leading-relaxed text-sm">
         Think of it as your master career document. When you run a Compatibility Check, Resume Advice,
-        Cover Letter, or Interview Prep, Career-Tracker's AI reads through your full history and
-        determines what's actually relevant to the role you're targeting. It does the filtering.
-        You don't have to.
+        Cover Letter, or Interview Prep, Career-Tracker&apos;s AI reads through your full history and
+        determines what&apos;s actually relevant to the role you&apos;re targeting. It does the filtering.
+        You don&apos;t have to.
       </p>
       <div className="rounded-md border bg-muted/20 p-4 space-y-2">
         <p className="text-sm font-medium">What to include:</p>
         <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
-          <li>Every role you've held — full-time, part-time, contract, internship</li>
+          <li>Every role you&apos;ve held — full-time, part-time, contract, internship</li>
           <li>Projects — personal, academic, open-source</li>
           <li>Skills — technical and soft</li>
           <li>Education, certifications, courses</li>
@@ -268,7 +268,7 @@ const CONTENT: Record<string, React.ReactNode> = {
       <h1 className="text-2xl font-semibold tracking-tight">Connections</h1>
       <p className="text-muted-foreground leading-relaxed">
         Connections are people you interact with during your job search — recruiters, hiring managers,
-        referrals, and contacts at companies you're targeting.
+        referrals, and contacts at companies you&apos;re targeting.
       </p>
       <p className="text-sm text-muted-foreground leading-relaxed">
         Create and manage connections globally from your Profile, then attach them to specific
@@ -314,7 +314,7 @@ const CONTENT: Record<string, React.ReactNode> = {
         </div>
       </div>
       <p className="text-sm text-muted-foreground">
-        Running low? You'll see a warning at 90% usage. Request more credits from your
+        Running low? You&apos;ll see a warning at 90% usage. Request more credits from your
         {" "}<span className="font-medium text-foreground">Profile</span> page — requests are
         reviewed manually.
       </p>

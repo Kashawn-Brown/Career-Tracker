@@ -73,7 +73,7 @@ function ContactForm() {
       <div className="flex flex-col items-center gap-3 py-8 text-center">
         <CheckCircle2 className="h-8 w-8 text-green-500" />
         <p className="font-medium">Message sent — thanks!</p>
-        <p className="text-sm text-muted-foreground">I'll get back to you as soon as I can.</p>
+        <p className="text-sm text-muted-foreground">{"I'll get back to you as soon as I can."}</p>
         <button
           onClick={() => setStatus("idle")}
           className="mt-2 text-xs underline underline-offset-2 text-muted-foreground hover:text-foreground"
@@ -186,7 +186,7 @@ export default function AboutPage() {
         <h2 className="text-xl font-semibold tracking-tight">Job searching is a full-time job.</h2>
         <p className="text-muted-foreground leading-relaxed">
           Between tracking applications, tailoring resumes, writing cover letters, and prepping for
-          interviews — it's easy to fall behind. Most trackers are just glorified spreadsheets.
+          interviews — it&apos;s easy to fall behind. Most trackers are just glorified spreadsheets.
           Career-Tracker brings the whole workflow into one place and uses AI to do the heavy lifting.
         </p>
       </section>
@@ -242,7 +242,7 @@ export default function AboutPage() {
         <div className="rounded-lg border bg-muted/20 p-6 space-y-3">
           <h2 className="text-lg font-semibold">Keep Career-Tracker running</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Career-Tracker is independently built and maintained. If it's helped your job search,
+            Career-Tracker is independently built and maintained. If it&apos;s helped your job search,
             consider buying me a coffee — it goes directly toward server costs and keeping the
             AI features running.
           </p>
@@ -278,8 +278,8 @@ export default function AboutPage() {
           <div className="space-y-2">
             <h2 className="text-xl font-semibold tracking-tight">Have feedback or ran into an issue?</h2>
             <p className="text-sm text-muted-foreground">
-              Career-Tracker is actively being improved. If something isn't working, you have an idea,
-              or you just want to share how it's going — I'd love to hear from you.
+              Career-Tracker is actively being improved. If something isn&apos;t working, you have an idea,
+              or you just want to share how it&apos;s going — I&apos;d love to hear from you.
             </p>
           </div>
           <ContactForm />
