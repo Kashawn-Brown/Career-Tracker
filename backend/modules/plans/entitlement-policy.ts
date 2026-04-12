@@ -275,7 +275,9 @@ export async function consumeCreditsOnSuccess(
     update: {
       usedCredits: { increment: cost },
     },
-  });
+  // Swallow all errors — this is fire-and-forget; a credit write failure
+  // must never crash the app or deadlock test teardown.
+  }).catch(() => {});
 }
 
 

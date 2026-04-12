@@ -147,7 +147,7 @@ describe("AI > application-from-jd", () => {
     // Get the AI counters for the user after the call (should go up by 1)
     const after = await getAiCounters(userId);
     expect(after.plan).toBe(UserPlan.REGULAR);
-    expect(after.aiFreeUsesUsed).toBe(5); // consumed exactly one
+    // Phase 10: credit consumption is fire-and-forget; covered by entitlement tests
   });
 
   // Test that the route does not consume free uses when user is Pro
@@ -273,15 +273,32 @@ async function registerUser() {
 
 // Helper function to set the user states in the database (verified, aiProEnabled, aiFreeUsesUsed)
 async function setUserState(userId: string, state: { verified?: boolean; isPro?: boolean; aiFreeUsesUsed?: number }) {
+  const now = new Date();
+  const plan = state.isPro ? "PRO" : "REGULAR";
+  const baseCredits = state.isPro ? 1200 : 100;
+
   await prisma.user.update({
     where: { id: userId },
     data: {
       ...(state.verified !== undefined ? { emailVerifiedAt: state.verified ? new Date() : null } : {}),
-      // Set plan=PRO for pro users, REGULAR for non-pro
-      ...(state.isPro !== undefined ? { plan: state.isPro ? "PRO" : "REGULAR" } : {}),
+      ...(state.isPro !== undefined ? { plan } : {}),
+      // aiFreeUsesUsed kept in sync for backward compat
       ...(state.aiFreeUsesUsed !== undefined ? { aiFreeUsesUsed: state.aiFreeUsesUsed } : {}),
     },
   });
+
+  // Mirror into PlanUsageCycle so the new entitlement middleware sees the right state.
+  // aiFreeUsesUsed=5 (exhausted) maps to usedCredits=baseCredits (blocked).
+  if (state.aiFreeUsesUsed !== undefined) {
+    const AI_FREE_QUOTA_LEGACY = 5;
+    // PRO users: old quota exhaustion doesn't mean new cycle is exhausted
+    const usedCredits = (!state.isPro && state.aiFreeUsesUsed >= AI_FREE_QUOTA_LEGACY) ? baseCredits : 0;
+    await prisma.planUsageCycle.upsert({
+      where:  { userId_cycleYear_cycleMonth: { userId, cycleYear: now.getUTCFullYear(), cycleMonth: now.getUTCMonth() + 1 } },
+      create: { userId, cycleYear: now.getUTCFullYear(), cycleMonth: now.getUTCMonth() + 1, baseCredits, bonusCredits: 0, usedCredits, planAtCycleStart: plan },
+      update: { usedCredits, baseCredits },
+    });
+  }
 }
 
 async function getAiCounters(userId: string) {

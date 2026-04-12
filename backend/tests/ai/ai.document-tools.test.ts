@@ -100,6 +100,15 @@ async function createVerifiedUserWithState(opts: {
       aiFreeUsesUsed: opts.aiFreeUsesUsed,
     },
   });
+  // Mirror into PlanUsageCycle for Phase 10 enforcement
+  const now = new Date();
+  const baseCredits = opts.isPro ? 1200 : 100;
+  const usedCredits = opts.aiFreeUsesUsed >= 5 ? baseCredits : opts.aiFreeUsesUsed * 2;
+  await prisma.planUsageCycle.upsert({
+    where:  { userId_cycleYear_cycleMonth: { userId: user.id, cycleYear: now.getUTCFullYear(), cycleMonth: now.getUTCMonth() + 1 } },
+    create: { userId: user.id, cycleYear: now.getUTCFullYear(), cycleMonth: now.getUTCMonth() + 1, baseCredits, bonusCredits: 0, usedCredits, planAtCycleStart: opts.isPro ? "PRO" : "REGULAR" },
+    update: { usedCredits, baseCredits },
+  });
 
   return { userId: user.id, token: signAccessToken(user) };
 }
@@ -214,7 +223,7 @@ describe("AI Document Tools > RESUME_ADVICE (per-application artifact)", () => {
     const appId = await createApplication(userId, "Backend role: Node.js, Postgres.");
 
     mockCandidateText();
-    vi.mocked(DocumentToolsService.buildTargetedResumeAdvice).mockResolvedValue(MOCK_RESUME_ADVICE);
+    vi.mocked(DocumentToolsService.buildTargetedResumeAdvice).mockResolvedValue({ payload: MOCK_RESUME_ADVICE, usage: { input: 0, output: 0, total: 0 } });
 
     const res = await app.inject({
       method:  "POST",
@@ -244,7 +253,7 @@ describe("AI Document Tools > RESUME_ADVICE (per-application artifact)", () => {
     const appId = await createApplication(userId);
 
     mockCandidateText();
-    vi.mocked(DocumentToolsService.buildTargetedResumeAdvice).mockResolvedValue(MOCK_RESUME_ADVICE);
+    vi.mocked(DocumentToolsService.buildTargetedResumeAdvice).mockResolvedValue({ payload: MOCK_RESUME_ADVICE, usage: { input: 0, output: 0, total: 0 } });
 
     const res = await app.inject({
       method:  "POST",
@@ -309,7 +318,7 @@ describe("AI Document Tools > COVER_LETTER (per-application artifact)", () => {
     const appId = await createApplication(userId, "Backend role at Acme. Node.js required.");
 
     mockCandidateText();
-    vi.mocked(DocumentToolsService.buildTargetedCoverLetter).mockResolvedValue(MOCK_COVER_LETTER);
+    vi.mocked(DocumentToolsService.buildTargetedCoverLetter).mockResolvedValue({ payload: MOCK_COVER_LETTER, usage: { input: 0, output: 0, total: 0 } });
 
     const res = await app.inject({
       method:  "POST",
@@ -342,7 +351,7 @@ describe("AI Document Tools > COVER_LETTER (per-application artifact)", () => {
     const appId = await createApplication(userId, "Backend role. Node.js required.");
 
     mockCandidateText();
-    vi.mocked(DocumentToolsService.buildTargetedCoverLetter).mockResolvedValue(MOCK_COVER_LETTER);
+    vi.mocked(DocumentToolsService.buildTargetedCoverLetter).mockResolvedValue({ payload: MOCK_COVER_LETTER, usage: { input: 0, output: 0, total: 0 } });
 
     await app.inject({
       method:  "POST",

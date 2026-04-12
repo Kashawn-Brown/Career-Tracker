@@ -28,7 +28,9 @@ export function hasProPlan(plan: UserPlan): boolean {
 }
 
 /**
- * Returns true if the user can make an AI call right now.
+ * @deprecated Phase 10: use resolveUsageState() from entitlement-policy (backend)
+ * or analyticsApi.getMyUsage() (frontend) for real credit enforcement.
+ * Kept for legacy test compatibility only.
  */
 export function canUseAi(user: Pick<AuthUser, "role" | "plan" | "aiFreeUsesUsed">): boolean {
   const plan = getEffectivePlan(user);
@@ -37,8 +39,7 @@ export function canUseAi(user: Pick<AuthUser, "role" | "plan" | "aiFreeUsesUsed"
 }
 
 /**
- * Returns the number of remaining free AI credits for REGULAR users.
- * Returns null for paid plans (unlimited).
+ * @deprecated Phase 10: use UsageState.remaining from analyticsApi.getMyUsage() instead.
  */
 export function getRemainingAiCredits(
   user: Pick<AuthUser, "role" | "plan" | "aiFreeUsesUsed">

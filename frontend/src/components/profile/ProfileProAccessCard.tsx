@@ -1,30 +1,22 @@
 "use client";
 
-import { useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
+import { useEffect, useState } from "react";
+import { useAuth }      from "@/hooks/useAuth";
+import { analyticsApi } from "@/lib/api/analytics";
+import { proApi }       from "@/lib/api/pro-api";
+import { Button }       from "@/components/ui/button";
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
+  CardAction,
 } from "@/components/ui/card";
-import { RequestProDialog } from "@/components/pro/RequestProDialog";
-import type { AiProRequestSummary } from "@/types/api";
-import { getEffectivePlan, hasProPlan, getRemainingAiCredits } from "@/lib/plans";
-import { AI_FREE_QUOTA, PENDING_REQUEST_COOLDOWN_DAYS, DENIED_REQUEST_COOLDOWN_DAYS } from "@/lib/constants";
+import type { UsageState } from "@/types/api";
+import { getEffectivePlan, hasProPlan } from "@/lib/plans";
 
-function addDays(iso: string, days: number) {
-  const d = new Date(iso);
-  d.setDate(d.getDate() + days);
-  return d;
-}
-
-function fmtDate(d: Date) {
-  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-}
+function fmt(n: number) { return n.toLocaleString(); }
 
 function ProPill() {
   return (
@@ -34,122 +26,143 @@ function ProPill() {
   );
 }
 
-type RequestInfo = {
-  title: string;
-  body: string;
-  eligibleAt: Date | null;
-  canRetry: boolean;
-};
-
-function buildRequestInfo(aiProRequest: AiProRequestSummary | null): RequestInfo | null {
-  if (!aiProRequest) return null;
-
-  if (aiProRequest.status === "PENDING") {
-    const eligibleAt = addDays(aiProRequest.requestedAt, PENDING_REQUEST_COOLDOWN_DAYS);
-    const canRetry = Date.now() >= eligibleAt.getTime();
-    return {
-      title: "Request pending",
-      body: `Sent ${fmtDate(new Date(aiProRequest.requestedAt))}. Please allow some time for a response.`,
-      eligibleAt,
-      canRetry,
-    };
-  }
-
-  if (aiProRequest.status === "DENIED") {
-    const baseIso = aiProRequest.decidedAt ?? aiProRequest.requestedAt;
-    const eligibleAt = addDays(baseIso, DENIED_REQUEST_COOLDOWN_DAYS);
-    const canRetry = Date.now() >= eligibleAt.getTime();
-    return {
-      title: "Request denied",
-      body: `Denied ${aiProRequest.decidedAt ? fmtDate(new Date(aiProRequest.decidedAt)) : "—"}.`,
-      eligibleAt,
-      canRetry,
-    };
-  }
-
-  if (aiProRequest.status === "EXPIRED") {
-    return {
-      title: "Request expired",
-      body: "Your previous request may have gotten lost. You can send another request now.",
-      eligibleAt: null,
-      canRetry: true,
-    };
-  }
-
-  // APPROVED / CREDITS_GRANTED -> user state should reflect it; no extra messaging needed here
-  return null;
-}
-
 export function ProfileProAccessCard() {
-  const { user, aiProRequest, refreshMe } = useAuth();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const { user, refreshMe }                             = useAuth();
+  const [usage,        setUsage]        = useState<UsageState | null>(null);
+  const [requesting,   setRequesting]   = useState<"credits" | "pro" | null>(null);
+  const [requestDone,  setRequestDone]  = useState<"credits" | "pro" | null>(null);
+  const [requestError, setRequestError] = useState<string | null>(null);
 
-  const requestInfo = buildRequestInfo(aiProRequest);
+  useEffect(() => {
+    analyticsApi.getMyUsage().then(setUsage).catch(() => null);
+  }, []);
 
   if (!user) return null;
 
   const effectivePlan = getEffectivePlan(user);
-  const isPro = hasProPlan(effectivePlan);
-  const remainingAiCredits = getRemainingAiCredits(user);
+  const isPro         = hasProPlan(effectivePlan);
 
-  const disableRequest = Boolean(requestInfo && requestInfo.canRetry === false);
+  const resetDate = usage
+    ? new Date(usage.resetAt).toLocaleDateString(undefined, { month: "long", day: "numeric" })
+    : null;
+
+  async function handleRequest(type: "credits" | "pro") {
+    setRequesting(type);
+    setRequestError(null);
+    try {
+      await proApi.requestPro({
+        note: type === "pro"
+          ? "Requesting Pro access."
+          : "Requesting additional monthly AI credits.",
+      });
+      setRequestDone(type);
+      void refreshMe();
+    } catch (err) {
+      setRequestError(err instanceof Error ? err.message : "Request failed. Please try again.");
+    } finally {
+      setRequesting(null);
+    }
+  }
 
   return (
-    <>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            AI Access {isPro ? <ProPill /> : null}
-          </CardTitle>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          AI Credits {isPro ? <ProPill /> : null}
+        </CardTitle>
 
-          <CardDescription>
-            {isPro
-              ? "Your account has Pro access (unlimited AI tools)."
-              : `Free AI credits: ${remainingAiCredits ?? 0}/${AI_FREE_QUOTA} remaining`}
-          </CardDescription>
+        <CardDescription>
+          {isPro
+            ? `Pro plan · ${usage ? `${fmt(usage.usedCredits)} / ${fmt(usage.totalCredits)} credits used this month` : "Loading usage…"}`
+            : usage
+              ? `${fmt(usage.usedCredits)} / ${fmt(usage.totalCredits)} credits used this month`
+              : "Loading usage…"}
+          {resetDate && <span className="ml-1 text-muted-foreground">· resets {resetDate}</span>}
+        </CardDescription>
 
+        {!isPro && (
           <CardAction>
-            {!isPro ? (
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => setIsDialogOpen(true)}
-                disabled={disableRequest}
-              >
-                {requestInfo?.title === "Request pending" && requestInfo.canRetry
-                  ? "Request again"
-                  : "Request Pro / more credits"}
-              </Button>
-            ) : null}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={!!requesting || requestDone === "pro"}
+              onClick={() => handleRequest("pro")}
+            >
+              {requesting === "pro" ? "Sending…" : requestDone === "pro" ? "Request sent" : "Request Pro"}
+            </Button>
           </CardAction>
-        </CardHeader>
+        )}
+      </CardHeader>
 
-        {!isPro ? (
-          <CardContent className="">
-            {requestInfo ? (
-              <div className="text-sm text-muted-foreground space-y-1">
-                <div className="font-medium text-foreground">{requestInfo.title}</div>
-                <div>{requestInfo.body}</div>
+      {usage && (
+        <CardContent className="space-y-3">
+          {/* Progress bar */}
+          <div className="space-y-1.5">
+            <div className="h-2 rounded-full bg-muted overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  usage.threshold === "BLOCKED"    ? "bg-red-500"    :
+                  usage.threshold === "WARNING_90" ? "bg-orange-500" :
+                  usage.threshold === "WARNING_75" ? "bg-amber-500"  :
+                  "bg-primary"
+                }`}
+                style={{ width: `${Math.min(usage.percentUsed, 100)}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>{fmt(usage.remaining)} remaining</span>
+              {usage.bonusCredits > 0 && (
+                <span>Includes {fmt(usage.bonusCredits)} bonus credits</span>
+              )}
+            </div>
+          </div>
 
-                {requestInfo.eligibleAt ? (
-                  <div>
-                    You can re-request on{" "}
-                    <span className="font-medium text-foreground">{fmtDate(requestInfo.eligibleAt)}</span>.
-                  </div>
-                ) : null}
-              </div>
-            ) : (
-              null
-            )}
-          </CardContent>
-        ) : null}
-      </Card>
+          {/* Request more credits when running low or blocked */}
+          {(usage.threshold === "WARNING_90" || usage.threshold === "BLOCKED") && (
+            <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+              <p className="text-sm text-muted-foreground">
+                {usage.isBlocked
+                  ? `You've reached your monthly limit. Credits reset on ${resetDate}.`
+                  : "You're running low on credits this month."}
+              </p>
+              {requestDone === "credits" ? (
+                <p className="text-sm text-green-700 dark:text-green-400 font-medium">
+                  Request sent — an admin will review it shortly.
+                </p>
+              ) : (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={!!requesting}
+                  onClick={() => handleRequest("credits")}
+                >
+                  {requesting === "credits" ? "Sending…" : "Request more credits"}
+                </Button>
+              )}
+              {!isPro && !requestDone && (
+                <p className="text-xs text-muted-foreground">
+                  Or{" "}
+                  <button
+                    type="button"
+                    className="underline underline-offset-2 hover:text-foreground"
+                    onClick={() => handleRequest("pro")}
+                    disabled={!!requesting || requestDone === "pro"}
+                  >
+                    request Pro access
+                  </button>
+                  {" "}for a larger monthly allowance.
+                </p>
+              )}
+            </div>
+          )}
 
-      <RequestProDialog
-        open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
-        onRequested={() => refreshMe()}
-      />
-    </>
+          {requestError && (
+            <p className="text-sm text-destructive">{requestError}</p>
+          )}
+        </CardContent>
+      )}
+    </Card>
   );
 }

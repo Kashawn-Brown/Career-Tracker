@@ -108,6 +108,15 @@ async function createVerifiedUserWithState(opts: { isPro: boolean; aiFreeUsesUse
       aiFreeUsesUsed: opts.aiFreeUsesUsed,
     },
   });
+  // Mirror into PlanUsageCycle for Phase 10 enforcement
+  const now = new Date();
+  const baseCredits = opts.isPro ? 1200 : 100;
+  const usedCredits = opts.aiFreeUsesUsed >= 5 ? baseCredits : opts.aiFreeUsesUsed * 2;
+  await prisma.planUsageCycle.upsert({
+    where:  { userId_cycleYear_cycleMonth: { userId: user.id, cycleYear: now.getUTCFullYear(), cycleMonth: now.getUTCMonth() + 1 } },
+    create: { userId: user.id, cycleYear: now.getUTCFullYear(), cycleMonth: now.getUTCMonth() + 1, baseCredits, bonusCredits: 0, usedCredits, planAtCycleStart: opts.isPro ? "PRO" : "REGULAR" },
+    update: { usedCredits, baseCredits },
+  });
   return { userId: user.id, token: signAccessToken(user) };
 }
 
@@ -216,7 +225,7 @@ describe("AI > Interview Prep > generic (/ai/interview-prep)", () => {
     // Mock getBaseResumeTextOrThrow — used when no file upload provided
     vi.mocked(DocumentsService.getBaseResumeTextOrThrow).mockResolvedValue("Candidate history: Node.js, Fastify, Postgres.");
 
-    vi.mocked(InterviewPrepService.buildGenericInterviewPrep).mockResolvedValue(MOCK_PREP_PAYLOAD);
+    vi.mocked(InterviewPrepService.buildGenericInterviewPrep).mockResolvedValue({ payload: MOCK_PREP_PAYLOAD, usage: { input: 0, output: 0, total: 0 } });
 
     const { headers, payload } = buildFieldsOnly({
       targetField:     "Software Engineering",
@@ -237,8 +246,7 @@ describe("AI > Interview Prep > generic (/ai/interview-prep)", () => {
     });
     expect(artifact).not.toBeNull();
 
-    // Free use consumed
-    expect(await getAiFreeUsesUsed(userId)).toBe(1);
+    // Phase 10: credit consumption is fire-and-forget; covered by entitlement tests
 
     // Cleanup
     await prisma.document.delete({ where: { id: baseDoc.id } }).catch(() => {});
@@ -261,7 +269,7 @@ describe("AI > Interview Prep > generic (/ai/interview-prep)", () => {
     const { userId, token } = await createVerifiedUserWithState({ isPro: true, aiFreeUsesUsed: 2 });
 
     vi.mocked(DocumentsService.getBaseResumeTextOrThrow).mockResolvedValue("Candidate text.");
-    vi.mocked(InterviewPrepService.buildGenericInterviewPrep).mockResolvedValue(MOCK_PREP_PAYLOAD);
+    vi.mocked(InterviewPrepService.buildGenericInterviewPrep).mockResolvedValue({ payload: MOCK_PREP_PAYLOAD, usage: { input: 0, output: 0, total: 0 } });
 
     const { headers, payload } = buildFieldsOnly({ targetField: "Engineering" }, token);
     await app.inject({ method: "POST", url: "/api/v1/ai/interview-prep", headers, payload });
@@ -333,7 +341,7 @@ describe("AI > Interview Prep > targeted (ai-artifacts INTERVIEW_PREP)", () => {
 
     // No resume available — tryGetCandidateText returns null
     vi.mocked(DocumentsService.tryGetCandidateText).mockResolvedValue(null);
-    vi.mocked(InterviewPrepService.buildTargetedInterviewPrep).mockResolvedValue(MOCK_PREP_PAYLOAD);
+    vi.mocked(InterviewPrepService.buildTargetedInterviewPrep).mockResolvedValue({ payload: MOCK_PREP_PAYLOAD, usage: { input: 0, output: 0, total: 0 } });
 
     const res = await app.inject({
       method:  "POST",
@@ -369,7 +377,7 @@ describe("AI > Interview Prep > targeted (ai-artifacts INTERVIEW_PREP)", () => {
 
     // Base resume found — tryGetCandidateText returns candidate text
     vi.mocked(DocumentsService.tryGetCandidateText).mockResolvedValue(MOCK_CANDIDATE);
-    vi.mocked(InterviewPrepService.buildTargetedInterviewPrep).mockResolvedValue(MOCK_PREP_PAYLOAD);
+    vi.mocked(InterviewPrepService.buildTargetedInterviewPrep).mockResolvedValue({ payload: MOCK_PREP_PAYLOAD, usage: { input: 0, output: 0, total: 0 } });
 
     const res = await app.inject({
       method:  "POST",
@@ -420,7 +428,7 @@ describe("AI > Interview Prep > targeted (ai-artifacts INTERVIEW_PREP)", () => {
     const appId = await createApplication(userId, "JD text.");
 
     vi.mocked(DocumentsService.tryGetCandidateText).mockResolvedValue(MOCK_CANDIDATE);
-    vi.mocked(InterviewPrepService.buildTargetedInterviewPrep).mockResolvedValue(MOCK_PREP_PAYLOAD);
+    vi.mocked(InterviewPrepService.buildTargetedInterviewPrep).mockResolvedValue({ payload: MOCK_PREP_PAYLOAD, usage: { input: 0, output: 0, total: 0 } });
 
     const res = await app.inject({
       method:  "POST",

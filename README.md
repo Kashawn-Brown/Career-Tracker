@@ -44,8 +44,10 @@ The design goal is simple: **scanning stays instant** in the table, while richer
 - **Resume advice** — targeted improvement suggestions for a specific role (what's working, what to improve, role alignment, rewrite suggestions, keyword coverage split into already-covered and worth-adding); also available as generic advice on the Tools page
 - **Cover letter** — generate a tailored draft for a specific role, or a reusable draft on the Tools page
 - All drawer AI tools run in the background and survive drawer close — a notification appears when results are ready
-- Optionally run all selected AI tools automatically after creating an application (Compatibility, Interview Prep, Resume Advice, Cover Letter)
+- Optionally run any selected AI tools automatically after creating an application (Compatibility, Interview Prep, Resume Advice, Cover Letter)
 - Pro access can be requested and is admin-approved
+- AI usage is governed by a monthly credit system — REGULAR (100/month) and PRO (1,200/month); credits are consumed only on successful runs at tool-specific rates (JD extraction 1, compatibility/resume 2, cover letter/interview prep 3)
+- Credit usage and reset timing are visible on the Activity page; low-credit warnings appear at 75% and 90%; users at their limit can request more credits or Pro access directly from tool surfaces or their profile
 
 ### Analytics + tracking
 - Every major product action (application created/updated/deleted, CSV export) is recorded as a structured product event
@@ -181,4 +183,4 @@ See: `backend/README.md` for full details.
 
 ---
 
-*Last updated: 2026-04-08*
+*Last updated: 2026-04-11*

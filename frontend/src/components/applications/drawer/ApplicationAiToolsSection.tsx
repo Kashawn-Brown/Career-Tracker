@@ -8,14 +8,11 @@ import { useAuth }        from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
 import { analyticsApi }   from "@/lib/api/analytics";
 import type { UsageState } from "@/types/api";
-import { CreditCostNote, BlockedRunButton } from "@/components/tools/ToolEntitlementGate";
-import { ProAccessBanner }  from "@/components/pro/ProAccessBanner";
-import { RequestProDialog } from "@/components/pro/RequestProDialog";
 import { CompatibilityCheckCard } from "@/components/applications/drawer/CompatibilityCheckCard";
 import { InterviewPrepCard }      from "@/components/applications/drawer/InterviewPrepCard";
 import { ResumeAdviceCard }       from "@/components/applications/drawer/ResumeAdviceCard";
 import { CoverLetterCard }        from "@/components/applications/drawer/CoverLetterCard";
-import { canUseAi, getRemainingAiCredits, hasProPlan, getEffectivePlan } from "@/lib/plans";
+import { getEffectivePlan } from "@/lib/plans";
 import { AlertTriangle } from "lucide-react";
 
 // Props for the ApplicationAiToolsSection component
@@ -72,12 +69,8 @@ export function ApplicationAiToolsSection({
   closeOthers,
 }: Props) {
   // Auth and plan state live here so they can be shared across all three cards
-  const { user, aiProRequest, refreshMe } = useAuth();
-  const canUse             = user ? canUseAi(user) : false;
-  const remainingAiCredits = user ? getRemainingAiCredits(user) : 0;
-  const isPro              = user ? hasProPlan(getEffectivePlan(user)) : false;
+  const { user, refreshMe } = useAuth();
 
-  const [isProDialogOpen, setIsProDialogOpen] = useState(false);
   const [usageState, setUsageState]           = useState<UsageState | null>(null);
 
   // Fetch usage state for credit labels and blocked state
@@ -96,21 +89,6 @@ export function ApplicationAiToolsSection({
 
   return (
     <div className="space-y-3">
-
-      {/* ── Shared ProAccess banner ─────────────────────────────────────────
-           Shown once at the top — applies to all tools in this section.    */}
-      <ProAccessBanner
-        isPro={isPro}
-        remainingAiCredits={remainingAiCredits ?? 0}
-        canUseAi={canUse}
-        aiProRequest={aiProRequest}
-        onRequestPro={() => setIsProDialogOpen(true)}
-      />
-      <RequestProDialog
-        open={isProDialogOpen}
-        onOpenChange={setIsProDialogOpen}
-        onRequested={() => refreshMe()}
-      />
 
       {/* ── Shared readiness status bar ─────────────────────────────────────
            Sits outside all Cards so it reads as section-level context,
@@ -156,7 +134,7 @@ export function ApplicationAiToolsSection({
         fitRuns={fitRuns}
         baseResumeExists={baseResumeExists}
         baseResumeId={baseResumeId}
-        canUseAi={canUse}
+        canUseAi={!isBlocked}
         isBlocked={isBlocked}
         plan={planLabel}
         creditCost={2}
@@ -174,7 +152,7 @@ export function ApplicationAiToolsSection({
       <ResumeAdviceCard
         application={application}
         baseResumeExists={baseResumeExists}
-        canUseAi={canUse}
+        canUseAi={!isBlocked}
         isBlocked={isBlocked}
         plan={planLabel}
         creditCost={2}
@@ -191,7 +169,7 @@ export function ApplicationAiToolsSection({
         application={application}
         baseResumeExists={baseResumeExists}
         baseCoverLetterExists={baseCoverLetterExists}
-        canUseAi={canUse}
+        canUseAi={!isBlocked}
         isBlocked={isBlocked}
         plan={planLabel}
         creditCost={3}
@@ -208,7 +186,7 @@ export function ApplicationAiToolsSection({
       <InterviewPrepCard
         application={application}
         baseResumeExists={baseResumeExists}
-        canUseAi={canUse}
+        canUseAi={!isBlocked}
         isBlocked={isBlocked}
         plan={planLabel}
         creditCost={3}

@@ -129,16 +129,6 @@ export function InterviewPrepCard({
   const isRunning = run?.status === "running";
   const canRun    = hasJd && canUseAi && !isRunning;
 
-  // Determine which resume mode will be used — drives the status label
-  const usingOverride = Boolean(overrideFile || selectedDocId);
-  const resumeLabel   = overrideFile
-    ? overrideFile.name
-    : selectedDocId
-    ? resumeDocs.find((d) => d.id === selectedDocId)?.originalName ?? "Selected resume"
-    : baseResumeExists
-    ? "Base resume"
-    : null; // no resume available
-
   const jobLabel = [application.position, application.company].filter(Boolean).join(" at ");
 
   async function handleGenerate() {

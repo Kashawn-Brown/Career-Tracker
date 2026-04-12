@@ -197,6 +197,7 @@ describe("Applications > AI artifacts > FIT_V1", () => {
       },
       model: "gpt-5-mini",
       tier: UserPlan.REGULAR,
+      usage: { input: 0, output: 0, total: 0 },
     });
 
     // Call FIT_V1 route with the Bearer token
@@ -283,6 +284,7 @@ describe("Applications > AI artifacts > FIT_V1", () => {
       },
       model: "gpt-5-mini",
       tier: UserPlan.REGULAR,
+      usage: { input: 0, output: 0, total: 0 },
     });
 
     // Call FIT_V1 route with the Bearer token
@@ -370,12 +372,22 @@ async function createUserWithState(state: {
     emailVerifiedAt: state.verified ? new Date() : null,
   });
 
+  const plan = state.isPro ? UserPlan.PRO : UserPlan.REGULAR;
+  const baseCredits = state.isPro ? 1200 : 100;
   await prisma.user.update({
     where: { id: user.id },
     data: {
-      plan: state.isPro ? UserPlan.PRO : UserPlan.REGULAR,
+      plan,
       aiFreeUsesUsed: state.aiFreeUsesUsed,
     },
+  });
+  // Mirror into PlanUsageCycle for Phase 10 enforcement
+  const now = new Date();
+  const usedCredits = state.aiFreeUsesUsed >= 5 ? baseCredits : state.aiFreeUsesUsed * 2;
+  await prisma.planUsageCycle.upsert({
+    where:  { userId_cycleYear_cycleMonth: { userId: user.id, cycleYear: now.getUTCFullYear(), cycleMonth: now.getUTCMonth() + 1 } },
+    create: { userId: user.id, cycleYear: now.getUTCFullYear(), cycleMonth: now.getUTCMonth() + 1, baseCredits, bonusCredits: 0, usedCredits, planAtCycleStart: plan },
+    update: { usedCredits, baseCredits },
   });
 
   const token = signAccessToken({ id: user.id, email: user.email });

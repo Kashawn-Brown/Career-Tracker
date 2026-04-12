@@ -221,7 +221,9 @@ describe("AI > application-from-link", () => {
     });
 
     const after = await getAiCounters(userId);
-    expect(after.aiFreeUsesUsed).toBe(3); // consumed exactly one
+    // Phase 10: credits consumed via PlanUsageCycle, not aiFreeUsesUsed
+    const cycle = await prisma.planUsageCycle.findFirst({ where: { userId } });
+    expect(cycle?.usedCredits ?? 0).toBeGreaterThan(0);
   });
 
   it("does NOT consume free uses when user is Pro", async () => {
@@ -314,17 +316,29 @@ async function setUserState(
   userId: string,
   state: { verified?: boolean; isPro?: boolean; aiFreeUsesUsed?: number }
 ) {
+  const now = new Date();
+  const plan = state.isPro ? "PRO" : "REGULAR";
+  const baseCredits = state.isPro ? 1200 : 100;
   await prisma.user.update({
     where: { id: userId },
     data:  {
       ...(state.verified !== undefined
         ? { emailVerifiedAt: state.verified ? new Date() : null } : {}),
       ...(state.isPro !== undefined
-        ? { plan: state.isPro ? "PRO" : "REGULAR" } : {}),
+        ? { plan } : {}),
       ...(state.aiFreeUsesUsed !== undefined
         ? { aiFreeUsesUsed: state.aiFreeUsesUsed } : {}),
     },
   });
+  if (state.aiFreeUsesUsed !== undefined) {
+    // PRO users: old quota exhaustion doesn't mean new cycle is exhausted
+    const usedCredits = (!state.isPro && state.aiFreeUsesUsed >= 5) ? baseCredits : 0;
+    await prisma.planUsageCycle.upsert({
+      where:  { userId_cycleYear_cycleMonth: { userId, cycleYear: now.getUTCFullYear(), cycleMonth: now.getUTCMonth() + 1 } },
+      create: { userId, cycleYear: now.getUTCFullYear(), cycleMonth: now.getUTCMonth() + 1, baseCredits, bonusCredits: 0, usedCredits, planAtCycleStart: plan },
+      update: { usedCredits, baseCredits },
+    });
+  }
 }
 
 async function getAiCounters(userId: string) {
