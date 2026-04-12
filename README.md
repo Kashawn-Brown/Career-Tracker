@@ -1,6 +1,6 @@
 # Career-Tracker
 
-Career-Tracker is a production-minded job application tracker built around a fast, **table-first Applications** view (Excel/Notion-style) and a **right-side details drawer** for safe viewing/editing and elusive AI features.
+Career-Tracker is a production-minded job application tracker built around a fast, **table-first Applications** view (Excel/Notion-style) and a **right-side details drawer** for safe viewing/editing and AI features.
 
 The design goal is simple: **scanning stays instant** in the table, while richer details (documents, connections, notes) live in the drawer and dialogs without cluttering the grid.
 
@@ -14,7 +14,7 @@ The design goal is simple: **scanning stays instant** in the table, while richer
 - **Database:** Cloud SQL (Postgres)
 - **File storage:** Google Cloud Storage (private bucket) with short-lived signed URLs
 - **Email:** Resend (transactional email: verification, resets, Pro/admin flows)
-- **Rate limiting:** Redis (Upstash) 
+- **Rate limiting:** Redis (Upstash)
 
 ---
 
@@ -35,19 +35,19 @@ The design goal is simple: **scanning stays instant** in the table, while richer
 ### Connections (people / recruiters / referrals)
 - Create and manage Connections globally (people you interact with)
 - Attach/detach connections to specific applications
-- Manage connections from Profile via a 2-pane “View all connections” modal
+- Manage connections from Profile via a 2-pane "View all connections" modal
 
 ### AI Assist (JD extraction + document tools + interview prep)
 - **JD extraction** — Paste or link a job description to extract structured fields and prefill an application; an AI-generated role summary is stored and viewable in the drawer
-- **Compatibility check** — score your resume/CV against a specific JD; see strengths, gaps, what the role prioritises, and areas to brush up on
-- **Interview prep** — generate a personalised prep pack (focus topics with priority, question bank across background/technical/behavioural/situational/motivational/challenge categories, questions to ask); works with JD only or JD + resume; also available as a generic self-defense prep tool on the Tools page
+- **Compatibility check** — score your full career history against a specific JD; see strengths, gaps, what the role prioritises, and areas to brush up on
+- **Interview prep** — generate a personalised prep pack (focus topics with priority, question bank across background/technical/behavioural/situational/motivational/challenge categories, questions to ask); works with JD only or JD + resume; also available as a generic prep tool on the Tools page
 - **Resume advice** — targeted improvement suggestions for a specific role (what's working, what to improve, role alignment, rewrite suggestions, keyword coverage split into already-covered and worth-adding); also available as generic advice on the Tools page
 - **Cover letter** — generate a tailored draft for a specific role, or a reusable draft on the Tools page
 - All drawer AI tools run in the background and survive drawer close — a notification appears when results are ready
 - Optionally run any selected AI tools automatically after creating an application (Compatibility, Interview Prep, Resume Advice, Cover Letter)
 - Pro access can be requested and is admin-approved
 - AI usage is governed by a monthly credit system — REGULAR (100/month) and PRO (1,200/month); credits are consumed only on successful runs at tool-specific rates (JD extraction 1, compatibility/resume 2, cover letter/interview prep 3)
-- Credit usage and reset timing are visible on the Activity page; low-credit warnings appear at 75% and 90%; users at their limit can request more credits or Pro access directly from tool surfaces or their profile
+- Credit usage and reset timing are visible on the Activity page; low-credit warnings appear at 90%; users at their limit can request more credits or Pro access directly from tool surfaces or their profile
 
 ### Analytics + tracking
 - Every major product action (application created/updated/deleted, CSV export) is recorded as a structured product event
@@ -100,11 +100,12 @@ The design goal is simple: **scanning stays instant** in the table, while richer
 - Docker + Docker Compose (for Postgres)
 
 ### Quickstart
-1) Install deps (repo root):
+
+1. Install deps (repo root):
 
 ```bash
 npm install
-````
+```
 
 2. Start Postgres (dev):
 
@@ -112,10 +113,10 @@ npm install
 docker compose -f infra/docker-compose.dev.yml up -d
 ```
 
-3. Configure env
+3. Configure env:
 
-* Backend: create `backend/.env.local` (see `backend/.env.example` + `backend/README.md`)
-* Frontend: set `frontend/.env.local`:
+- Backend: create `backend/.env.local` (see `backend/.env.example` + `backend/README.md`)
+- Frontend: set `frontend/.env.local`:
 
 ```env
 NEXT_PUBLIC_API_BASE_URL=http://localhost:3002/api/v1
@@ -129,10 +130,10 @@ npm run dev
 
 Default ports:
 
-* Frontend: [http://localhost:3000](http://localhost:3000)
-* Backend: [http://localhost:3002](http://localhost:3002) (API base: `/api/v1`)
+- Frontend: [http://localhost:3000](http://localhost:3000)
+- Backend: [http://localhost:3002](http://localhost:3002) (API base: `/api/v1`)
 
-> Note: Documents uploads require GCS config + credentials (details in `backend/README.md`).
+> Note: Document uploads require GCS config + credentials (details in `backend/README.md`).
 
 ---
 
@@ -140,9 +141,9 @@ Default ports:
 
 Backend tests are **deterministic integration tests** using:
 
-* Vitest + Fastify inject
-* Docker Postgres test DB
-* Real Prisma writes (external deps mocked: storage/email/LLM)
+- Vitest + Fastify inject
+- Docker Postgres test DB
+- Real Prisma writes (external deps mocked: storage/email/LLM)
 
 Typical flow:
 
@@ -151,7 +152,7 @@ docker compose -f infra/docker-compose.test.yml up -d
 npm run test --workspace=backend
 ```
 
-See: `backend/README.md` for full details.
+See `backend/README.md` for full details.
 
 ---
 
@@ -159,28 +160,28 @@ See: `backend/README.md` for full details.
 
 ### Frontend — Vercel
 
-* Deploys from `frontend/` (Next.js App Router)
-* Public URL: [https://career-tracker.ca](https://career-tracker.ca)
-* Env var:
-
-  * `NEXT_PUBLIC_API_BASE_URL` = `https://<CLOUD_RUN_SERVICE_URL>/api/v1`
+- Deploys from `frontend/` (Next.js App Router)
+- Public URL: [https://career-tracker.ca](https://career-tracker.ca)
+- Env var: `NEXT_PUBLIC_API_BASE_URL` = `https://<CLOUD_RUN_SERVICE_URL>/api/v1`
 
 ### Backend — Google Cloud Platform (GCP)
 
-* **Cloud Run** (Fastify API in `backend/`)
-* **Cloud SQL** (Postgres)
-* **Secret Manager** for sensitive env vars
-* **Cloud Storage (GCS)** private bucket for Documents v1 (signed URLs for download)
+- **Cloud Run** (Fastify API in `backend/`)
+- **Cloud SQL** (Postgres)
+- **Secret Manager** for sensitive env vars
+- **Cloud Storage (GCS)** private bucket for Documents v1 (signed URLs for download)
 
 ---
 
 ## Quick links
 
-* Frontend docs: `frontend/README.md`
-* Backend docs: `backend/README.md`
-* Benchmarks: `docs/perf/k6/benchmarks/README.md`
-* Privacy: `PRIVACY.md`
+- Frontend docs: `frontend/README.md`
+- Backend docs: `backend/README.md`
+- About: https://career-tracker.ca/about
+- Docs: https://career-tracker.ca/docs
+- Benchmarks: `docs/perf/k6/benchmarks/README.md`
+- Privacy: `PRIVACY.md`
 
 ---
 
-*Last updated: 2026-04-11*
+*Last updated: 2026-04-12*
