@@ -62,7 +62,7 @@ describe("AI > application-from-jd", () => {
     const { userId, token } = await registerUser();
 
     // Set the user to unverified
-    await setUserState(userId, { verified: false, isPro: false, aiFreeUsesUsed: 0 });
+    await setUserState(userId, { verified: false, isPro: false});
 
     // Mock the AI service to return a deterministic response
     vi.mocked(AiService.buildApplicationDraftFromJd).mockResolvedValue({
@@ -113,7 +113,7 @@ describe("AI > application-from-jd", () => {
     const { userId, token } = await registerUser();
 
     // Set the user to not Pro and with free quota under the limit
-    await setUserState(userId, { verified: true, isPro: false, aiFreeUsesUsed: 4 });
+    await setUserState(userId, { verified: true, isPro: false});
 
     // Mock the AI service to return a deterministic response
     vi.mocked(AiService.buildApplicationDraftFromJd).mockResolvedValue({
@@ -156,7 +156,7 @@ describe("AI > application-from-jd", () => {
     const { userId, token } = await registerUser();
 
     // Set the user to Pro and with free quota under the limit
-    await setUserState(userId, { verified: true, isPro: true, aiFreeUsesUsed: 4 });
+    await setUserState(userId, { verified: true, isPro: true});
 
     // Mock the AI service to return a deterministic response
     vi.mocked(AiService.buildApplicationDraftFromJd).mockResolvedValue({
@@ -178,7 +178,6 @@ describe("AI > application-from-jd", () => {
     // Get the AI counters for the user after the call (should not change)
     const after = await getAiCounters(userId);
     expect(after.plan).toBe(UserPlan.PRO);
-    expect(after.aiFreeUsesUsed).toBe(4); // unchanged
   });
 
   // Test that the route does not consume free uses if AI extraction fails
@@ -188,7 +187,7 @@ describe("AI > application-from-jd", () => {
     const { userId, token } = await registerUser();
 
     // Set the user to not Pro and with free quota under the limit
-    await setUserState(userId, { verified: true, isPro: false, aiFreeUsesUsed: 0 });
+    await setUserState(userId, { verified: true, isPro: false});
 
     // Force the AI service to fail; route should map this to a 502 AppError.
     vi.mocked(AiService.buildApplicationDraftFromJd).mockRejectedValue(new Error("OpenAI down"));
@@ -208,7 +207,6 @@ describe("AI > application-from-jd", () => {
     // Get the AI counters for the user after the call (should not change)
     const after = await getAiCounters(userId);
     expect(after.plan).toBe(UserPlan.REGULAR);
-    expect(after.aiFreeUsesUsed).toBe(0); // not consumed on failure
   });
 
   // Test that the route allows Pro users even if free uses are fully exhausted (still no consumption)
@@ -217,7 +215,7 @@ describe("AI > application-from-jd", () => {
     const { userId, token } = await registerUser();
 
     // Set the user to Pro and with free quota fully exhausted
-    await setUserState(userId, { verified: true, isPro: true, aiFreeUsesUsed: 5 });
+    await setUserState(userId, { verified: true, isPro: true});
 
     // Mock the AI service to return a deterministic response
     vi.mocked(AiService.buildApplicationDraftFromJd).mockResolvedValue({
@@ -239,7 +237,6 @@ describe("AI > application-from-jd", () => {
 
     // Get the AI counters for the user after the call (should not change)
     const after = await getAiCounters(userId);
-    expect(after.aiFreeUsesUsed).toBe(5);
   });
 });
 
@@ -272,7 +269,7 @@ async function registerUser() {
 }
 
 // Helper function to set the user states in the database (verified, aiProEnabled, aiFreeUsesUsed)
-async function setUserState(userId: string, state: { verified?: boolean; isPro?: boolean; aiFreeUsesUsed?: number }) {
+async function setUserState(userId: string, state: { verified?: boolean; isPro?: boolean; aiFreeUsesUsed?: number; }) {
   const now = new Date();
   const plan = state.isPro ? "PRO" : "REGULAR";
   const baseCredits = state.isPro ? 1200 : 100;
@@ -282,8 +279,6 @@ async function setUserState(userId: string, state: { verified?: boolean; isPro?:
     data: {
       ...(state.verified !== undefined ? { emailVerifiedAt: state.verified ? new Date() : null } : {}),
       ...(state.isPro !== undefined ? { plan } : {}),
-      // aiFreeUsesUsed kept in sync for backward compat
-      ...(state.aiFreeUsesUsed !== undefined ? { aiFreeUsesUsed: state.aiFreeUsesUsed } : {}),
     },
   });
 
@@ -304,7 +299,7 @@ async function setUserState(userId: string, state: { verified?: boolean; isPro?:
 async function getAiCounters(userId: string) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { plan: true, aiFreeUsesUsed: true },
+    select: { plan: true },
   });
 
   if (!user) throw new Error("Test invariant: user should exist");

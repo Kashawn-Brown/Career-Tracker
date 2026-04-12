@@ -10,7 +10,6 @@ type CreateUserArgs = {
   emailVerifiedAt?: Date | null;
   role?: "USER" | "ADMIN";
   plan?: "REGULAR" | "PRO" | "PRO_PLUS";
-  aiFreeUsesUsed?: number;
 };
 
 export function uniqueEmail() {
@@ -37,7 +36,6 @@ export async function createUser(args: CreateUserArgs) {
       emailVerifiedAt: typeof args.emailVerifiedAt === "undefined" ? null : args.emailVerifiedAt,
       role:           args.role ?? "USER",
       plan:           args.plan ?? "REGULAR",
-      aiFreeUsesUsed: args.aiFreeUsesUsed ?? 0,
     },
     select: { id: true, email: true, isActive: true, emailVerifiedAt: true, role: true, plan: true },
   });

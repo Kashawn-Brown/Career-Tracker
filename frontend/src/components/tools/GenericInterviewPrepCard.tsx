@@ -9,7 +9,7 @@ import { ToolInfoPopover }       from "@/components/tools/ToolInfoPopover";
 import { TOOL_INFO }             from "@/lib/tool-info";
 import { PastRunsSection }       from "@/components/tools/PastRunsSection";
 import type { UserAiArtifact, InterviewPrepPayload } from "@/types/api";
-import { CreditCostNote, BlockedRunButton } from "@/components/tools/ToolEntitlementGate";
+import { CreditCostNote } from "@/components/tools/ToolEntitlementGate";
 
 // Accepted resume file types (matches backend allowlist)
 const RESUME_ACCEPT = ".pdf,.txt,.docx";
@@ -203,7 +203,10 @@ export function GenericInterviewPrepCard({ hasBaseResume, onSuccess, isBlocked =
           {error && <p className="text-sm text-destructive">{error}</p>}
 
           {isBlocked ? (
-            <BlockedRunButton plan={plan} />
+            <p className="text-xs text-muted-foreground border border-destructive/20 rounded-md bg-destructive/5 px-3 py-2">
+              Monthly credit limit reached — this tool is unavailable until your credits reset.{" "}
+              <a href="/profile" className="underline underline-offset-2 hover:text-foreground">Request more credits</a>
+            </p>
           ) : (
             <>
               <Button onClick={handleSubmit} disabled={!canRun || loading} className="w-full mb-2">

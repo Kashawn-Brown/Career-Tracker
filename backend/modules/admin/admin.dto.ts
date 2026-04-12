@@ -1,4 +1,4 @@
-  import { UserPlan, UserRole } from "@prisma/client";
+import { UserPlan, UserRole, AiProRequestStatus } from "@prisma/client";
 
 // Centralized select for Admin requests
 
@@ -30,11 +30,21 @@ export const adminUserSelect = {
   role:           true,
   plan:           true,
   isActive:       true,
-  aiFreeUsesUsed: true,
   createdAt:      true,
   updatedAt:      true,
   lastActiveAt:   true,
-} as const;
+  // Include current cycle for real credit display and pending request badge
+  planUsageCycles: {
+    select: { usedCredits: true, baseCredits: true, bonusCredits: true, cycleYear: true, cycleMonth: true },
+    orderBy: [{ cycleYear: "desc" as const }, { cycleMonth: "desc" as const }],
+    take: 1,
+  },
+  aiProRequests: {
+    select: { id: true, status: true },
+    where:  { status: AiProRequestStatus.PENDING },
+    take:   1,
+  },
+};
 
 /**
  * Shape of a single user item returned by GET /admin/users.
@@ -46,10 +56,13 @@ export type AdminUserListItem = {
   role:           UserRole;
   plan:           UserPlan;
   isActive:       boolean;
-  aiFreeUsesUsed: number;
   createdAt:      Date;
   updatedAt:      Date;
   lastActiveAt:   Date | null;
+  // Current cycle usage (null if no cycle started yet)
+  planUsageCycles: { usedCredits: number; baseCredits: number; bonusCredits: number; cycleYear: number; cycleMonth: number }[];
+  // Pending pro request indicator
+  aiProRequests:   { id: number; status: string }[];
 };
 
 export type AdminUsersListResponse = {

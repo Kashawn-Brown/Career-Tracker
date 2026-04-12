@@ -51,13 +51,13 @@ export function BlockedRunButton({ plan }: BlockedRunButtonProps) {
       <p className="text-xs text-muted-foreground">
         Your credits will reset at the start of next month.
         {plan === "REGULAR"
-          ? " You can request more credits or upgrade to Pro."
-          : " You can request additional credits from your profile."}
+          ? " You can request more credits from your profile."
+          : " You can request more credits from your profile."}
       </p>
       <div className="flex gap-2 pt-1">
         <Button asChild size="sm" variant="outline">
           <Link href="/profile">
-            {plan === "REGULAR" ? "Request credits / Pro" : "Request credits"}
+            Request more credits
           </Link>
         </Button>
       </div>

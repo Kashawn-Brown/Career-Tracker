@@ -240,7 +240,6 @@ export async function getAdminUserAnalytics(targetUserId: string, window: DateWi
         isActive:       true,
         emailVerifiedAt: true,
         createdAt:      true,
-        aiFreeUsesUsed: true,
       },
     }),
 

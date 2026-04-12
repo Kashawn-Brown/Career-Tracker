@@ -58,9 +58,6 @@ export function UserDetailSheet({ user, open, onClose, onUserUpdated }: Props) {
   const [creditNote, setCreditNote]         = useState("");
   const [creditActing, setCreditActing]     = useState(false);
   const [creditError, setCreditError]       = useState<string | null>(null);
-  const [proActing, setProActing]           = useState<Record<string, boolean>>({});
-  const [proNotes, setProNotes]             = useState<Record<string, string>>({});
-  const [proError, setProError]             = useState<string | null>(null);
 
   // Confirm state: null = no confirm showing, otherwise holds the pending action
   const [pendingAction, setPendingAction] = useState<ConfirmAction | null>(null);
@@ -76,8 +73,6 @@ export function UserDetailSheet({ user, open, onClose, onUserUpdated }: Props) {
       setCreditAmount("10");
       setCreditNote("");
       setCreditError(null);
-      setProError(null);
-      setProNotes({});
       setPendingAction(null);
       setActionError(null);
       return;
@@ -112,27 +107,6 @@ export function UserDetailSheet({ user, open, onClose, onUserUpdated }: Props) {
 
     void load();
   }, [open, user]);
-
-  async function handleProAction(requestId: string, action: "approve" | "deny" | "credits") {
-    if (!user) return;
-    setProActing((m) => ({ ...m, [requestId]: true }));
-    setProError(null);
-    try {
-      const note = proNotes[requestId]?.trim() || undefined;
-      if (action === "approve") await adminApi.approveProRequest(requestId, { decisionNote: note });
-      else if (action === "deny") await adminApi.denyProRequest(requestId, { decisionNote: note });
-      else await adminApi.grantCredits(requestId);
-      setProNotes((m) => ({ ...m, [requestId]: "" }));
-      // Reload detail to reflect updated request status
-      const res = await adminApi.getUserDetail(user.id);
-      setDetail(res);
-      onUserUpdated();
-    } catch (err) {
-      setProError(err instanceof Error ? err.message : "Action failed.");
-    } finally {
-      setProActing((m) => ({ ...m, [requestId]: false }));
-    }
-  }
 
   async function confirmAction() {
     if (!pendingAction || !user) return;
@@ -303,116 +277,65 @@ export function UserDetailSheet({ user, open, onClose, onUserUpdated }: Props) {
               )}
             </Section>
 
-            {/* --- Pro Requests --- */}
-            {(detail.proRequests ?? []).length > 0 && (
-              <Section title="Pro Requests">
-                {proError && (
-                  <div className="text-xs text-red-600 mb-2">{proError}</div>
-                )}
-                <div className="space-y-3">
-                  {(detail.proRequests ?? []).map((r: AdminProRequestEntry) => (
-                    <div key={r.id} className="space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">
-                          {new Date(r.requestedAt).toLocaleDateString()}
-                          {r.decidedAt ? ` → ${new Date(r.decidedAt).toLocaleDateString()}` : ""}
-                        </span>
-                        <span className={`rounded border px-2 py-0.5 text-[10px] font-semibold tracking-wide ${
-                          r.status === "PENDING"  ? "border-amber-300 text-amber-700 dark:text-amber-400" :
-                          r.status === "APPROVED" ? "border-green-300 text-green-700 dark:text-green-400" :
-                          r.status === "DENIED"   ? "border-red-300 text-red-600" :
-                          "border-muted text-muted-foreground"
-                        }`}>
-                          {r.status}
-                        </span>
-                      </div>
-                      {r.note && (
-                        <p className="text-xs text-muted-foreground">{r.note}</p>
-                      )}
-                      {r.decisionNote && (
-                        <p className="text-xs text-muted-foreground italic">Note: {r.decisionNote}</p>
-                      )}
-                      {r.status === "PENDING" && !isAdmin && (
-                        <div className="space-y-1.5">
-                          <input
-                            type="text"
-                            placeholder="Decision note (optional)"
-                            value={proNotes[r.id] ?? ""}
-                            onChange={(e) => setProNotes((m) => ({ ...m, [r.id]: e.target.value }))}
-                            className="w-full rounded border bg-background px-2 py-1 text-xs"
-                          />
-                          <div className="flex gap-1.5">
-                            <Button
-                              size="sm"
-                              disabled={!!proActing[r.id]}
-                              onClick={() => handleProAction(r.id, "approve")}
-                            >
-                              {proActing[r.id] ? "..." : "Approve"}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={!!proActing[r.id]}
-                              onClick={() => handleProAction(r.id, "deny")}
-                            >
-                              Deny
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={!!proActing[r.id]}
-                              onClick={() => handleProAction(r.id, "credits")}
-                            >
-                              Grant credits
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </Section>
-            )}
-
-            {/* --- Actions (blocked for admins) --- */}
+            {/* --- Credits & Access (blocked for admins) --- */}
             {isAdmin ? (
               <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
                 Actions are not available for admin accounts.
               </div>
             ) : (
               <>
-                {/* Plan actions */}
-                <Section title="Change Plan">
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    {(["REGULAR", "PRO", "PRO_PLUS"] as UserPlan[])
-                      .filter((p) => p !== detail.plan)
-                      .map((p) => (
-                        <Button
-                          key={p}
-                          size="sm"
-                          // variant="outline"
-                          className={
-                            "Regular" === PLAN_LABELS[p] ? "bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200" 
-                            : "Pro" === PLAN_LABELS[p] ? "bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
-                            : "Pro+" === PLAN_LABELS[p] ? "bg-blue-600 text-white hover:bg-blue-700"
-                            : ""}
-                          onClick={() => setPendingAction({ type: "plan", plan: p })}
-                        >
-                          Set {PLAN_LABELS[p]}
-                        </Button>
-                      ))}
-                  </div>
-                </Section>
+                <Section title="Credits & Access">
+                  <div className="space-y-4">
 
-                {/* Credit controls */}
-                {!isAdmin && (
-                  <Section title="Credit Controls">
-                    <div className="space-y-3">
-                      {usageState && (
-                        <div className="text-xs text-muted-foreground">
-                          Current cycle: {usageState.usedCredits} used / {usageState.totalCredits} total ({usageState.remaining} remaining) · resets {new Date(usageState.resetAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                    {/* Current cycle summary */}
+                    {usageState ? (
+                      <div className="text-xs text-muted-foreground">
+                        Current cycle: <span className="text-foreground font-medium">{usageState.usedCredits} / {usageState.totalCredits}</span> used ({usageState.remaining} remaining) · resets {new Date(usageState.resetAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                      </div>
+                    ) : usageLoading ? (
+                      <div className="text-xs text-muted-foreground">Loading usage…</div>
+                    ) : null}
+
+                    {/* Pending credit requests — informational only; admin acts via controls below */}
+                    {(detail.proRequests ?? []).filter((r) => r.status === "PENDING").length > 0 && (
+                      <div className="rounded border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/10 p-2.5 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium text-amber-700 dark:text-amber-400">Credit request pending</span>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date((detail.proRequests ?? []).find((r) => r.status === "PENDING")!.requestedAt)
+                              .toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                          </span>
                         </div>
-                      )}
+                        {(detail.proRequests ?? []).find((r) => r.status === "PENDING")?.note && (
+                          <p className="text-xs text-muted-foreground">
+                            {(detail.proRequests ?? []).find((r) => r.status === "PENDING")!.note}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Past requests (non-pending) — collapsed by default */}
+                    {(detail.proRequests ?? []).filter((r) => r.status !== "PENDING").length > 0 && (
+                      <div className="space-y-1">
+                        <div className="text-xs text-muted-foreground font-medium">Past requests</div>
+                        {(detail.proRequests ?? [])
+                          .filter((r) => r.status !== "PENDING")
+                          .map((r: AdminProRequestEntry) => (
+                          <div key={r.id} className="flex items-center justify-between text-xs text-muted-foreground">
+                            <span>{new Date(r.requestedAt).toLocaleDateString()}</span>
+                            <span className={
+                              r.status === "APPROVED" ? "text-green-600" :
+                              r.status === "DENIED"   ? "text-red-500"   :
+                              ""
+                            }>{r.status}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Divider */}
+                    <div className="border-t pt-3 space-y-2">
+                      <div className="text-xs font-medium text-muted-foreground">Add credits manually</div>
                       <div className="flex items-center gap-2">
                         <input
                           type="number"
@@ -429,27 +352,70 @@ export function UserDetailSheet({ user, open, onClose, onUserUpdated }: Props) {
                           onChange={(e) => setCreditNote(e.target.value)}
                           className="flex-1 rounded border bg-background px-2 py-1 text-xs"
                         />
-                        <Button
-                          size="sm"
-                          disabled={creditActing}
-                          onClick={handleAddCredits}
-                        >
-                          {creditActing ? "..." : "Add credits"}
+                        <Button size="sm" disabled={creditActing} onClick={handleAddCredits}>
+                          {creditActing ? "…" : "Add credits"}
                         </Button>
                       </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={creditActing}
-                        onClick={handleResetCredits}
-                      >
-                        {"Reset user's credits"}
+                      <Button size="sm" variant="outline" disabled={creditActing} onClick={handleResetCredits}>
+                        Reset credits
                       </Button>
                       {creditError && (
                         <p className="text-xs text-destructive">{creditError}</p>
                       )}
                     </div>
-                  </Section>
+
+                    {/* Change plan — secondary, tucked at the bottom */}
+                    <div className="border-t pt-3 space-y-2">
+                      <div className="text-xs font-medium text-muted-foreground">Change plan</div>
+                      <div className="flex flex-wrap gap-2">
+                        {(["REGULAR", "PRO", "PRO_PLUS"] as UserPlan[])
+                          .filter((p) => p !== detail.plan)
+                          .map((p) => (
+                            <Button
+                              key={p}
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setPendingAction({ type: "plan", plan: p })}
+                            >
+                              Set {PLAN_LABELS[p]}
+                            </Button>
+                          ))}
+                      </div>
+                    </div>
+
+                  </div>
+                </Section>
+
+                {/* --- Confirmation prompt --- */}
+                {pendingAction && (
+                  <div className="rounded-md border bg-muted/30 p-4 space-y-3">
+                    <p className="text-sm font-medium">
+                      {pendingAction.type === "plan"
+                        ? `Set plan to ${PLAN_LABELS[pendingAction.plan]} for ${detail.name}?`
+                        : pendingAction.isActive
+                          ? `Activate account for ${detail.name}?`
+                          : `Deactivate account for ${detail.name}?`
+                      }
+                    </p>
+                    <p className="text-xs text-muted-foreground">This action takes effect immediately.</p>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        disabled={isActing}
+                        onClick={confirmAction}
+                      >
+                        {isActing ? "Saving..." : "Confirm"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={isActing}
+                        onClick={() => setPendingAction(null)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
                 )}
 
                 {/* Account status */}
@@ -461,9 +427,7 @@ export function UserDetailSheet({ user, open, onClose, onUserUpdated }: Props) {
                       ? "border-red-200 text-red-700 hover:bg-red-50"
                       : "border-green-200 text-green-700 hover:bg-green-50"
                     }
-                    onClick={() =>
-                      setPendingAction({ type: "status", isActive: !detail.isActive })
-                    }
+                    onClick={() => setPendingAction({ type: "status", isActive: !detail.isActive })}
                   >
                     {detail.isActive ? "Deactivate Account" : "Activate Account"}
                   </Button>
@@ -473,38 +437,6 @@ export function UserDetailSheet({ user, open, onClose, onUserUpdated }: Props) {
 
             {actionError && (
               <Alert variant="destructive">{actionError}</Alert>
-            )}
-
-            {/* --- Confirmation prompt --- */}
-            {pendingAction && (
-              <div className="rounded-md border bg-muted/30 p-4 space-y-3">
-                <p className="text-sm font-medium">
-                  {pendingAction.type === "plan"
-                    ? `Set plan to ${PLAN_LABELS[pendingAction.plan]} for ${detail.name}?`
-                    : pendingAction.isActive
-                      ? `Activate account for ${detail.name}?`
-                      : `Deactivate account for ${detail.name}?`
-                  }
-                </p>
-                <p className="text-xs text-muted-foreground">This action takes effect immediately.</p>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    disabled={isActing}
-                    onClick={confirmAction}
-                  >
-                    {isActing ? "Saving..." : "Confirm"}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={isActing}
-                    onClick={() => setPendingAction(null)}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
             )}
 
           </div>

@@ -16,9 +16,16 @@ export const ProDecisionBody = Type.Object(
  */
 export const ListUsersQuery = Type.Object(
   {
-    q:       Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
-    role:    Type.Optional(Type.Enum(UserRole)),
-    plan:    Type.Optional(Type.Enum(UserPlan)),
+    q:                  Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
+    role:               Type.Optional(Type.Enum(UserRole)),
+    plan:               Type.Optional(Type.Enum(UserPlan)),
+    isActive:           Type.Optional(Type.Boolean()),
+    hasPendingRequest:  Type.Optional(Type.Boolean()),
+    sortBy:             Type.Optional(Type.Union([
+      Type.Literal("lastActiveAt"),
+      Type.Literal("createdAt"),
+    ])),
+    sortDir:            Type.Optional(Type.Union([Type.Literal("asc"), Type.Literal("desc")])),
     page:    Type.Optional(Type.Integer({ minimum: 1 })),
     pageSize: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
   },

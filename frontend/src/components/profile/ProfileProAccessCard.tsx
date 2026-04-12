@@ -11,10 +11,12 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-  CardAction,
 } from "@/components/ui/card";
 import type { UsageState } from "@/types/api";
 import { getEffectivePlan, hasProPlan } from "@/lib/plans";
+
+// localStorage key for persisting request-sent state across re-renders
+const REQUEST_DONE_KEY = "ct_credit_request_sent";
 
 function fmt(n: number) { return n.toLocaleString(); }
 
@@ -27,15 +29,32 @@ function ProPill() {
 }
 
 export function ProfileProAccessCard() {
-  const { user, refreshMe }                             = useAuth();
+  const { user, refreshMe }                       = useAuth();
   const [usage,        setUsage]        = useState<UsageState | null>(null);
-  const [requesting,   setRequesting]   = useState<"credits" | "pro" | null>(null);
-  const [requestDone,  setRequestDone]  = useState<"credits" | "pro" | null>(null);
+  const [requesting,   setRequesting]   = useState(false);
+  // Persisted so the "Request sent" state survives re-renders/navigation within the session.
+  // Cleared when the cycle resets (resetAt changes) so users can request again next month.
+  const [requestDone,  setRequestDone]  = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem(REQUEST_DONE_KEY) === "true";
+  });
   const [requestError, setRequestError] = useState<string | null>(null);
 
   useEffect(() => {
     analyticsApi.getMyUsage().then(setUsage).catch(() => null);
   }, []);
+
+  // Clear persisted request state when a new cycle starts
+  useEffect(() => {
+    if (!usage) return;
+    const storedCycle = localStorage.getItem(`${REQUEST_DONE_KEY}_cycle`);
+    const currentCycle = usage.resetAt;
+    if (storedCycle && storedCycle !== currentCycle) {
+      localStorage.removeItem(REQUEST_DONE_KEY);
+      localStorage.removeItem(`${REQUEST_DONE_KEY}_cycle`);
+      setRequestDone(false);
+    }
+  }, [usage]);
 
   if (!user) return null;
 
@@ -46,21 +65,19 @@ export function ProfileProAccessCard() {
     ? new Date(usage.resetAt).toLocaleDateString(undefined, { month: "long", day: "numeric" })
     : null;
 
-  async function handleRequest(type: "credits" | "pro") {
-    setRequesting(type);
+  async function handleRequest() {
+    setRequesting(true);
     setRequestError(null);
     try {
-      await proApi.requestPro({
-        note: type === "pro"
-          ? "Requesting Pro access."
-          : "Requesting additional monthly AI credits.",
-      });
-      setRequestDone(type);
+      await proApi.requestPro({ note: "Requesting additional monthly AI credits." });
+      localStorage.setItem(REQUEST_DONE_KEY, "true");
+      if (usage) localStorage.setItem(`${REQUEST_DONE_KEY}_cycle`, usage.resetAt);
+      setRequestDone(true);
       void refreshMe();
     } catch (err) {
       setRequestError(err instanceof Error ? err.message : "Request failed. Please try again.");
     } finally {
-      setRequesting(null);
+      setRequesting(false);
     }
   }
 
@@ -79,20 +96,6 @@ export function ProfileProAccessCard() {
               : "Loading usage…"}
           {resetDate && <span className="ml-1 text-muted-foreground">· resets {resetDate}</span>}
         </CardDescription>
-
-        {!isPro && (
-          <CardAction>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={!!requesting || requestDone === "pro"}
-              onClick={() => handleRequest("pro")}
-            >
-              {requesting === "pro" ? "Sending…" : requestDone === "pro" ? "Request sent" : "Request Pro"}
-            </Button>
-          </CardAction>
-        )}
       </CardHeader>
 
       {usage && (
@@ -119,14 +122,14 @@ export function ProfileProAccessCard() {
           </div>
 
           {/* Request more credits when running low or blocked */}
-          {(usage.threshold === "WARNING_90" || usage.threshold === "BLOCKED") && (
+          {!isPro && (usage.threshold === "WARNING_90" || usage.threshold === "BLOCKED") && (
             <div className="rounded-md border bg-muted/30 p-3 space-y-2">
               <p className="text-sm text-muted-foreground">
                 {usage.isBlocked
                   ? `You've reached your monthly limit. Credits reset on ${resetDate}.`
                   : "You're running low on credits this month."}
               </p>
-              {requestDone === "credits" ? (
+              {requestDone ? (
                 <p className="text-sm text-green-700 dark:text-green-400 font-medium">
                   Request sent — an admin will review it shortly.
                 </p>
@@ -135,25 +138,11 @@ export function ProfileProAccessCard() {
                   type="button"
                   size="sm"
                   variant="outline"
-                  disabled={!!requesting}
-                  onClick={() => handleRequest("credits")}
+                  disabled={requesting}
+                  onClick={handleRequest}
                 >
-                  {requesting === "credits" ? "Sending…" : "Request more credits"}
+                  {requesting ? "Sending…" : "Request more credits"}
                 </Button>
-              )}
-              {!isPro && !requestDone && (
-                <p className="text-xs text-muted-foreground">
-                  Or{" "}
-                  <button
-                    type="button"
-                    className="underline underline-offset-2 hover:text-foreground"
-                    onClick={() => handleRequest("pro")}
-                    disabled={!!requesting || requestDone === "pro"}
-                  >
-                    request Pro access
-                  </button>
-                  {" "}for a larger monthly allowance.
-                </p>
               )}
             </div>
           )}

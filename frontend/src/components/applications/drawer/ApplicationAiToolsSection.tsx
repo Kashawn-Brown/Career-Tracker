@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import Link from "next/link";
 import type { Application } from "@/types/api";
 import type { FitRunsController } from "@/hooks/useFitRuns";
 import type { DocumentToolRunsController } from "@/hooks/useDocumentToolRuns";
@@ -48,7 +49,7 @@ type Props = {
  *
  * Responsibilities:
  *  - Shows a shared status bar (JD + base resume) visible across all tools
- *  - Renders the ProAccessBanner (applies to all tools, not just Fit)
+ *  - Renders a section-level warning banner at WARNING_90 and a blocked banner when credits exhausted
  *  - Delegates tool-specific logic to CompatibilityCheckCard, ResumeAdviceCard, CoverLetterCard
  *  - Curries panel manager callbacks per card so each registers under its own ID
  */
@@ -73,10 +74,13 @@ export function ApplicationAiToolsSection({
 
   const [usageState, setUsageState]           = useState<UsageState | null>(null);
 
-  // Fetch usage state for credit labels and blocked state
-  useEffect(() => {
+  // Fetch (or re-fetch) usage state — called on mount and after every successful run
+  // so blocked state and warnings update without requiring a page refresh.
+  function refreshUsage() {
     analyticsApi.getMyUsage().then(setUsageState).catch(() => null);
-  }, []);
+  }
+
+  useEffect(() => { refreshUsage(); }, []);
 
   const isBlocked  = usageState?.isBlocked ?? false;
   const planLabel  = usageState?.plan ?? (user ? getEffectivePlan(user) : "REGULAR");
@@ -123,6 +127,35 @@ export function ApplicationAiToolsSection({
         </div>
       </div>
 
+      {/* ── Usage warning banner (shown at WARNING_90 and BLOCKED) ──────── */}
+      {usageState && usageState.threshold === "WARNING_90" && !usageState.isBlocked && (
+        <div className="flex items-center justify-between gap-3 rounded-md border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-900/10 px-3 py-2 text-xs">
+          <div className="flex items-center gap-1.5 text-orange-700 dark:text-orange-400">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            <span>You&apos;re running low — {usageState.remaining} credit{usageState.remaining === 1 ? "" : "s"} remaining this month.</span>
+          </div>
+          <Link href="/activity" className="shrink-0 text-orange-700 dark:text-orange-400 underline underline-offset-2 hover:opacity-80">
+            View usage
+          </Link>
+        </div>
+      )}
+
+      {/* ── Blocked banner (shown when monthly limit reached) ────────────── */}
+      {isBlocked && (
+        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 space-y-1.5">
+          <p className="text-sm font-medium text-destructive">Monthly credit limit reached</p>
+          <p className="text-xs text-muted-foreground">
+            Your credits reset at the start of next month. You can request more credits from your profile.
+          </p>
+          <Link
+            href="/profile"
+            className="inline-block mt-1 text-xs underline underline-offset-2 text-muted-foreground hover:text-foreground"
+          >
+            Request more credits →
+          </Link>
+        </div>
+      )}
+
       {/* ── Tool cards ──────────────────────────────────────────────────── */}
       {/* Each card gets its own panel ID curried in so the registry can     */}
       {/* target it individually without cards needing to know each other.   */}
@@ -142,7 +175,7 @@ export function ApplicationAiToolsSection({
         onCloseOthers={() => closeOthers("compatibility")}
         onDocumentsChanged={onDocumentsChanged}
         onApplicationChanged={onApplicationChanged}
-        onRefreshMe={() => void refreshMe()}
+        onRefreshMe={() => { void refreshMe(); refreshUsage(); }}
         autoOpenLatestFit={autoOpenLatestFit}
         onAutoOpenLatestFitConsumed={onAutoOpenLatestFitConsumed}
         docsReloadKey={docsReloadKey}
@@ -161,7 +194,7 @@ export function ApplicationAiToolsSection({
         onCloseOthers={() => closeOthers("resume-advice")}
         onDocumentsChanged={onDocumentsChanged}
         onApplicationChanged={onApplicationChanged}
-        onRefreshMe={() => void refreshMe()}
+        onRefreshMe={() => { void refreshMe(); refreshUsage(); }}
         docsReloadKey={docsReloadKey}
       />
 
@@ -178,7 +211,7 @@ export function ApplicationAiToolsSection({
         onCloseOthers={() => closeOthers("cover-letter")}
         onDocumentsChanged={onDocumentsChanged}
         onApplicationChanged={onApplicationChanged}
-        onRefreshMe={() => void refreshMe()}
+        onRefreshMe={() => { void refreshMe(); refreshUsage(); }}
         docsReloadKey={docsReloadKey}
       />
 
@@ -195,7 +228,7 @@ export function ApplicationAiToolsSection({
         onCloseOthers={() => closeOthers("interview-prep")}
         onDocumentsChanged={onDocumentsChanged}
         onApplicationChanged={onApplicationChanged}
-        onRefreshMe={() => void refreshMe()}
+        onRefreshMe={() => { void refreshMe(); refreshUsage(); }}
         docsReloadKey={docsReloadKey}
       />
 

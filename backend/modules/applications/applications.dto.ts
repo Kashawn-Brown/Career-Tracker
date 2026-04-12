@@ -159,7 +159,7 @@ export type ListApplicationsParams = {
   pageSize?: number;
 
   // Sorting
-  sortBy?:  "updatedAt" | "createdAt" | "company" | "position" | "location" | "status" | "dateApplied" | "jobType" | "workMode" | "salaryText" | "isFavorite" | "fitScore";
+  sortBy?:  "updatedAt" | "createdAt" | "company" | "position" | "dateApplied" | "isFavorite" | "fitScore";
   sortDir?: "asc" | "desc";
 };
 

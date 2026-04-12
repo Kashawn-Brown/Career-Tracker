@@ -13,7 +13,7 @@ import { getFitBadgeClass } from "@/lib/fit/presentation";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Alert } from "../ui/alert";
-import { ChevronDown, ChevronUp, Star, X } from "lucide-react";
+import { ChevronDown, ChevronUp, ChevronsUpDown, Star, X } from "lucide-react";
 
 
 // ─── SortableHeader ───────────────────────────────────────────────────────────
@@ -24,7 +24,6 @@ function SortableHeader({
   col,
   sortBy,
   sortDir,
-  isDefaultSort,
   onSort,
   className,
 }: {
@@ -32,12 +31,10 @@ function SortableHeader({
   col:           ApplicationSortBy;
   sortBy:        ApplicationSortBy;
   sortDir:       ApplicationSortDir;
-  isDefaultSort: boolean;
   onSort:        (col: ApplicationSortBy) => void;
   className?:    string;
 }) {
-  const isActive  = sortBy === col;
-  const showArrow = isActive && !isDefaultSort;
+  const isActive = sortBy === col;
 
   return (
     <th
@@ -54,11 +51,12 @@ function SortableHeader({
         )}
       >
         <span className="whitespace-nowrap">{label}</span>
-        {showArrow ? (
-          sortDir === "asc"
+        {isActive
+          ? sortDir === "asc"
             ? <ChevronUp   className="h-3 w-3 text-muted-foreground" />
             : <ChevronDown className="h-3 w-3 text-muted-foreground" />
-        ) : null}
+          : <ChevronsUpDown className="h-3 w-3 opacity-30" />
+        }
       </button>
     </th>
   );
@@ -177,7 +175,6 @@ export function ApplicationsTable({
   items,
   sortBy,
   sortDir,
-  isDefaultSort,
   onSort,
   onChanged,
   visibleColumns,
@@ -186,7 +183,6 @@ export function ApplicationsTable({
   items:          ApplicationListItem[];
   sortBy:         ApplicationSortBy;
   sortDir:        ApplicationSortDir;
-  isDefaultSort:  boolean;
   onSort:         (nextSortBy: ApplicationSortBy) => void;
   onChanged:      () => void;
   visibleColumns: ApplicationColumnId[];
@@ -275,16 +271,18 @@ export function ApplicationsTable({
                       <th key={col.id} className="p-3 w-[60px] text-center" title="Starred" />
                     );
 
-                  case "salaryText":
-                  case "actions":
-                    return <th key={col.id} className="p-3">{col.label}</th>;
-
-                  case "company":
-                  case "position":
+                  // Non-sortable display columns — plain headers
                   case "location":
                   case "jobType":
                   case "workMode":
                   case "status":
+                  case "salaryText":
+                  case "actions":
+                    return <th key={col.id} className="p-3 whitespace-nowrap">{col.label}</th>;
+
+                  // Sortable columns — clickable headers with chevron indicators
+                  case "company":
+                  case "position":
                   case "fitScore":
                   case "dateApplied":
                   case "updatedAt":
@@ -296,7 +294,6 @@ export function ApplicationsTable({
                         col={col.id as ApplicationSortBy}
                         sortBy={sortBy}
                         sortDir={sortDir}
-                        isDefaultSort={isDefaultSort}
                         onSort={onSort}
                       />
                     );

@@ -1,4 +1,3 @@
-
 // Centralized “public” shapes returned to API clients.
 // Keeps Prisma selects consistent and prevents leaking future fields.
 
@@ -29,14 +28,9 @@ export const userSelect = {
   jobSearchSummary: true,
   jobSearchWorkMode: true,
 
-  // AI access control
-  aiFreeUsesUsed: true,
-
   createdAt: true,
   updatedAt: true,
 
   emailVerifiedAt: true,
 
 } as const;
-
-

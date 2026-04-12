@@ -43,9 +43,6 @@ export type AuthUser = {
   jobSearchSummary: string | null;
   jobSearchWorkMode: WorkMode;
 
-  // AI access control
-  aiFreeUsesUsed: number;
-
   createdAt: string; // JSON-serialized Date from backend
   updatedAt: string; // JSON-serialized Date from backend
 };
@@ -152,10 +149,11 @@ export type AdminUserListItem = {
   role:           UserRole;
   plan:           UserPlan;
   isActive:       boolean;
-  aiFreeUsesUsed: number;
   createdAt:      string;
   updatedAt:      string;
   lastActiveAt:   string | null;
+  planUsageCycles: { usedCredits: number; baseCredits: number; bonusCredits: number }[];
+  aiProRequests:   { id: number; status: string }[];
 };
 
 export type AdminUsersListResponse = {
@@ -194,7 +192,7 @@ export type UpdateUserStatusRequest = {
 
 
 // --- Applications DTOs, enums and types: matches backend ---
-export type ApplicationSortBy = "company" | "position" | "location" | "status" | "jobType" | "workMode" | "dateApplied" | "createdAt" | "updatedAt" | "isFavorite" | "fitScore";
+export type ApplicationSortBy = "company" | "position" | "dateApplied" | "createdAt" | "updatedAt" | "isFavorite" | "fitScore";
 
 export type ApplicationSortDir = "asc" | "desc";
 
@@ -740,8 +738,7 @@ export type AdminUserAnalyticsResponse = {
     isActive:        boolean;
     emailVerifiedAt: string | null;
     createdAt:       string;
-    aiFreeUsesUsed:  number;
-  };
+    };
   applicationCount: number;
   aiRuns: {
     byTool:   { toolKind: string; status: string; count: number }[];

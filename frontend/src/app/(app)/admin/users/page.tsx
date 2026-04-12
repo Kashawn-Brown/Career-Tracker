@@ -3,14 +3,21 @@
 import { useCallback, useEffect, useState } from "react";
 import { adminApi } from "@/lib/api/admin";
 import { ApiError } from "@/lib/api/client";
-import type { AdminUserListItem, UserPlan } from "@/types/api";
+import type { AdminUserListItem, UserPlan, UserRole } from "@/types/api";
 import { RequireAdmin } from "@/components/auth/RequireAdmin";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Alert } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { UserDetailSheet } from "@/components/admin/UserDetailSheet";
-import { AI_FREE_QUOTA } from "@/lib/constants";
+import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+
+// Credit allowances per plan — mirrors backend MONTHLY_CREDITS
+const PLAN_CREDITS: Record<UserPlan, number> = {
+  REGULAR:  100,
+  PRO:      1200,
+  PRO_PLUS: 1200,
+};
 
 const PLAN_OPTIONS: { value: UserPlan | "ALL"; label: string }[] = [
   { value: "ALL",      label: "All plans" },
@@ -19,11 +26,26 @@ const PLAN_OPTIONS: { value: UserPlan | "ALL"; label: string }[] = [
   { value: "PRO_PLUS", label: "Pro+"      },
 ];
 
+const ROLE_OPTIONS: { value: UserRole | "ALL"; label: string }[] = [
+  { value: "ALL",   label: "All roles" },
+  { value: "USER",  label: "User"      },
+  { value: "ADMIN", label: "Admin"     },
+];
+
+const STATUS_OPTIONS = [
+  { value: "ALL",      label: "All statuses" },
+  { value: "active",   label: "Active"       },
+  { value: "inactive", label: "Inactive"     },
+];
+
 const PLAN_LABELS: Record<UserPlan, string> = {
   REGULAR:  "Regular",
   PRO:      "Pro",
   PRO_PLUS: "Pro+",
 };
+
+type SortField = "lastActiveAt" | "createdAt";
+type SortDir   = "asc" | "desc";
 
 export default function AdminUsersPage() {
   return (
@@ -34,16 +56,24 @@ export default function AdminUsersPage() {
 }
 
 function AdminUsersContent() {
-  const [users, setUsers]               = useState<AdminUserListItem[]>([]);
-  const [total, setTotal]               = useState(0);
+  const [users, setUsers]                     = useState<AdminUserListItem[]>([]);
+  const [total, setTotal]                     = useState(0);
   const [pendingRequests, setPendingRequests] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError]         = useState<string | null>(null);
+  const [isLoading, setIsLoading]             = useState(false);
+  const [error, setError]                     = useState<string | null>(null);
 
-  const [q, setQ]                 = useState("");
-  const [planFilter, setPlanFilter] = useState<UserPlan | "ALL">("ALL");
+  // Filters
+  const [q, setQ]                             = useState("");
+  const [planFilter, setPlanFilter]           = useState<UserPlan | "ALL">("ALL");
+  const [roleFilter, setRoleFilter]           = useState<UserRole | "ALL">("ALL");
+  const [statusFilter, setStatusFilter]       = useState<"ALL" | "active" | "inactive">("ALL");
+  const [pendingOnly, setPendingOnly]         = useState(false);
 
-  // Sheet state
+  // Sort
+  const [sortBy,  setSortBy]  = useState<SortField>("lastActiveAt");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  // Sheet
   const [selectedUser, setSelectedUser] = useState<AdminUserListItem | null>(null);
   const [sheetOpen, setSheetOpen]       = useState(false);
 
@@ -52,8 +82,13 @@ function AdminUsersContent() {
     setError(null);
     try {
       const res = await adminApi.listUsers({
-        q:    q.trim() || undefined,
-        plan: planFilter === "ALL" ? undefined : planFilter,
+        q:                 q.trim() || undefined,
+        plan:              planFilter === "ALL"      ? undefined : planFilter,
+        role:              roleFilter === "ALL"      ? undefined : roleFilter,
+        isActive:          statusFilter === "ALL"    ? undefined : statusFilter === "active",
+        hasPendingRequest: pendingOnly               || undefined,
+        sortBy,
+        sortDir,
       });
       setUsers(res.items);
       setTotal(res.total);
@@ -63,20 +98,30 @@ function AdminUsersContent() {
     } finally {
       setIsLoading(false);
     }
-  }, [q, planFilter]);
+  }, [q, planFilter, roleFilter, statusFilter, pendingOnly, sortBy, sortDir]);
 
   useEffect(() => { void load(); }, [load]);
 
+  function handleSort(field: SortField) {
+    if (sortBy === field) {
+      setSortDir((d) => d === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(field);
+      setSortDir("desc");
+    }
+  }
+
   function handleRowClick(user: AdminUserListItem) {
-    // Admin rows are not interactive
     if (user.role === "ADMIN") return;
     setSelectedUser(user);
     setSheetOpen(true);
   }
 
-  function handleSheetClose() {
-    setSheetOpen(false);
-    setSelectedUser(null);
+  function creditDisplay(user: AdminUserListItem) {
+    const cycle = user.planUsageCycles?.[0];
+    const max   = PLAN_CREDITS[user.plan] ?? 100;
+    const used  = cycle ? cycle.usedCredits : 0;
+    return `${used} / ${max}`;
   }
 
   return (
@@ -85,33 +130,63 @@ function AdminUsersContent() {
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-semibold">Users</h1>
           {pendingRequests > 0 && (
-            <span className="rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 px-2.5 py-0.5 text-xs font-medium">
-              {pendingRequests} pending Pro request{pendingRequests !== 1 ? "s" : ""}
-            </span>
+            <button
+              type="button"
+              onClick={() => setPendingOnly((v) => !v)}
+              className={[
+                "rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors",
+                pendingOnly
+                  ? "bg-amber-500 text-white"
+                  : "bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/40",
+              ].join(" ")}
+            >
+              {pendingRequests} pending credit request{pendingRequests !== 1 ? "s" : ""}
+              {pendingOnly ? " ×" : ""}
+            </button>
           )}
         </div>
         <p className="text-sm text-muted-foreground mt-1">
           {total} user{total !== 1 ? "s" : ""} total
+          {pendingOnly && <span className="ml-1 text-amber-600">· filtered to pending requests</span>}
         </p>
       </div>
 
       {/* Filters */}
-      <div className="flex gap-3 flex-wrap">
+      <div className="flex items-center gap-2 flex-wrap">
         <Input
           placeholder="Search by name or email..."
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          className="max-w-xs"
+          className="w-64"
         />
         <Select
           id="planFilter"
           value={planFilter}
           onChange={(e) => setPlanFilter(e.target.value as UserPlan | "ALL")}
+          className="w-36"
         >
           {PLAN_OPTIONS.map((p) => (
-            <option key={p.value} value={p.value}>
-              {p.label}
-            </option>
+            <option key={p.value} value={p.value}>{p.label}</option>
+          ))}
+        </Select>
+        <Select
+          id="roleFilter"
+          value={roleFilter}
+          onChange={(e) => setRoleFilter(e.target.value as UserRole | "ALL")}
+          className="w-32"
+        >
+          {ROLE_OPTIONS.map((r) => (
+            <option key={r.value} value={r.value}>{r.label}</option>
+          ))}
+        </Select>
+        <Select
+          id="statusFilter"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as "ALL" | "active" | "inactive")}
+          className="w-36"
+        >
+          {STATUS_OPTIONS.map((s) => (
+            <option key={s.value} value={s.value}>{s.label}</option>
           ))}
         </Select>
       </div>
@@ -130,51 +205,57 @@ function AdminUsersContent() {
                 <th className="text-left px-4 py-3 font-medium">Role</th>
                 <th className="text-left px-4 py-3 font-medium">Plan</th>
                 <th className="text-left px-4 py-3 font-medium">AI Credits</th>
-                <th className="text-left px-4 py-3 font-medium">Last Active</th>
+                <SortableHeader label="Last Active" field="lastActiveAt" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
+                <SortableHeader label="Joined"      field="createdAt"    sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <th className="text-left px-4 py-3 font-medium">Status</th>
               </tr>
             </thead>
             <tbody>
               {isLoading && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
-                    Loading...
-                  </td>
+                  <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">Loading...</td>
                 </tr>
               )}
               {!isLoading && users.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
-                    No users found.
-                  </td>
+                  <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">No users found.</td>
                 </tr>
               )}
               {!isLoading && users.map((user) => {
-                const isAdmin = user.role === "ADMIN";
+                const isAdmin    = user.role === "ADMIN";
+                const hasPending = user.aiProRequests?.length > 0;
                 return (
                   <tr
                     key={user.id}
                     className={[
                       "border-b last:border-0 transition-colors",
-                      isAdmin
-                        ? "opacity-60"                                          // admins: visually muted, not clickable
-                        : "cursor-pointer hover:bg-muted/20",                  // regular users: clickable
+                      isAdmin ? "opacity-60" : "cursor-pointer hover:bg-muted/20",
                     ].join(" ")}
                     onClick={() => handleRowClick(user)}
                   >
                     <td className="px-4 py-3">
-                      <div className="font-medium">{user.name}</div>
-                      <div className="text-muted-foreground text-xs">{user.email}</div>
+                      <div className="flex items-center gap-2">
+                        <div>
+                          <div className="font-medium">{user.name}</div>
+                          <div className="text-muted-foreground text-xs">{user.email}</div>
+                        </div>
+                        {hasPending && (
+                          <span className="shrink-0 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-1.5 py-0.5 text-xs font-medium leading-none">
+                            Pending
+                          </span>
+                        )}
+                      </div>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">{user.role}</td>
+                    <td className="px-4 py-3 text-muted-foreground text-xs">{user.role}</td>
                     <td className="px-4 py-3">
                       <span className="font-medium">{PLAN_LABELS[user.plan]}</span>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {user.aiFreeUsesUsed} / {AI_FREE_QUOTA}
-                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">{creditDisplay(user)}</td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {user.lastActiveAt ? fmtDate(user.lastActiveAt) : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {fmtDate(user.createdAt)}
                     </td>
                     <td className="px-4 py-3">
                       <span className={user.isActive ? "text-green-600" : "text-muted-foreground"}>
@@ -189,14 +270,43 @@ function AdminUsersContent() {
         </CardContent>
       </Card>
 
-      {/* User detail sheet */}
       <UserDetailSheet
         user={selectedUser}
         open={sheetOpen}
-        onClose={handleSheetClose}
+        onClose={() => { setSheetOpen(false); setSelectedUser(null); }}
         onUserUpdated={load}
       />
     </div>
+  );
+}
+
+// ── Sortable column header ────────────────────────────────────────────────────
+function SortableHeader({
+  label, field, sortBy, sortDir, onSort,
+}: {
+  label:   string;
+  field:   SortField;
+  sortBy:  SortField;
+  sortDir: SortDir;
+  onSort:  (f: SortField) => void;
+}) {
+  const active = sortBy === field;
+  return (
+    <th className="text-left px-4 py-3 font-medium">
+      <button
+        type="button"
+        onClick={() => onSort(field)}
+        className="flex items-center gap-1 hover:text-foreground transition-colors"
+      >
+        {label}
+        {active
+          ? sortDir === "asc"
+            ? <ChevronUp className="h-3.5 w-3.5" />
+            : <ChevronDown className="h-3.5 w-3.5" />
+          : <ChevronsUpDown className="h-3.5 w-3.5 opacity-40" />
+        }
+      </button>
+    </th>
   );
 }
 

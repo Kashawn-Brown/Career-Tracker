@@ -224,27 +224,7 @@ describe("Applications core", () => {
     expect(dateDescBody.items.map((a: any) => a.company)).toEqual(["Newer", "Older", "Null Fields"]);
     expect(dateDescBody.items[2].dateApplied).toBe(null);
 
-    // location asc: non-null first (Toronto -> Waterloo), null last
-    const locAsc = await app.inject({
-      method: "GET",
-      url:    "/api/v1/applications?sortBy=location&sortDir=asc&pageSize=10",
-      headers: authHeader(token),
-    });
-    expect(locAsc.statusCode).toBe(200);
-    const locAscBody = locAsc.json() as any;
-    expect(locAscBody.items.map((a: any) => a.company)).toEqual(["Older", "Newer", "Null Fields"]);
-    expect(locAscBody.items[2].location).toBe(null);
-
-    // location desc: non-null first (Waterloo -> Toronto), null last
-    const locDesc = await app.inject({
-      method: "GET",
-      url:    "/api/v1/applications?sortBy=location&sortDir=desc&pageSize=10",
-      headers: authHeader(token),
-    });
-    expect(locDesc.statusCode).toBe(200);
-    const locDescBody = locDesc.json() as any;
-    expect(locDescBody.items.map((a: any) => a.company)).toEqual(["Newer", "Older", "Null Fields"]);
-    expect(locDescBody.items[2].location).toBe(null);
+    // location is no longer a sortable field (Phase 11) — nulls-last verified via dateApplied above.
   });
 
   // Test that the GET /applications route supports filters (q, status, isFavorite).

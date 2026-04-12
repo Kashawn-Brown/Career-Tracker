@@ -29,15 +29,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ChevronDown, ChevronRight, Star, Trash2, Loader2, CheckCircle2, Circle } from "lucide-react";
-import { ProAccessBanner } from "@/components/pro/ProAccessBanner";
-import { RequestProDialog } from "@/components/pro/RequestProDialog";
+import { ChevronDown, ChevronRight, Star, Trash2, Loader2, CheckCircle2, Circle, AlertTriangle } from "lucide-react";
+import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import { useConnectionAutocomplete } from "@/hooks/useConnectionAutocomplete";
 import { applicationDocumentsApi } from "@/lib/api/application-documents";
 import { documentsApi } from "@/lib/api/documents";
 import { createPortal } from "react-dom";
-import { canUseAi, getRemainingAiCredits, hasProPlan, getEffectivePlan } from "@/lib/plans";
+import { getEffectivePlan } from "@/lib/plans";
 import { useBaseDocuments } from "@/hooks/useBaseDocuments";
 import { useAiToolsOnCreate } from "@/hooks/useAiToolsOnCreate";
 import { AiToolsAfterCreate } from "@/components/applications/AiToolsAfterCreate";
@@ -252,20 +251,18 @@ export function CreateApplicationFromJdForm({
 
   // ── Pro access state ──────────────────────────────────────────────────────
 
-  const { user, aiProRequest, refreshMe } = useAuth();
-  const canUse             = user ? canUseAi(user) : false;
+  const { user, refreshMe } = useAuth();
 
   // Fetch usage state for entitlement UI (cost note + blocked state)
-  useEffect(() => {
+  // Re-fetch after mount so usage is always fresh
+  function refreshUsage() {
     analyticsApi.getMyUsage().then(setUsageState).catch(() => null);
-  }, []);
+  }
+
+  useEffect(() => { refreshUsage(); }, []);
 
   const isBlocked = usageState?.isBlocked ?? false;
   const planLabel = usageState?.plan ?? (user ? getEffectivePlan(user) : "REGULAR");
-  const remainingAiCredits = user ? getRemainingAiCredits(user) : 0;
-  const isPro              = user ? hasProPlan(getEffectivePlan(user)) : false;
-
-  const [isProDialogOpen, setIsProDialogOpen] = useState(false);
 
   function toOptionalTrimmed(value: string) {
     const trimmed = value.trim();
@@ -360,6 +357,7 @@ export function CreateApplicationFromJdForm({
 
       setDraft(res);
       void refreshMe();
+      refreshUsage(); // re-check credits after successful run
 
       // Store canonical JD text for the create payload — this is what gets
       // saved as the application description and used for future fit runs.
@@ -443,10 +441,6 @@ export function CreateApplicationFromJdForm({
 
     // Validate AI tool requirements before creating so we fail fast
     if (stagedAiEnabled) {
-      if (!canUse) {
-        setErrorMessage("No free AI credits remaining. Request Pro to run AI tools.");
-        return;
-      }
       // Resume is required for every AI tool — validate before proceeding
       if (!baseResumeExists && !stagedOverride) {
         setIsResumeValidationOpen(true);
@@ -668,22 +662,20 @@ export function CreateApplicationFromJdForm({
         ) : null
       ) : null}
 
+      {/* ── Low credits warning (shown at WARNING_90 threshold) ─────────── */}
+      {usageState && usageState.threshold === "WARNING_90" && !usageState.isBlocked && (
+        <div className="flex items-center justify-between gap-3 rounded-md border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-900/10 px-3 py-2 text-xs">
+          <div className="flex items-center gap-1.5 text-orange-700 dark:text-orange-400">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            <span>You&apos;re running low — {usageState.remaining} credit{usageState.remaining === 1 ? "" : "s"} remaining this month.</span>
+          </div>
+          <Link href="/activity" className="shrink-0 text-orange-700 dark:text-orange-400 underline underline-offset-2 hover:opacity-80">
+            View usage
+          </Link>
+        </div>
+      )}
+
       {errorMessage ? <div className="text-sm text-red-600">{errorMessage}</div> : null}
-
-      {/* Pro/credits state + request modal */}
-      <ProAccessBanner
-        isPro={isPro}
-        remainingAiCredits={remainingAiCredits ?? 0}
-        canUseAi={canUse}
-        aiProRequest={aiProRequest}
-        onRequestPro={() => setIsProDialogOpen(true)}
-      />
-
-      <RequestProDialog
-        open={isProDialogOpen}
-        onOpenChange={setIsProDialogOpen}
-        onRequested={() => refreshMe()}
-      />
 
       {/* Source input — textarea for TEXT mode, URL input for LINK mode */}
       <div className="space-y-2">
