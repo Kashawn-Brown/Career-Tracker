@@ -175,24 +175,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {showAuthedActions ? (
-        <Header />
-      ) : (
-        <header className="border-b bg-background">
-          <div className="mx-auto flex w-full items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
-            <div className="text-base font-semibold tracking-tight">Career-Tracker</div>
-
-            <div className="flex items-center gap-2">
-              <Button asChild variant="ghost">
-                <Link href="/login">Log in</Link>
-              </Button>
-              <Button asChild>
-                <Link href="/register">Sign up</Link>
-              </Button>
-            </div>
-          </div>
-        </header>
-      )}
+      <Header />
 
       <main className="mx-auto w-full max-w-screen-xl px-4 py-6 sm:px-6 lg:px-8">
         {/* HERO */}
