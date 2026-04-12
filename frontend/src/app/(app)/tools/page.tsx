@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { AlertTriangle } from "lucide-react";
 import { useAuth }              from "@/hooks/useAuth";
 import { analyticsApi }         from "@/lib/api/analytics";
 import type { UsageState }      from "@/types/api";
@@ -60,6 +62,35 @@ export default function ToolsPage() {
 
         
       </div>
+
+      {/* WARNING_90: low credits banner */}
+      {usageState && usageState.threshold === "WARNING_90" && !usageState.isBlocked && (
+        <div className="flex items-center justify-between gap-3 rounded-md border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-900/10 px-3 py-2 text-xs mb-4">
+          <div className="flex items-center gap-1.5 text-orange-700 dark:text-orange-400">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            <span>You&apos;re running low — {usageState.remaining} credit{usageState.remaining === 1 ? "" : "s"} remaining this month.</span>
+          </div>
+          <Link href="/activity" className="shrink-0 text-orange-700 dark:text-orange-400 underline underline-offset-2 hover:opacity-80">
+            View usage
+          </Link>
+        </div>
+      )}
+
+      {/* BLOCKED: section-level message so users know before opening any tool */}
+      {usageState?.isBlocked && (
+        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 space-y-1.5 mb-4">
+          <p className="text-sm font-medium text-destructive">Monthly credit limit reached</p>
+          <p className="text-xs text-muted-foreground">
+            Your credits reset at the start of next month. AI tools are unavailable until then.
+          </p>
+          <Link
+            href="/profile"
+            className="inline-block mt-1 text-xs underline underline-offset-2 text-muted-foreground hover:text-foreground"
+          >
+            Request more credits →
+          </Link>
+        </div>
+      )}
 
       {loading ? (
         <div className="text-sm text-muted-foreground">Loading…</div>

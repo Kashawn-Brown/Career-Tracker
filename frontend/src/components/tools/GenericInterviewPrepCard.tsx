@@ -203,7 +203,10 @@ export function GenericInterviewPrepCard({ hasBaseResume, onSuccess, isBlocked =
           {error && <p className="text-sm text-destructive">{error}</p>}
 
           {isBlocked ? (
-            <BlockedRunButton plan={plan} />
+            <p className="text-xs text-muted-foreground border border-destructive/20 rounded-md bg-destructive/5 px-3 py-2">
+              Monthly credit limit reached — this tool is unavailable until your credits reset.{" "}
+              <a href="/profile" className="underline underline-offset-2 hover:text-foreground">Request more credits</a>
+            </p>
           ) : (
             <>
               <Button onClick={handleSubmit} disabled={!canRun || loading} className="w-full mb-2">
