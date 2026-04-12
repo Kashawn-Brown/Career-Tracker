@@ -59,17 +59,23 @@ export const adminApi = {
     q?: string;
     role?: string;
     plan?: string;
+    isActive?: boolean;
+    hasPendingRequest?: boolean;
+    sortBy?: "lastActiveAt" | "createdAt";
+    sortDir?: "asc" | "desc";
     page?: number;
     pageSize?: number;
-    hasPendingRequest?: boolean;
   }) {
     const search = new URLSearchParams();
-    if (params?.q)                   search.set("q",                  params.q);
-    if (params?.role)                search.set("role",               params.role);
-    if (params?.plan)                search.set("plan",               params.plan);
-    if (params?.page)                search.set("page",               String(params.page));
-    if (params?.pageSize)            search.set("pageSize",           String(params.pageSize));
-    if (params?.hasPendingRequest)   search.set("hasPendingRequest",  "true");
+    if (params?.q)                         search.set("q",                  params.q);
+    if (params?.role)                      search.set("role",               params.role);
+    if (params?.plan)                      search.set("plan",               params.plan);
+    if (params?.isActive !== undefined)    search.set("isActive",           String(params.isActive));
+    if (params?.hasPendingRequest)         search.set("hasPendingRequest",  "true");
+    if (params?.sortBy)                    search.set("sortBy",             params.sortBy);
+    if (params?.sortDir)                   search.set("sortDir",            params.sortDir);
+    if (params?.page)                      search.set("page",               String(params.page));
+    if (params?.pageSize)                  search.set("pageSize",           String(params.pageSize));
 
     const qs = search.toString();
     return apiFetch<AdminUsersListResponse>(

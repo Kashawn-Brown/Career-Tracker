@@ -218,15 +218,26 @@ export async function listUsersForAdmin(params: ListUsersQueryType) {
   }
 
   // Filter to users with a pending Pro request
+  if (params.isActive !== undefined) {
+    where.isActive = params.isActive;
+  }
+
   if (params.hasPendingRequest) {
     where.aiProRequests = { some: { status: "PENDING" } };
   }
+
+  // Build orderBy — default: lastActiveAt desc
+  const sortBy  = params.sortBy  ?? "lastActiveAt";
+  const sortDir = params.sortDir ?? "desc";
+  const orderBy: Prisma.UserOrderByWithRelationInput =
+    sortBy === "createdAt" ? { createdAt: sortDir } :
+    { lastActiveAt: { sort: sortDir as "asc" | "desc", nulls: "last" } };
 
   const [total, items] = await prisma.$transaction([
     prisma.user.count({ where }),
     prisma.user.findMany({
       where,
-      orderBy: { lastActiveAt: { sort: "desc", nulls: "last" } },
+      orderBy,
       skip,
       take: pageSize,
       select: adminUserSelect,
