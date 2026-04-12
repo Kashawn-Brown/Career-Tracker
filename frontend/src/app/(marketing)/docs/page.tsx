@@ -71,10 +71,11 @@ const CONTENT: Record<string, React.ReactNode> = {
     <div className="space-y-4">
       <h1 className="text-2xl font-semibold tracking-tight">Introduction</h1>
       <p className="text-muted-foreground leading-relaxed">
-        Career-Tracker is an AI-powered job application tracker built for developers and job seekers
-        who want more than a spreadsheet. Track your applications, extract job descriptions automatically,
-        check your compatibility with a role, generate cover letters, and prepare for interviews —
-        all in one place.
+        Career-Tracker is an AI-powered job application tracker built for developers and job seekers 
+        who want more than a spreadsheet and one organized place for their search. 
+        Track your applications, extract job descriptions automatically, check your compatibility with a role, 
+        generate cover letters, and prepare for interviews — the same things you were probably already doing, 
+        just organized and all in one place.
       </p>
       <p className="text-muted-foreground leading-relaxed">
         The UI is built around a fast table-first experience. Scanning and filtering stays instant in

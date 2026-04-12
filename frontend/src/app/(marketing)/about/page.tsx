@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Github, Linkedin, Coffee, Send, CheckCircle2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
 // ─── Feature cards ────────────────────────────────────────────────────────────
@@ -146,6 +147,9 @@ function ContactForm() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AboutPage() {
+  const { isAuthenticated, isHydrated } = useAuth();
+  const isLoggedIn = isHydrated && isAuthenticated;
+
   return (
     <div className="mx-auto max-w-screen-lg px-4 py-12 sm:px-6 lg:px-8 space-y-16">
 
@@ -156,14 +160,20 @@ export default function AboutPage() {
         </h1>
         <p className="text-muted-foreground leading-relaxed">
           Career-Tracker is an AI-powered job application manager built by a developer
-          who got tired of losing track of applications in spreadsheets and missing out
-          on roles because prep was an afterthought. It started as a personal tool —
-          and became a full platform.
+          who got tired of losing track of applications in spreadsheets — JDs, tailored
+          documents, connections built along the way, all scattered across chats and files.
+          The AI side had already become a part of the process too: checking compatibility,
+          tailoring resumes, drafting cover letters, helping prepare for interviews.
+        </p>
+        <p className="text-muted-foreground leading-relaxed">
+          This brings all of it into one place. It started as a personal tool — and has now become a full platform.
         </p>
         <div className="flex flex-wrap gap-2 pt-1">
-          <Button asChild>
-            <Link href="/register">Get started free</Link>
-          </Button>
+          {!isLoggedIn && (
+            <Button asChild>
+              <Link href="/register">Get started free</Link>
+            </Button>
+          )}
           <Button asChild variant="outline">
             <Link href="/docs">Read the docs</Link>
           </Button>
@@ -262,32 +272,36 @@ export default function AboutPage() {
       */}
 
       {/* Contact */}
-      <section className="space-y-4">
-        <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Get in touch</p>
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold tracking-tight">Have feedback or ran into an issue?</h2>
-          <p className="text-sm text-muted-foreground">
-            Career-Tracker is actively being improved. If something isn't working, you have an idea,
-            or you just want to share how it's going — I'd love to hear from you.
-          </p>
-        </div>
-        <ContactForm />
-      </section>
-
-      {/* Footer nudge */}
-      <section className="rounded-lg border bg-muted/20 p-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="font-medium">Ready to organize your search?</p>
+      {isLoggedIn && (
+        <section className="space-y-4">
+          <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Get in touch</p>
+          <div className="space-y-2">
+            <h2 className="text-xl font-semibold tracking-tight">Have feedback or ran into an issue?</h2>
             <p className="text-sm text-muted-foreground">
-              Create an account and start tracking in under a minute.
+              Career-Tracker is actively being improved. If something isn't working, you have an idea,
+              or you just want to share how it's going — I'd love to hear from you.
             </p>
           </div>
-          <Button asChild>
-            <Link href="/register">Get started</Link>
-          </Button>
-        </div>
-      </section>
+          <ContactForm />
+        </section>
+      )}
+
+      {/* Footer nudge — only shown to logged-out visitors */}
+      {!isLoggedIn && (
+        <section className="rounded-lg border bg-muted/20 p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-medium">Ready to organize your search?</p>
+              <p className="text-sm text-muted-foreground">
+                Create an account and start tracking in under a minute.
+              </p>
+            </div>
+            <Button asChild>
+              <Link href="/register">Get started</Link>
+            </Button>
+          </div>
+        </section>
+      )}
 
     </div>
   );
