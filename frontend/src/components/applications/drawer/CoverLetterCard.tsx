@@ -210,7 +210,11 @@ export function CoverLetterCard({
       </div>
 
       {/* ── In-flight progress ─────────────────────────────────────────── */}
-      {isRunning && run ? (
+      {isBlocked && !run ? (
+        <p className="mt-3 text-xs text-muted-foreground border border-destructive/20 rounded-md bg-destructive/5 px-3 py-2">
+          Monthly credit limit reached — this tool is unavailable until your credits reset.
+        </p>
+      ) : isRunning && run ? (
         <ToolRunProgress
           steps={run.steps}
           activeIndex={run.activeIndex}

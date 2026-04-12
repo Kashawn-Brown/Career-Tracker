@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import Link from "next/link";
 import type { Application } from "@/types/api";
 import type { FitRunsController } from "@/hooks/useFitRuns";
 import type { DocumentToolRunsController } from "@/hooks/useDocumentToolRuns";
@@ -122,6 +123,35 @@ export function ApplicationAiToolsSection({
           </span>
         </div>
       </div>
+
+      {/* ── Usage warning banner (shown at WARNING_90 and BLOCKED) ──────── */}
+      {usageState && usageState.threshold === "WARNING_90" && !usageState.isBlocked && (
+        <div className="flex items-center justify-between gap-3 rounded-md border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-900/10 px-3 py-2 text-xs">
+          <div className="flex items-center gap-1.5 text-orange-700 dark:text-orange-400">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            <span>You&apos;re running low — {usageState.remaining} credit{usageState.remaining === 1 ? "" : "s"} remaining this month.</span>
+          </div>
+          <Link href="/activity" className="shrink-0 text-orange-700 dark:text-orange-400 underline underline-offset-2 hover:opacity-80">
+            View usage
+          </Link>
+        </div>
+      )}
+
+      {/* ── Blocked banner (shown when monthly limit reached) ────────────── */}
+      {isBlocked && (
+        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 space-y-1.5">
+          <p className="text-sm font-medium text-destructive">Monthly credit limit reached</p>
+          <p className="text-xs text-muted-foreground">
+            Your credits reset at the start of next month. You can request more credits or upgrade to Pro from your profile.
+          </p>
+          <Link
+            href="/profile"
+            className="inline-block mt-1 text-xs underline underline-offset-2 text-muted-foreground hover:text-foreground"
+          >
+            Request credits →
+          </Link>
+        </div>
+      )}
 
       {/* ── Tool cards ──────────────────────────────────────────────────── */}
       {/* Each card gets its own panel ID curried in so the registry can     */}
