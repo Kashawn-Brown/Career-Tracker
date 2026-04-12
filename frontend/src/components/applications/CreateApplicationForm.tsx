@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { applicationsApi } from "@/lib/api/applications";
 import { applicationDocumentsApi } from "@/lib/api/application-documents";
@@ -25,7 +25,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { canUseAi } from "@/lib/plans";
+import { analyticsApi } from "@/lib/api/analytics";
+import type { UsageState } from "@/types/api";
 import { useAuth } from "@/hooks/useAuth";
 import type { OnCreatedArgs } from "@/components/applications/CreateApplicationFromJdForm";
 
@@ -33,7 +34,13 @@ import type { OnCreatedArgs } from "@/components/applications/CreateApplicationF
 export function CreateApplicationForm({ onCreated }: { onCreated: (args: OnCreatedArgs) => void }) {
 
   const { user } = useAuth();
-  const canUse = user ? canUseAi(user) : false;
+  const [usageState, setUsageState] = useState<UsageState | null>(null);
+
+  useEffect(() => {
+    analyticsApi.getMyUsage().then(setUsageState).catch(() => null);
+  }, []);
+
+  const isBlocked = usageState?.isBlocked ?? false;
 
   // ── AI tools after create ───────────────────────────────────────────────
   const { enabled: aiEnabled, setEnabled: setAiEnabled, selections, updateSelections } = useAiToolsOnCreate();
@@ -170,10 +177,6 @@ export function CreateApplicationForm({ onCreated }: { onCreated: (args: OnCreat
 
     // Validate AI requirements before submitting
     if (stagedAiEnabled) {
-      if (!canUse) {
-        setErrorMessage("No free AI credits remaining. Request Pro to run AI tools.");
-        return;
-      }
       if (!baseResumeExists && !stagedOverride) {
         setIsResumeValidationOpen(true);
         return;
@@ -657,7 +660,7 @@ export function CreateApplicationForm({ onCreated }: { onCreated: (args: OnCreat
         </>
       ) : null}
       
-      <AiToolsAfterCreate
+      {!isBlocked && <AiToolsAfterCreate
         enabled={aiEnabled}
         onEnabledChange={setAiEnabled}
         selections={selections}
@@ -669,7 +672,7 @@ export function CreateApplicationForm({ onCreated }: { onCreated: (args: OnCreat
         templateFile={templateFile}
         onTemplateFileChange={(f) => void handleTemplateFile(f)}
         disabled={isSubmitting}
-      />
+      />}
 
       <div className="flex justify-end mt-8">
         <Button type="submit" disabled={isSubmitting}>
