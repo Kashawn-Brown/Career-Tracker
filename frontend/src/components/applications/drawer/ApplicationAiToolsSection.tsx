@@ -74,10 +74,13 @@ export function ApplicationAiToolsSection({
 
   const [usageState, setUsageState]           = useState<UsageState | null>(null);
 
-  // Fetch usage state for credit labels and blocked state
-  useEffect(() => {
+  // Fetch (or re-fetch) usage state — called on mount and after every successful run
+  // so blocked state and warnings update without requiring a page refresh.
+  function refreshUsage() {
     analyticsApi.getMyUsage().then(setUsageState).catch(() => null);
-  }, []);
+  }
+
+  useEffect(() => { refreshUsage(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isBlocked  = usageState?.isBlocked ?? false;
   const planLabel  = usageState?.plan ?? (user ? getEffectivePlan(user) : "REGULAR");
@@ -172,7 +175,7 @@ export function ApplicationAiToolsSection({
         onCloseOthers={() => closeOthers("compatibility")}
         onDocumentsChanged={onDocumentsChanged}
         onApplicationChanged={onApplicationChanged}
-        onRefreshMe={() => void refreshMe()}
+        onRefreshMe={() => { void refreshMe(); refreshUsage(); }}
         autoOpenLatestFit={autoOpenLatestFit}
         onAutoOpenLatestFitConsumed={onAutoOpenLatestFitConsumed}
         docsReloadKey={docsReloadKey}
@@ -191,7 +194,7 @@ export function ApplicationAiToolsSection({
         onCloseOthers={() => closeOthers("resume-advice")}
         onDocumentsChanged={onDocumentsChanged}
         onApplicationChanged={onApplicationChanged}
-        onRefreshMe={() => void refreshMe()}
+        onRefreshMe={() => { void refreshMe(); refreshUsage(); }}
         docsReloadKey={docsReloadKey}
       />
 
@@ -208,7 +211,7 @@ export function ApplicationAiToolsSection({
         onCloseOthers={() => closeOthers("cover-letter")}
         onDocumentsChanged={onDocumentsChanged}
         onApplicationChanged={onApplicationChanged}
-        onRefreshMe={() => void refreshMe()}
+        onRefreshMe={() => { void refreshMe(); refreshUsage(); }}
         docsReloadKey={docsReloadKey}
       />
 
@@ -225,7 +228,7 @@ export function ApplicationAiToolsSection({
         onCloseOthers={() => closeOthers("interview-prep")}
         onDocumentsChanged={onDocumentsChanged}
         onApplicationChanged={onApplicationChanged}
-        onRefreshMe={() => void refreshMe()}
+        onRefreshMe={() => { void refreshMe(); refreshUsage(); }}
         docsReloadKey={docsReloadKey}
       />
 
