@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Button }                                              from "@/components/ui/button";
-import { CreditCostNote, BlockedRunButton } from "@/components/tools/ToolEntitlementGate";
+import { CreditCostNote } from "@/components/tools/ToolEntitlementGate";
 import { ApiError }          from "@/lib/api/client";
 import { aiApi }             from "@/lib/api/ai";
 import { ResumeAdviceResult } from "@/components/tools/ResumeAdviceResult";

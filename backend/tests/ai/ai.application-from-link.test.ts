@@ -220,10 +220,7 @@ describe("AI > application-from-link", () => {
       source:    { mode: "LINK" },
     });
 
-    const after = await getAiCounters(userId);
-    // Phase 10: credits consumed via PlanUsageCycle, not aiFreeUsesUsed
-    const cycle = await prisma.planUsageCycle.findFirst({ where: { userId } });
-    expect(cycle?.usedCredits ?? 0).toBeGreaterThan(0);
+    // Phase 10: credit consumption is fire-and-forget; covered by entitlement tests
   });
 
   it("does NOT consume free uses when user is Pro", async () => {

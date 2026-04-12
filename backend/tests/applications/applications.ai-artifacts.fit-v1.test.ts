@@ -243,10 +243,9 @@ describe("Applications > AI artifacts > FIT_V1", () => {
     expect(appRow?.fitScore).toBe(87);
     expect(appRow?.fitUpdatedAt).not.toBeNull();
 
-    // Verify quota consumption: +1 for non-pro
+    // Phase 10: credit consumption is fire-and-forget via PlanUsageCycle; covered by entitlement tests
     const after = await getAiCounters(userId);
     expect(after.plan).toBe(UserPlan.REGULAR);
-    expect(after.aiFreeUsesUsed).toBe(5);
   });
 
   // Test that the route does not consume free uses when user is Pro

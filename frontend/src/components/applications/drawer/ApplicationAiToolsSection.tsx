@@ -80,7 +80,7 @@ export function ApplicationAiToolsSection({
     analyticsApi.getMyUsage().then(setUsageState).catch(() => null);
   }
 
-  useEffect(() => { refreshUsage(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { refreshUsage(); }, []);
 
   const isBlocked  = usageState?.isBlocked ?? false;
   const planLabel  = usageState?.plan ?? (user ? getEffectivePlan(user) : "REGULAR");

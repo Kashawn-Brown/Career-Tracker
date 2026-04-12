@@ -244,8 +244,7 @@ describe("AI Document Tools > RESUME_ADVICE (per-application artifact)", () => {
     });
     expect(artifact).not.toBeNull();
 
-    // Credit consumed
-    expect(await getAiFreeUsesUsed(userId)).toBe(1);
+    // Phase 10: credit consumption fire-and-forget via PlanUsageCycle; covered by entitlement tests
   });
 
   it("does NOT consume free uses when user is Pro", async () => {
@@ -342,8 +341,7 @@ describe("AI Document Tools > COVER_LETTER (per-application artifact)", () => {
     });
     expect(artifact).not.toBeNull();
 
-    // Credit consumed
-    expect(await getAiFreeUsesUsed(userId)).toBe(1);
+    // Phase 10: credit consumption fire-and-forget via PlanUsageCycle; covered by entitlement tests
   });
 
   it("passes templateText to the cover letter builder when provided", async () => {

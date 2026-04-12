@@ -356,12 +356,7 @@ describe("Admin > Pro requests", () => {
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({ ok: true });
 
-    // Confirm user free uses reset to 0
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { aiFreeUsesUsed: true },
-    });
-    expect(dbUser?.aiFreeUsesUsed).toBe(0);
+    // Note: grantCredits no longer resets aiFreeUsesUsed (Phase 10 uses PlanUsageCycle)
 
     // Confirm request status updated
     const dbReq = await prisma.aiProRequest.findUnique({
@@ -408,4 +403,3 @@ describe("Admin > Pro requests", () => {
     expect(res.json()).toMatchObject({ message: expect.any(String) });
   });
 });
-

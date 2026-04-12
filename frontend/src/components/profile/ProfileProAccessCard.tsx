@@ -54,7 +54,7 @@ export function ProfileProAccessCard() {
       localStorage.removeItem(`${REQUEST_DONE_KEY}_cycle`);
       setRequestDone(false);
     }
-  }, [usage?.resetAt]);
+  }, [usage]);
 
   if (!user) return null;
 

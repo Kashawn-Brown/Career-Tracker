@@ -36,7 +36,7 @@ import { useConnectionAutocomplete } from "@/hooks/useConnectionAutocomplete";
 import { applicationDocumentsApi } from "@/lib/api/application-documents";
 import { documentsApi } from "@/lib/api/documents";
 import { createPortal } from "react-dom";
-import { hasProPlan, getEffectivePlan } from "@/lib/plans";
+import { getEffectivePlan } from "@/lib/plans";
 import { useBaseDocuments } from "@/hooks/useBaseDocuments";
 import { useAiToolsOnCreate } from "@/hooks/useAiToolsOnCreate";
 import { AiToolsAfterCreate } from "@/components/applications/AiToolsAfterCreate";
@@ -258,7 +258,8 @@ export function CreateApplicationFromJdForm({
   function refreshUsage() {
     analyticsApi.getMyUsage().then(setUsageState).catch(() => null);
   }
-  useEffect(() => { refreshUsage(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => { refreshUsage(); }, []);
 
   const isBlocked = usageState?.isBlocked ?? false;
   const planLabel = usageState?.plan ?? (user ? getEffectivePlan(user) : "REGULAR");

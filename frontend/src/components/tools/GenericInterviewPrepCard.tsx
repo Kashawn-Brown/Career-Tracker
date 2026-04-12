@@ -9,7 +9,7 @@ import { ToolInfoPopover }       from "@/components/tools/ToolInfoPopover";
 import { TOOL_INFO }             from "@/lib/tool-info";
 import { PastRunsSection }       from "@/components/tools/PastRunsSection";
 import type { UserAiArtifact, InterviewPrepPayload } from "@/types/api";
-import { CreditCostNote, BlockedRunButton } from "@/components/tools/ToolEntitlementGate";
+import { CreditCostNote } from "@/components/tools/ToolEntitlementGate";
 
 // Accepted resume file types (matches backend allowlist)
 const RESUME_ACCEPT = ".pdf,.txt,.docx";

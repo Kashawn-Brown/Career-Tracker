@@ -367,8 +367,7 @@ describe("AI > Interview Prep > targeted (ai-artifacts INTERVIEW_PREP)", () => {
     });
     expect(artifact).not.toBeNull();
 
-    // Free use consumed
-    expect(await getAiFreeUsesUsed(userId)).toBe(1);
+    // Phase 10: credit consumption fire-and-forget via PlanUsageCycle; covered by entitlement tests
   });
 
   it("works with JD + base resume — passes candidateText to service", async () => {

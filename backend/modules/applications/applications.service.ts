@@ -146,8 +146,9 @@ export async function exportApplicationsCsv(params: ExportApplicationsParams) {
     );
   }
 
-  // Fetch all matching rows (no pagination)
-  const rows = await prisma.jobApplication.findMany({
+  // Fetch all matching rows (no pagination).
+  // Text fields are sorted case-insensitively in JS after fetching, same as listApplications.
+  const rawRows = await prisma.jobApplication.findMany({
     where,
     orderBy,
     select: {
@@ -164,6 +165,16 @@ export async function exportApplicationsCsv(params: ExportApplicationsParams) {
       updatedAt:   true,
     },
   });
+
+  // Apply case-insensitive JS sort for text fields (Prisma doesn't support lower() in orderBy)
+  const rows = TEXT_SORT_FIELDS.has(sortBy)
+    ? [...rawRows].sort((a, b) => {
+        const aVal = String((a as Record<string, unknown>)[sortBy] ?? "").toLowerCase();
+        const bVal = String((b as Record<string, unknown>)[sortBy] ?? "").toLowerCase();
+        const cmp  = aVal.localeCompare(bVal);
+        return sortDir === "asc" ? cmp : -cmp;
+      })
+    : rawRows;
 
   const columns  = normalizeExportColumns(params.columns?.join(","));
   const csv      = buildApplicationsCsv(rows, columns);

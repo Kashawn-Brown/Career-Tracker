@@ -33,7 +33,7 @@ import type { OnCreatedArgs } from "@/components/applications/CreateApplicationF
 // CreateApplicationForm: Form to create a new application (POST /applications).
 export function CreateApplicationForm({ onCreated }: { onCreated: (args: OnCreatedArgs) => void }) {
 
-  const { user } = useAuth();
+  useAuth(); // ensures auth context is available
   const [usageState, setUsageState] = useState<UsageState | null>(null);
 
   useEffect(() => {
