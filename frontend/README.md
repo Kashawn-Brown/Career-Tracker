@@ -144,7 +144,17 @@ All API calls use:
 
 ---
 
-## Notes on AI gating (frontend)
+## Notes on AI gating (frontend — Phase 10)
+
+AI tool surfaces are governed by a monthly credit system:
+
+- `CreditCostNote` shows "Uses X credits" on tool cards for REGULAR users (PRO sees nothing)
+- `BlockedRunButton` replaces the run button when the user is out of credits, with links to request more
+- Credit warnings appear in tool cards at 90% usage and as a full block at 100%
+- `ProfileProAccessCard` on the profile page shows real-time usage from the cycle ledger and surfaces request actions
+- The Activity page shows a `UsageCard` with progress bar, threshold colouring, and reset date
+
+## Notes on AI gating (legacy)
 
 AI actions can be blocked by:
 
@@ -186,4 +196,4 @@ Generic tool results are capped at 3 per user per kind (oldest evicted). Uploade
 
 ---
 
-*Last updated: 2026-04-08*
+*Last updated: 2026-04-11*

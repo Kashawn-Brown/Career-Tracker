@@ -8,6 +8,11 @@ type DbClient = PrismaClient | Prisma.TransactionClient;
 export const AI_FREE_QUOTA = 5;
 
 /**
+ * @deprecated Phase 10: AI access enforcement is now handled by
+ * assertCreditAccessOrThrow() in modules/plans/entitlement-policy.ts.
+ * These functions are kept only for legacy test compatibility and will be
+ * removed in a future cleanup pass.
+ *
  * Guard: blocks AI calls when the user has no remaining access.
  *
  * - PRO / PRO_PLUS (including admins): always allowed

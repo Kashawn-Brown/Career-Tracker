@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react";
 import { adminApi } from "@/lib/api/admin";
 import { ApiError } from "@/lib/api/client";
-import type { AdminUserDetail, AdminUserListItem, UserPlan, AdminUserAnalyticsResponse, AdminProRequestEntry } from "@/types/api";
+import type { AdminUserDetail, AdminUserListItem, UserPlan, AdminUserAnalyticsResponse, AdminProRequestEntry, UsageState } from "@/types/api";
 import { analyticsApi } from "@/lib/api/analytics";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
-import { AI_FREE_QUOTA } from "@/lib/constants";
+
 
 const TOOL_LABELS: Record<string, string> = {
   JD_EXTRACTION:     "JD Extraction",
@@ -52,6 +52,12 @@ export function UserDetailSheet({ user, open, onClose, onUserUpdated }: Props) {
   const [error, setError]             = useState<string | null>(null);
   const [aiUsage, setAiUsage]               = useState<AdminUserAnalyticsResponse | null>(null);
   const [aiUsageLoading, setAiUsageLoading] = useState(false);
+  const [usageState, setUsageState]         = useState<UsageState | null>(null);
+  const [usageLoading, setUsageLoading]     = useState(false);
+  const [creditAmount, setCreditAmount]     = useState("10");
+  const [creditNote, setCreditNote]         = useState("");
+  const [creditActing, setCreditActing]     = useState(false);
+  const [creditError, setCreditError]       = useState<string | null>(null);
   const [proActing, setProActing]           = useState<Record<string, boolean>>({});
   const [proNotes, setProNotes]             = useState<Record<string, string>>({});
   const [proError, setProError]             = useState<string | null>(null);
@@ -66,6 +72,10 @@ export function UserDetailSheet({ user, open, onClose, onUserUpdated }: Props) {
     if (!open || !user) {
       setDetail(null);
       setAiUsage(null);
+      setUsageState(null);
+      setCreditAmount("10");
+      setCreditNote("");
+      setCreditError(null);
       setProError(null);
       setProNotes({});
       setPendingAction(null);
@@ -85,12 +95,19 @@ export function UserDetailSheet({ user, open, onClose, onUserUpdated }: Props) {
         setIsLoading(false);
       }
 
-      // Load AI usage separately — non-blocking so sheet still opens if it fails
+      // Load AI usage separately — non-blocking
       setAiUsageLoading(true);
       analyticsApi.getAdminUserAnalytics(user!.id, "all")
         .then(setAiUsage)
-        .catch(() => {}) // non-fatal
+        .catch(() => {})
         .finally(() => setAiUsageLoading(false));
+
+      // Load plan usage state
+      setUsageLoading(true);
+      adminApi.getUserUsage(user!.id)
+        .then(setUsageState)
+        .catch(() => {})
+        .finally(() => setUsageLoading(false));
     }
 
     void load();
@@ -144,6 +161,40 @@ export function UserDetailSheet({ user, open, onClose, onUserUpdated }: Props) {
     }
   }
 
+  async function handleAddCredits() {
+    if (!user) return;
+    const amount = parseInt(creditAmount, 10);
+    if (!amount || amount < 1) return;
+    setCreditActing(true);
+    setCreditError(null);
+    try {
+      await adminApi.addUserCredits(user.id, amount, creditNote.trim() || undefined);
+      setCreditAmount("10");
+      setCreditNote("");
+      const updated = await adminApi.getUserUsage(user.id);
+      setUsageState(updated);
+    } catch (err) {
+      setCreditError(err instanceof Error ? err.message : "Failed to add credits.");
+    } finally {
+      setCreditActing(false);
+    }
+  }
+
+  async function handleResetCredits() {
+    if (!user) return;
+    setCreditActing(true);
+    setCreditError(null);
+    try {
+      await adminApi.resetUserCredits(user.id);
+      const updated = await adminApi.getUserUsage(user.id);
+      setUsageState(updated);
+    } catch (err) {
+      setCreditError(err instanceof Error ? err.message : "Failed to reset credits.");
+    } finally {
+      setCreditActing(false);
+    }
+  }
+
   const isAdmin = user?.role === "ADMIN";
 
   return (
@@ -170,7 +221,7 @@ export function UserDetailSheet({ user, open, onClose, onUserUpdated }: Props) {
               <Field label="Role"        value={detail.role} />
               <Field label="Plan"        value={PLAN_LABELS[detail.plan]} />
               <Field label="Status"      value={detail.isActive ? "Active" : "Inactive"} />
-              <Field label="AI Credits"  value={`${detail.aiFreeUsesUsed} / ${AI_FREE_QUOTA} used`} />
+              <Field label="Credits used" value={usageState ? `${usageState.usedCredits} / ${usageState.totalCredits} (${usageState.remaining} remaining)` : usageLoading ? "Loading..." : "—"} />
               <Field label="Last Active" value={detail.lastActiveAt ? fmtDate(detail.lastActiveAt) : "Never"} />
               <Field label="Member Since" value={fmtDate(detail.createdAt)} />
             </Section>
@@ -352,6 +403,54 @@ export function UserDetailSheet({ user, open, onClose, onUserUpdated }: Props) {
                       ))}
                   </div>
                 </Section>
+
+                {/* Credit controls */}
+                {!isAdmin && (
+                  <Section title="Credit Controls">
+                    <div className="space-y-3">
+                      {usageState && (
+                        <div className="text-xs text-muted-foreground">
+                          Current cycle: {usageState.usedCredits} used / {usageState.totalCredits} total ({usageState.remaining} remaining) · resets {new Date(usageState.resetAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="1"
+                          max="10000"
+                          value={creditAmount}
+                          onChange={(e) => setCreditAmount(e.target.value)}
+                          className="w-20 rounded border bg-background px-2 py-1 text-xs"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Note (optional)"
+                          value={creditNote}
+                          onChange={(e) => setCreditNote(e.target.value)}
+                          className="flex-1 rounded border bg-background px-2 py-1 text-xs"
+                        />
+                        <Button
+                          size="sm"
+                          disabled={creditActing}
+                          onClick={handleAddCredits}
+                        >
+                          {creditActing ? "..." : "Add credits"}
+                        </Button>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={creditActing}
+                        onClick={handleResetCredits}
+                      >
+                        {"Reset user's credits"}
+                      </Button>
+                      {creditError && (
+                        <p className="text-xs text-destructive">{creditError}</p>
+                      )}
+                    </div>
+                  </Section>
+                )}
 
                 {/* Account status */}
                 <Section title="Account Status">

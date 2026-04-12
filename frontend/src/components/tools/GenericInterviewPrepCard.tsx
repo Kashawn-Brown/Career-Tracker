@@ -9,13 +9,16 @@ import { ToolInfoPopover }       from "@/components/tools/ToolInfoPopover";
 import { TOOL_INFO }             from "@/lib/tool-info";
 import { PastRunsSection }       from "@/components/tools/PastRunsSection";
 import type { UserAiArtifact, InterviewPrepPayload } from "@/types/api";
+import { CreditCostNote, BlockedRunButton } from "@/components/tools/ToolEntitlementGate";
 
 // Accepted resume file types (matches backend allowlist)
 const RESUME_ACCEPT = ".pdf,.txt,.docx";
 
 interface Props {
   hasBaseResume: boolean;
-  onSuccess:     () => void; // called after a successful run to refresh credit count
+  onSuccess:     () => void;
+  isBlocked?:   boolean;
+  plan?:        string;
 }
 
 /**
@@ -28,7 +31,7 @@ interface Props {
  * Collapsed by default; expands inline on "Get started".
  * Past runs shown below the header in collapsed state.
  */
-export function GenericInterviewPrepCard({ hasBaseResume, onSuccess }: Props) {
+export function GenericInterviewPrepCard({ hasBaseResume, onSuccess, isBlocked = false, plan = "REGULAR" }: Props) {
   const [expanded, setExpanded] = useState(false);
 
   const [targetField,       setTargetField]       = useState("");
@@ -199,9 +202,16 @@ export function GenericInterviewPrepCard({ hasBaseResume, onSuccess }: Props) {
 
           {error && <p className="text-sm text-destructive">{error}</p>}
 
-          <Button onClick={handleSubmit} disabled={!canRun || loading} className="w-full">
-            {loading ? "Generating…" : "Generate interview prep"}
-          </Button>
+          {isBlocked ? (
+            <BlockedRunButton plan={plan} />
+          ) : (
+            <>
+              <Button onClick={handleSubmit} disabled={!canRun || loading} className="w-full mb-2">
+                {loading ? "Generating…" : "Generate interview prep"}
+              </Button>
+              <CreditCostNote plan={plan} cost={3} />
+            </>
+          )}
 
           {/* Inline result below the form after a successful run */}
           {artifact && (

@@ -1,7 +1,6 @@
 import { JobType, WorkMode } from "@prisma/client";
 import { UserPlan } from "@prisma/client";
 import type { AiTier } from "./ai-tier.js";
-import { AI_MODELS } from "./openai.js";
 
 
 // ------------------- EXTRACT JOB DESCRIPTION -------------------
@@ -562,49 +561,14 @@ export const FitV1JsonObject = {
 
 // ─── FIT_V1 HELPERS ────────────────────────────────────────────────────────────
 
-type FitVerbosity = "low" | "medium" | "high";
-type FitEffort    = "low" | "medium" | "high" | "xhigh";
-
-type FitPolicy = {
-  tier:            AiTier;
-  model:           string;
-  verbosity:       FitVerbosity;
-  effort:          FitEffort;
-  maxOutputTokens: number;
-};
-
-/**
- * Output token budgets by plan.
- * Higher plans get more tokens for richer output.
- */
-const FIT_MAX_OUTPUT_TOKENS_BY_PLAN: Record<AiTier, number> = {
-  [UserPlan.REGULAR]:  10_000,
-  [UserPlan.PRO]:      15_000,
-  [UserPlan.PRO_PLUS]: 20_000,
-};
-
-/**
- * Returns the model/effort/verbosity config for a FIT_V1 run
- * based on the user's plan.
- */
-export function getFitPolicyForPlan(plan: AiTier): FitPolicy {
-  const maxOutputTokens = FIT_MAX_OUTPUT_TOKENS_BY_PLAN[plan] ?? 10_000;
-
-  switch (plan) {
-    case UserPlan.PRO_PLUS:
-      return { tier: plan, model: AI_MODELS.FIT_PRO_PLUS, effort: "medium",   verbosity: "medium",   maxOutputTokens };
-    case UserPlan.PRO:
-      return { tier: plan, model: AI_MODELS.FIT_PRO,      effort: "medium", verbosity: "medium", maxOutputTokens };
-    case UserPlan.REGULAR:
-    default:
-      return { tier: plan, model: AI_MODELS.FIT_REGULAR,  effort: "low",    verbosity: "low",    maxOutputTokens };
-  }
-}
+// Note: effort/verbosity/maxOutputTokens for FIT_V1 are resolved via
+// getExecutionProfile() in entitlement-policy.ts — see ai.service.ts.
 
 export type FitV1RunResult = {
   payload: FitV1Response;
   model:   string;
   tier:    AiTier;
+  usage:   { input: number; output: number; total: number };
 };
 
 // Clamp score to 0–100

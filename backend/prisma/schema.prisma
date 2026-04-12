@@ -56,6 +56,9 @@ model User {
   productEvents        ProductEvent[]
   aiRuns               AiRun[]
   artifactInteractions ArtifactInteraction[]
+  planUsageCycles      PlanUsageCycle[]
+  planUsageAdjustments PlanUsageAdjustment[]
+  planRequests         PlanRequest[]
 
   authSessions    AuthSession[]
 
@@ -528,4 +531,112 @@ model ArtifactInteraction {
   @@index([artifactKind, createdAt(sort: Desc)])
   @@index([applicationId, createdAt(sort: Desc)])
   @@map("artifact_interactions")
+}
+
+
+// ─── Plan entitlements ────────────────────────────────────────────
+
+/**
+ * PlanUsageCycle — one record per user per calendar month.
+ *
+ * Tracks how many credits have been consumed in the current cycle and what
+ * the effective allowance is. A new row is created (or upserted) at the start
+ * of each month. Manual adjustments (credits added by admin) are recorded
+ * separately in PlanUsageAdjustment and reflected in bonusCredits here.
+ */
+model PlanUsageCycle {
+  id        String   @id @default(cuid())
+  userId    String
+
+  // Cycle boundaries (UTC, start of month)
+  cycleYear  Int   // e.g. 2026
+  cycleMonth Int   // 1–12
+
+  // Base allowance for this cycle (snapshot from plan at cycle start)
+  baseCredits  Int @default(0)
+  // Admin-added bonus credits for this cycle
+  bonusCredits Int @default(0)
+  // Credits consumed by successful AI runs this cycle
+  usedCredits  Int @default(0)
+
+  // Plan that was active when this cycle was created
+  planAtCycleStart String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // One cycle row per user per month
+  @@unique([userId, cycleYear, cycleMonth])
+  @@index([userId, cycleYear, cycleMonth])
+  @@map("plan_usage_cycles")
+}
+
+/**
+ * PlanUsageAdjustment — audit trail for manual credit changes.
+ *
+ * Every time an admin adds credits, resets a user, or promotes them to PRO,
+ * a row is written here. This keeps the cycle row clean while preserving a
+ * full history of admin actions for accountability.
+ */
+model PlanUsageAdjustment {
+  id     String @id @default(cuid())
+  userId String
+
+  // Which cycle this adjustment applies to
+  cycleYear  Int
+  cycleMonth Int
+
+  adjustmentType String  // "ADD_CREDITS" | "RESET_CYCLE" | "PLAN_PROMOTION"
+  creditsAdded   Int     @default(0) // positive = credits added
+  note           String? // optional admin note
+
+  // Who performed the adjustment
+  adminUserId String?
+
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, cycleYear, cycleMonth])
+  @@index([adminUserId])
+  @@map("plan_usage_adjustments")
+}
+
+/**
+ * PlanRequest — user-initiated requests for more credits or plan upgrade.
+ *
+ * Replaces the old AiProRequest model conceptually, but coexists with it
+ * during the transition. Covers both credit requests and PRO upgrade requests
+ * in one model with a requestType discriminator.
+ */
+model PlanRequest {
+  id     String @id @default(cuid())
+  userId String
+
+  // "MORE_CREDITS" | "UPGRADE_PRO"
+  requestType String
+
+  // Snapshot of plan at request time
+  planAtRequest String
+
+  status String @default("PENDING") // "PENDING" | "APPROVED" | "DECLINED"
+
+  // User-provided context (optional)
+  userNote String?
+
+  // Admin response
+  adminNote   String?
+  adminUserId String?
+  decidedAt   DateTime?
+
+  requestedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([status, requestedAt(sort: Desc)])
+  @@map("plan_requests")
 }

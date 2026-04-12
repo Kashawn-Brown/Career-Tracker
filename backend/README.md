@@ -64,6 +64,7 @@ backend/
     pro/                  # Pro access request
     admin/                # admin user management + Pro approvals
     analytics/            # analytics tracking helpers + query service + routes
+    plans/                # plan resolver + Phase 10 entitlement policy (credits, enforcement, admin actions)
     debug/                # dev-only routes (seed)
   prisma/
     schema.prisma
@@ -302,7 +303,7 @@ All generic tool results are persisted as `UserAiArtifact` (capped at 3 per user
 AI gating rules:
 
 * `requireVerifiedEmail` blocks unverified users
-* `requireAiAccess` blocks users without free quota or Pro
+* `requireAiAccess` blocks users who have exhausted their monthly credit allowance (backed by `PlanUsageCycle` via `assertCreditAccessOrThrow` in entitlement-policy)
 * Quota is consumed **only after successful AI completion** — failed or
   invalid requests do not consume free uses
 * Resume source resolution for targeted tools: `sourceDocumentId` (must be `RESUME` or `CAREER_HISTORY` kind) → uploaded override → base resume
@@ -607,4 +608,4 @@ Run instructions + output conventions:
 
 ---
 
-*Last updated: 2026-04-08*
+*Last updated: 2026-04-11*

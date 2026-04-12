@@ -3,6 +3,7 @@
 import { useApplicationDocs } from "@/hooks/useApplicationDocs";
 
 import { useEffect, useRef, useState } from "react";
+import { CreditCostNote, BlockedRunButton } from "@/components/tools/ToolEntitlementGate";
 import { Button }              from "@/components/ui/button";
 import { Card }                from "@/components/ui/card";
 import { ApiError }            from "@/lib/api/client";
@@ -25,6 +26,9 @@ interface Props {
   // default template indicator with an opt-out option in the generate form.
   baseCoverLetterExists: boolean;
   canUseAi:             boolean;
+  isBlocked?:   boolean;
+  plan?:        string;
+  creditCost?:  number;
   documentToolRuns:     DocumentToolRunsController;
   onCloseOthers?:       () => void;
   onRegisterClose?:     (fn: () => void) => void;
@@ -41,6 +45,9 @@ export function CoverLetterCard({
   baseResumeExists,
   baseCoverLetterExists,
   canUseAi,
+  isBlocked  = false,
+  plan       = "REGULAR",
+  creditCost = 2,
   documentToolRuns,
   onCloseOthers,
   onRegisterClose,
@@ -435,10 +442,17 @@ export function CoverLetterCard({
                 />
               </div>
 
-              <div className="flex items-center gap-2 pt-2 border-t">
-                <Button disabled={!canRun} onClick={handleGenerate} className={isRerunMode ? "" : "w-full"}>
-                  Generate cover letter
-                </Button>
+              <div className="pt-2 border-t space-y-2">
+                {isBlocked && !isRerunMode ? (
+                  <BlockedRunButton plan={plan} />
+                ) : (
+                  <>
+                    <Button disabled={!canRun} onClick={handleGenerate} className={isRerunMode ? "" : "w-full mb-2"}>
+                      Generate cover letter
+                    </Button>
+                    {!isRerunMode && <CreditCostNote plan={plan} cost={creditCost} />}
+                  </>
+                )}
                 {isRerunMode && (
                   <Button variant="outline" onClick={() => { setError(null); setIsRerunMode(false); }}>
                     Cancel

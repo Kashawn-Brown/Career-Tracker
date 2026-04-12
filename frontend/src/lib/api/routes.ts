@@ -34,6 +34,7 @@ export const routes = {
     adminActivity:      ()                => "/analytics/admin/activity",
     adminUserAnalytics: (userId: string, window?: string) => `/analytics/admin/users/${userId}${window ? `?window=${window}` : ""}`,
     meOverview:         (window?: string) => `/analytics/me/overview${window ? `?window=${window}` : ""}`,
+    meUsage:            () => "/analytics/me/usage",
   },
   admin: {
     listProRequests: () => "/admin/pro-requests",
@@ -44,6 +45,9 @@ export const routes = {
     listUsers: () => "/admin/users",
     getUserDetail: (userId: string) => `/admin/users/${userId}`,
     updateUserStatus: (userId: string) => `/admin/users/${userId}/status`,
+    getUserUsage:     (userId: string) => `/admin/users/${userId}/usage`,
+    addUserCredits:   (userId: string) => `/admin/users/${userId}/credits/add`,
+    resetUserCredits: (userId: string) => `/admin/users/${userId}/credits/reset`,
   },
   users: {
     me: () => "/users/me",

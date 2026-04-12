@@ -18,6 +18,7 @@
 
 import { AppError }          from "../../errors/app-error.js";
 import { getOpenAIClient, AI_MODELS } from "./openai.js";
+import type { ExecutionProfile } from "../plans/entitlement-policy.js";
 import { throwIfAborted }    from "../../lib/request-abort.js";
 import {
   ResumeAdviceJsonObject,
@@ -43,13 +44,15 @@ export type GenericResumeAdviceInput = {
   targetRolesText?:   string;
   targetKeywords?:    string;
   additionalContext?: string;
-  signal?:            AbortSignal;
+  signal?:            AbortSignal
+  profile?: ExecutionProfile;
 };
 
 export type TargetedResumeAdviceInput = {
   candidateText: string;
   jdText:        string;
-  signal?:       AbortSignal;
+  signal?:       AbortSignal
+  profile?: ExecutionProfile;
 };
 
 export type GenericCoverLetterInput = {
@@ -60,15 +63,31 @@ export type GenericCoverLetterInput = {
   whyInterested?:     string;
   templateText?:      string;
   additionalContext?: string;
-  signal?:            AbortSignal;
+  signal?:            AbortSignal
+  profile?: ExecutionProfile;
 };
 
 export type TargetedCoverLetterInput = {
   candidateText: string;
   jdText:        string;
   templateText?: string;
-  signal?:       AbortSignal;
+  signal?:       AbortSignal
+  profile?: ExecutionProfile;
 };
+
+
+// ─── Token usage helper ──────────────────────────────────────────────────────
+
+export type TokenUsage = { input: number; output: number; total: number };
+
+function extractTokenUsage(resp: any): TokenUsage {
+  const u = resp?.usage ?? {};
+  const input  = u.input_tokens  ?? u.prompt_tokens     ?? 0;
+  const output = u.output_tokens ?? u.completion_tokens ?? 0;
+  return { input, output, total: u.total_tokens ?? (input + output) };
+}
+
+export type DocumentToolResult<T> = { payload: T; usage: TokenUsage };
 
 
 // ─── Generic Resume Advice ────────────────────────────────────────────────────
@@ -80,7 +99,7 @@ export type TargetedCoverLetterInput = {
  */
 export async function buildGenericResumeAdvice(
   input: GenericResumeAdviceInput
-): Promise<ResumeAdvicePayload> {
+): Promise<DocumentToolResult<ResumeAdvicePayload>> {
   const { candidateText, targetField, targetRolesText, targetKeywords, additionalContext, signal } = input;
 
   if (!candidateText?.trim()) {
@@ -110,14 +129,14 @@ export async function buildGenericResumeAdvice(
           schema: ResumeAdviceJsonObject,
         },
       },
-      reasoning:         { effort: "medium" },
+      reasoning:         { effort: input.profile?.effort ?? "medium" },
       max_output_tokens: RESUME_ADVICE_MAX_TOKENS,
     },
     { signal }
   );
 
   const parsed = parseDocumentToolResponse<ResumeAdvicePayload>(resp, "resume_advice_generic");
-  return normalizeResumeAdvice(parsed);
+  return { payload: normalizeResumeAdvice(parsed), usage: extractTokenUsage(resp) };
 }
 
 
@@ -129,7 +148,7 @@ export async function buildGenericResumeAdvice(
  */
 export async function buildTargetedResumeAdvice(
   input: TargetedResumeAdviceInput
-): Promise<ResumeAdvicePayload> {
+): Promise<DocumentToolResult<ResumeAdvicePayload>> {
   const { candidateText, jdText, signal } = input;
 
   if (!candidateText?.trim()) throw new AppError("Resume text is required.", 400, "RESUME_TEXT_MISSING");
@@ -154,14 +173,14 @@ export async function buildTargetedResumeAdvice(
           schema: ResumeAdviceJsonObject,
         },
       },
-      reasoning:         { effort: "medium" },
+      reasoning:         { effort: input.profile?.effort ?? "medium" },
       max_output_tokens: RESUME_ADVICE_MAX_TOKENS,
     },
     { signal }
   );
 
   const parsed = parseDocumentToolResponse<ResumeAdvicePayload>(resp, "resume_advice_targeted");
-  return normalizeResumeAdvice(parsed);
+  return { payload: normalizeResumeAdvice(parsed), usage: extractTokenUsage(resp) };
 }
 
 
@@ -173,7 +192,7 @@ export async function buildTargetedResumeAdvice(
  */
 export async function buildGenericCoverLetter(
   input: GenericCoverLetterInput
-): Promise<CoverLetterPayload> {
+): Promise<DocumentToolResult<CoverLetterPayload>> {
   const {
     candidateText, targetField, targetRolesText, targetCompany,
     whyInterested, templateText, additionalContext, signal,
@@ -203,14 +222,14 @@ export async function buildGenericCoverLetter(
           schema: CoverLetterJsonObject,
         },
       },
-      reasoning:         { effort: "medium" },
+      reasoning:         { effort: input.profile?.effort ?? "medium" },
       max_output_tokens: COVER_LETTER_MAX_TOKENS,
     },
     { signal }
   );
 
   const parsed = parseDocumentToolResponse<CoverLetterPayload>(resp, "cover_letter_generic");
-  return normalizeCoverLetter(parsed);
+  return { payload: normalizeCoverLetter(parsed), usage: extractTokenUsage(resp) };
 }
 
 
@@ -223,7 +242,7 @@ export async function buildGenericCoverLetter(
  */
 export async function buildTargetedCoverLetter(
   input: TargetedCoverLetterInput
-): Promise<CoverLetterPayload> {
+): Promise<DocumentToolResult<CoverLetterPayload>> {
   const { candidateText, jdText, templateText, signal } = input;
 
   if (!candidateText?.trim()) throw new AppError("Resume text is required.", 400, "RESUME_TEXT_MISSING");
@@ -248,14 +267,14 @@ export async function buildTargetedCoverLetter(
           schema: CoverLetterJsonObject,
         },
       },
-      reasoning:         { effort: "medium" },
+      reasoning:         { effort: input.profile?.effort ?? "medium" },
       max_output_tokens: COVER_LETTER_MAX_TOKENS,
     },
     { signal }
   );
 
   const parsed = parseDocumentToolResponse<CoverLetterPayload>(resp, "cover_letter_targeted");
-  return normalizeCoverLetter(parsed);
+  return { payload: normalizeCoverLetter(parsed), usage: extractTokenUsage(resp) };
 }
 
 

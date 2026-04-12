@@ -15,6 +15,7 @@ import { requireAuth } from "../../middleware/auth.js";
 import { requireVerifiedEmail } from "../../middleware/require-verified-email.js";
 import { requireAdmin } from "../../middleware/require-admin.js";
 import * as AnalyticsService from "./analytics.service.js";
+import { resolveUsageState } from "../plans/entitlement-policy.js";
 import type { DateWindow } from "./analytics.service.js";
 import { AppError } from "../../errors/app-error.js";
 
@@ -99,6 +100,18 @@ export async function analyticsRoutes(app: FastifyInstance) {
       const userId = req.user!.id;
       const window = parseWindow((req.query as Record<string, unknown>).window);
       return AnalyticsService.getUserActivityOverview(userId, window);
+    }
+  );
+
+  /**
+   * GET /analytics/me/usage
+   * Current plan usage state: credits used/remaining, threshold, reset date.
+   */
+  app.get(
+    "/me/usage",
+    { preHandler: [requireAuth, requireVerifiedEmail] },
+    async (req) => {
+      return resolveUsageState(req.user!.id);
     }
   );
 }

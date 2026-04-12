@@ -4,16 +4,13 @@ import { AppError } from "../../errors/app-error.js";
 /**
  * Centralized OpenAI client and model configuration.
  *
- * ALL model names live here.
- * To change a model, change it here.
+ * Phase 10 decision: one model for all tools and all plans.
+ * Quality differentiation comes from effort/verbosity profiles, not model switching.
  *
- * Each entry follows the pattern:
- *   TASK_PLAN: env override ?? default model
- *
- * Env overrides let you swap models in production without a redeploy.
+ * Override the model at runtime via OPENAI_MODEL env var without a redeploy.
  */
 
-// ─── OpenAI Client ────────────────────────────────────────────────────────────────
+// ─── OpenAI Client ────────────────────────────────────────────────────────────
 
 let client: OpenAI | null = null;
 
@@ -28,48 +25,45 @@ export function getOpenAIClient(): OpenAI {
   return client;
 }
 
+// ─── Single model constant ────────────────────────────────────────────────────
+
 /**
- * Model for JD extraction (JD_EXTRACT_V1).
- * Fast structured extraction — same model for all plans.
+ * The model used for all AI tools across all plans.
+ * Set OPENAI_MODEL in the environment to override without redeploying.
+ */
+export const OPENAI_MODEL: string =
+  process.env.OPENAI_MODEL?.trim() ?? "gpt-5-mini";
+
+/**
+ * AI_MODELS is kept as a thin alias so existing call sites don't all need
+ * updating at once. All entries resolve to OPENAI_MODEL.
+ *
+ * @deprecated Use OPENAI_MODEL directly in new code.
+ */
+export const AI_MODELS = {
+  JD_EXTRACT:                    OPENAI_MODEL,
+  FIT_REGULAR:                   OPENAI_MODEL,
+  FIT_PRO:                       OPENAI_MODEL,
+  FIT_PRO_PLUS:                  OPENAI_MODEL,
+  RESUME_ADVICE:                 OPENAI_MODEL,
+  COVER_LETTER:                  OPENAI_MODEL,
+  INTERVIEW_PREP:                OPENAI_MODEL,
+  INTERVIEW_QUESTION_GENERATION: OPENAI_MODEL,
+} as const;
+
+/**
+ * Model for JD extraction. Kept for call-site compatibility.
+ * JD extraction always uses the shared model with a fixed stable config.
  */
 export function getJdExtractOpenAIModel(): string {
-  return AI_MODELS.JD_EXTRACT;
+  return OPENAI_MODEL;
 }
 
 /**
- * Optional second model for JD extraction when the primary returns `content_filter`
- * (e.g. try `gpt-4o-mini`). Set `OPENAI_MODEL_JD_EXTRACT_FALLBACK` in the environment.
+ * Optional fallback model for JD extraction on content_filter responses.
+ * Set OPENAI_MODEL_JD_EXTRACT_FALLBACK in the environment.
  */
 export function getJdExtractFallbackOpenAIModel(): string | undefined {
   const m = process.env.OPENAI_MODEL_JD_EXTRACT_FALLBACK?.trim();
   return m || undefined;
 }
-
-// ─── Model registry ────────────────────────────────────────────────────────
-
-export const AI_MODELS = {
-
-  // JD extraction: structured field extraction from pasted job descriptions.
-  // Same model for all plans — task is mechanical, no reasoning needed.
-  JD_EXTRACT: process.env.OPENAI_MODEL_JD_EXTRACT ?? "gpt-5-mini",
-
-  // FIT_V1: compatibility analysis between a candidate and a job description.
-  // Higher plans get stronger models with more deliberate reasoning.
-  FIT_REGULAR:  process.env.OPENAI_MODEL_FIT_REGULAR  ?? "gpt-5-mini",
-  FIT_PRO:      process.env.OPENAI_MODEL_FIT_PRO      ?? "gpt-5-mini", // was gpt-5
-  FIT_PRO_PLUS: process.env.OPENAI_MODEL_FIT_PRO_PLUS ?? "gpt-5-mini", // was gpt-5
-
-
-  // Interview question generation: generate interview questions based on a job description and the user's resume.
-  INTERVIEW_QUESTION_GENERATION: process.env.OPENAI_MODEL_INTERVIEW_QUESTION_GENERATION ?? "gpt-5-mini", // was gpt-5
-
-  // Document tools: resume advice and cover letter generation.
-  // Both generic and targeted variants share one model each.
-  RESUME_ADVICE: process.env.OPENAI_MODEL_RESUME_ADVICE ?? "gpt-5-mini",
-  COVER_LETTER:  process.env.OPENAI_MODEL_COVER_LETTER  ?? "gpt-5-mini",
-
-  // Interview prep: generates focus topics, question banks, and prep guidance.
-  // One model for both generic (resume-only) and targeted (JD + optional resume) variants.
-  INTERVIEW_PREP: process.env.OPENAI_MODEL_INTERVIEW_PREP ?? "gpt-5-mini",
-
-} as const;

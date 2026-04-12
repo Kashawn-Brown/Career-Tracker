@@ -17,6 +17,8 @@
 
 import { AppError }                      from "../../errors/app-error.js";
 import { getOpenAIClient, AI_MODELS }    from "./openai.js";
+import type { DocumentToolResult, TokenUsage } from "./document-tools.service.js";
+import type { ExecutionProfile } from "../plans/entitlement-policy.js";
 import { throwIfAborted }                from "../../lib/request-abort.js";
 import {
   InterviewPrepJsonObject,
@@ -39,14 +41,26 @@ export type GenericInterviewPrepInput = {
   targetField?:       string;   // e.g. "Software Engineering"
   targetRolesText?:   string;   // e.g. "Backend Engineer, API Developer"
   additionalContext?: string;   // any other context the user wants to provide
-  signal?:            AbortSignal;
+  signal?:            AbortSignal
+  profile?: ExecutionProfile;
 };
 
 export type TargetedInterviewPrepInput = {
   jdText:         string;         // required — job description text
   candidateText?: string | null;  // optional — resume text if available
-  signal?:        AbortSignal;
+  signal?:        AbortSignal
+  profile?: ExecutionProfile;
 };
+
+
+// ─── Token usage helper ──────────────────────────────────────────────────────
+
+function extractTokenUsage(resp: any): TokenUsage {
+  const u = resp?.usage ?? {};
+  const input  = u.input_tokens  ?? u.prompt_tokens     ?? 0;
+  const output = u.output_tokens ?? u.completion_tokens ?? 0;
+  return { input, output, total: u.total_tokens ?? (input + output) };
+}
 
 
 // ─── Generic Interview Prep ───────────────────────────────────────────────────
@@ -63,7 +77,7 @@ export type TargetedInterviewPrepInput = {
  */
 export async function buildGenericInterviewPrep(
   input: GenericInterviewPrepInput
-): Promise<InterviewPrepPayload> {
+): Promise<DocumentToolResult<InterviewPrepPayload>> {
   const { candidateText, targetField, targetRolesText, additionalContext, signal } = input;
 
   if (!candidateText?.trim()) {
@@ -89,14 +103,14 @@ export async function buildGenericInterviewPrep(
           schema: InterviewPrepJsonObject,
         },
       },
-      reasoning:         { effort: "medium" },
+      reasoning:         { effort: input.profile?.effort ?? "medium" },
       max_output_tokens: INTERVIEW_PREP_MAX_TOKENS,
     },
     { signal }
   );
 
   const parsed = parseInterviewPrepResponse(resp, "interview_prep_generic");
-  return normalizeInterviewPrep(parsed);
+  return { payload: normalizeInterviewPrep(parsed), usage: extractTokenUsage(resp) };
 }
 
 
@@ -116,7 +130,7 @@ export async function buildGenericInterviewPrep(
  */
 export async function buildTargetedInterviewPrep(
   input: TargetedInterviewPrepInput
-): Promise<InterviewPrepPayload> {
+): Promise<DocumentToolResult<InterviewPrepPayload>> {
   const { jdText, candidateText, signal } = input;
 
   if (!jdText?.trim()) {
@@ -142,14 +156,14 @@ export async function buildTargetedInterviewPrep(
           schema: InterviewPrepJsonObject,
         },
       },
-      reasoning:         { effort: "medium" },
+      reasoning:         { effort: input.profile?.effort ?? "medium" },
       max_output_tokens: INTERVIEW_PREP_MAX_TOKENS,
     },
     { signal }
   );
 
   const parsed = parseInterviewPrepResponse(resp, "interview_prep_targeted");
-  return normalizeInterviewPrep(parsed);
+  return { payload: normalizeInterviewPrep(parsed), usage: extractTokenUsage(resp) };
 }
 
 

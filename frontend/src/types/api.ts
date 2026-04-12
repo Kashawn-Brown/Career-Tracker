@@ -664,6 +664,21 @@ export type UserAiArtifact<TPayload = unknown> = {
 
 export type DateWindow = "1d" | "7d" | "30d" | "1y" | "all";
 
+export type UsageThreshold = "OK" | "WARNING_75" | "WARNING_90" | "BLOCKED";
+
+export type UsageState = {
+  plan:         string;
+  baseCredits:  number;
+  bonusCredits: number;
+  totalCredits: number;
+  usedCredits:  number;
+  remaining:    number;
+  percentUsed:  number;
+  threshold:    UsageThreshold;
+  isBlocked:    boolean;
+  resetAt:      string; // ISO date string
+};
+
 export type AdminOverviewResponse = {
   users:        { total: number; new: number };
   applications: { total: number; new: number };

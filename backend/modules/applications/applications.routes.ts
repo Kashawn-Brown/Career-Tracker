@@ -19,7 +19,7 @@ import { parseApplicationFilters } from "./applications.filters.js";
 import { ExportApplicationsQuery, type ExportApplicationsQueryType } from "./applications.schemas.js";
 import { trackEventForUser } from "../analytics/analytics-tracker.js";
 import { startAiRun, succeedAiRun, failAiRun } from "../analytics/ai-run-tracker.js";
-import { trackApplicationArtifactViewed } from "../analytics/artifact-interactions.service.js";
+import { consumeCreditsOnSuccess, getExecutionProfile } from "../plans/entitlement-policy.js";
 
 export async function applicationsRoutes(app: FastifyInstance) {
   
@@ -455,16 +455,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
           });
     
           const tier = await resolveAiTierForUser(userId);
-    
-          const { payload, model } = await AiService.buildFitV1(
-            application.description,
-            candidate.text,
-            { tier, signal }
-          );
-    
-          // If the client cancelled, don't write artifact or consume quota.
-          throwIfAborted(signal);
-    
+
           runId = await startAiRun({
             userId,
             applicationId:  id,
@@ -472,10 +463,19 @@ export async function applicationsRoutes(app: FastifyInstance) {
             scope:          "TARGETED",
             triggerSource:  "APPLICATION_DRAWER",
             provider:       "openai",
-            model,
+            model:          AI_MODELS.FIT_REGULAR, // resolved post-run; updated on succeed
             resumeMode:     candidate.source === "BASE" ? "BASE" : "ATTACHED",
             jdMode:         "APPLICATION_DESCRIPTION",
           });
+
+          const { payload, model, usage: fitUsage } = await AiService.buildFitV1(
+            application.description,
+            candidate.text,
+            { tier, signal }
+          );
+
+          // If the client cancelled, don't write artifact or consume quota.
+          throwIfAborted(signal);
 
           const artifact = await ApplicationsService.createAiArtifact({
             userId,
@@ -489,8 +489,12 @@ export async function applicationsRoutes(app: FastifyInstance) {
           void succeedAiRun({
             runId,
             applicationArtifactId: artifact.id,
-            inputChars: candidate.text.length + application.description.length,
+            inputChars:       candidate.text.length + application.description.length,
+            promptTokens:     fitUsage.input,
+            completionTokens: fitUsage.output,
+            totalTokens:      fitUsage.total,
           });
+          void consumeCreditsOnSuccess(userId, "FIT");
     
           return reply.status(201).send(artifact);
         }
@@ -507,14 +511,6 @@ export async function applicationsRoutes(app: FastifyInstance) {
             sourceDocumentId,
           });
 
-          const payload = await DocumentToolsService.buildTargetedResumeAdvice({
-            candidateText: candidate.text,
-            jdText:        application.description,
-            signal,
-          });
-
-          throwIfAborted(signal);
-
           runId = await startAiRun({
             userId,
             applicationId: id,
@@ -526,6 +522,16 @@ export async function applicationsRoutes(app: FastifyInstance) {
             resumeMode:    candidate.source === "BASE" ? "BASE" : "ATTACHED",
             jdMode:        "APPLICATION_DESCRIPTION",
           });
+
+          const raProfile = getExecutionProfile(await resolveAiTierForUser(userId));
+          const { payload, usage: raUsage } = await DocumentToolsService.buildTargetedResumeAdvice({
+            candidateText: candidate.text,
+            jdText:        application.description,
+            signal,
+            profile:       raProfile,
+          });
+
+          throwIfAborted(signal);
 
           const artifact = await ApplicationsService.createAiArtifact({
             userId,
@@ -539,8 +545,12 @@ export async function applicationsRoutes(app: FastifyInstance) {
           void succeedAiRun({
             runId,
             applicationArtifactId: artifact.id,
-            inputChars: candidate.text.length + application.description.length,
+            inputChars:       candidate.text.length + application.description.length,
+            promptTokens:     raUsage.input,
+            completionTokens: raUsage.output,
+            totalTokens:      raUsage.total,
           });
+          void consumeCreditsOnSuccess(userId, "RESUME_ADVICE");
 
           return reply.status(201).send(artifact);
         }
@@ -566,15 +576,6 @@ export async function applicationsRoutes(app: FastifyInstance) {
               ? undefined
               : (await DocumentsService.getBaseCoverLetterTextOrNull(userId)) || undefined);
 
-          const payload = await DocumentToolsService.buildTargetedCoverLetter({
-            candidateText: candidate.text,
-            jdText:        application.description,
-            templateText:  effectiveTemplate,
-            signal,
-          });
-
-          throwIfAborted(signal);
-
           runId = await startAiRun({
             userId,
             applicationId: id,
@@ -586,6 +587,17 @@ export async function applicationsRoutes(app: FastifyInstance) {
             resumeMode:    candidate.source === "BASE" ? "BASE" : "ATTACHED",
             jdMode:        "APPLICATION_DESCRIPTION",
           });
+
+          const clProfile = getExecutionProfile(await resolveAiTierForUser(userId));
+          const { payload, usage: clUsage } = await DocumentToolsService.buildTargetedCoverLetter({
+            candidateText: candidate.text,
+            jdText:        application.description,
+            templateText:  effectiveTemplate,
+            signal,
+            profile:       clProfile,
+          });
+
+          throwIfAborted(signal);
 
           const artifact = await ApplicationsService.createAiArtifact({
             userId,
@@ -599,8 +611,12 @@ export async function applicationsRoutes(app: FastifyInstance) {
           void succeedAiRun({
             runId,
             applicationArtifactId: artifact.id,
-            inputChars: candidate.text.length + application.description.length,
+            inputChars:       candidate.text.length + application.description.length,
+            promptTokens:     clUsage.input,
+            completionTokens: clUsage.output,
+            totalTokens:      clUsage.total,
           });
+          void consumeCreditsOnSuccess(userId, "COVER_LETTER");
 
           return reply.status(201).send(artifact);
         }
@@ -621,14 +637,6 @@ export async function applicationsRoutes(app: FastifyInstance) {
             sourceDocumentId,
           });
 
-          const payload = await InterviewPrepService.buildTargetedInterviewPrep({
-            jdText:        application.description,
-            candidateText: candidate?.text ?? null,
-            signal,
-          });
-
-          throwIfAborted(signal);
-
           runId = await startAiRun({
             userId,
             applicationId: id,
@@ -640,6 +648,16 @@ export async function applicationsRoutes(app: FastifyInstance) {
             resumeMode:    candidate ? (candidate.source === "BASE" ? "BASE" : "ATTACHED") : "NONE",
             jdMode:        "APPLICATION_DESCRIPTION",
           });
+
+          const ipProfile = getExecutionProfile(await resolveAiTierForUser(userId));
+          const { payload, usage: ipUsage } = await InterviewPrepService.buildTargetedInterviewPrep({
+            jdText:        application.description,
+            candidateText: candidate?.text ?? null,
+            signal,
+            profile:       ipProfile,
+          });
+
+          throwIfAborted(signal);
 
           const artifact = await ApplicationsService.createAiArtifact({
             userId,
@@ -653,8 +671,12 @@ export async function applicationsRoutes(app: FastifyInstance) {
           void succeedAiRun({
             runId,
             applicationArtifactId: artifact.id,
-            inputChars: (candidate?.text.length ?? 0) + application.description.length,
+            inputChars:       (candidate?.text.length ?? 0) + application.description.length,
+            promptTokens:     ipUsage.input,
+            completionTokens: ipUsage.output,
+            totalTokens:      ipUsage.total,
           });
+          void consumeCreditsOnSuccess(userId, "INTERVIEW_PREP");
 
           return reply.status(201).send(artifact);
         }
@@ -695,17 +717,6 @@ export async function applicationsRoutes(app: FastifyInstance) {
         kind: query.kind,
         all: query.all,
       });
-
-      // Track a view interaction for each artifact returned — this is the
-      // primary signal that a user is revisiting generated outputs.
-      for (const artifact of artifacts ?? []) {
-        void trackApplicationArtifactViewed({
-          userId,
-          applicationId:         id,
-          applicationArtifactId: artifact.id,
-          artifactKind:          artifact.kind,
-        });
-      }
 
       return reply.status(200).send(artifacts);
     }

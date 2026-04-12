@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { applicationsApi } from "@/lib/api/applications";
 import type { Application, AiArtifact, FitV1Payload } from "@/types/api";
 import type { FitRunsController } from "@/hooks/useFitRuns";
+import { CreditCostNote, BlockedRunButton } from "@/components/tools/ToolEntitlementGate";
 import { Button }     from "@/components/ui/button";
 import { Card }       from "@/components/ui/card";
 import { ApiError }   from "@/lib/api/client";
@@ -30,6 +31,9 @@ interface Props {
   baseResumeId:     number | null;
 
   canUseAi:     boolean;
+  isBlocked?:   boolean;
+  plan?:        string;
+  creditCost?:  number;
   onCloseOthers?:   () => void;
   onRegisterClose?: (fn: () => void) => void;
 
@@ -51,6 +55,9 @@ export function CompatibilityCheckCard({
   baseResumeExists,
   baseResumeId,
   canUseAi,
+  isBlocked  = false,
+  plan       = "REGULAR",
+  creditCost = 2,
   onCloseOthers,
   onRegisterClose,
   onDocumentsChanged,
@@ -446,9 +453,16 @@ export function CompatibilityCheckCard({
               </div>
 
               <div className="pt-2 border-t space-y-2">
-                <Button className="w-full" disabled={!isReady || isRunning} onClick={runFit}>
-                  {isRunning ? "Running…" : "Run Compatibility"}
-                </Button>
+                {isBlocked && !isRerunMode ? (
+                  <BlockedRunButton plan={plan} />
+                ) : (
+                  <>
+                    <Button className="w-full mb-2" disabled={!isReady || isRunning} onClick={runFit}>
+                      {isRunning ? "Running…" : "Run Compatibility"}
+                    </Button>
+                    {!isRerunMode && <CreditCostNote plan={plan} cost={creditCost} />}
+                  </>
+                )}
 
                 {/* Cancel re-run mode */}
                 {isRerunMode && (

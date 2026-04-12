@@ -1,6 +1,6 @@
 import { UserPlan } from "@prisma/client";
 import { AppError } from "../../errors/app-error.js";
-import { getOpenAIClient, AI_MODELS, getJdExtractFallbackOpenAIModel } from "./openai.js";
+import { OPENAI_MODEL, getOpenAIClient, AI_MODELS, getJdExtractFallbackOpenAIModel } from "./openai.js";
 import {
   ApplicationFromJdJsonObject,
   normalizeApplicationFromJdResponse,
@@ -8,11 +8,12 @@ import {
   sanitizeJdForModerationRetry,
   FitV1JsonObject,
   normalizeFitV1Response,
-  getFitPolicyForPlan,
+
   FitV1RunResult,
 } from "./ai.dto.js";
 import type { ApplicationFromJdResponse, DraftSource, FitV1Response } from "./ai.dto.js";
 import { AiTier } from "./ai-tier.js";
+import { getExecutionProfile } from "../plans/entitlement-policy.js";
 import { throwIfAborted } from "../../lib/request-abort.js";
 import { extractJobPostingFromUrl } from "./job-link-extraction.js";
 
@@ -224,8 +225,8 @@ export async function buildFitV1(
   // Get the user's plan.
   const tier: AiTier = opts?.tier ?? UserPlan.REGULAR;
   
-  // Get the fit policy for the user's plan + model settings.
-  const policy = getFitPolicyForPlan(tier);
+  // Resolve plan-aware execution profile (effort, verbosity, maxOutputTokens).
+  const policy = getExecutionProfile(tier);
 
   // Throw an error if the request is aborted.
   throwIfAborted(opts?.signal);
@@ -234,7 +235,7 @@ export async function buildFitV1(
   // Make the OpenAI request for the fit evaluation.
   const resp = await openai.responses.create(
     {
-      model: policy.model,
+      model: OPENAI_MODEL,
       input: [
         { role: "system", content: buildFitSystemPrompt() },
         { role: "user", content: buildFitUserPrompt(jd, candidate) },
@@ -258,13 +259,17 @@ export async function buildFitV1(
   // Parse the output text into a JSON object
   const parsed = parseJsonSchemaOutputOrThrow<FitV1Response>(resp, {
     tag: "fit_v1",
-    meta: { tier, model: policy.model, jdLen: jd.length, candidateLen: candidate.length },
+    meta: { tier, model: OPENAI_MODEL, jdLen: jd.length, candidateLen: candidate.length },
   });
+
+  // Extract token usage from resp directly — getTokenUsage is a local helper
+  const fitUsage = getTokenUsage(resp);
 
   return {
     payload: normalizeFitV1Response(parsed),
-    model: policy.model,
+    model:   OPENAI_MODEL,
     tier,
+    usage:   { input: fitUsage.input, output: fitUsage.output, total: fitUsage.total },
   };
 }
 
