@@ -271,16 +271,18 @@ export function ApplicationsTable({
                       <th key={col.id} className="p-3 w-[60px] text-center" title="Starred" />
                     );
 
-                  case "salaryText":
-                  case "actions":
-                    return <th key={col.id} className="p-3">{col.label}</th>;
-
-                  case "company":
-                  case "position":
+                  // Non-sortable display columns — plain headers
                   case "location":
                   case "jobType":
                   case "workMode":
                   case "status":
+                  case "salaryText":
+                  case "actions":
+                    return <th key={col.id} className="p-3 whitespace-nowrap">{col.label}</th>;
+
+                  // Sortable columns — clickable headers with chevron indicators
+                  case "company":
+                  case "position":
                   case "fitScore":
                   case "dateApplied":
                   case "updatedAt":

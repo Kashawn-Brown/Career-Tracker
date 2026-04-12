@@ -196,7 +196,7 @@ export type UpdateUserStatusRequest = {
 
 
 // --- Applications DTOs, enums and types: matches backend ---
-export type ApplicationSortBy = "company" | "position" | "location" | "status" | "jobType" | "workMode" | "dateApplied" | "createdAt" | "updatedAt" | "isFavorite" | "fitScore";
+export type ApplicationSortBy = "company" | "position" | "dateApplied" | "createdAt" | "updatedAt" | "isFavorite" | "fitScore";
 
 export type ApplicationSortDir = "asc" | "desc";
 

@@ -110,8 +110,6 @@ export function buildApplicationsWhere(
 const NULLS_LAST_FIELDS = new Set([
   "fitScore",
   "dateApplied",
-  "location",
-  "salaryText",
 ]);
 
 /**
@@ -123,10 +121,6 @@ const NULLS_LAST_FIELDS = new Set([
 export const TEXT_SORT_FIELDS = new Set([
   "company",
   "position",
-  "location",
-  "status",
-  "jobType",
-  "workMode",
 ]);
 
 export function buildApplicationsOrderBy(
