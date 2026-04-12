@@ -145,13 +145,13 @@ export function ApplicationAiToolsSection({
         <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 space-y-1.5">
           <p className="text-sm font-medium text-destructive">Monthly credit limit reached</p>
           <p className="text-xs text-muted-foreground">
-            Your credits reset at the start of next month. You can request more credits or upgrade to Pro from your profile.
+            Your credits reset at the start of next month. You can request more credits from your profile.
           </p>
           <Link
             href="/profile"
             className="inline-block mt-1 text-xs underline underline-offset-2 text-muted-foreground hover:text-foreground"
           >
-            Request credits →
+            Request more credits →
           </Link>
         </div>
       )}
