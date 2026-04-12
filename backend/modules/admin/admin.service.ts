@@ -144,17 +144,10 @@ export async function grantMoreCredits(requestId: string) {
 
   const decidedAt = new Date();
 
-  // Reset free usage counter back to 0 (gives them a fresh set of free credits)
-  await prisma.$transaction([
-    prisma.user.update({
-      where: { id: proRequest.userId },
-      data: { aiFreeUsesUsed: 0 },
-    }),
-    prisma.aiProRequest.update({
-      where: { id: requestId },
-      data: { status: "CREDITS_GRANTED", decidedAt },
-    }),
-  ]);
+  await prisma.aiProRequest.update({
+    where: { id: requestId },
+    data: { status: "CREDITS_GRANTED", decidedAt },
+  });
 
   await sendEmail({
     to: proRequest.user.email,

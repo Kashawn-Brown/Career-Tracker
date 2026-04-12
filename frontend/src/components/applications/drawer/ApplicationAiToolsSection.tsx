@@ -49,7 +49,7 @@ type Props = {
  *
  * Responsibilities:
  *  - Shows a shared status bar (JD + base resume) visible across all tools
- *  - Renders the ProAccessBanner (applies to all tools, not just Fit)
+ *  - Renders a section-level warning banner at WARNING_90 and a blocked banner when credits exhausted
  *  - Delegates tool-specific logic to CompatibilityCheckCard, ResumeAdviceCard, CoverLetterCard
  *  - Curries panel manager callbacks per card so each registers under its own ID
  */

@@ -4,7 +4,6 @@ import { AppError } from "../../errors/app-error.js";
 import { applicationSelect, applicationConnectionSelect, applicationListSelect } from "./applications.dto.js";
 import type { CreateApplicationInput, UpdateApplicationInput, ListApplicationsParams, ExportApplicationsParams } from "./applications.dto.js";
 import type { AiArtifactKindType } from "./applications.schemas.js";
-import { consumeAiFreeUseOnSuccessOrThrow } from "../ai/ai-access.js";
 import { buildApplicationsWhere, buildApplicationsOrderBy, TEXT_SORT_FIELDS } from "./applications.query.js";
 import { buildApplicationsCsv, buildExportFilename, normalizeExportColumns } from "./applications.export.js";
 
@@ -471,9 +470,6 @@ export async function createAiArtifact(args: {
         });
       }
     }
-
-    // Consume quota only after the artifact is successfully created
-    await consumeAiFreeUseOnSuccessOrThrow(args.userId, db);
 
     // Return the AI artifact + source document name
     return { ...artifact, sourceDocumentName };
