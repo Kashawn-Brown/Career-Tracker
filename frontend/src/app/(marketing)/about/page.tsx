@@ -210,8 +210,8 @@ export default function AboutPage() {
         <div className="rounded-lg border bg-muted/20 p-6 space-y-3">
           <h2 className="text-lg font-semibold">Built by Kashawn Brown</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Software developer based in Oshawa, Ontario. I built Career-Tracker because I wanted
-            a smarter way to manage my own job search — and nothing out there did exactly what I needed.
+            Software developer based in Toronto, Canada. I built Career-Tracker because I wanted
+            a smarter way to manage my own job search and nothing out there did exactly what I needed.
           </p>
           <div className="flex items-center gap-3 pt-1">
             <a
@@ -243,8 +243,8 @@ export default function AboutPage() {
           <h2 className="text-lg font-semibold">Keep Career-Tracker running</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
             Career-Tracker is independently built and maintained. If it&apos;s helped your job search,
-            consider buying me a coffee — it goes directly toward server costs and keeping the
-            AI features running.
+            and you&apos;d like to help support, consider buying me a coffee. 
+            It goes directly toward server costs and keeping the AI features running.
           </p>
           <a
             href="https://buymeacoffee.com/kashawnbrown"
