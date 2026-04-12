@@ -10,13 +10,19 @@ import { Select } from "@/components/ui/select";
 import { Alert } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { UserDetailSheet } from "@/components/admin/UserDetailSheet";
-import { AI_FREE_QUOTA } from "@/lib/constants";
+
+// Credit allowances per plan — mirrors backend MONTHLY_CREDITS
+const PLAN_CREDITS: Record<UserPlan, number> = {
+  REGULAR:  100,
+  PRO:      1200,
+  PRO_PLUS: 1200,
+};
 
 const PLAN_OPTIONS: { value: UserPlan | "ALL"; label: string }[] = [
   { value: "ALL",      label: "All plans" },
   { value: "REGULAR",  label: "Regular"   },
   { value: "PRO",      label: "Pro"       },
-  { value: "PRO_PLUS", label: "Pro+"      },
+  { value: "PRO_PLUS", label: "Pro+",     },
 ];
 
 const PLAN_LABELS: Record<UserPlan, string> = {
@@ -34,26 +40,28 @@ export default function AdminUsersPage() {
 }
 
 function AdminUsersContent() {
-  const [users, setUsers]               = useState<AdminUserListItem[]>([]);
-  const [total, setTotal]               = useState(0);
-  const [pendingRequests, setPendingRequests] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError]         = useState<string | null>(null);
+  const [users, setUsers]                         = useState<AdminUserListItem[]>([]);
+  const [total, setTotal]                         = useState(0);
+  const [pendingRequests, setPendingRequests]     = useState(0);
+  const [isLoading, setIsLoading]                 = useState(false);
+  const [error, setError]                         = useState<string | null>(null);
 
-  const [q, setQ]                 = useState("");
-  const [planFilter, setPlanFilter] = useState<UserPlan | "ALL">("ALL");
+  const [q, setQ]                                 = useState("");
+  const [planFilter, setPlanFilter]               = useState<UserPlan | "ALL">("ALL");
+  const [pendingOnly, setPendingOnly]             = useState(false);
 
   // Sheet state
-  const [selectedUser, setSelectedUser] = useState<AdminUserListItem | null>(null);
-  const [sheetOpen, setSheetOpen]       = useState(false);
+  const [selectedUser, setSelectedUser]           = useState<AdminUserListItem | null>(null);
+  const [sheetOpen, setSheetOpen]                 = useState(false);
 
   const load = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
       const res = await adminApi.listUsers({
-        q:    q.trim() || undefined,
-        plan: planFilter === "ALL" ? undefined : planFilter,
+        q:                 q.trim() || undefined,
+        plan:              planFilter === "ALL" ? undefined : planFilter,
+        hasPendingRequest: pendingOnly || undefined,
       });
       setUsers(res.items);
       setTotal(res.total);
@@ -63,12 +71,11 @@ function AdminUsersContent() {
     } finally {
       setIsLoading(false);
     }
-  }, [q, planFilter]);
+  }, [q, planFilter, pendingOnly]);
 
   useEffect(() => { void load(); }, [load]);
 
   function handleRowClick(user: AdminUserListItem) {
-    // Admin rows are not interactive
     if (user.role === "ADMIN") return;
     setSelectedUser(user);
     setSheetOpen(true);
@@ -79,19 +86,38 @@ function AdminUsersContent() {
     setSelectedUser(null);
   }
 
+  // Derive credit display for a user row
+  function creditDisplay(user: AdminUserListItem) {
+    const cycle = user.planUsageCycles?.[0];
+    const total = PLAN_CREDITS[user.plan] ?? 100;
+    const used  = cycle ? cycle.usedCredits : 0;
+    return `${used} / ${total}`;
+  }
+
   return (
     <div className="space-y-6 p-6">
       <div>
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-semibold">Users</h1>
           {pendingRequests > 0 && (
-            <span className="rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 px-2.5 py-0.5 text-xs font-medium">
-              {pendingRequests} pending Pro request{pendingRequests !== 1 ? "s" : ""}
-            </span>
+            <button
+              type="button"
+              onClick={() => setPendingOnly((v) => !v)}
+              className={[
+                "rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors",
+                pendingOnly
+                  ? "bg-amber-500 text-white"
+                  : "bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/40",
+              ].join(" ")}
+            >
+              {pendingRequests} pending credit request{pendingRequests !== 1 ? "s" : ""}
+              {pendingOnly ? " ×" : ""}
+            </button>
           )}
         </div>
         <p className="text-sm text-muted-foreground mt-1">
           {total} user{total !== 1 ? "s" : ""} total
+          {pendingOnly && <span className="ml-1 text-amber-600">· filtered to pending requests</span>}
         </p>
       </div>
 
@@ -120,7 +146,9 @@ function AdminUsersContent() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">All Users</CardTitle>
+          <CardTitle className="text-base">
+            All Users
+          </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <table className="w-full text-sm">
@@ -150,28 +178,38 @@ function AdminUsersContent() {
                 </tr>
               )}
               {!isLoading && users.map((user) => {
-                const isAdmin = user.role === "ADMIN";
+                const isAdmin      = user.role === "ADMIN";
+                const hasPending   = user.aiProRequests?.length > 0;
                 return (
                   <tr
                     key={user.id}
                     className={[
                       "border-b last:border-0 transition-colors",
                       isAdmin
-                        ? "opacity-60"                                          // admins: visually muted, not clickable
-                        : "cursor-pointer hover:bg-muted/20",                  // regular users: clickable
+                        ? "opacity-60"
+                        : "cursor-pointer hover:bg-muted/20",
                     ].join(" ")}
                     onClick={() => handleRowClick(user)}
                   >
                     <td className="px-4 py-3">
-                      <div className="font-medium">{user.name}</div>
-                      <div className="text-muted-foreground text-xs">{user.email}</div>
+                      <div className="flex items-center gap-2">
+                        <div>
+                          <div className="font-medium">{user.name}</div>
+                          <div className="text-muted-foreground text-xs">{user.email}</div>
+                        </div>
+                        {hasPending && (
+                          <span className="shrink-0 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-1.5 py-0.5 text-xs font-medium leading-none">
+                            Pending
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{user.role}</td>
                     <td className="px-4 py-3">
                       <span className="font-medium">{PLAN_LABELS[user.plan]}</span>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      {user.aiFreeUsesUsed} / {AI_FREE_QUOTA}
+                      {creditDisplay(user)}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {user.lastActiveAt ? fmtDate(user.lastActiveAt) : "—"}
@@ -189,7 +227,6 @@ function AdminUsersContent() {
         </CardContent>
       </Card>
 
-      {/* User detail sheet */}
       <UserDetailSheet
         user={selectedUser}
         open={sheetOpen}

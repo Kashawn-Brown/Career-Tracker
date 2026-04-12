@@ -156,6 +156,8 @@ export type AdminUserListItem = {
   createdAt:      string;
   updatedAt:      string;
   lastActiveAt:   string | null;
+  planUsageCycles: { usedCredits: number; baseCredits: number; bonusCredits: number }[];
+  aiProRequests:   { id: number; status: string }[];
 };
 
 export type AdminUsersListResponse = {

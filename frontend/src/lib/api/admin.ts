@@ -61,13 +61,15 @@ export const adminApi = {
     plan?: string;
     page?: number;
     pageSize?: number;
+    hasPendingRequest?: boolean;
   }) {
     const search = new URLSearchParams();
-    if (params?.q)        search.set("q",        params.q);
-    if (params?.role)     search.set("role",      params.role);
-    if (params?.plan)     search.set("plan",      params.plan);
-    if (params?.page)     search.set("page",      String(params.page));
-    if (params?.pageSize) search.set("pageSize",  String(params.pageSize));
+    if (params?.q)                   search.set("q",                  params.q);
+    if (params?.role)                search.set("role",               params.role);
+    if (params?.plan)                search.set("plan",               params.plan);
+    if (params?.page)                search.set("page",               String(params.page));
+    if (params?.pageSize)            search.set("pageSize",           String(params.pageSize));
+    if (params?.hasPendingRequest)   search.set("hasPendingRequest",  "true");
 
     const qs = search.toString();
     return apiFetch<AdminUsersListResponse>(

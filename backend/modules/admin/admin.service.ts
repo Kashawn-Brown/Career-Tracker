@@ -217,11 +217,16 @@ export async function listUsersForAdmin(params: ListUsersQueryType) {
     ];
   }
 
+  // Filter to users with a pending Pro request
+  if (params.hasPendingRequest) {
+    where.aiProRequests = { some: { status: "PENDING" } };
+  }
+
   const [total, items] = await prisma.$transaction([
     prisma.user.count({ where }),
     prisma.user.findMany({
       where,
-      orderBy: { createdAt: "desc" },
+      orderBy: { lastActiveAt: { sort: "desc", nulls: "last" } },
       skip,
       take: pageSize,
       select: adminUserSelect,
