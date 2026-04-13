@@ -34,7 +34,7 @@ import {
   consumeCreditsOnSuccess,
   adminAddCredits,
   adminResetCycle,
-} from "../../modules/plans/entitlement-policy.js";
+} from "../../modules/plan/entitlement-policy.js";
 import { UserPlan } from "@prisma/client";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────

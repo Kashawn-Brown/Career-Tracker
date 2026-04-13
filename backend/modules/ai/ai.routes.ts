@@ -10,7 +10,7 @@ import * as InterviewPrepService  from "./interview-prep.service.js";
 import * as DocumentsService from "../documents/documents.service.js";
 import * as UserAiArtifactsService from "./user-ai-artifacts.service.js";
 import { extractTextFromBuffer } from "../../lib/text-extraction.js";
-import { consumeCreditsOnSuccess, getExecutionProfile } from "../../modules/plans/entitlement-policy.js";
+import { consumeCreditsOnSuccess, getExecutionProfile } from "../plan/entitlement-policy.js";
 import { resolveAiTierForUser } from "./ai-tier.js";
 import { AppError } from "../../errors/app-error.js";
 import { AI_MODELS } from "./openai.js";

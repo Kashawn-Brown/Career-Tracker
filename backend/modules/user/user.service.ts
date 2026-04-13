@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { AppError } from "../../errors/app-error.js";
 import { userSelect } from "./user.dto.js";
 import type { UpdateMeBodyType } from "./user.schemas.js";
-import { aiProRequestSummarySelect } from "../pro/pro.dto.js";
+import { planRequestSummarySelect } from "../plan/plan.dto.js";
 import bcrypt from "bcrypt";
 import { evaluatePasswordPolicy, formatPasswordPolicyError } from "../auth/password.policy.js";
 
@@ -194,12 +194,12 @@ export async function forceDeleteUser(userId: string) {
 }
 
 /**
- * Gets the latest AI Pro request for a user.
+ * Gets the latest PlanRequest for a user.
  */
-export async function getLatestAiProRequest(userId: string) {
-  return prisma.aiProRequest.findFirst({
+export async function getLatestPlanRequest(userId: string) {
+  return prisma.planRequest.findFirst({
     where: { userId },
     orderBy: { requestedAt: "desc" },
-    select: aiProRequestSummarySelect,
+    select: planRequestSummarySelect,
   });
 }

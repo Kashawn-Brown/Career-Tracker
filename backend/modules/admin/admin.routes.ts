@@ -4,7 +4,7 @@ import { requireVerifiedEmail } from "../../middleware/require-verified-email.js
 import { requireAdmin } from "../../middleware/require-admin.js";
 import { ProDecisionBody, ListUsersQuery, AdminUserIdParams, UpdateUserPlanBody, UpdateUserStatusBody, AdminAddCreditsBody } from "./admin.schemas.js";
 import type { ProDecisionBodyType, ListUsersQueryType, AdminUserIdParamsType, UpdateUserPlanBodyType, UpdateUserStatusBodyType, AdminAddCreditsBodyType } from "./admin.schemas.js";
-import { adminAddCredits, adminResetCycle, resolveUsageState } from "../plans/entitlement-policy.js";
+import { adminAddCredits, adminResetCycle, resolveUsageState } from "../plan/entitlement-policy.js";
 import * as AdminService from "./admin.service.js";
 
 export async function adminRoutes(app: FastifyInstance) {

@@ -13,7 +13,7 @@ import {
 } from "./ai.dto.js";
 import type { ApplicationFromJdResponse, DraftSource, FitV1Response } from "./ai.dto.js";
 import { AiTier } from "./ai-tier.js";
-import { getExecutionProfile } from "../plans/entitlement-policy.js";
+import { getExecutionProfile } from "../plan/entitlement-policy.js";
 import { throwIfAborted } from "../../lib/request-abort.js";
 import { extractJobPostingFromUrl } from "./job-link-extraction.js";
 
