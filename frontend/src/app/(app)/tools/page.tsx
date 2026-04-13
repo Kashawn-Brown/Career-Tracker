@@ -119,7 +119,7 @@ export default function ToolsPage() {
       )}
       {/* Contextual nudge — points users toward the drawer for role-specific work */}
         <p className="mt-2 text-xs text-muted-foreground">
-          Looking to prep for, tailor your resume, or generate a cover letter for a{" "}
+          Looking to tailor your resume, generate a cover letter, or prep, for a{" "}
           <span className="font-medium text-foreground">specific role</span>?{" "}
           <br/>
           Open that application from the{" "}
