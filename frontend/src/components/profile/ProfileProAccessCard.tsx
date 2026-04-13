@@ -122,7 +122,7 @@ export function ProfileProAccessCard() {
           </div>
 
           {/* Request more credits when running low or blocked */}
-          {!isPro && (usage.threshold === "WARNING_90" || usage.threshold === "BLOCKED") && (
+          {(usage.threshold === "WARNING_90" || usage.threshold === "BLOCKED") && (
             <div className="rounded-md border bg-muted/30 p-3 space-y-2">
               <p className="text-sm text-muted-foreground">
                 {usage.isBlocked
