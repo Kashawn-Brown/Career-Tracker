@@ -91,7 +91,7 @@ export function CreateApplicationForm({ onCreated }: { onCreated: (args: OnCreat
   const [workModeDetails, setWorkModeDetails] = useState("");
   const [jobLink, setJobLink] = useState("");
   const [description, setDescription] = useState("");
-  const [notes, setNotes] = useState("");
+  const [userNotes, setUserNotes] = useState("");
   const [tagsText, setTagsText] = useState("");
 
   // UI state
@@ -207,7 +207,7 @@ export function CreateApplicationForm({ onCreated }: { onCreated: (args: OnCreat
 
       jobLink: toOptionalTrimmed(jobLink),
       description: toOptionalTrimmed(description),
-      notes: toOptionalTrimmed(notes),
+      userNotes: toOptionalTrimmed(userNotes),
       tagsText: toOptionalTrimmed(tagsText),
     };
 
@@ -277,7 +277,7 @@ export function CreateApplicationForm({ onCreated }: { onCreated: (args: OnCreat
 
       setJobLink("");
       setDescription("");
-      setNotes("");
+      setUserNotes("");
       setTagsText("");
 
       setShowMore(false);
@@ -514,15 +514,15 @@ export function CreateApplicationForm({ onCreated }: { onCreated: (args: OnCreat
               </div>
             </div>
 
-            {/* Notes (half width) */}
+            {/* User notes (half width) */}
             <div className="space-y-2 md:col-span-6">
-              <Label htmlFor="notes">Notes</Label>
+              <Label htmlFor="userNotes">Notes</Label>
               <Textarea
-                id="notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
+                id="userNotes"
+                value={userNotes}
+                onChange={(e) => setUserNotes(e.target.value)}
                 className="min-h-[136px]"
-                placeholder="Anything important to remember about this role..."
+                placeholder="Note anything important to remember (Interview times, recruiter details, follow-ups...)"
               />
             </div>
 

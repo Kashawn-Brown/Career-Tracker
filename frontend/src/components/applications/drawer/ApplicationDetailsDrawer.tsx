@@ -231,6 +231,7 @@ type Draft = {
   dateApplied: string; // yyyy-mm-dd for input
   jobLink: string;
   notes: string;
+  userNotes: string;
   description: string;
 
   isFavorite: boolean;
@@ -260,6 +261,7 @@ function toDraft(app: Application): Draft {
 
     jobLink: app.jobLink ?? "",
     notes: app.notes ?? "",
+    userNotes: app.userNotes ?? "",
     description: app.description ?? "",
 
     isFavorite: app.isFavorite,
@@ -525,6 +527,7 @@ export function ApplicationDetailsDrawer({
 
       jobLink: draft.jobLink,
       notes: draft.notes,
+      userNotes: draft.userNotes,
       description: draft.description,
 
       // Persist deletions too: empty tags => ""
@@ -1015,6 +1018,25 @@ export function ApplicationDetailsDrawer({
               </Section>
             )}
 
+            {/* Notes section — hidden in read mode when empty */}
+            {(isEditing || application.userNotes) && (
+              <Section title="Notes">
+                {!isEditing ? (
+                  <ExpandableText
+                    key={`${application.id}-userNotes`}
+                    text={application.userNotes!}
+                    collapsedMaxHeightClass="max-h-32"
+                  />
+                ) : (
+                  <Textarea
+                    value={draft.userNotes}
+                    onChange={(e) => setDraft({ ...draft, userNotes: e.target.value })}
+                    placeholder="Anything important to remember about this role..."
+                  />
+                )}
+              </Section>
+            )}
+
             {/* Tags section */}
             <Section title="Tags">
               {!isEditing ? (
@@ -1108,26 +1130,24 @@ export function ApplicationDetailsDrawer({
               )}
             </Section>
 
-            {/* Notes section */}
-            <Section title="Highlights">
-              {!isEditing ? (
-                application.notes ? (
+            {/* AI Highlights section — hidden in read mode when empty */}
+            {(isEditing || application.notes) && (
+              <Section title="AI Highlights">
+                {!isEditing ? (
                   <ExpandableText
                     key={`${application.id}-notes`}
-                    text={application.notes}
+                    text={application.notes!}
                     collapsedMaxHeightClass="max-h-32"
                   />
                 ) : (
-                  <span className="text-muted-foreground">Nothing noted</span>
-                )
-              ) : (
-                <Textarea
-                  value={draft.notes}
-                  onChange={(e) => setDraft({ ...draft, notes: e.target.value })}
-                  placeholder="Notes..."
-                />
-              )}
-            </Section>
+                  <Textarea
+                    value={draft.notes}
+                    onChange={(e) => setDraft({ ...draft, notes: e.target.value })}
+                    placeholder="AI-extracted highlights..."
+                  />
+                )}
+              </Section>
+            )}
 
             {/* Job description section */}
             <Section title="Job description">
