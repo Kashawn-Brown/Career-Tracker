@@ -288,7 +288,7 @@ export function BaseCoverLetterCard({
               <iframe
                 src={previewUrl}
                 title={baseCoverLetter?.originalName ?? "Document preview"}
-                className="h-full w-full bg-white"
+                className="h-full w-full bg-background"
                 referrerPolicy="no-referrer"
               />
             ) : (

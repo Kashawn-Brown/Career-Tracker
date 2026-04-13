@@ -131,6 +131,7 @@ export function CreateApplicationFromJdForm({
   const [jobLink, setJobLink]                   = useState("");
   const [tagsText, setTagsText]                 = useState("");
   const [notes, setNotes]                       = useState("");
+  const [userNotes, setUserNotes]               = useState("");
   const [isFavorite, setIsFavorite]             = useState(false);
 
   // "More" section (attachments + connections to attach on create)
@@ -308,7 +309,7 @@ export function CreateApplicationFromJdForm({
     setLocation(""); setLocationDetails("");
     setSalaryText(""); setSalaryDetails("");
     setJobLink(""); setTagsText("");
-    setNotes(""); setIsFavorite(false);
+    setNotes(""); setUserNotes(""); setIsFavorite(false);
     setShowSummary(false); setShowMore(false);
     setDocKind("OTHER"); setDocFile(null); setDocuments([]);
     setConnectionQuery(""); setSelectedConnections([]);
@@ -376,6 +377,7 @@ export function CreateApplicationFromJdForm({
       setJobLink(res.extracted.jobLink ?? "");
       setTagsText(res.extracted.tagsText ?? "");
       setNotes(res.extracted.notes ? res.extracted.notes.map((s) => `- ${s}`).join("\n") : "");
+      setUserNotes("");
       setApplicationStatus("WISHLIST");
     } catch (err) {
       if (err instanceof ApiError) setErrorMessage(err.message);
@@ -454,6 +456,7 @@ export function CreateApplicationFromJdForm({
       status:         applicationStatus,
       description:    sourceDescriptionText || jdText.trim(), // canonicalJdText from source, fallback to pasted text
       notes:          toOptionalTrimmed(notes),
+      userNotes:      toOptionalTrimmed(userNotes),
       // Store the AI-generated role summary if extraction was used; undefined for manual entry
       jdSummary:      draft?.ai?.jdSummary?.trim() || undefined,
       location:       toOptionalTrimmed(location),
@@ -738,7 +741,7 @@ export function CreateApplicationFromJdForm({
             </Button>
           ) : null}
           {isBlocked ? (
-            <BlockedRunButton plan={planLabel} />
+            <BlockedRunButton />
           ) : (
             sourceMode === "LINK" ? (
               <div className="flex flex-col items-end gap-1">
@@ -776,7 +779,7 @@ export function CreateApplicationFromJdForm({
           {/* Summary (optional/collapsible) */}
           <Collapsible open={showSummary} onOpenChange={setShowSummary}>
             <CollapsibleTrigger asChild>
-              <Button type="button" variant="outline" className="w-full justify-between bg-gray-400 text-white hover:bg-gray-400">
+              <Button type="button" variant="outline" className="w-full justify-between bg-muted-foreground/80 text-muted hover:bg-muted-foreground/50">
                 <span className="font-medium">Summary</span>
                 {showSummary ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
               </Button>
@@ -878,15 +881,30 @@ export function CreateApplicationFromJdForm({
             </div>
 
             <div className="space-y-2 md:col-span-12">
-              <Label htmlFor="notes">Notes</Label>
-              <Textarea
-                id="notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="min-h-[120px]"
-              />
+              <div className="grid gap-x-6 gap-y-6 md:grid-cols-12">
+                <div className="space-y-2 md:col-span-6">
+                  <Label htmlFor="notes">AI Highlights</Label>
+                  <Textarea
+                    id="notes"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    className="min-h-[136px]"
+                  />
+                </div>
 
-              <Button type="button" variant="link" className="px-0" onClick={() => setShowMore((v) => !v)}>
+                <div className="space-y-2 md:col-span-6">
+                  <Label htmlFor="userNotes">Notes</Label>
+                  <Textarea
+                    id="userNotes"
+                    value={userNotes}
+                    onChange={(e) => setUserNotes(e.target.value)}
+                    className="min-h-[136px]"
+                    placeholder="Note anything important to remember (Interview times, recruiter details, follow-ups...)"
+                  />
+                </div>
+              </div>
+
+              <Button type="button" variant="link" className="px-0 mt-4 mb-4" onClick={() => setShowMore((v) => !v)}>
                 {showMore ? "Hide extra fields" : "More fields"}
               </Button>
 

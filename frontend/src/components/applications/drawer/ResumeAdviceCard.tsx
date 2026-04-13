@@ -354,7 +354,7 @@ export function ResumeAdviceCard({
 
               <div className="pt-2 border-t space-y-2">
                 {isBlocked && !isRerunMode ? (
-                  <BlockedRunButton plan={plan} />
+                  <BlockedRunButton />
                 ) : (
                   <>
                     <Button disabled={!canRun} onClick={handleGenerate} className={isRerunMode ? "" : "w-full mb-2"}>

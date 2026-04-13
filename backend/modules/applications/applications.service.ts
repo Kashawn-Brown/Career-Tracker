@@ -46,6 +46,7 @@ export async function createApplication(input: CreateApplicationInput) {
       jobLink: normalizeNullableString(input.jobLink),
       description: normalizeNullableString(input.description),
       notes: normalizeNullableString(input.notes),
+      userNotes: normalizeNullableString(input.userNotes),
       tagsText: normalizeNullableString(input.tagsText),
       // Stored at create time when JD extraction was used; null for manual entries
       jdSummary: normalizeNullableString(input.jdSummary),
@@ -260,6 +261,7 @@ export async function updateApplication(
     if (input.jobLink !== undefined) data.jobLink = normalizeNullableString(input.jobLink);
     if (input.description !== undefined) data.description = normalizeNullableString(input.description);
     if (input.notes !== undefined) data.notes = normalizeNullableString(input.notes);
+    if (input.userNotes !== undefined) data.userNotes = normalizeNullableString(input.userNotes);
     if (input.tagsText !== undefined) data.tagsText = normalizeNullableString(input.tagsText);
 
     const result = await db.jobApplication.updateMany({

@@ -136,7 +136,7 @@ function AdminUsersContent() {
               className={[
                 "rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors",
                 pendingOnly
-                  ? "bg-amber-500 text-white"
+                  ? "bg-amber-500 text-white dark:bg-amber-600"
                   : "bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/40",
               ].join(" ")}
             >

@@ -197,6 +197,7 @@ export type Application = {
   jobLink: string | null;
   description: string | null;
   notes: string | null;
+  userNotes: string | null;
   tagsText: string | null;
   // AI-generated role summary from JD extraction; null for manually created applications
   jdSummary: string | null;
@@ -284,6 +285,7 @@ export type CreateApplicationRequest = {
   jobLink?: string;
   description?: string;
   notes?: string;
+  userNotes?: string;
   tagsText?: string;
   // AI-generated role summary; only sent when creating from JD extraction
   jdSummary?: string;
@@ -307,6 +309,7 @@ export type UpdateApplicationRequest = {
   jobLink?: string;
   description?: string;
   notes?: string;
+  userNotes?: string;
   tagsText?: string;
 };
 
