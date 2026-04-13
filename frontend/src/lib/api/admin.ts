@@ -1,56 +1,16 @@
 import { apiFetch } from "@/lib/api/client";
 import { routes } from "@/lib/api/routes";
-import type { UsageState } from "@/types/api";
 import type {
-  AdminProRequestsListResponse,
-  AdminDecisionBody,
   OkResponse,
-  UserPlan, 
-  AdminUsersListResponse, 
+  UserPlan,
+  AdminUsersListResponse,
   UpdateUserPlanRequest,
   AdminUserDetail,
   UpdateUserStatusRequest,
+  UsageState,
 } from "@/types/api";
 
 export const adminApi = {
-
-  /**
-   * List all user's Pro requests.
-   */
-  listProRequests() {
-    return apiFetch<AdminProRequestsListResponse>(routes.admin.listProRequests(), {
-      method: "GET",
-    });
-  },
-
-  /**
-   * Approve a user's Pro request by requestId.
-   */
-  approveProRequest(requestId: string, body: AdminDecisionBody) {
-    return apiFetch<OkResponse>(routes.admin.approveProRequest(requestId), {
-      method: "POST",
-      body,
-    });
-  },
-
-  /**
-   * Deny a user's Pro request by requestId.
-   */
-  denyProRequest(requestId: string, body: AdminDecisionBody) {
-    return apiFetch<OkResponse>(routes.admin.denyProRequest(requestId), {
-      method: "POST",
-      body,
-    });
-  },
-
-  /**
-   * Grant more free AI credits to a user by requestId.
-   */
-  grantCredits(requestId: string) {
-    return apiFetch<OkResponse>(routes.admin.grantCredits(requestId), {
-      method: "POST",
-    });
-  },
 
   /**
    * List users for admin with optional filters.
@@ -67,21 +27,35 @@ export const adminApi = {
     pageSize?: number;
   }) {
     const search = new URLSearchParams();
-    if (params?.q)                         search.set("q",                  params.q);
-    if (params?.role)                      search.set("role",               params.role);
-    if (params?.plan)                      search.set("plan",               params.plan);
-    if (params?.isActive !== undefined)    search.set("isActive",           String(params.isActive));
-    if (params?.hasPendingRequest)         search.set("hasPendingRequest",  "true");
-    if (params?.sortBy)                    search.set("sortBy",             params.sortBy);
-    if (params?.sortDir)                   search.set("sortDir",            params.sortDir);
-    if (params?.page)                      search.set("page",               String(params.page));
-    if (params?.pageSize)                  search.set("pageSize",           String(params.pageSize));
+    if (params?.q)                      search.set("q",                 params.q);
+    if (params?.role)                   search.set("role",              params.role);
+    if (params?.plan)                   search.set("plan",              params.plan);
+    if (params?.isActive !== undefined) search.set("isActive",          String(params.isActive));
+    if (params?.hasPendingRequest)      search.set("hasPendingRequest", "true");
+    if (params?.sortBy)                 search.set("sortBy",            params.sortBy);
+    if (params?.sortDir)                search.set("sortDir",           params.sortDir);
+    if (params?.page)                   search.set("page",              String(params.page));
+    if (params?.pageSize)               search.set("pageSize",          String(params.pageSize));
 
     const qs = search.toString();
     return apiFetch<AdminUsersListResponse>(
       `${routes.admin.listUsers()}${qs ? `?${qs}` : ""}`,
       { method: "GET" }
     );
+  },
+
+  /**
+   * Get a single user's details by userId.
+   */
+  getUserDetail(userId: string) {
+    return apiFetch<AdminUserDetail>(routes.admin.getUserDetail(userId), { method: "GET" });
+  },
+
+  /**
+   * Get a user's current plan usage state.
+   */
+  getUserUsage(userId: string) {
+    return apiFetch<UsageState>(routes.admin.getUserUsage(userId), { method: "GET" });
   },
 
   /**
@@ -95,30 +69,6 @@ export const adminApi = {
   },
 
   /**
-   * Get a single user's details by userId.
-   */
-  getUserDetail(userId: string) {
-    return apiFetch<AdminUserDetail>(routes.admin.getUserDetail(userId), { method: "GET" });
-  },
-
-  getUserUsage(userId: string) {
-    return apiFetch<UsageState>(routes.admin.getUserUsage(userId), { method: "GET" });
-  },
-
-  addUserCredits(userId: string, credits: number, note?: string) {
-    return apiFetch<{ ok: boolean }>(routes.admin.addUserCredits(userId), {
-      method: "POST",
-      body:   JSON.stringify({ credits, note }),
-    });
-  },
-
-  resetUserCredits(userId: string) {
-    return apiFetch<{ ok: boolean }>(routes.admin.resetUserCredits(userId), {
-      method: "POST",
-    });
-  },
-
-  /**
    * Update a user's active status by userId.
    */
   updateUserStatus(userId: string, isActive: boolean) {
@@ -128,4 +78,32 @@ export const adminApi = {
     });
   },
 
-}
+  /**
+   * Add bonus credits to a user's current cycle.
+   */
+  addUserCredits(userId: string, credits: number, note?: string) {
+    return apiFetch<OkResponse>(routes.admin.addUserCredits(userId), {
+      method: "POST",
+      body:   JSON.stringify({ credits, note }),
+    });
+  },
+
+  /**
+   * Reset a user's current cycle to their plan's base allowance.
+   */
+  resetUserCredits(userId: string) {
+    return apiFetch<OkResponse>(routes.admin.resetUserCredits(userId), {
+      method: "POST",
+    });
+  },
+
+  /**
+   * Decline a user's open credit request.
+   */
+  declinePlanRequest(userId: string, requestId: string) {
+    return apiFetch<OkResponse>(routes.admin.declineRequest(userId, requestId), {
+      method: "POST",
+    });
+  },
+
+};

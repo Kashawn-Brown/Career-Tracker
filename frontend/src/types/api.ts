@@ -64,9 +64,9 @@ export type UpdateMeRequest = {
   jobSearchWorkMode?: WorkMode;
 };
 
-export type MeResponse = { 
-  user: AuthUser 
-  aiProRequest: AiProRequestSummary | null;
+export type MeResponse = {
+  user:        AuthUser;
+  planRequest: PlanRequestSummary | null;
 };
 
 export type AuthResponse = {
@@ -95,52 +95,31 @@ export type ChangePasswordRequest = {
 export type CsrfResponse = { csrfToken: string | null };
 export type RefreshResponse = { token: string; csrfToken: string };
 
-// --- AI Pro Request DTOs: matches backend ---
+// --- Plan Request DTOs: matches backend ---
 
-export type AiProRequestStatus = "PENDING" | "APPROVED" | "DENIED" | "EXPIRED" | "CREDITS_GRANTED";
+export type PlanRequestStatus = "PENDING" | "APPROVED" | "DECLINED";
 
-export type AiProRequestSummary = {
-  id: string;
-  status: AiProRequestStatus;
-  requestedAt: string;
-  decidedAt: string | null;
+export type PlanRequestSummary = {
+  id:           string;
+  status:       PlanRequestStatus;
+  requestType:  string;
+  planAtRequest: string;
+  requestedAt:  string;
+  decidedAt:    string | null;
 };
 
-export type RequestProBody = {
+export type RequestCreditsBody = {
   note?: string;
 };
 
-export type RequestProResponse = {
-  ok: true;
-  alreadyPro: boolean;
-  request: AiProRequestSummary | null;
+export type RequestCreditsResponse = {
+  ok:              true;
+  alreadyUnlimited: boolean;
+  request:         PlanRequestSummary | null;
 };
 
 
 // --- Admin DTOs: matches backend ---
-
-export type AdminProRequestItem = {
-  id: string;
-  status: AiProRequestStatus;
-  note: string | null;
-  decisionNote: string | null;
-  requestedAt: string;
-  decidedAt: string | null;
-  user: {
-    id: string;
-    email: string;
-    name: string | null;
-    plan: UserPlan;
-  };
-};
-
-export type AdminProRequestsListResponse = {
-  items: AdminProRequestItem[];
-};
-
-export type AdminDecisionBody = {
-  decisionNote?: string;
-};
 
 export type AdminUserListItem = {
   id:             string;
@@ -153,36 +132,28 @@ export type AdminUserListItem = {
   updatedAt:      string;
   lastActiveAt:   string | null;
   planUsageCycles: { usedCredits: number; baseCredits: number; bonusCredits: number }[];
-  aiProRequests:   { id: number; status: string }[];
+  // Pending credit request indicator (at most one)
+  planRequests:   { id: string; status: string }[];
 };
 
 export type AdminUsersListResponse = {
-  items:                  AdminUserListItem[];
-  page:                   number;
-  pageSize:               number;
-  total:                  number;
-  totalPages:             number;
-  pendingProRequestCount: number;
+  items:                AdminUserListItem[];
+  page:                 number;
+  pageSize:             number;
+  total:                number;
+  totalPages:           number;
+  pendingRequestCount:  number;
 };
 
 export type UpdateUserPlanRequest = {
   plan: UserPlan;
 };
 
-export type AdminProRequestEntry = {
-  id:           string;
-  status:       AiProRequestStatus;
-  note:         string | null;
-  decisionNote: string | null;
-  requestedAt:  string;
-  decidedAt:    string | null;
-};
-
 export type AdminUserDetail = AdminUserListItem & {
   applicationCount: number;
   connectionCount:  number;
   statusBreakdown:  Record<string, number>;
-  proRequests:      AdminProRequestEntry[];
+  planRequests:     PlanRequestSummary[];
 };
 
 export type UpdateUserStatusRequest = {

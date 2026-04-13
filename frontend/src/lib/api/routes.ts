@@ -25,8 +25,8 @@ export const routes = {
     forgotPassword: () => "/auth/forgot-password",
     resetPassword: () => "/auth/reset-password",
   },
-  pro: {
-    request: () => "/pro/request",
+  plan: {
+    request: () => "/plan/request",
   },
   analytics: {
     adminOverview:      (window?: string) => `/analytics/admin/overview${window ? `?window=${window}` : ""}`,
@@ -37,13 +37,10 @@ export const routes = {
     meUsage:            () => "/analytics/me/usage",
   },
   admin: {
-    listProRequests: () => "/admin/pro-requests",
-    approveProRequest: (requestId: string) => `/admin/pro-requests/${requestId}/approve`,
-    denyProRequest: (requestId: string) => `/admin/pro-requests/${requestId}/deny`,
-    grantCredits: (requestId: string) => `/admin/pro-requests/${requestId}/grant-credits`,
-    updateUserPlan: (userId: string) => `/admin/users/${userId}/plan`,
-    listUsers: () => "/admin/users",
-    getUserDetail: (userId: string) => `/admin/users/${userId}`,
+    declineRequest:   (userId: string, requestId: string) => `/admin/users/${userId}/requests/${requestId}/decline`,
+    updateUserPlan:   (userId: string) => `/admin/users/${userId}/plan`,
+    listUsers:        () => "/admin/users",
+    getUserDetail:    (userId: string) => `/admin/users/${userId}`,
     updateUserStatus: (userId: string) => `/admin/users/${userId}/status`,
     getUserUsage:     (userId: string) => `/admin/users/${userId}/usage`,
     addUserCredits:   (userId: string) => `/admin/users/${userId}/credits/add`,
