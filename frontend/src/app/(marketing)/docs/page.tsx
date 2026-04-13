@@ -144,7 +144,7 @@ const CONTENT: Record<string, React.ReactNode> = {
           click Edit to make changes, then Save or Cancel. Tabs in the drawer cover:
         </p>
         <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
-          <li><span className="font-medium text-foreground">Details</span> — all application fields including job description, notes, and salary</li>
+          <li><span className="font-medium text-foreground">Details</span> — all application fields including job description, salary, notes, and AI highlights</li>
           <li><span className="font-medium text-foreground">AI Tools</span> — compatibility check, resume advice, cover letter, interview prep</li>
           <li><span className="font-medium text-foreground">Documents</span> — application-specific file uploads</li>
           <li><span className="font-medium text-foreground">Connections</span> — people associated with this application (recruiters, referrals, etc.)</li>
@@ -348,7 +348,9 @@ const CONTENT: Record<string, React.ReactNode> = {
         </table>
       </div>
       <p className="text-sm text-muted-foreground">
-        Pro access is granted manually. Request it from your Profile page and an admin will review it.
+        Plans are assigned by admins. If you need more credits or a plan upgrade, request it from your{" "}
+        <span className="font-medium text-foreground">Profile</span> page — requests are reviewed manually.
+        Both Regular and Pro users can request more credits when running low.
       </p>
     </div>
   ),
@@ -388,8 +390,21 @@ const CONTENT: Record<string, React.ReactNode> = {
       <div className="space-y-6">
         <div className="space-y-2">
           <div className="flex items-center gap-3">
-            <p className="text-sm font-semibold">April 2026 — Phase 11</p>
+            <p className="text-sm font-semibold">April 2026 — Polish & UX</p>
             <span className="text-xs border rounded-full px-2 py-0.5 text-muted-foreground">Latest</span>
+          </div>
+          <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
+            <li>Dark mode — light/dark toggle in the header, preference persisted across sessions</li>
+            <li>Indigo colorway — active nav, primary buttons, and plan badges use a consistent accent color</li>
+            <li>Notes field — free-form notes per application for interview times, recruiter details, follow-ups; available in the drawer and at creation time</li>
+            <li>AI Highlights renamed and hidden when empty</li>
+            <li>Credit request system — PRO users can now request more credits when running low (previously Regular-only)</li>
+            <li>Credit request flow migrated to PlanRequest model — cleaner admin resolution workflow</li>
+          </ul>
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+            <p className="text-sm font-semibold">April 2026 — Phase 11</p>
           </div>
           <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
             <li>Real-time credit usage updates after every AI run</li>
