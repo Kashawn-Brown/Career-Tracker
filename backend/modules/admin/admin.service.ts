@@ -6,8 +6,6 @@ import { Prisma, UserPlan } from "@prisma/client";
 import type { ListUsersQueryType } from "./admin.schemas.js";
 import { planRequestSummarySelect } from "../plan/plan.dto.js";
 
-const NOTE_MAX = 500;
-
 
 /**
  * List users for admin with optional search + role/plan filtering.
@@ -231,13 +229,6 @@ export async function autoCloseOpenPlanRequest(
 
 
 // ----------------- Helper Functions -----------------
-
-function cleanOptionalText(value?: string): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  return trimmed.length > NOTE_MAX ? trimmed.slice(0, NOTE_MAX) : trimmed;
-}
 
 function escapeHtml(s: string): string {
   return s
