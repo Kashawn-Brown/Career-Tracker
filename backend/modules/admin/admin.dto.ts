@@ -44,7 +44,7 @@ export type AdminUserListItem = {
   // Current cycle usage (empty array if no cycle started yet)
   planUsageCycles: { usedCredits: number; baseCredits: number; bonusCredits: number; cycleYear: number; cycleMonth: number }[];
   // Pending credit request indicator
-  planRequests: { id: string; status: string }[];
+  planRequests: { id: string; status: string; requestedAt: Date; decidedAt: Date | null }[];
 };
 
 export type AdminUsersListResponse = {
