@@ -61,10 +61,7 @@ backend/
     documents/            # base resume + download/delete
     connections/          # global connections CRUD/list/search
     ai/                   # JD extraction, document tools, interview prep (AI endpoints + user artifacts)
-    pro/                  # Pro access request
-    admin/                # admin user management + Pro approvals
-    analytics/            # analytics tracking helpers + query service + routes
-    plans/                # plan resolver + Phase 10 entitlement policy (credits, enforcement, admin actions)
+    plan/                 # credit request flow + entitlement policy (credits, enforcement, admin actions)
     debug/                # dev-only routes (seed)
   prisma/
     schema.prisma
@@ -309,20 +306,20 @@ AI gating rules:
 * Resume source resolution for targeted tools: `sourceDocumentId` (must be `RESUME` or `CAREER_HISTORY` kind) → uploaded override → base resume
 * `INTERVIEW_PREP` targeted: uses `tryGetCandidateText` (soft resolve — returns null instead of throwing when no resume exists)
 
-### Pro
+### Plan
 
-* `POST /api/v1/pro/request` (rate-limited per user)
+* `POST /api/v1/plan/request` — request more credits (rate-limited per user)
 
-### Admin (user management + Pro approvals)
+### Admin (user management + credit request resolution)
 
 * `GET  /api/v1/admin/users`
 * `GET  /api/v1/admin/users/:userId`
 * `PATCH /api/v1/admin/users/:userId/plan`
 * `PATCH /api/v1/admin/users/:userId/status`
-* `GET  /api/v1/admin/pro-requests`
-* `POST /api/v1/admin/pro-requests/:requestId/approve`
-* `POST /api/v1/admin/pro-requests/:requestId/deny`
-* `POST /api/v1/admin/pro-requests/:requestId/grant-credits`
+* `GET  /api/v1/admin/users/:userId/usage`
+* `POST /api/v1/admin/users/:userId/credits/add`
+* `POST /api/v1/admin/users/:userId/credits/reset`
+* `POST /api/v1/admin/users/:userId/requests/:requestId/decline`
 
 ### Analytics
 

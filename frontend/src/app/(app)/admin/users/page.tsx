@@ -92,7 +92,7 @@ function AdminUsersContent() {
       });
       setUsers(res.items);
       setTotal(res.total);
-      setPendingRequests(res.pendingProRequestCount ?? 0);
+      setPendingRequests(res.pendingRequestCount ?? 0);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load users.");
     } finally {
@@ -223,7 +223,7 @@ function AdminUsersContent() {
               )}
               {!isLoading && users.map((user) => {
                 const isAdmin    = user.role === "ADMIN";
-                const hasPending = user.aiProRequests?.length > 0;
+                const hasPending = user.planRequests?.length > 0;
                 return (
                   <tr
                     key={user.id}

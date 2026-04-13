@@ -19,7 +19,7 @@ import { parseApplicationFilters } from "./applications.filters.js";
 import { ExportApplicationsQuery, type ExportApplicationsQueryType } from "./applications.schemas.js";
 import { trackEventForUser } from "../analytics/analytics-tracker.js";
 import { startAiRun, succeedAiRun, failAiRun } from "../analytics/ai-run-tracker.js";
-import { consumeCreditsOnSuccess, getExecutionProfile } from "../plans/entitlement-policy.js";
+import { consumeCreditsOnSuccess, getExecutionProfile } from "../plan/entitlement-policy.js";
 
 export async function applicationsRoutes(app: FastifyInstance) {
   

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth }      from "@/hooks/useAuth";
 import { analyticsApi } from "@/lib/api/analytics";
-import { proApi }       from "@/lib/api/pro-api";
+import { planApi }      from "@/lib/api/plan-api";
 import { Button }       from "@/components/ui/button";
 import {
   Card,
@@ -69,7 +69,7 @@ export function ProfileProAccessCard() {
     setRequesting(true);
     setRequestError(null);
     try {
-      await proApi.requestPro({ note: "Requesting additional monthly AI credits." });
+      await planApi.requestCredits({ note: "Requesting additional monthly AI credits." });
       localStorage.setItem(REQUEST_DONE_KEY, "true");
       if (usage) localStorage.setItem(`${REQUEST_DONE_KEY}_cycle`, usage.resetAt);
       setRequestDone(true);

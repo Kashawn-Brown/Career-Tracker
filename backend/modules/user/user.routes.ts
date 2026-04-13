@@ -20,10 +20,9 @@ export async function userRoutes(app: FastifyInstance) {
     const me = await UserService.getMe(userId);
     if (!me) throw new AppError("User not found", 404);
 
-    // Get the latest AI Pro request for the user
-    const aiProRequest = await UserService.getLatestAiProRequest(userId);
+    const planRequest = await UserService.getLatestPlanRequest(userId);
 
-    return { user: me, aiProRequest };
+    return { user: me, planRequest };
 
   });
 

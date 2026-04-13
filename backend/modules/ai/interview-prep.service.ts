@@ -18,7 +18,7 @@
 import { AppError }                      from "../../errors/app-error.js";
 import { getOpenAIClient, AI_MODELS }    from "./openai.js";
 import type { DocumentToolResult, TokenUsage } from "./document-tools.service.js";
-import type { ExecutionProfile } from "../plans/entitlement-policy.js";
+import type { ExecutionProfile } from "../plan/entitlement-policy.js";
 import { throwIfAborted }                from "../../lib/request-abort.js";
 import {
   InterviewPrepJsonObject,

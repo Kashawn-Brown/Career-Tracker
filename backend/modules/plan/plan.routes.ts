@@ -1,29 +1,30 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { requireAuth } from "../../middleware/auth.js";
 import { requireVerifiedEmail } from "../../middleware/require-verified-email.js";
-import { RequestProBody } from "./pro.schemas.js";
-import type { RequestProBodyType } from "./pro.schemas.js";
-import * as ProService from "./pro.service.js";
+import { RequestCreditsBody } from "./plan.schemas.js";
+import type { RequestCreditsBodyType } from "./plan.schemas.js";
+import * as PlanService from "./plan.service.js";
 
-export async function proRoutes(app: FastifyInstance) {
-  
+export async function planRoutes(app: FastifyInstance) {
+
   /**
-   * User requests Pro access.
-   * 
-   * Requires user: authenticated + verified email.
+   * User requests more AI credits.
+   *
+   * Requires: authenticated + verified email.
+   * Rate-limited to 3 requests per day per user.
    */
   app.post(
     "/request",
     {
       preHandler: [requireAuth, requireVerifiedEmail],
-      schema: { body: RequestProBody },
+      schema: { body: RequestCreditsBody },
       config: { rateLimit: { max: 3, timeWindow: "1 day", keyGenerator: rateLimitKeyByUser } },
     },
     async (req, reply) => {
       const userId = req.user!.id;
-      const body = req.body as RequestProBodyType;
+      const body = req.body as RequestCreditsBodyType;
 
-      const result = await ProService.requestProAccess(userId, body.note);
+      const result = await PlanService.requestMoreCredits(userId, body.note);
       return reply.send({ ok: true, ...result });
     }
   );
@@ -32,9 +33,6 @@ export async function proRoutes(app: FastifyInstance) {
 
 // ----------------- Helper Functions -----------------
 
-/**
- * Rate limit key by user ID and IP.
- */
 function rateLimitKeyByUser(req: FastifyRequest): string {
   return req.user?.id ?? req.ip;
 }

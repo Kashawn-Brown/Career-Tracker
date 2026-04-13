@@ -15,7 +15,7 @@ import { requireAuth } from "../../middleware/auth.js";
 import { requireVerifiedEmail } from "../../middleware/require-verified-email.js";
 import { requireAdmin } from "../../middleware/require-admin.js";
 import * as AnalyticsService from "./analytics.service.js";
-import { resolveUsageState } from "../plans/entitlement-policy.js";
+import { resolveUsageState } from "../plan/entitlement-policy.js";
 import type { DateWindow } from "./analytics.service.js";
 import { AppError } from "../../errors/app-error.js";
 

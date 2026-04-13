@@ -78,8 +78,8 @@ describe("User settings", () => {
     expect(res.json()).toEqual({ message: "Missing Bearer token", code: "UNAUTHORIZED" });
   });
 
-  // Test that the GET /users/me endpoint returns the user profile + aiProRequest (null when none)
-  it("GET /users/me returns profile + aiProRequest (null when none)", async () => {
+  // Test that the GET /users/me endpoint returns the user profile + planRequest (null when none)
+  it("GET /users/me returns profile + planRequest (null when none)", async () => {
     const email = "me@test.com";
     const password = "Passw0rd!";
 
@@ -93,7 +93,7 @@ describe("User settings", () => {
       headers: { Authorization: `Bearer ${token}` },
     });
 
-    // Expect the response to be successful 200 + body has user + aiProRequest (null when none)
+    // Expect the response to be successful 200 + body has user + planRequest (null when none)
     expect(res.statusCode).toBe(200);
 
     const body = res.json();

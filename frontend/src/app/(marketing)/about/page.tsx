@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Github, Linkedin, Coffee, Send, CheckCircle2, AlertCircle } from "lucide-react";
+import { Github, Linkedin, Globe, Coffee, Send, CheckCircle2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
@@ -232,6 +232,15 @@ export default function AboutPage() {
               <Linkedin className="h-4 w-4" />
               LinkedIn
             </a>
+            <a
+              href="https://kashawn-portfolio.vercel.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Globe className="h-4 w-4" />
+              Portfolio
+            </a>            
           </div>
         </div>
       </section>

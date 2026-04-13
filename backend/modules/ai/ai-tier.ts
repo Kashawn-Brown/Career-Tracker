@@ -1,7 +1,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { AppError } from "../../errors/app-error.js";
 import { prisma } from "../../lib/prisma.js";
-import { resolvePlanForUser, type EffectivePlan } from "../plans/plan-resolver.js";
+import { resolvePlanForUser, type EffectivePlan } from "../plan/plan-resolver.js";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 

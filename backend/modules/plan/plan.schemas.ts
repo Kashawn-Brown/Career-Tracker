@@ -1,13 +1,13 @@
 import { Type, Static } from "@sinclair/typebox";
 
 /**
- * User requesting Pro access (note optional).
+ * User requesting more AI credits (note optional).
  */
-export const RequestProBody = Type.Object(
+export const RequestCreditsBody = Type.Object(
   {
     note: Type.Optional(Type.String({ minLength: 1, maxLength: 500 })),
   },
   { additionalProperties: false }
 );
 
-export type RequestProBodyType = Static<typeof RequestProBody>;
+export type RequestCreditsBodyType = Static<typeof RequestCreditsBody>;

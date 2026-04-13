@@ -61,8 +61,6 @@ model User {
   emailVerificationTokens EmailVerificationToken[]
   passwordResetTokens     PasswordResetToken[]
 
-  aiProRequests AiProRequest[]
-
   oauthAccounts OAuthAccount[]
 
 
@@ -151,36 +149,6 @@ model PasswordResetToken {
   @@index([userId])
   @@map("password_reset_tokens")
 }
-
-enum AiProRequestStatus {
-  PENDING
-  APPROVED
-  DENIED
-  EXPIRED
-  CREDITS_GRANTED
-}
-
-model AiProRequest {
-  id           String @id @default(cuid())
-  userId       String
-
-  note         String?
-
-  status       AiProRequestStatus @default(PENDING)
-
-  requestedAt  DateTime @default(now())
-  decidedAt    DateTime?
-
-  decisionNote String?
-
-  user         User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([status])
-  @@index([userId, requestedAt])
-  @@map("ai_pro_requests")
-}
-
 
 
 model JobApplication {
@@ -601,11 +569,11 @@ model PlanUsageAdjustment {
 }
 
 /**
- * PlanRequest — user-initiated requests for more credits or plan upgrade.
+ * PlanRequest — user-initiated requests for more credits.
  *
- * Replaces the old AiProRequest model conceptually, but coexists with it
- * during the transition. Covers both credit requests and PRO upgrade requests
- * in one model with a requestType discriminator.
+ * Users can request additional monthly credits when running low or blocked.
+ * Admins resolve requests by acting directly (add credits / set plan), which
+ * auto-closes any open request, or by explicitly declining via the admin UI.
  */
 model PlanRequest {
   id     String @id @default(cuid())

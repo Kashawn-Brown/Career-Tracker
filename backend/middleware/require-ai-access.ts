@@ -1,6 +1,6 @@
 import type { FastifyRequest } from "fastify";
 import { AppError } from "../errors/app-error.js";
-import { assertCreditAccessOrThrow } from "../modules/plans/entitlement-policy.js";
+import { assertCreditAccessOrThrow } from "../modules/plan/entitlement-policy.js";
 
 /**
  * Pre-handler guard for all AI endpoints.

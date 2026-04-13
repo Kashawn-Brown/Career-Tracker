@@ -13,7 +13,7 @@ import { userRoutes } from "./modules/user/user.routes.js";
 import { documentsRoutes } from "./modules/documents/documents.routes.js";
 import { connectionsRoutes } from "./modules/connections/connections.routes.js";
 import { aiRoutes } from "./modules/ai/ai.routes.js";
-import { proRoutes } from "./modules/pro/pro.routes.js";
+import { planRoutes } from "./modules/plan/plan.routes.js";
 import { adminRoutes } from "./modules/admin/admin.routes.js";
 import { analyticsRoutes } from "./modules/analytics/analytics.routes.js";
 import { userAiArtifactsRoutes } from "./modules/ai/user-ai-artifacts.routes.js";
@@ -98,8 +98,8 @@ export function buildApp() {
   // Mount AI endpoints under /api/v1/ai
   app.register(aiRoutes, { prefix: "/api/v1/ai" });
 
-  // Mount Pro endpoints under /api/v1/pro
-  app.register(proRoutes, { prefix: "/api/v1/pro" });
+  // Mount Plan endpoints under /api/v1/plan
+  app.register(planRoutes, { prefix: "/api/v1/plan" });
 
   // Mount Admin endpoints under /api/v1/admin
   app.register(adminRoutes, { prefix: "/api/v1/admin" });
