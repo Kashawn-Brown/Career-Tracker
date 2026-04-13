@@ -309,7 +309,7 @@ function UsageCard({ usage }: { usage: UsageState }) {
           <p className={`text-xs ${styles.text}`}>
             {message}
             {usage.isBlocked && (
-              <>{" "}Your credits will reset on {resetDate}. You can request more credits or upgrade to Pro from your profile.</>
+              <>{" "}Your credits will reset on {resetDate}. You can request more credits from your profile.</>
             )}
           </p>
         )}
