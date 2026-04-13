@@ -10,6 +10,7 @@ Live site: https://career-tracker.ca
 
 - Next.js (App Router) + React + TypeScript
 - Tailwind CSS + shadcn/ui (Radix)
+- Dark mode (light/dark toggle, localStorage persistence, semantic token system)
 - Fetch wrapper for API requests with cookie support
 - Client-side auth handling (token storage) + CSRF bootstrap for refresh/logout
 
@@ -88,7 +89,7 @@ Defaults:
 
 ### Authenticated app
 
-- `/applications` — main table + drawer (AI tools, documents, connections, notes per application)
+- `/applications` — main table + drawer (AI tools, documents, connections, notes and AI highlights per application)
 - `/tools` — standalone AI tools (generic interview prep, resume advice, cover letter; results saved per user)
 - `/activity` — personal usage summary: AI runs by tool, recent activity, artifact counts
 - `/profile` — profile + settings + connections management + base resume / cover letter upload
@@ -141,7 +142,7 @@ AI tool surfaces are governed by a monthly credit system:
 - `CreditCostNote` shows "Uses X credits" on tool cards for REGULAR users (PRO sees nothing)
 - `BlockedRunButton` replaces the run button when the user is out of credits, links to `/profile`
 - Drawer tools show a single section-level warning banner at WARNING_90 and a blocked banner at 100% — individual cards collapse their form content when blocked
-- `ProfileProAccessCard` shows real-time usage, a progress bar with threshold colouring, and a "Request more credits" button at 90%+ — `requestDone` is persisted in localStorage and clears on cycle reset
+- `ProfileProAccessCard` shows real-time usage, a progress bar with threshold colouring, and a "Request more credits" button at 90%+
 - The Activity page shows a `UsageCard` with progress bar, threshold colouring, and reset date
 - Usage state is re-fetched after every successful AI run so blocked state and warnings update without a page refresh
 - All credit request flows go through `ProfileProAccessCard` — `ProAccessBanner` and `RequestProDialog` have been removed
@@ -185,4 +186,4 @@ The base resume is intended to be a **complete career document** — every role,
 
 ---
 
-*Last updated: 2026-04-12*
+*Last updated: 2026-04-13*

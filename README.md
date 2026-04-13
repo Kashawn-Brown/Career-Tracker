@@ -25,6 +25,8 @@ The design goal is simple: **scanning stays instant** in the table, while richer
 - Open an application in the **details drawer** (view-first by default)
 - Enter **explicit Edit mode** to make changes, then **Save/Cancel** safely
 - Destructive actions are gated/confirmed to prevent accidental changes
+- **Notes** — a free-form notes field per application for interview times, recruiter details, follow-ups, etc.
+- **AI Highlights** — auto-populated from JD extraction; hidden when empty
 
 ### Documents v1 (real uploads)
 - Upload PDF/TXT attachments to a private Google Cloud Storage bucket
@@ -74,6 +76,7 @@ The design goal is simple: **scanning stays instant** in the table, while richer
 
 **Tech stack**
 - Next.js (App Router), React, TypeScript, Tailwind CSS, shadcn/ui (Radix)
+- Dark mode support (light/dark toggle, localStorage persistence)
 - Fastify, TypeScript, TypeBox schemas
 - Prisma + PostgreSQL
 - Redis (Upstash in prod)
@@ -184,4 +187,4 @@ See `backend/README.md` for full details.
 
 ---
 
-*Last updated: 2026-04-12*
+*Last updated: 2026-04-13*
