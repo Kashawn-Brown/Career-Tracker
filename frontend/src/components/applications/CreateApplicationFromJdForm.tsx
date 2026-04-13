@@ -779,7 +779,7 @@ export function CreateApplicationFromJdForm({
           {/* Summary (optional/collapsible) */}
           <Collapsible open={showSummary} onOpenChange={setShowSummary}>
             <CollapsibleTrigger asChild>
-              <Button type="button" variant="outline" className="w-full justify-between bg-gray-400 text-white hover:bg-gray-400">
+              <Button type="button" variant="outline" className="w-full justify-between bg-muted-foreground/80 text-muted hover:bg-muted-foreground/50">
                 <span className="font-medium">Summary</span>
                 {showSummary ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
               </Button>
@@ -893,7 +893,7 @@ export function CreateApplicationFromJdForm({
                 </div>
 
                 <div className="space-y-2 md:col-span-6">
-                  <Label htmlFor="notes">Notes</Label>
+                  <Label htmlFor="userNotes">Notes</Label>
                   <Textarea
                     id="userNotes"
                     value={userNotes}

@@ -328,7 +328,7 @@ export function BaseResumeCard({
               <iframe
                 src={previewUrl}
                 title={baseResume?.originalName ?? "Document preview"}
-                className="h-full w-full bg-white"
+                className="h-full w-full bg-background"
                 referrerPolicy="no-referrer"
               />
             ) : (

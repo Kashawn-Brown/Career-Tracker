@@ -342,7 +342,7 @@ export function ApplicationsTable({
                               className={
                                 application.isFavorite
                                   ? "h-4 w-4 fill-yellow-500 text-yellow-500"
-                                  : "h-4 w-4 text-gray-400"
+                                  : "h-4 w-4 text-muted-foreground/60"
                               }
                             />
                           </td>

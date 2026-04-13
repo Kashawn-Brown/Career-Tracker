@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { useTheme } from "@/contexts/ThemeContext";
 import { cn } from "@/lib/utils";
 import { isAdminUser, getPlanBadgeLabel, hasProPlan, getEffectivePlan } from "@/lib/plans";
 
@@ -19,6 +21,7 @@ function isActivePath(pathname: string, href: string) {
 export function Header() {
   const pathname  = usePathname();
   const { user, logout, isAuthenticated, isHydrated } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   const isLoggedIn    = isHydrated && isAuthenticated;
   const displayName   = user?.name?.trim() || user?.email || "User";
@@ -71,8 +74,20 @@ export function Header() {
           })}
         </nav>
 
-        {/* Right: auth-dependent actions */}
+        {/* Right: theme toggle + auth-dependent actions */}
         <div className="flex items-center justify-end gap-3 sm:gap-4">
+
+          {/* Dark / light mode toggle */}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={toggleTheme}
+            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            className="h-8 w-8 p-0"
+          >
+            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </Button>
           {isLoggedIn ? (
             <>
               <div className="hidden sm:flex items-center gap-2">

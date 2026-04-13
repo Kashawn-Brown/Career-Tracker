@@ -1276,7 +1276,7 @@ export function ApplicationDetailsDrawer({
                     <iframe
                       src={previewUrl}
                       title={previewTitle ?? "PDF preview"}
-                      className="h-full w-full bg-white"
+                      className="h-full w-full bg-background"
                       referrerPolicy="no-referrer"
                     />
                   ) : null}
