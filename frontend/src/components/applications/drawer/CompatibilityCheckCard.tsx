@@ -458,7 +458,7 @@ export function CompatibilityCheckCard({
 
               <div className="pt-2 border-t space-y-2">
                 {isBlocked && !isRerunMode ? (
-                  <BlockedRunButton plan={plan} />
+                  <BlockedRunButton />
                 ) : (
                   <>
                     <Button className="w-full mb-2" disabled={!isReady || isRunning} onClick={runFit}>

@@ -12,15 +12,16 @@ type ThemeContextValue = {
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("light");
+  // Initialize directly from localStorage to avoid setState inside a useEffect
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window === "undefined") return "light";
+    return localStorage.getItem("ct_theme") === "dark" ? "dark" : "light";
+  });
 
-  // On mount: read persisted preference, apply to <html>
+  // Apply theme class to <html> on mount and whenever theme changes
   useEffect(() => {
-    const stored = localStorage.getItem("ct_theme") as Theme | null;
-    const resolved: Theme = stored === "dark" ? "dark" : "light";
-    setTheme(resolved);
-    applyTheme(resolved);
-  }, []);
+    applyTheme(theme);
+  }, [theme]);
 
   const toggleTheme = useCallback(() => {
     setTheme((prev) => {

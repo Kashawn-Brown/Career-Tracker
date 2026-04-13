@@ -741,7 +741,7 @@ export function CreateApplicationFromJdForm({
             </Button>
           ) : null}
           {isBlocked ? (
-            <BlockedRunButton plan={planLabel} />
+            <BlockedRunButton />
           ) : (
             sourceMode === "LINK" ? (
               <div className="flex flex-col items-end gap-1">

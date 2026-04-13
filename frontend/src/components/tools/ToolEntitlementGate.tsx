@@ -34,15 +34,11 @@ export function CreditCostNote({ plan, cost }: CreditCostNoteProps) {
 
 // ─── Blocked run button ───────────────────────────────────────────────────────
 
-interface BlockedRunButtonProps {
-  plan: string;
-}
-
 /**
  * Shown instead of the normal run button when the user has exhausted their
  * monthly credits. Explains the situation and surfaces the relevant next action.
  */
-export function BlockedRunButton({ plan }: BlockedRunButtonProps) {
+export function BlockedRunButton() {
   return (
     <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 space-y-2">
       <p className="text-sm font-medium text-destructive">
