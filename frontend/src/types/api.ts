@@ -133,7 +133,7 @@ export type AdminUserListItem = {
   lastActiveAt:   string | null;
   planUsageCycles: { usedCredits: number; baseCredits: number; bonusCredits: number }[];
   // Pending credit request indicator (at most one)
-  planRequests:   { id: string; status: string }[];
+  planRequests:   { id: string; status: string; requestedAt: string; decidedAt: string | null }[];
 };
 
 export type AdminUsersListResponse = {

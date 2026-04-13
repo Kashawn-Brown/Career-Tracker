@@ -22,7 +22,7 @@ export const adminUserSelect = {
   },
   // Pending credit request indicator (at most one shown in the UI)
   planRequests: {
-    select: { id: true, status: true },
+    select: { id: true, status: true, requestedAt: true, decidedAt: true },
     where:  { status: "PENDING" },
     take:   1,
   },

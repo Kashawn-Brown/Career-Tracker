@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { adminApi } from "@/lib/api/admin";
 import { ApiError } from "@/lib/api/client";
-import type { AdminUserDetail, AdminUserListItem, UserPlan, AdminUserAnalyticsResponse, AdminProRequestEntry, UsageState } from "@/types/api";
+import type { AdminUserDetail, AdminUserListItem, UserPlan, AdminUserAnalyticsResponse, PlanRequestSummary, UsageState } from "@/types/api";
 import { analyticsApi } from "@/lib/api/analytics";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -58,6 +58,7 @@ export function UserDetailSheet({ user, open, onClose, onUserUpdated }: Props) {
   const [creditNote, setCreditNote]         = useState("");
   const [creditActing, setCreditActing]     = useState(false);
   const [creditError, setCreditError]       = useState<string | null>(null);
+  const [declining, setDeclining]           = useState(false);
 
   // Confirm state: null = no confirm showing, otherwise holds the pending action
   const [pendingAction, setPendingAction] = useState<ConfirmAction | null>(null);
@@ -73,6 +74,7 @@ export function UserDetailSheet({ user, open, onClose, onUserUpdated }: Props) {
       setCreditAmount("10");
       setCreditNote("");
       setCreditError(null);
+      setDeclining(false);
       setPendingAction(null);
       setActionError(null);
       return;
@@ -147,6 +149,9 @@ export function UserDetailSheet({ user, open, onClose, onUserUpdated }: Props) {
       setCreditNote("");
       const updated = await adminApi.getUserUsage(user.id);
       setUsageState(updated);
+      // Reload detail so the pending request badge clears
+      const res = await adminApi.getUserDetail(user.id);
+      setDetail(res);
     } catch (err) {
       setCreditError(err instanceof Error ? err.message : "Failed to add credits.");
     } finally {
@@ -162,10 +167,28 @@ export function UserDetailSheet({ user, open, onClose, onUserUpdated }: Props) {
       await adminApi.resetUserCredits(user.id);
       const updated = await adminApi.getUserUsage(user.id);
       setUsageState(updated);
+      // Reload detail so the pending request badge clears
+      const res = await adminApi.getUserDetail(user.id);
+      setDetail(res);
     } catch (err) {
       setCreditError(err instanceof Error ? err.message : "Failed to reset credits.");
     } finally {
       setCreditActing(false);
+    }
+  }
+
+  async function handleDeclineRequest(requestId: string) {
+    if (!user) return;
+    setDeclining(true);
+    try {
+      await adminApi.declinePlanRequest(user.id, requestId);
+      // Reload detail so the pending request badge clears
+      const res = await adminApi.getUserDetail(user.id);
+      setDetail(res);
+    } catch {
+      // Non-fatal — badge will stay visible, admin can retry
+    } finally {
+      setDeclining(false);
     }
   }
 
@@ -296,36 +319,44 @@ export function UserDetailSheet({ user, open, onClose, onUserUpdated }: Props) {
                       <div className="text-xs text-muted-foreground">Loading usage…</div>
                     ) : null}
 
-                    {/* Pending credit requests — informational only; admin acts via controls below */}
-                    {(detail.proRequests ?? []).filter((r) => r.status === "PENDING").length > 0 && (
-                      <div className="rounded border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/10 p-2.5 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-medium text-amber-700 dark:text-amber-400">Credit request pending</span>
-                          <span className="text-xs text-muted-foreground">
-                            {new Date((detail.proRequests ?? []).find((r) => r.status === "PENDING")!.requestedAt)
-                              .toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
-                          </span>
+                    {/* Pending credit request — admin can decline or act via controls below */}
+                    {(detail.planRequests ?? []).filter((r) => r.status === "PENDING").length > 0 && (() => {
+                      const pending = (detail.planRequests ?? []).find((r) => r.status === "PENDING")!;
+                      return (
+                        <div className="rounded border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/10 p-2.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-medium text-amber-700 dark:text-amber-400">Credit request pending</span>
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(pending.requestedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                              </span>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive"
+                              disabled={declining}
+                              onClick={() => handleDeclineRequest(pending.id)}
+                            >
+                              {declining ? "…" : "Decline"}
+                            </Button>
+                          </div>
                         </div>
-                        {(detail.proRequests ?? []).find((r) => r.status === "PENDING")?.note && (
-                          <p className="text-xs text-muted-foreground">
-                            {(detail.proRequests ?? []).find((r) => r.status === "PENDING")!.note}
-                          </p>
-                        )}
-                      </div>
-                    )}
+                      );
+                    })()}
 
-                    {/* Past requests (non-pending) — collapsed by default */}
-                    {(detail.proRequests ?? []).filter((r) => r.status !== "PENDING").length > 0 && (
+                    {/* Past requests (non-pending) */}
+                    {(detail.planRequests ?? []).filter((r) => r.status !== "PENDING").length > 0 && (
                       <div className="space-y-1">
                         <div className="text-xs text-muted-foreground font-medium">Past requests</div>
-                        {(detail.proRequests ?? [])
+                        {(detail.planRequests ?? [])
                           .filter((r) => r.status !== "PENDING")
-                          .map((r: AdminProRequestEntry) => (
+                          .map((r) => (
                           <div key={r.id} className="flex items-center justify-between text-xs text-muted-foreground">
                             <span>{new Date(r.requestedAt).toLocaleDateString()}</span>
                             <span className={
-                              r.status === "APPROVED" ? "text-green-600" :
-                              r.status === "DENIED"   ? "text-red-500"   :
+                              r.status === "APPROVED" ? "text-green-600"    :
+                              r.status === "DECLINED" ? "text-red-500"      :
                               ""
                             }>{r.status}</span>
                           </div>
