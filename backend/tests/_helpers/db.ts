@@ -52,7 +52,6 @@ export async function truncateAllTables(): Promise<void> {
       "documents",
       "connections",
       "job_applications",
-      "ai_pro_requests",
       "email_verification_tokens",
       "password_reset_tokens",
       "oauth_accounts",

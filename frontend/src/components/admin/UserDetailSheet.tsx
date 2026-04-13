@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { adminApi } from "@/lib/api/admin";
 import { ApiError } from "@/lib/api/client";
-import type { AdminUserDetail, AdminUserListItem, UserPlan, AdminUserAnalyticsResponse, PlanRequestSummary, UsageState } from "@/types/api";
+import type { AdminUserDetail, AdminUserListItem, UserPlan, AdminUserAnalyticsResponse, UsageState } from "@/types/api";
 import { analyticsApi } from "@/lib/api/analytics";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
