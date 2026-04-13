@@ -28,7 +28,7 @@ export async function requestMoreCredits(userId: string, noteRaw?: string) {
   const effectivePlan = resolvePlanForUser(user);
   if (hasUnlimitedAiAccess(effectivePlan)) return { alreadyUnlimited: true, request: null as any };
 
-  const latest = await getLatestRequest(userId);
+  const latest = await getLatestPlanRequest(userId);
 
   // If pending within cooldown, return the existing request rather than creating a duplicate
   if (latest?.status === "PENDING") {

@@ -327,6 +327,7 @@ export function UserDetailSheet({ user, open, onClose, onUserUpdated }: Props) {
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
                               <span className="text-xs font-medium text-amber-700 dark:text-amber-400">Credit request pending</span>
+                              <span className="text-muted-foreground">{"·"}</span>
                               <span className="text-xs text-muted-foreground">
                                 {new Date(pending.requestedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
                               </span>
