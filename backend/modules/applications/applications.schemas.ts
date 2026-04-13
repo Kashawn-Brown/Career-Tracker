@@ -53,6 +53,7 @@ export const CreateApplicationBody = Type.Object(
     jobLink: Type.Optional(Type.String({ maxLength: 2048 })),
     description: Type.Optional(Type.String({ maxLength: 100_000 })),
     notes: Type.Optional(Type.String({ maxLength: 20000 })),
+    userNotes: Type.Optional(Type.String({ maxLength: 10000 })),
     // AI-generated summary stored at create time when JD extraction is used
     jdSummary: Type.Optional(Type.String({ maxLength: 2000 })),
     tagsText: Type.Optional(Type.String({ maxLength: 500 })),
@@ -222,6 +223,7 @@ export const UpdateApplicationBody = Type.Object(
     tagsText: Type.Optional(Type.String({ maxLength: 500 })),
     description: Type.Optional(Type.String({ maxLength: 100_000 })),
     notes: Type.Optional(Type.String({ maxLength: 20000 })),
+    userNotes: Type.Optional(Type.String({ maxLength: 10000 })),
     // AI-generated summary stored at create time when JD extraction is used
     jdSummary: Type.Optional(Type.String({ maxLength: 2000 })),
   },

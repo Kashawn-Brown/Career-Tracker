@@ -176,6 +176,7 @@ model JobApplication {
   jobLink      String?
   description  String?
   notes        String?
+  userNotes    String?
   tagsText     String?
   jdSummary    String?
 
