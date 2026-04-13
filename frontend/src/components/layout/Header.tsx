@@ -64,8 +64,8 @@ export function Header() {
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "rounded-md px-2 py-1 font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
-                  active && "bg-accent text-foreground"
+                  "rounded-md px-2 py-1 font-medium text-primary/80 transition-colors hover:bg-accent hover:text-primary",
+                  active && "bg-primary text-primary-foreground"
                 )}
               >
                 {item.label}
@@ -98,13 +98,13 @@ export function Header() {
                 </span>
 
                 {user && hasProPlan(getEffectivePlan(user)) && !isAdminUser(user) ? (
-                  <span className="rounded border px-2 py-0.5 text-[10px] font-semibold tracking-wide">
+                  <span className="rounded border border-primary px-2 py-0.5 text-[10px] font-semibold tracking-wide text-primary">
                     {getPlanBadgeLabel(user)}
                   </span>
                 ) : null}
 
                 {user && isAdminUser(user) ? (
-                  <span className="rounded border px-2 py-0.5 text-[10px] font-semibold tracking-wide">
+                  <span className="rounded border border-primary px-2 py-0.5 text-[10px] font-semibold tracking-wide text-primary">
                     ADMIN
                   </span>
                 ) : null}
