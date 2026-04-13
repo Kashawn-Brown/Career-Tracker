@@ -2,7 +2,7 @@ import { prisma } from "../../lib/prisma.js";
 import { AppError } from "../../errors/app-error.js";
 import { sendEmail } from "../../lib/email.js";
 import { planRequestSummarySelect } from "./plan.dto.js";
-import { resolvePlanForUser, hasUnlimitedAiAccess } from "./plan-resolver.js";
+import { resolvePlanForUser } from "./plan-resolver.js";
 
 const NOTE_MAX = 500;
 const PENDING_REQUEST_COOLDOWN_DAYS = 3;
@@ -24,9 +24,9 @@ export async function requestMoreCredits(userId: string, noteRaw?: string) {
 
   if (!user) throw new AppError("User not found", 404);
 
-  // PRO_PLUS users have unlimited access — no need to request credits
+  // Only PRO_PLUS has a high enough allowance to make credit requests meaningless
   const effectivePlan = resolvePlanForUser(user);
-  if (hasUnlimitedAiAccess(effectivePlan)) return { alreadyUnlimited: true, request: null as any };
+  if (effectivePlan === "PRO_PLUS") return { alreadyUnlimited: true, request: null as any };
 
   const latest = await getLatestPlanRequest(userId);
 
