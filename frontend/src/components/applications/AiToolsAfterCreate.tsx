@@ -107,7 +107,7 @@ export function AiToolsAfterCreate({
               AI tools to run:
             </div>
 
-            {(["fit", "interviewPrep", "resumeAdvice", "coverLetter"] as const).map((key) => {
+            {(["fit",  "resumeAdvice", "coverLetter", "interviewPrep"] as const).map((key) => {
               const labels: Record<typeof key, string> = {
                 fit:           "Compatibility check",
                 interviewPrep: "Interview prep",
@@ -139,7 +139,7 @@ export function AiToolsAfterCreate({
           </div>
 
           {/* ── Resume source ──────────────────────────────────────────── */}
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 mt-8">
             <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
               Resume
             </div>
@@ -147,7 +147,7 @@ export function AiToolsAfterCreate({
             {overrideFile ? (
               // User uploaded a one-off resume for this run
               <div className="flex items-center gap-2 text-muted-foreground">
-                <span className="truncate">{overrideFile.name}</span>
+                <span className="truncate font-medium text-foreground/80">{overrideFile.name}</span>
                 <button
                   type="button"
                   disabled={disabled}
@@ -206,14 +206,14 @@ export function AiToolsAfterCreate({
 
           {/* ── Cover letter template (only relevant when cover letter selected) ── */}
           {selections.coverLetter && (
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 mt-8">
               <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 Cover letter template
               </div>
 
               {templateFile ? (
                 <div className="flex items-center gap-2 text-muted-foreground">
-                  <span className="truncate">{templateFile.name}</span>
+                  <span className="truncate font-medium text-foreground/80">{templateFile.name}</span>
                   <button
                     type="button"
                     disabled={disabled}
