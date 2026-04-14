@@ -121,4 +121,8 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Native select dropdown options are OS-rendered — force dark color scheme when in dark mode */
+  :is(.dark *) select, .dark select {
+    color-scheme: dark;
+  }
 }
