@@ -156,6 +156,8 @@ export type ListApplicationsParams = {
   dateAppliedTo?:   string;
   updatedFrom?:     string;
   updatedTo?:       string;
+  createdFrom?:     string;
+  createdTo?:       string;
 
   // Pagination
   page?:     number;
@@ -212,6 +214,8 @@ export type ExportApplicationsParams = {
   dateAppliedTo?:   string;
   updatedFrom?:     string;
   updatedTo?:       string;
+  createdFrom?:     string;
+  createdTo?:       string;
 
   // Sorting (same as list)
   sortBy?:  ListApplicationsParams["sortBy"];

@@ -101,6 +101,8 @@ export async function applicationsRoutes(app: FastifyInstance) {
         dateAppliedTo:   query.dateAppliedTo,
         updatedFrom:     query.updatedFrom,
         updatedTo:       query.updatedTo,
+        createdFrom:     query.createdFrom,
+        createdTo:       query.createdTo,
         fitMin: query.fitMin,
         fitMax: query.fitMax,
       });
@@ -157,6 +159,8 @@ export async function applicationsRoutes(app: FastifyInstance) {
         dateAppliedTo:   query.dateAppliedTo,
         updatedFrom:     query.updatedFrom,
         updatedTo:       query.updatedTo,
+        createdFrom:     query.createdFrom,
+        createdTo:       query.createdTo,
         fitMin: query.fitMin,
         fitMax: query.fitMax,
       });

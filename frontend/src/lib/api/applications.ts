@@ -54,6 +54,8 @@ function buildApplicationsSearchParams(
   if (params.dateAppliedTo)   search.set("dateAppliedTo",   params.dateAppliedTo);
   if (params.updatedFrom)     search.set("updatedFrom",     params.updatedFrom);
   if (params.updatedTo)       search.set("updatedTo",       params.updatedTo);
+  if (params.createdFrom)     search.set("createdFrom",     params.createdFrom);
+  if (params.createdTo)       search.set("createdTo",       params.createdTo);
 
   return search;
 }

@@ -97,6 +97,8 @@ export const ListApplicationsQuery = Type.Object(
     dateAppliedTo:   Type.Optional(Type.String({ format: "date-time" })),
     updatedFrom:     Type.Optional(Type.String({ format: "date-time" })),
     updatedTo:       Type.Optional(Type.String({ format: "date-time" })),
+    createdFrom:     Type.Optional(Type.String({ format: "date-time" })),
+    createdTo:       Type.Optional(Type.String({ format: "date-time" })),
 
     // Pagination
     page:     Type.Optional(Type.Integer({ minimum: 1 })),
@@ -163,6 +165,8 @@ export const ExportApplicationsQuery = Type.Object(
     dateAppliedTo:   Type.Optional(Type.String({ format: "date-time" })),
     updatedFrom:     Type.Optional(Type.String({ format: "date-time" })),
     updatedTo:       Type.Optional(Type.String({ format: "date-time" })),
+    createdFrom:     Type.Optional(Type.String({ format: "date-time" })),
+    createdTo:       Type.Optional(Type.String({ format: "date-time" })),
     q: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
 
     // Sorting

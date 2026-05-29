@@ -29,6 +29,7 @@ export function buildApplicationsWhere(
     | "fitMin" | "fitMax"
     | "dateAppliedFrom" | "dateAppliedTo"
     | "updatedFrom"     | "updatedTo"
+    | "createdFrom"     | "createdTo"
   >
 ): Prisma.JobApplicationWhereInput {
   const where: Prisma.JobApplicationWhereInput = { userId: params.userId };
@@ -96,6 +97,13 @@ export function buildApplicationsWhere(
     where.updatedAt = {
       ...(params.updatedFrom ? { gte: new Date(params.updatedFrom) } : {}),
       ...(params.updatedTo   ? { lte: new Date(params.updatedTo)   } : {}),
+    };
+  }
+
+  if (params.createdFrom || params.createdTo) {
+    where.createdAt = {
+      ...(params.createdFrom ? { gte: new Date(params.createdFrom) } : {}),
+      ...(params.createdTo   ? { lte: new Date(params.createdTo)   } : {}),
     };
   }
 
