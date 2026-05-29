@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useEffect, useMemo, useState, useCallback } from "react";
-import { apiFetch, setUnauthorizedHandler, setEmailNotVerifiedHandler, setAccountDeactivatedHandler } from "@/lib/api/client";
+import { apiFetch, refreshOnce, setUnauthorizedHandler, setEmailNotVerifiedHandler, setAccountDeactivatedHandler } from "@/lib/api/client";
 import { routes } from "@/lib/api/routes";
 import { clearToken, setToken } from "@/lib/auth/token";
 import { clearCsrfToken, getCsrfToken as getCsrfTokenFromMemory, setCsrfToken as setCsrfTokenInMemory } from "@/lib/auth/csrf";
@@ -36,6 +36,17 @@ const AuthContext = createContext<AuthContextValue | null>(null);
  * Wraps part of app and supplies shared authentication state and actions (user/token/login/logout) to every component inside it via React Context
  */
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  // Decodes the exp claim from a JWT payload (no library needed — just base64).
+  // Returns the expiry timestamp in milliseconds, or null if unreadable.
+  function getTokenExpiry(jwt: string): number | null {
+    try {
+      const payload = JSON.parse(atob(jwt.split('.')[1]));
+      return typeof payload.exp === 'number' ? payload.exp * 1000 : null;
+    } catch {
+      return null;
+    }
+  }
+
   const [user, setUser] = useState<AuthUser | null>(null);        // current user in memory
   const [token, setTokenState] = useState<string | null>(null);   // token in memory
   const [csrfToken, setCsrfToken] = useState<string | null>(null); // csrf token in memory
@@ -95,6 +106,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsHydrated(true);
       }
     })();
+  }, []);
+
+  // Proactively refresh the access token 5 minutes before it expires.
+  // Without this, the first request after the 1-hour TTL triggers a reactive
+  // refresh — three sequential round trips before the original request retries.
+  useEffect(() => {
+    if (!token) return;
+
+    const expiry = getTokenExpiry(token);
+    if (!expiry) return;
+
+    // Schedule the refresh 5 minutes before expiry; skip if already too close.
+    const delay = expiry - Date.now() - 5 * 60 * 1000;
+    if (delay <= 0) return;
+
+    const id = setTimeout(async () => {
+      const newToken = await refreshOnce();
+      if (newToken) {
+        setToken(newToken);      // update module-level store
+        setTokenState(newToken); // update React state so the new token is used immediately
+      }
+      // If refresh fails here, the next 401 will still trigger the reactive path.
+    }, delay);
+
+    return () => clearTimeout(id);
+  }, [token]);
+
+  // Keep React token state in sync when another tab performs the refresh.
+  // Without this, a tab that was waiting on the cross-tab lock would receive
+  // the new token via BroadcastChannel but its React state would remain stale.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const channel = new BroadcastChannel('ct_auth');
+
+    channel.onmessage = (e: MessageEvent) => {
+      if (e.data?.type === 'ct_token_refreshed' && e.data.token) {
+        setToken(e.data.token);
+        setTokenState(e.data.token);
+        if (e.data.csrf) {
+          setCsrfTokenInMemory(e.data.csrf);
+          setCsrfToken(e.data.csrf);
+        }
+      }
+    };
+
+    return () => channel.close();
   }, []);
 
 
