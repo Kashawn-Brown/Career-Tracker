@@ -259,6 +259,8 @@ export type ListApplicationsParams = {
   dateAppliedTo?:   string;
   updatedFrom?:     string;
   updatedTo?:       string;
+  createdFrom?:     string;
+  createdTo?:       string;
 };
 
 // CreateApplicationRequest: matches backend schema for POST /applications.
@@ -333,6 +335,8 @@ export type ExportApplicationsCsvParams = {
   dateAppliedTo?:   string;
   updatedFrom?:     string;
   updatedTo?:       string;
+  createdFrom?:     string;
+  createdTo?:       string;
 
   // Sorting
   sortBy?:  ApplicationSortBy;

@@ -17,6 +17,8 @@ export type ApplicationFilters = {
   dateAppliedTo:   string;
   updatedFrom:     string;
   updatedTo:       string;
+  createdFrom:     string;
+  createdTo:       string;
 };
 
 /** Initial/reset state for all filters. */
@@ -30,6 +32,8 @@ export const DEFAULT_FILTERS: ApplicationFilters = {
   dateAppliedTo:   "",
   updatedFrom:     "",
   updatedTo:       "",
+  createdFrom:     "",
+  createdTo:       "",
 };
 
 /**
@@ -47,6 +51,7 @@ export function countActiveFilters(filters: ApplicationFilters, q = ""): number 
     filters.fitRange[0] !== DEFAULT_FIT_RANGE[0] || filters.fitRange[1] !== DEFAULT_FIT_RANGE[1],
     filters.dateAppliedFrom !== "" || filters.dateAppliedTo !== "",
     filters.updatedFrom !== "" || filters.updatedTo !== "",
+    filters.createdFrom !== "" || filters.createdTo !== "",
   ].filter(Boolean).length;
 }
 

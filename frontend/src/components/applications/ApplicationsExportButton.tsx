@@ -173,6 +173,8 @@ export function ApplicationsExportButton({
         dateAppliedTo:   dateInputToEndIso(filters.dateAppliedTo)     ?? undefined,
         updatedFrom:     dateInputToStartIso(filters.updatedFrom)     ?? undefined,
         updatedTo:       dateInputToEndIso(filters.updatedTo)         ?? undefined,
+        createdFrom:     dateInputToStartIso(filters.createdFrom)     ?? undefined,
+        createdTo:       dateInputToEndIso(filters.createdTo)         ?? undefined,
         sortBy,
         sortDir,
         columns: selectedColumns,

@@ -310,10 +310,20 @@ export function ApplicationsFiltersPanel({
             />
           </div>
 
-          {/* ── Row 3: Fit Score + Date Applied + Last Updated ── */}
+          {/* ── Row 3: Date Applied + Date Added + Last Updated ── */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
 
             {/* ── Date Applied ── */}
+            {/* Date Added */}
+            <DateRangeInputs
+              label="Date Added"
+              fromValue={filters.createdFrom}
+              toValue={filters.createdTo}
+              onFromChange={(v) => onFiltersChange({ createdFrom: v })}
+              onToChange={(v) => onFiltersChange({ createdTo: v })}
+              onClear={() => onFiltersChange({ createdFrom: "", createdTo: "" })}
+            />
+           
             <DateRangeInputs
               label="Date Applied"
               fromValue={filters.dateAppliedFrom}
@@ -323,8 +333,23 @@ export function ApplicationsFiltersPanel({
               onClear={() => onFiltersChange({ dateAppliedFrom: "", dateAppliedTo: "" })}
             />
 
+            {/* ── Last Updated ── */}
+            <DateRangeInputs
+              label="Last Updated"
+              fromValue={filters.updatedFrom}
+              toValue={filters.updatedTo}
+              onFromChange={(v) => onFiltersChange({ updatedFrom: v })}
+              onToChange={(v) => onFiltersChange({ updatedTo: v })}
+              onClear={() => onFiltersChange({ updatedFrom: "", updatedTo: "" })}
+            />
+          </div>
+
+          {/* ── Row 4: Fit Score ── */}
+          <div className="grid grid-cols-11 gap-4">
+            <div className="col-span-3"></div>
+
             {/* Fit Score */}
-            <div className="space-y-1.5">
+            <div className="col-span-5 space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-medium">Fit Score</Label>
                 {(filters.fitRange[0] !== DEFAULT_FIT_RANGE[0] || filters.fitRange[1] !== DEFAULT_FIT_RANGE[1]) && (
@@ -356,16 +381,6 @@ export function ApplicationsFiltersPanel({
                 </div>
               </div>
             </div>
-
-            {/* Last Updated */}
-            <DateRangeInputs
-              label="Last Updated"
-              fromValue={filters.updatedFrom}
-              toValue={filters.updatedTo}
-              onFromChange={(v) => onFiltersChange({ updatedFrom: v })}
-              onToChange={(v) => onFiltersChange({ updatedTo: v })}
-              onClear={() => onFiltersChange({ updatedFrom: "", updatedTo: "" })}
-            />
           </div>
 
         </div>

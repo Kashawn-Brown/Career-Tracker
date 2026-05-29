@@ -175,6 +175,8 @@ export default function ApplicationsPage() {
           dateAppliedTo:   dateInputToEndIso(filters.dateAppliedTo)     ?? undefined,
           updatedFrom:     dateInputToStartIso(filters.updatedFrom)     ?? undefined,
           updatedTo:       dateInputToEndIso(filters.updatedTo)         ?? undefined,
+          createdFrom:     dateInputToStartIso(filters.createdFrom)     ?? undefined,
+          createdTo:       dateInputToEndIso(filters.createdTo)         ?? undefined,
         } satisfies ListApplicationsParams;
 
         // Call the backend API to get the paginated applications.

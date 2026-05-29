@@ -15,6 +15,8 @@ export type ParsedApplicationFilters = {
   dateAppliedTo?:   string;
   updatedFrom?:     string;
   updatedTo?:       string;
+  createdFrom?:     string;
+  createdTo?:       string;
 };
 
 // Valid enum sets for fast lookup
@@ -49,6 +51,8 @@ export function parseApplicationFilters(raw: {
   dateAppliedTo?:   string;
   updatedFrom?:     string;
   updatedTo?:       string;
+  createdFrom?:     string;
+  createdTo?:       string;
 
   // Fit (validated here for consistency)
   fitMin?: number;
@@ -70,6 +74,7 @@ export function parseApplicationFilters(raw: {
 
   validateDateRange(raw.dateAppliedFrom, raw.dateAppliedTo, "dateApplied");
   validateDateRange(raw.updatedFrom,     raw.updatedTo,     "updated");
+  validateDateRange(raw.createdFrom,     raw.createdTo,     "created");
 
   // ── Fit score range validation ─────────────────────────────────────────
 
@@ -92,6 +97,8 @@ export function parseApplicationFilters(raw: {
     dateAppliedTo:   raw.dateAppliedTo,
     updatedFrom:     raw.updatedFrom,
     updatedTo:       raw.updatedTo,
+    createdFrom:     raw.createdFrom,
+    createdTo:       raw.createdTo,
   };
 }
 
