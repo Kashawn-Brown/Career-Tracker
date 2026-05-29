@@ -7,7 +7,9 @@
  * - SSRF protection: block private/loopback/metadata IP ranges
  * - Fetch with timeout, redirect limit, and byte cap
  * - Extract canonical job text from JSON-LD JobPosting structured data (preferred)
- * - Fall back to cleaned visible page text if no structured data found
+ * - Fall back to __NEXT_DATA__ blob for Next.js SPAs
+ * - Fall back to cleaned visible page text
+ * - Last resort: fetch via Jina Reader for client-rendered sites
  * - Return a normalizedUrl + canonicalJdText ready for the extraction pipeline
  *
  * This module is intentionally self-contained and has no AI dependencies.
@@ -223,6 +225,50 @@ async function fetchPage(normalizedUrl: string, signal?: AbortSignal): Promise<s
   return Buffer.concat(chunks).toString("utf-8");
 }
 
+// ─── Jina Reader fallback ─────────────────────────────────────────────────────
+
+/**
+ * Fetches a URL via Jina Reader (r.jina.ai), which renders the page with a
+ * headless browser and returns clean markdown. Used as a last resort for
+ * client-rendered sites (CSR/SPAs) whose initial HTML contains no readable
+ * content — the job description only exists after JavaScript executes.
+ *
+ * Returns the markdown text if it looks like real content (>200 chars),
+ * or null if Jina is unavailable or returns nothing useful. Failures are
+ * swallowed so the caller can fall through to the final error.
+ */
+async function fetchViaJina(normalizedUrl: string, signal?: AbortSignal): Promise<string | null> {
+  const jinaUrl = `https://r.jina.ai/${normalizedUrl}`;
+
+  // Jina needs more time — it's rendering the page with a headless browser
+  const JINA_TIMEOUT_MS = 25_000;
+  const controller      = new AbortController();
+  const timeoutId       = setTimeout(() => controller.abort(), JINA_TIMEOUT_MS);
+  const combinedSignal  = signal
+    ? AbortSignal.any([signal, controller.signal])
+    : controller.signal;
+
+  try {
+    const response = await fetch(jinaUrl, {
+      signal: combinedSignal,
+      headers: {
+        "Accept":     "text/plain,text/markdown,*/*;q=0.8",
+        "User-Agent": FETCH_USER_AGENT,
+      },
+    });
+
+    if (!response.ok) return null;
+
+    const text = (await response.text()).trim();
+    return text.length > 200 ? text.slice(0, 15_000) : null;
+  } catch {
+    // Jina unavailable or timed out — caller falls through to the error throw
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 // ─── JSON-LD extraction ───────────────────────────────────────────────────────
 
 /**
@@ -297,6 +343,65 @@ function extractJsonLd(html: string): string | null {
   return null;
 }
 
+// ─── __NEXT_DATA__ extraction ─────────────────────────────────────────────────
+
+/**
+ * Attempts to extract job posting text from a Next.js __NEXT_DATA__ JSON blob.
+ * Many modern career sites (Stripe, Lever, etc.) are Next.js SPAs where the
+ * actual job content never appears in the rendered HTML — it lives entirely
+ * inside this script tag. Plain-text extraction fails on these sites because
+ * script tags are stripped before the body is read.
+ *
+ * Strategy: parse the blob, recursively collect all string values longer than
+ * 80 chars that look like job content (descriptions, requirements, etc.),
+ * and join them. Key-name filtering keeps noise (URLs, tokens, CSS) out.
+ */
+function extractNextData(html: string): string | null {
+  const match = html.match(
+    /<script[^>]+id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i
+  );
+  if (!match) return null;
+
+  let data: any;
+  try {
+    data = JSON.parse(match[1]);
+  } catch {
+    return null;
+  }
+
+  const SKIP_KEYS = new Set([
+    "url", "href", "src", "srcSet", "className", "style", "token",
+    "key", "id", "slug", "hash", "color", "font", "icon", "image",
+    "logo", "avatar", "thumb", "thumbnail", "buildId", "locale",
+  ]);
+
+  const collected: string[] = [];
+
+  function walk(node: any, depth = 0): void {
+    if (depth > 20 || !node) return;
+    if (typeof node === "string") {
+      const cleaned = node.replace(/<[^>]+>/g, " ").replace(/\s{2,}/g, " ").trim();
+      if (cleaned.length > 80) collected.push(cleaned);
+      return;
+    }
+    if (Array.isArray(node)) {
+      for (const item of node) walk(item, depth + 1);
+      return;
+    }
+    if (typeof node === "object") {
+      for (const [key, value] of Object.entries(node)) {
+        if (!SKIP_KEYS.has(key)) walk(value, depth + 1);
+      }
+    }
+  }
+
+  walk(data);
+
+  if (collected.length === 0) return null;
+  const result = [...new Set(collected)].join("\n\n").slice(0, 15_000);
+  return result.length > 200 ? result : null;
+}
+
 // ─── Fallback text extraction ─────────────────────────────────────────────────
 
 /**
@@ -365,7 +470,9 @@ export type JobLinkExtractionResult = {
  * 1. SSRF guard — validate URL and resolve IP against blocked ranges
  * 2. Fetch page with timeout + byte cap
  * 3. Try JSON-LD JobPosting structured data first (cleaner)
- * 4. Fall back to stripped visible page text
+ * 4. Try __NEXT_DATA__ blob (Next.js SPAs)
+ * 5. Fall back to stripped visible page text
+ * 6. Last resort: fetch via Jina Reader for CSR/SPA sites with no server-rendered content
  *
  * Throws AppError with a user-facing message on any failure.
  */
@@ -382,25 +489,39 @@ export async function extractJobPostingFromUrl(
   // Step 3 — try JSON-LD
   const jsonLdText = extractJsonLd(html);
   if (jsonLdText && jsonLdText.trim().length > 100) {
-    // Extract page <title> for context
     const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
     const pageTitle  = titleMatch ? titleMatch[1].trim() : undefined;
-
     return { normalizedUrl, canonicalJdText: jsonLdText.trim(), pageTitle };
   }
 
-  // Step 4 — fallback to plain text
-  const plainText = extractPlainText(html);
-  if (plainText.length < 200) {
-    throw new AppError(
-      "Could not extract readable job posting content from that URL. Try pasting the job description manually.",
-      422,
-      "JOB_LINK_INSUFFICIENT_CONTENT"
-    );
+  // Step 4 — try __NEXT_DATA__ (Next.js SPAs: Stripe, Lever, etc.)
+  const nextDataText = extractNextData(html);
+  if (nextDataText) {
+    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+    const pageTitle  = titleMatch ? titleMatch[1].trim() : undefined;
+    return { normalizedUrl, canonicalJdText: nextDataText, pageTitle };
   }
 
-  const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-  const pageTitle  = titleMatch ? titleMatch[1].trim() : undefined;
+  // Step 5 — plain text fallback
+  const plainText = extractPlainText(html);
+  if (plainText.length >= 200) {
+    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+    const pageTitle  = titleMatch ? titleMatch[1].trim() : undefined;
+    return { normalizedUrl, canonicalJdText: plainText, pageTitle };
+  }
 
-  return { normalizedUrl, canonicalJdText: plainText, pageTitle };
+  // Step 6 — Jina Reader (last resort for CSR/SPA sites like Stripe whose
+  // initial HTML is a JS skeleton — content only exists after rendering)
+  const jinaText = await fetchViaJina(normalizedUrl, opts?.signal);
+  if (jinaText) {
+    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+    const pageTitle  = titleMatch ? titleMatch[1].trim() : undefined;
+    return { normalizedUrl, canonicalJdText: jinaText, pageTitle };
+  }
+
+  throw new AppError(
+    "Could not extract readable job posting content from that URL. Try pasting the job description manually.",
+    422,
+    "JOB_LINK_INSUFFICIENT_CONTENT"
+  );
 }
