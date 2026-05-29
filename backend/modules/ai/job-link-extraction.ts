@@ -7,7 +7,9 @@
  * - SSRF protection: block private/loopback/metadata IP ranges
  * - Fetch with timeout, redirect limit, and byte cap
  * - Extract canonical job text from JSON-LD JobPosting structured data (preferred)
- * - Fall back to cleaned visible page text if no structured data found
+ * - Fall back to __NEXT_DATA__ blob for Next.js SPAs
+ * - Fall back to cleaned visible page text
+ * - Last resort: fetch via Jina Reader for client-rendered sites
  * - Return a normalizedUrl + canonicalJdText ready for the extraction pipeline
  *
  * This module is intentionally self-contained and has no AI dependencies.
@@ -468,7 +470,7 @@ export type JobLinkExtractionResult = {
  * 1. SSRF guard — validate URL and resolve IP against blocked ranges
  * 2. Fetch page with timeout + byte cap
  * 3. Try JSON-LD JobPosting structured data first (cleaner)
- * 4. Fall back to stripped visible page text
+ * 4. Try __NEXT_DATA__ blob (Next.js SPAs)
  * 5. Fall back to stripped visible page text
  * 6. Last resort: fetch via Jina Reader for CSR/SPA sites with no server-rendered content
  *
