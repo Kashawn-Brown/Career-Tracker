@@ -297,6 +297,65 @@ function extractJsonLd(html: string): string | null {
   return null;
 }
 
+// ─── __NEXT_DATA__ extraction ─────────────────────────────────────────────────
+
+/**
+ * Attempts to extract job posting text from a Next.js __NEXT_DATA__ JSON blob.
+ * Many modern career sites (Stripe, Lever, etc.) are Next.js SPAs where the
+ * actual job content never appears in the rendered HTML — it lives entirely
+ * inside this script tag. Plain-text extraction fails on these sites because
+ * script tags are stripped before the body is read.
+ *
+ * Strategy: parse the blob, recursively collect all string values longer than
+ * 80 chars that look like job content (descriptions, requirements, etc.),
+ * and join them. Key-name filtering keeps noise (URLs, tokens, CSS) out.
+ */
+function extractNextData(html: string): string | null {
+  const match = html.match(
+    /<script[^>]+id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i
+  );
+  if (!match) return null;
+
+  let data: any;
+  try {
+    data = JSON.parse(match[1]);
+  } catch {
+    return null;
+  }
+
+  const SKIP_KEYS = new Set([
+    "url", "href", "src", "srcSet", "className", "style", "token",
+    "key", "id", "slug", "hash", "color", "font", "icon", "image",
+    "logo", "avatar", "thumb", "thumbnail", "buildId", "locale",
+  ]);
+
+  const collected: string[] = [];
+
+  function walk(node: any, depth = 0): void {
+    if (depth > 20 || !node) return;
+    if (typeof node === "string") {
+      const cleaned = node.replace(/<[^>]+>/g, " ").replace(/\s{2,}/g, " ").trim();
+      if (cleaned.length > 80) collected.push(cleaned);
+      return;
+    }
+    if (Array.isArray(node)) {
+      for (const item of node) walk(item, depth + 1);
+      return;
+    }
+    if (typeof node === "object") {
+      for (const [key, value] of Object.entries(node)) {
+        if (!SKIP_KEYS.has(key)) walk(value, depth + 1);
+      }
+    }
+  }
+
+  walk(data);
+
+  if (collected.length === 0) return null;
+  const result = [...new Set(collected)].join("\n\n").slice(0, 15_000);
+  return result.length > 200 ? result : null;
+}
+
 // ─── Fallback text extraction ─────────────────────────────────────────────────
 
 /**
@@ -382,14 +441,20 @@ export async function extractJobPostingFromUrl(
   // Step 3 — try JSON-LD
   const jsonLdText = extractJsonLd(html);
   if (jsonLdText && jsonLdText.trim().length > 100) {
-    // Extract page <title> for context
     const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
     const pageTitle  = titleMatch ? titleMatch[1].trim() : undefined;
-
     return { normalizedUrl, canonicalJdText: jsonLdText.trim(), pageTitle };
   }
 
-  // Step 4 — fallback to plain text
+  // Step 4 — try __NEXT_DATA__ (Next.js SPAs: Stripe, Lever, etc.)
+  const nextDataText = extractNextData(html);
+  if (nextDataText) {
+    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+    const pageTitle  = titleMatch ? titleMatch[1].trim() : undefined;
+    return { normalizedUrl, canonicalJdText: nextDataText, pageTitle };
+  }
+
+  // Step 5 — fallback to plain text
   const plainText = extractPlainText(html);
   if (plainText.length < 200) {
     throw new AppError(
