@@ -251,6 +251,9 @@ export async function refreshSession(refreshToken: string, csrfToken: string) {
       refreshTokenHash: hashToken(newRefreshToken),
       csrfTokenHash: hashToken(newCsrfToken),
       lastUsedAt: now(),
+      // Slide the session window forward on every use — users who are active
+      // should not be forced to re-authenticate after a fixed 30-day window.
+      expiresAt: new Date(Date.now() + DEFAULT_REFRESH_DAYS * 24 * 60 * 60 * 1000),
     },
   });
 
