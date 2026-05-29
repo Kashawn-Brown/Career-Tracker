@@ -90,7 +90,7 @@ let refreshInFlight: Promise<string | null> | null = null;
  * 
  * @returns The new token or null if the refresh failed.
  */
-async function refreshOnce(): Promise<string | null> {
+export async function refreshOnce(): Promise<string | null> {
   if (refreshInFlight) return refreshInFlight;
 
   refreshInFlight = (async () => {
