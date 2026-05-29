@@ -133,6 +133,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(id);
   }, [token]);
 
+  // Keep React token state in sync when another tab performs the refresh.
+  // Without this, a tab that was waiting on the cross-tab lock would receive
+  // the new token via BroadcastChannel but its React state would remain stale.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const channel = new BroadcastChannel('ct_auth');
+
+    channel.onmessage = (e: MessageEvent) => {
+      if (e.data?.type === 'ct_token_refreshed' && e.data.token) {
+        setToken(e.data.token);
+        setTokenState(e.data.token);
+        if (e.data.csrf) {
+          setCsrfTokenInMemory(e.data.csrf);
+          setCsrfToken(e.data.csrf);
+        }
+      }
+    };
+
+    return () => channel.close();
+  }, []);
+
 
   // Clears local + in-memory auth state and csrf token.
   const logout = useCallback(() => {

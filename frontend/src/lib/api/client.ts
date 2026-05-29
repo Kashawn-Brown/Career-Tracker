@@ -85,6 +85,31 @@ function getBaseUrl(): string {
 // Refresh token in flight: only one refresh request at a time.
 let refreshInFlight: Promise<string | null> | null = null;
 
+// BroadcastChannel for cross-tab token coordination (SSR-safe).
+// Allows the tab that wins the refresh lock to push the new token to all
+// other tabs so they never need to attempt a concurrent refresh.
+const authChannel: BroadcastChannel | null =
+  typeof window !== 'undefined' ? new BroadcastChannel('ct_auth') : null;
+
+// localStorage key used as a cross-tab refresh lock.
+// Stores the timestamp (ms) when the lock was acquired.
+const REFRESH_LOCK_KEY = 'ct_auth_refresh_lock';
+const REFRESH_LOCK_TTL = 15_000; // 15 s — generous timeout for slow connections
+
+function tryAcquireRefreshLock(): boolean {
+  if (typeof window === 'undefined') return true;
+  const existing = localStorage.getItem(REFRESH_LOCK_KEY);
+  if (existing && Date.now() - parseInt(existing, 10) < REFRESH_LOCK_TTL) {
+    return false; // another tab already holds the lock
+  }
+  localStorage.setItem(REFRESH_LOCK_KEY, String(Date.now()));
+  return true;
+}
+
+function releaseRefreshLock(): void {
+  if (typeof window !== 'undefined') localStorage.removeItem(REFRESH_LOCK_KEY);
+}
+
 /**
  * Refreshes the token and CSRF token.
  * 
@@ -93,46 +118,76 @@ let refreshInFlight: Promise<string | null> | null = null;
 export async function refreshOnce(): Promise<string | null> {
   if (refreshInFlight) return refreshInFlight;
 
+  // If another tab is already refreshing, wait for its broadcast result
+  // instead of racing. Two concurrent CSRF bootstraps invalidate each other.
+  if (!tryAcquireRefreshLock()) {
+    return new Promise<string | null>((resolve) => {
+      if (!authChannel) { resolve(null); return; }
+
+      const timeoutId = setTimeout(() => {
+        authChannel.removeEventListener('message', onMessage);
+        resolve(getToken()); // lock expired — fall back to current token
+      }, REFRESH_LOCK_TTL);
+
+      function onMessage(e: MessageEvent) {
+        if (e.data?.type === 'ct_token_refreshed') {
+          clearTimeout(timeoutId);
+          authChannel!.removeEventListener('message', onMessage);
+          resolve(e.data.token ?? null);
+        }
+      }
+
+      authChannel.addEventListener('message', onMessage);
+    });
+  }
+
   refreshInFlight = (async () => {
     const baseUrl = getBaseUrl();
 
-    // 1) Bootstrap CSRF (rotates server-side CSRF hash and returns a fresh token)
-    const csrfResp = await fetch(`${baseUrl}${routes.auth.csrf()}`, {
-      method: "GET",
-      credentials: "include",
-    });
+    try {
+      // 1) Bootstrap CSRF (rotates server-side CSRF hash and returns a fresh token)
+      const csrfResp = await fetch(`${baseUrl}${routes.auth.csrf()}`, {
+        method: 'GET',
+        credentials: 'include',
+      });
 
-    if (!csrfResp.ok) return null;
+      if (!csrfResp.ok) return null;
 
-    const csrfData = (await csrfResp.json().catch(() => null)) as CsrfResponse | null;
-    const csrfToken = csrfData?.csrfToken ?? null;
-    if (!csrfToken) return null;
+      const csrfData = (await csrfResp.json().catch(() => null)) as CsrfResponse | null;
+      const csrfToken = csrfData?.csrfToken ?? null;
+      if (!csrfToken) return null;
 
-    setCsrfTokenStore(csrfToken);
+      setCsrfTokenStore(csrfToken);
 
-    // 2) Refresh access token (rotates refresh cookie + rotates CSRF token)
-    const refreshResp = await fetch(`${baseUrl}${routes.auth.refresh()}`, {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRF-Token": csrfToken,
-      },
-      body: "{}",
-    });
+      // 2) Refresh access token (rotates refresh cookie + CSRF token)
+      const refreshResp = await fetch(`${baseUrl}${routes.auth.refresh()}`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
+        },
+        body: '{}',
+      });
 
-    if (!refreshResp.ok) return null;
+      if (!refreshResp.ok) return null;
 
-    const refreshData = (await refreshResp.json().catch(() => null)) as RefreshResponse | null;
-    const newToken = refreshData?.token ?? null;
-    const newCsrf = refreshData?.csrfToken ?? null;
+      const refreshData = (await refreshResp.json().catch(() => null)) as RefreshResponse | null;
+      const newToken = refreshData?.token ?? null;
+      const newCsrf  = refreshData?.csrfToken ?? null;
 
-    if (!newToken || !newCsrf) return null;
+      if (!newToken || !newCsrf) return null;
 
-    setToken(newToken);
-    setCsrfTokenStore(newCsrf);
+      setToken(newToken);
+      setCsrfTokenStore(newCsrf);
 
-    return newToken;
+      // Notify other tabs so they update state without attempting their own refresh.
+      authChannel?.postMessage({ type: 'ct_token_refreshed', token: newToken, csrf: newCsrf });
+
+      return newToken;
+    } finally {
+      releaseRefreshLock();
+    }
   })();
 
   try {
