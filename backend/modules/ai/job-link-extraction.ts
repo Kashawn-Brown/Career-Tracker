@@ -223,6 +223,50 @@ async function fetchPage(normalizedUrl: string, signal?: AbortSignal): Promise<s
   return Buffer.concat(chunks).toString("utf-8");
 }
 
+// ─── Jina Reader fallback ─────────────────────────────────────────────────────
+
+/**
+ * Fetches a URL via Jina Reader (r.jina.ai), which renders the page with a
+ * headless browser and returns clean markdown. Used as a last resort for
+ * client-rendered sites (CSR/SPAs) whose initial HTML contains no readable
+ * content — the job description only exists after JavaScript executes.
+ *
+ * Returns the markdown text if it looks like real content (>200 chars),
+ * or null if Jina is unavailable or returns nothing useful. Failures are
+ * swallowed so the caller can fall through to the final error.
+ */
+async function fetchViaJina(normalizedUrl: string, signal?: AbortSignal): Promise<string | null> {
+  const jinaUrl = `https://r.jina.ai/${normalizedUrl}`;
+
+  // Jina needs more time — it's rendering the page with a headless browser
+  const JINA_TIMEOUT_MS = 25_000;
+  const controller      = new AbortController();
+  const timeoutId       = setTimeout(() => controller.abort(), JINA_TIMEOUT_MS);
+  const combinedSignal  = signal
+    ? AbortSignal.any([signal, controller.signal])
+    : controller.signal;
+
+  try {
+    const response = await fetch(jinaUrl, {
+      signal: combinedSignal,
+      headers: {
+        "Accept":     "text/plain,text/markdown,*/*;q=0.8",
+        "User-Agent": FETCH_USER_AGENT,
+      },
+    });
+
+    if (!response.ok) return null;
+
+    const text = (await response.text()).trim();
+    return text.length > 200 ? text.slice(0, 15_000) : null;
+  } catch {
+    // Jina unavailable or timed out — caller falls through to the error throw
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 // ─── JSON-LD extraction ───────────────────────────────────────────────────────
 
 /**
@@ -425,6 +469,8 @@ export type JobLinkExtractionResult = {
  * 2. Fetch page with timeout + byte cap
  * 3. Try JSON-LD JobPosting structured data first (cleaner)
  * 4. Fall back to stripped visible page text
+ * 5. Fall back to stripped visible page text
+ * 6. Last resort: fetch via Jina Reader for CSR/SPA sites with no server-rendered content
  *
  * Throws AppError with a user-facing message on any failure.
  */
@@ -454,18 +500,26 @@ export async function extractJobPostingFromUrl(
     return { normalizedUrl, canonicalJdText: nextDataText, pageTitle };
   }
 
-  // Step 5 — fallback to plain text
+  // Step 5 — plain text fallback
   const plainText = extractPlainText(html);
-  if (plainText.length < 200) {
-    throw new AppError(
-      "Could not extract readable job posting content from that URL. Try pasting the job description manually.",
-      422,
-      "JOB_LINK_INSUFFICIENT_CONTENT"
-    );
+  if (plainText.length >= 200) {
+    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+    const pageTitle  = titleMatch ? titleMatch[1].trim() : undefined;
+    return { normalizedUrl, canonicalJdText: plainText, pageTitle };
   }
 
-  const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-  const pageTitle  = titleMatch ? titleMatch[1].trim() : undefined;
+  // Step 6 — Jina Reader (last resort for CSR/SPA sites like Stripe whose
+  // initial HTML is a JS skeleton — content only exists after rendering)
+  const jinaText = await fetchViaJina(normalizedUrl, opts?.signal);
+  if (jinaText) {
+    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+    const pageTitle  = titleMatch ? titleMatch[1].trim() : undefined;
+    return { normalizedUrl, canonicalJdText: jinaText, pageTitle };
+  }
 
-  return { normalizedUrl, canonicalJdText: plainText, pageTitle };
+  throw new AppError(
+    "Could not extract readable job posting content from that URL. Try pasting the job description manually.",
+    422,
+    "JOB_LINK_INSUFFICIENT_CONTENT"
+  );
 }
